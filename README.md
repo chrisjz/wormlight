@@ -15,7 +15,7 @@ npm run dev
 
 ## Credits
 
-Connectome: Cook et al. 2019, _Nature_ 571:63. Neurotransmitter identities: Wang et al. 2024, _eLife_ 13:RP95402. Exported via [Quantum Nematode](https://github.com/SyntheticBrains/nematode).
+Connectome: Cook et al. 2019, _Nature_ 571:63, as released in Emmons 2024, _PLoS Biol_ 22:e3002939 (CC BY 4.0). Neurotransmitter identities: Wang et al. 2024, _eLife_ 13:RP95402. Exported via [Quantum Nematode](https://github.com/SyntheticBrains/nematode).
 
 ## Licence
 

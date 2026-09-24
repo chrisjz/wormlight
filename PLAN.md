@@ -1,0 +1,521 @@
+# Wormlight: Plan
+
+For review under spec §10. The scaffold is on `main`; everything below is proposed. This is the second draft: a multi-agent review of the first draft found 61 problems (45 confirmed, 16 plausible, none rejected), and every one is addressed here. Once you approve the plan, the thresholds and definitions in §7 are fixed: changing one later is logged in `DECISIONS.md` and marked on the checkpoint.
+
+## 0. What needs your sign-off
+
+1. The validation thresholds, definitions and tuning procedure (§7).
+2. The changes this PR writes into `WORMLIGHT_SPEC.md`:
+   - **Rhythm:** documented rhythm generators replace "the head rhythm emerges from the network" (§4.3). The network can't supply a rhythm: with fixed thresholds it settles to a stable fixed point.
+   - **Proprioception:** Wen et al. 2012's front-to-back direction replaces Boyle, Berri & Cohen's. The allow-list's proprioception layer now names SMDD (Yeon et al. 2018), and A-type neurons as a hypothesis.
+   - **Sensing:** Levy & Bargmann 2020's adaptive threshold replaces nematode's fold-change sensor, which stays as the conceptual precedent.
+   - **Attractant:** 2-butanone, sensed by AWC-ON.
+   - **Signs:** both of Fenyves et al. 2020's prediction files (S1 and S5 Data), not S1 alone.
+   - **Neural time constants:** Kunert et al.'s published values, not Neural Interactome's 1.5× slower ones.
+   - **Thresholds:** set at the intact network's rest, and left unchanged by lesions (§3.3).
+   - **Integration:** a second-order linearly implicit scheme replaces the spec's exponential-Euler example, which rings on strongly coupled pairs (§3.4).
+   - **Contrast brain:** it rewires chemical synapses only (§3.5).
+   - **Drag:** Boyle's whole-worm values are split per rod as their code does (§5.1).
+   - **Chemotaxis references:** indices come from Bargmann et al. 1993 directly, not nematode's table, which misattributes two entries.
+   - **Checkpoint 0:** residual A-type backward activity is expected when the network is silenced (Gao et al. 2018).
+   - **Dish:** 10 cm, the standard chemotaxis plate, rather than 60–90 mm.
+   - **Prior art:** corrected descriptions of Kim et al. 2025 and Fieseler et al., and Ji et al. 2021 added.
+   - **Connectome source:** Cook et al. 2019's matrices come from Emmons 2024's CC BY release, which carries the lab's corrections, and the README credit line names it (§2.1), as you agreed.
+3. The decisions marked "needs sign-off" in `DECISIONS.md`.
+4. The free-parameter budget, raised from 10 to 14, as you agreed (§6.2).
+5. The fallback menu (§10).
+
+## 1. Architecture
+
+```
+nematode export ──┐
+c302 morphologies ├─► data build ─► public/data/wormlight.v1.json + NOTICE.md
+Fenyves 2020 ─────┤   (scripts/)          │
+sign overrides ───┘                        ▼
+          ┌────────────── simulation core: CPU reference (src/sim) ──────────────┐
+          │ environment ─► sensing ─┐                                             │
+          │ body ─► proprioception ─┴─► brain ─► neuromuscular layer ─► body     │
+          └──────────────────────────────────────────────────────────────────────┘
+                      mirrored by WGSL kernels (src/gpu) that run the app
+                                            ▼
+                       renderer: plate view, 3D graph, glow (src/render)
+```
+
+**Modules.** `src/science` holds the citation list and the fidelity and parameter registries (§6). `src/data` loads and validates the runtime file. `src/sim` is the CPU reference: `brain`, `sensing`, `proprio`, `muscles` (the neuromuscular layer shared by every brain), `body`, `env`, `rng` and a `world` that orders a step. `src/gpu` mirrors `src/sim` in WGSL. `src/render` and `src/ui` draw and interact. `scripts/` has the data build, the doc generators, the behavioural harness and headless-Chrome capture. `tools/reference/` drives Neural Interactome's own code to produce golden trajectories.
+
+**The brain boundary** is spec §1.1's. A brain takes one input current per neuron (sensing, proprioception, stimuli) and exposes each neuron's synaptic activation; the shared neuromuscular layer turns activation into muscle drive through the one map in the data, so every brain drives the same muscles by construction.
+
+```ts
+interface Brain {
+  // The CPU reference, used by the harness.
+  reset(seed: number): void;
+  setLesions(ablated: ReadonlySet<number>): void; // neuron indices
+  step(dt: number, current: Float32Array): void; // pA per neuron
+  activation(): Float32Array; // synaptic activation s per neuron
+  voltage(): Float32Array;
+}
+```
+
+On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes, thresholds) that the fused step kernels read, so a brain swap or a lesion swaps or edits buffers. WebGPU reads results back asynchronously, so the app gets state through `snapshot(): Promise<WorldState>`, which returns the latest completed step; the glow and inspector are therefore one frame behind, by design.
+
+**One step** runs in this order on both the CPU and the GPU:
+
+1. Read the odour concentration at each sensing point, and apply any touch stimulus.
+2. Update sensory adaptation and compute sensory currents.
+3. Compute proprioceptive currents from body curvature, including the head switch's signal (§4.3).
+4. Advance the brain: the second-order implicit voltage solve, the oscillator and switch variables, then synaptic activation (§3.4).
+5. The neuromuscular layer turns activation into muscle activation.
+6. Advance the body under resistive force theory.
+7. In the app, advance the odour field in sub-steps of at most 4 ms. The harness reads a precomputed field instead (§5.2).
+
+**Time.** The neural and body step targets 2.5 ms, confirmed in milestone 0b against the reference. Pause, slow motion and fast forward only change how many steps a frame runs.
+
+**Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms; milestone 2 measures the full step, and a shortfall is logged rather than paid for with accuracy.
+
+## 2. Data
+
+### 2.1 The nematode exporter
+
+A separate PR in the nematode repo, through its OpenSpec process.
+
+- **Input.** It vendors the S1 File of Emmons 2024 (_PLoS Biol_ 22:e3002939), which is Cook et al. 2019's connectome released under CC BY 4.0 by Cook et al.'s senior author. Its chemical matrix is identical to the 2019 original; its gap junctions carry the lab's July 2020 corrections and its 2023 BDU–ALM and BDU–PLM junctions.
+- **Existing experiments.** The file sits alongside the 2019 original that nematode already vendors, and nematode's own experiments keep using the original, so their results stay reproducible.
+- **Parsing.** The layout matches the original's, so nematode's existing sheet parser reads it. Only the gap-junction sheet names differ ("hermaphrodite gap jn symmetric" rather than "herm gap jn symmetric").
+- **Output.** It adds `scripts/export_wormlight.py` and emits `connectome.v1.json`:
+
+```json
+{
+  "schema": "wormlight.connectome/1",
+  "provenance": { "nematodeCommit": "…", "inputs": [{ "file": "…", "sha256": "…" }] },
+  "neurons": [{ "name": "AWCL", "class": "sensory", "transmitters": ["Glu"], "ruleSign": 1 }],
+  "chemical": [{ "pre": "AWCL", "post": "AIYL", "sections": 22 }],
+  "gap": [{ "a": "ALA", "b": "CANL", "sections": 401 }],
+  "neuromuscular": [{ "pre": "DA9", "muscle": "dBWML24", "sections": 4 }]
+}
+```
+
+The example counts are Cook's. The export keeps Cook's 38 autapses and has 1,095 gap-junction pairs among neurons. The neuromuscular part needs a new parse path: nematode's loader drops muscles, but the file holds all 95 body wall muscles, with 956 non-zero entries from 162 cells.
+
+### 2.2 The Wormlight data build
+
+`npm run data:build` is TypeScript run by Node. It reads sources pinned in `data/sources.json` (URL, SHA-256, retrieval date, licence), caches downloads in `data/cache/` (git-ignored), and writes files that are committed and never hand-edited. It:
+
+1. reads the nematode export;
+2. reads the c302 morphologies: soma position, dendrite tip and process extent, normalised so the nose is 0 and the tail tip is 1 along the body (the morphologies span 798 µm, from −349.5 to +448.4 µm);
+3. reads both of Fenyves et al.'s prediction files, S1 Data (`journal.pcbi.1007974.s003`, the WormWiring reconstruction) and the Cook sheet of S5 Data (`s007`), keyed by (pre, post) after un-padding names like `VB01`. The two agree on all 3,121 connections they share. Rows that aren't Cook edges are ignored and counted;
+4. applies `data/sign-overrides.csv`, where every row cites its source;
+5. assigns every chemical connection a sign (§2.4) and every neuromuscular connection a sign (§4.5), recording which rule set each;
+6. cross-checks signs against the Creamer et al. fitted weights (vendored in nematode) on the 1,049 head connections they cover, and writes the disagreements to `data/reports/sign-crosscheck.md`. The review found about 364, including AIY's heaviest outputs on the AWC path, which Fenyves signs negative and Creamer fits as positive;
+7. checks counts, name coverage and symmetry. The ignored Fenyves rows, the 23 neurons S5's Cook sheet lacks, and zero-padded names are expected and listed; anything else fails the build;
+8. generates `DATA_SOURCES.md` and `public/data/NOTICE.md` from `data/sources.json`, so the site ships its data licences and attributions (spec §9).
+
+### 2.3 Runtime format
+
+One JSON file, `public/data/wormlight.v1.json`, about 400 KB (about 80 KB gzipped). Every element carries its provenance, so the inspector can show where it came from.
+
+- **neurons:** name, class, primary transmitter; position `{ s, lateral, dorsoventral }` with `s` from 0 (nose) to 1 (tail), and its source; sensing `{ kind: 'tip' | 'field' | 'none', s0, s1 }`; oscillator class (`A`, `B`, `headSwitch` or none).
+- **chemical:** pre, post, sections, sign (+1, −1 or 0), sign source (`physiology`, `expression`, `rule` or `none`) and a citation id.
+- **gap:** the pairs with their section counts.
+- **neuromuscular:** pre, muscle, sections, sign, and sign source (`receptor` or `none`).
+- **muscles:** quadrant, index, and the stretch of body each one covers.
+- **meta:** schema version, source hashes and licence ids.
+
+Constants such as the Cook-to-Varshney scale live in `src/science/params.ts` alone, never in the data file, so a sweep changes one place.
+
+### 2.4 Synapse signs
+
+Each chemical connection takes its sign from the first step that gives one. Coverage was measured on Cook's 3,709 chemical connections:
+
+| Step | Source                                                             | Level | Connections                                                    |
+| ---- | ------------------------------------------------------------------ | ----- | -------------------------------------------------------------- |
+| 1    | Cited physiology, e.g. AWC→AIY and AWC→AIB (Chalasani et al. 2007) | 5     | a handful, listed in the overrides file                        |
+| 2    | Fenyves et al. 2020, "+" or "−", from S1 and S5 Data together      | 4     | 1,763 (47.5%; 55.6% of synaptic sections)                      |
+| 3    | Transmitter rule: ACh and Glu +, GABA −                            | 0     | 1,453 (39.2%; 35.3%), including 438 of Fenyves's 446 "complex" |
+| 4    | No basis: no fast effect                                           | 0     | 493 (13.3%; 9.2%), including the other 8 "complex"             |
+
+Fenyves already predicts AWC→AIY as inhibitory; the override lifts it from level 4 to 5. The transmitter rule disagrees with Fenyves on about a fifth of the connections where both give a sign, so steps 3 and 4 get a sensitivity check (spec §2.4). The harness reruns the checkpoints with those 1,946 connections set four ways: by the rule (the default), all excitatory, all silent, and ten random-sign draws.
+
+## 3. Neural model
+
+### 3.1 Equations
+
+The model is Kunert, Shlizerman & Kutz 2014, as implemented in Neural Interactome, with the rhythm generators of §4.3 added. For neuron _i_:
+
+```
+C dVᵢ/dt = −G_c (Vᵢ − E_c) − Σⱼ gᵍᵃᵖᵢⱼ (Vᵢ − Vⱼ) − Σⱼ gˢʸⁿⱼᵢ sⱼ (Vᵢ − Eⱼᵢ) + I_osc,ᵢ + I_sw,ᵢ + Iᵢ
+dsᵢ/dt  = a_r φᵢ (1 − sᵢ) − a_d sᵢ,        φᵢ = 1 / (1 + exp(−β (Vᵢ − V_th,ᵢ)))
+```
+
+`Iᵢ` sums sensory, proprioceptive, stimulus and noise currents; `I_osc` and `I_sw` are the oscillator and head-switch currents (§4.3). `Eⱼᵢ` is 0 mV for an excitatory connection and −48 mV for an inhibitory one; a connection with no sign gets zero conductance. Neural Interactome sets reversal potentials per presynaptic neuron; Wormlight sets them per connection so Fenyves's predictions fit. Autapses are ordinary connections. Neural Interactome's matrices are indexed [post, pre].
+
+### 3.2 Parameters
+
+| Parameter                         | Value                       | Level | Source                                                                                            |
+| --------------------------------- | --------------------------- | ----- | ------------------------------------------------------------------------------------------------- |
+| Membrane capacitance C            | 1 pF                        | 3     | Kunert, Shlizerman & Kutz 2014, as restated by Kunert-Graf et al. 2017: "Gc = 10pS and C = 1pF"   |
+| Leak conductance G_c              | 10 pS                       | 3     | as above                                                                                          |
+| Leak potential E_c                | −35 mV                      | 3     | Wicks, Roehrig & Rankin 1996, via Kunert et al.                                                   |
+| Reversal, excitatory / inhibitory | 0 / −48 mV                  | 3     | Wicks, Roehrig & Rankin 1996                                                                      |
+| Sigmoid width β                   | 0.125 mV⁻¹                  | 3     | Wicks, Roehrig & Rankin 1996                                                                      |
+| Synaptic rise a_r / decay a_d     | 1 and 5 s⁻¹                 | 3     | Kunert-Graf et al. 2017: "ar = 1 s−1 and ad = 5 s−1"                                              |
+| Conductance per Varshney unit     | 100 pS, gap and chemical    | 3     | Kunert, Shlizerman & Kutz 2014                                                                    |
+| Cook-to-Varshney scale            | 0.3444 chemical, 0.2055 gap | 2     | Matched totals over the 279 shared neurons, autapses excluded as in Neural Interactome's matrices |
+
+Neural Interactome's code uses 1.5 pF with both rates divided by 1.5: the same model run 1.5× slower. Its values are used only in "Neural Interactome mode" for the port check, which validates the equations and data handling but can't see a uniform time rescale, so the time scale rests on the publication.
+
+Matching totals leaves connections that both datasets share at about 0.63× (gap) and 0.69× (chemical) their Neural Interactome strength, with Cook-only connections making up the rest. The harness therefore also reports the checkpoints under shared-connection scales (0.33 gap, 0.50 chemical).
+
+The membrane time constant is C/G_c = 100 ms, but gap-junction coupling makes the system far faster in places: with Cook's weights, down to about 0.05 ms for ALA. That is why the voltages are solved implicitly.
+
+### 3.3 Thresholds
+
+Each neuron's threshold `V_th,ᵢ` is its voltage at the network's equilibrium with every `sⱼ` at its sigmoid-midpoint value `a_r / (a_r + 2 a_d)`, no external input, and oscillators and switches off. That is one sparse linear solve, with autapses on both sides of the equation.
+
+- **Lesions leave thresholds unchanged.** A lesion removes connections, and the survivors keep their thresholds, so lost drive shows up as it does in an ablated animal. Recomputing would re-centre every survivor at φ = ½, a perfect, instant compensation no source documents. It would erase the ~20% drop in B-type output after an AVB + PVC lesion and the ~34% drop in A-type output after AVA + AVD.
+- **Rewired brains get their own thresholds,** computed from their own intact wiring, as a different animal would have.
+- **Neural Interactome mode** recomputes thresholds from the current input, as its code does, for the port check only.
+
+### 3.4 Integration
+
+Each step is second order in both variables:
+
+- **Voltages:** BDF2, with leak, gap-junction and synaptic conductances on the left, and synaptic activation extrapolated to the new step (2sₙ − sₙ₋₁).
+- **Activation:** BDF2, with φ evaluated at the new voltages.
+- **Start:** one implicit Euler step, since BDF2 needs a history.
+
+The review measured order 2.0 for this pairing, and all four Neural Interactome presets passing the port check at 2.5 ms. The first draft's first-order splitting failed at every step from 1 to 5 ms.
+
+The linear system is sparse, symmetric and positive definite, with 302 unknowns. Conjugate gradients solve it with a Jacobi preconditioner, warm-started from the last step, stopping when the recursive residual falls below 10⁻⁶‖b‖ on the CPU (f64) or 10⁻⁵‖b‖ on the GPU (f32, safely above the ~10⁻⁶ floor the review measured for f32 on this system). A cap of 64 iterations sets a flag that the harness and app report, so the solve can never spin.
+
+On the GPU the whole step runs in one workgroup, two neurons per invocation, within the default limits: 256 invocations, 8 storage buffers per stage and 16 KB of workgroup memory.
+
+### 3.5 Noise, lesions and the contrast brain
+
+- **Noise.** White current noise of intensity σ_n (in pA·√s, calibrated), drawn each step with standard deviation σ_n/√dt so its power doesn't depend on the step size. A counter-based hash of (seed, step, neuron) gives the same 32-bit integer h in TypeScript and WGSL. Then u = (⌊h / 2⁸⌋ + 0.5) · 2⁻²⁴ lies strictly inside (0, 1) and is exact in f32, so Box–Muller never takes log(0). Test vectors include h = 0 and h = 2³² − 1, and noisy parity allows for WGSL's error bounds on `log` and `cos`.
+- **Lesions.** A lesion zeroes every connection of the ablated neuron, chemical, gap and neuromuscular; thresholds are unchanged (§3.3).
+- **Contrast brain (checkpoint 6).** The primary null is a port of nematode's degree-preserving double-edge swap, applied to the chemical graph only:
+  - each directed connection keeps its section count and sign at its presynaptic end, so every neuron keeps its outgoing strength and its excitatory/inhibitory mix;
+  - autapses, gap junctions, the neuromuscular map, and sensory and motor identities are left unchanged;
+  - rewired connections carry the provenance "rewired (sign from …)", never a physiology badge.
+
+  A secondary null also rewires gap junctions. It is reported without verdicts, because nematode's undirected swap moves strength with the edges: ALA's 1,314 gap-junction sections leave ALA, and half the neurons' totals change by more than 50%. Each null has 10 seeded rewirings.
+
+## 4. The layers outside the connectome (spec §1.1)
+
+Every layer here obeys spec §1.1: it is the same for every cell of a class, it is cited, it is shared by every brain, and nothing in it reads what the worm is doing.
+
+### 4.1 Sensing: AWC-ON and 2-butanone
+
+- **Which cell.** Butanone is sensed by the AWC-ON neuron alone (Wes & Bargmann 2001). Which of the two AWCs becomes AWC-ON is decided at random in each animal (Troemel, Sagasti & Bargmann 1999), so each simulated worm draws its AWC-ON side from its seed, and AWC-OFF gets no butanone input.
+- **Adaptation.** Levy & Bargmann 2020's adaptive threshold `T` tracks the odour's history: `dT/dt = (K(1 − e^(−C/K)) − T) / τ`, with `K = 5.5 µM` and `τ = 17 s`, taken from the authors' code (level 3). `T` starts adapted to the concentration at the worm's start, as their code does. AWC-ON activates when the concentration falls below the threshold, matching the OFF response Chalasani et al. 2007 describe: "AWC neurons are activated by odour removal".
+- **Current.** `I_AWC = g_AWC · (T − C) / (T + C)`. The form is ours (level 0), since Levy & Bargmann model only the threshold crossing. It depolarises the cell when odour falls below the threshold and hyperpolarises it when odour rises above, and it stays bounded between −g_AWC and +g_AWC, so even a strong source can't drive AWC past every reversal potential.
+- **Gain.** `g_AWC` is set once, on the intact real wiring, so that removing odour from the adapted start concentration depolarises AWC by 16 mV (2/β, the working width of its sigmoid). It is fixed in advance and never tuned against chemotaxis (level 0). Because the form is bounded, the result barely depends on which concentration anchors it.
+- **Where and in what units.** The concentration is read at the nose tip, where AWC's dendrite ends, in aqueous-equivalent micromolar at the agar surface, the units Levy & Bargmann's parameters use. How a spotted dilution maps onto that is an assumption (level 0), fixed by the release-rate anchor (§5.2).
+
+nematode's adaptive sensor (Logbook 028) is the conceptual precedent.
+
+### 4.2 Touch
+
+- **Where it acts.** A tap at body position `s` stimulates every touch receptor whose process covers `s`, using the c302 morphologies (level 4). As fractions of body length: ALM L/R 0.06–0.39, AVM 0.04–0.37, PVM 0.24–0.67, and PLM L/R 0.50–0.97.
+- **How strong.** A current step that holds the receptor 10 mV above its rest for 500 ms. The current is computed once, from each receptor's input conductance in the intact real wiring, and applied unchanged to every brain and every lesion: a tap is the same physical stimulus whatever the wiring. The values are fixed in advance (level 0). Neural Interactome's preset amplitudes can't be borrowed, because they are only meaningful when thresholds are recomputed around the input.
+- Nose touch (ASH, FLP, OLQ) is a different circuit and is left out of v1.
+
+### 4.3 The rhythm and proprioception
+
+The network alone can't generate the rhythm. With thresholds fixed at rest, both the Varshney and the Cook-scaled networks settle to a stable fixed point under constant drive; Kunert's PLM oscillation exists only because Neural Interactome moves thresholds with the input. Kunert-Graf et al. 2017 say the same: "In the absence of constant stimulus, the neural state will collapse onto a static, stable fixed point". So the rhythm comes from documented generators, and the network decides which of them run.
+
+- **The head: a proprioceptive relaxation switch (Ji et al. 2021).**
+  - Ji et al. locate the primary rhythm generator "near the head". The active muscle moment switches sign when a proprioceptive signal `P = K + b·dK/dt` reaches `±P_th`.
+  - Wormlight puts that switch in the SMD head motor neurons. SMDD senses head-muscle stretch through two TRPC channels and is required and sufficient for head bending (Yeon et al. 2018), and Ji et al. name SMDD among the candidate generators. SMDV is taken as its ventral counterpart.
+  - A binary state `h` flips when `P` crosses `±P_th`, and injects `I_sw = ±g_sw (h − ½)` into SMDD and SMDV in antiphase. `K` is the curvature of the anterior 0.2 body lengths, multiplied by body length; that region is our choice (level 0).
+  - `b = 46 ms` and `P_th = 2.33` come from Ji et al. They were fitted in a 120 mPa·s fluid, so on agar they are level 2. The gain `g_sw` is calibrated.
+  - The switch operates only while network input holds the neuron above the drive threshold `θ_osc`, so a silenced network has no head rhythm (level 0).
+- **Forward: B-type intrinsic oscillators.**
+  - Fouad et al. 2018 found that "multiple sections of forward locomotor circuitry are capable of independently generating rhythms", with secondary rhythms coming from cholinergic motor neurons in the midbody.
+  - Xu et al. 2018 report B-type motor neurons with intrinsic rhythmic activity that proprioceptive coupling entrains; only their abstract has been checked.
+  - VB and DB oscillate only above `θ_osc`, which AVB's drive supplies. Killing AVB and PVC abolishes forward movement (Chalfie et al. 1985).
+- **Backward: A-type intrinsic oscillators.**
+  - Gao et al. 2018 show A-type motor neurons "exhibit intrinsic and oscillatory activity that is sufficient to drive backward locomotion in the absence of premotor interneurons", with DA9 leading.
+  - AVA inhibits them through gap junctions at rest and potentiates them through chemical synapses. Both effects arise from the wiring, so VA and DA need no drive threshold.
+- **The oscillator.** A minimal slow–fast (FitzHugh–Nagumo) oscillator attached to each A- and B-type neuron:
+
+  ```
+  I_osc,ᵢ = g_osc · v₀ · (xᵢ − xᵢ³/3 − wᵢ),   xᵢ = (Vᵢ − V_th,ᵢ − θᵢ) / v₀,   τ_w dwᵢ/dt = xᵢ + 0.7 − 0.8 wᵢ
+  ```
+
+  - `v₀ = 1/(2β) = 4 mV`, and the constants are the textbook ones.
+  - `θᵢ` is `θ_osc` for B-types and 0 for A-types.
+  - The excitability `g_osc` and recovery time `τ_w` are calibrated and shared by A and B.
+  - No published, parameterised model of these cells exists, so the form is ours (level 0), while the mechanism is level 2.
+
+- **Proprioceptive coupling (Wen et al. 2012).**
+  - Each VB (DB) neuron receives a current proportional to the ventral (dorsal) curvature of the ~200 µm (0.2 body lengths) in front of its muscle field, taken from its neuromuscular targets. That is the coupling Wen et al. measured: posterior regions "are compelled to bend in the same direction and shortly after the bending of the neighboring anterior region".
+  - Each VA (DA) neuron receives the mirror image: the curvature of the 0.2 body lengths behind its field. This is a level-2 hypothesis. There is no direct evidence for A-type proprioception, but Gao et al. infer that motor neurons are "likely proprioceptive", since the A-type rhythm is about 5× faster in crawling than in glued animals.
+  - One gain `g_p` serves both. Wen et al.'s ~80 ms region-to-region delay is not added as a parameter: it should emerge from the neuromuscular and mechanical lags, and is reported as a check.
+- **Why this default.** The rhythm evidence points at generators in motor neurons and the head, while proprioception's evidence is for propagation and entrainment. This default also gives reversals a rhythm source, and it keeps the forward/backward decision in the network, through AVB's and AVA's documented synapses. A delayed proprioceptive loop is the first fallback (§10).
+
+### 4.4 Neuromuscular transfer and muscles
+
+- **Signs.** Body wall muscle responds through one GABA receptor and two acetylcholine receptors (Richmond & Jorgensen 1999). So a cholinergic cell excites, a GABAergic cell inhibits (DD and VD, and also RME and AVL), and a cell releasing neither has no fast effect on muscle (level 4). That last group is 32 of the 162 cells that synapse onto muscle, 366 of 5,515 sections: glutamatergic IL1 and RIM, dopaminergic cells, and cells with no identity. A harness toggle applies the transmitter rule to them instead.
+- **Drive.** The shared neuromuscular layer computes `u_m = Σⱼ w_jm · sign_j · s_j`, where `w_jm` is Cook's neuromuscular section count (level 5).
+- **Activation.** `τ_M dA_m/dt = σ(g_nmj (u_m − θ_nmj)) − A_m`, with `τ_M = 100 ms` (Boyle et al. 2012; Ji et al.'s muscle switching time is also 100 ms). The gain and threshold are calibrated (level 1).
+- **Placement.** Each quadrant's muscles (24, or 23 ventral-left) are assumed evenly spaced along the body (level 0). A body unit's dorsal activation is the mean of the dorsal-left and dorsal-right muscles covering it, and likewise ventrally.
+- **Muscles as springs.** As in Boyle et al., each muscle is a spring and damper whose rest length shortens with activation, with the strength gradient along the body from their Table 1.
+
+## 5. Body and environment
+
+### 5.1 Body
+
+- **Structure** (Boyle, Berri & Cohen 2012, level 3). 48 units, built from 49 rods, over 1 mm, with a radius profile peaking at 40 µm, joined by damped lateral and diagonal springs using their Table 1 constants. Neuron positions are fractions of body length, so the 0.8 mm morphology maps onto the 1 mm body.
+- **Drag.** The body is overdamped, so each step balances internal forces against resistive drag. The whole worm's agar coefficients are C∥ = 3.2 × 10⁻³ and C⊥ = 128 × 10⁻³ kg s⁻¹, a ratio of 40. Each rod gets the whole-worm value divided by twice the rod count, C/98, exactly as Boyle et al.'s code (`worm.cc`: C/(2·NBAR)) and Fieseler et al.'s Table 1 do.
+- **Integration.** A linearly implicit step solves the 49 × (3×3) block-tridiagonal system for the rod velocities by block cyclic reduction: 6 parallel levels in one workgroup, measured at 3.6 µs per step, where banded elimination took 75–305 µs.
+- **Tests.**
+  - A passive-bend relaxation test depends on the drag-to-stiffness ratio, so it catches a wrong drag scale that the translation tests can't.
+  - A prescribed muscle wave at 0.30 Hz must crawl before the brain is attached.
+- **Lying side.** Each trial draws which side the worm lies on, which mirrors the dorsoventral plane on screen.
+
+### 5.2 Dish, lawn and odour field
+
+- **Dish.** A 10 cm dish with the standard chemotaxis layout (Bargmann, Hartwieg & Horvitz 1993). The odour spot sits 0.5 cm from the edge, a control spot sits opposite, and the worm starts at the centre, about 4.5 cm from each.
+- **Odour.** 2-butanone, at the standard dose of 1 µl of a 10⁻³ dilution. It is the best-supported choice for an AWC-only model:
+  - killing AWC almost abolishes butanone chemotaxis;
+  - its diffusion coefficient in air is measured;
+  - Levy & Bargmann's parameters are in butanone units.
+- **Field.** 2D diffusion on a 256 × 256 grid (0.4 mm cells), made of:
+  - a diffusion coefficient of 0.091 cm² s⁻¹ in air at 298 K, a measured value (Lugg 1968, via Tang et al. 2015; level 3);
+  - a first-order loss set so the steady decay length √(D/k) is 3 cm (level 0, fixed in advance);
+  - a release rate set so the steady concentration at the 0.5 cm capture radius equals K, the top of the adaptation model's working range (level 0).
+
+  Tanimoto et al. 2017 measured a closed plate approaching a quasi-steady 2-nonanone field over minutes. Their rates come from a phenomenological fit, not a loss rate, so they are context only. Treating the air layer as 2D over uniform agar is an assumption (level 0).
+
+- **Stepping.** The explicit scheme's stability limit on this grid is 4.4 ms. The app therefore advances the field on the GPU in explicit sub-steps of at most 4 ms, about 16 million cell updates per simulated second. The field doesn't depend on the worm, so the harness computes it once per layout at high accuracy and every trial reads the same copy.
+- **Lawn.** A 1 cm disc that releases butanone. Real lawns release many odours (level 0), and slowing on food and dwelling versus roaming need neuromodulation, so they won't emerge (spec §5).
+- **Walls.** The dish wall reflects odour and stops the worm.
+
+## 6. Parameters and the fidelity registry
+
+### 6.1 The registry
+
+The fidelity ledger (spec §1.3) lives in code, so the app, the docs and the tests read the same facts:
+
+- `src/science/citations.ts` lists every source once: authors, year, title, venue, DOI or URL.
+- `src/science/params.ts` is the single source of truth for every constant. Each entry has its value, unit, level, sources and a note, and `free` is derived from the level: true at levels 1 and 0. Calibrated parameters also carry the bounds they may move within.
+- `src/science/fidelity.ts` lists every component (level or tag, basis, caveats, upgrade path, sources, and the checkpoints that test it). It also lists every subsystem (summary, what's solid, what isn't, upgrade path). A subsystem's level is never set by hand: it is shown as the range of its components' levels.
+- The runtime data carries per-element provenance: each connection's sign source, each neuron's position source.
+
+`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. Until the generators exist in milestone 0a, both pages are hand-written and marked "planned", an exception logged in `DECISIONS.md`. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge.
+
+### 6.2 The free-parameter budget
+
+Values we set ourselves, all global or per class:
+
+| Parameter                                         | Level | How it's set                                                   |
+| ------------------------------------------------- | ----- | -------------------------------------------------------------- |
+| Neural noise intensity σ_n                        | 1     | Calibrated to the spontaneous reversal rate                    |
+| Proprioceptive gain g_p (A and B)                 | 1     | Calibrated (§7.2)                                              |
+| Neuromuscular gain and threshold                  | 1     | Calibrated (§7.2)                                              |
+| Head-switch gain g_sw                             | 1     | Calibrated (§7.2)                                              |
+| Oscillator excitability, recovery time, B drive θ | 1     | Calibrated (§7.2)                                              |
+| AWC gain                                          | 0     | Fixed in advance: 16 mV on odour removal (§4.1)                |
+| Touch stimulus: 10 mV for 500 ms                  | 0     | Fixed in advance (§4.2)                                        |
+| Odour release rate                                | 0     | Fixed in advance: concentration K at the capture radius (§5.2) |
+| Odour decay length, 3 cm                          | 0     | Fixed in advance (§5.2)                                        |
+| Lawn diameter, 1 cm                               | 0     | Fixed in advance (§5.2)                                        |
+
+That is fourteen values: eight calibrated and six fixed in advance. The budget is **at most 14**; anything beyond it needs your approval, and `FIDELITY.md` lists every one with its final value.
+
+Values taken from a source aren't free, even when adapted. These include:
+
+- the neural constants (§3.2) and the adaptation constants K and τ (Levy & Bargmann 2020);
+- the head switch's `b` and `P_th` (Ji et al. 2021);
+- the proprioceptive reach of 0.2 body lengths (Wen et al. 2012);
+- the diffusion coefficient (Lugg 1968);
+- the body, drag and muscle constants (Boyle, Berri & Cohen 2012).
+
+## 7. Validation, fixed in advance
+
+Every behavioural checkpoint runs on the CPU reference in the harness, with the seeds, trial counts, definitions and thresholds fixed here. Speeds and wavelengths are in body lengths, so literature measured on worms of different sizes applies directly; the simulated body is 1 mm long. Each result is reported as pass, partial or fail, and each quantity as calibrated or predicted.
+
+### 7.1 Definitions and statistics
+
+- **Head swing.** Half a cycle of head bending: successive zero crossings of the head angle (between the body tangents at 0.05 and 0.2 body lengths), counted when they are at least 0.5 s apart and the peak between them exceeds 10°.
+- **Reversal.** Backward centroid motion lasting at least 1 s. It is short with 1–2 head swings and long with 3 or more, matching how Gray, Hill & Bargmann 2005 scored reversals by eye.
+- **Forward bout.** Continuous forward centroid motion between reversals.
+- **Tests.** Rates are compared per trial with two-sided Mann–Whitney U tests, proportions with Fisher's exact test, and before-and-after speeds with the Wilcoxon signed-rank test, all at α = 0.05.
+
+### 7.2 Correctness checks
+
+| Check                                                                                                                                                                                                                                                                                                                                                        | Pass                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Port check.** Golden trajectories come from Neural Interactome's own, unmodified `initialize.py`, with its web server stubbed out. They are solved with Radau at rtol = atol = 10⁻¹⁰, from its own starting state with a fixed seed, for the ALM, PLM, AVA and AVB presets over 5 s. The CPU reference in Neural Interactome mode is compared against them | RMS error of `V − V_th` at most 1% of max(excursion range, 1 mV), after the 0.3 s input ramp, for every neuron. The excursion range is max − min after the ramp                                                                                                                                                                |
+| **Production check.** The Cook model (rest thresholds, per-connection signs, autapses, oscillators off) against Radau, for a PLM pulse and an AVB step                                                                                                                                                                                                       | The same tolerance                                                                                                                                                                                                                                                                                                             |
+| **Convergence**                                                                                                                                                                                                                                                                                                                                              | The integrator's measured order is 2 ± 0.3, and checkpoint 1's metrics agree within 2% at dt and dt/2                                                                                                                                                                                                                          |
+| **GPU parity, one step.** Twenty active states sampled from a closed-loop CPU run, plus the rest state                                                                                                                                                                                                                                                       | \|ΔV\| ≤ 10⁻⁴ × max(\|V\|, 1 mV) and \|Δs\| ≤ 10⁻⁴ for every neuron                                                                                                                                                                                                                                                            |
+| **GPU parity, one second.** The same states                                                                                                                                                                                                                                                                                                                  | RMS relative error ≤ 10⁻², with the same floor                                                                                                                                                                                                                                                                                 |
+| **GPU parity, long runs.** 20 seeds per side, 60 s each                                                                                                                                                                                                                                                                                                      | Crawling frequency and speed equivalent within ±5% (two one-sided tests)                                                                                                                                                                                                                                                       |
+| **Checkpoint 0, silenced network.** Every neuron-to-neuron chemical synapse and gap junction cut; neuromuscular junctions, oscillators and every §1.1 layer kept. Run at milestone 0c, again at milestone 4 once touch and odour exist, and after any fallback                                                                                               | No forward bout of 10 s or more in 20 trials of 120 s. Neither touch reflex, over 50 anterior and 50 posterior touches. A chemotaxis index within ±0.1 of zero over 30 runs of checkpoint 4's 60-minute protocol. Residual backward activity from A-type oscillators is expected (Gao et al. 2018) and is reported, not failed |
+
+### 7.3 Calibration
+
+The calibrated parameters (§6.2) are tuned by one fixed procedure, applied identically to the real wiring and to every null. That keeps the wiring test fair.
+
+- **Optimiser.** CMA-ES within the bounds in `params.ts`.
+- **Objective.** The sum of squared relative errors from four targets: undulation frequency 0.30 Hz, wavelength 0.65 body lengths, speed 0.22 body lengths/s, and 1.8 spontaneous reversals per minute.
+- **Evaluation.** 4 trials of 120 s, with fixed seeds.
+- **Budget.** 400 evaluations, after which the best parameters are final.
+
+The real wiring's exploration in milestone 0 may inform the bounds, but its final parameters come from this same procedure.
+
+The kinematic targets are Fang-Yen et al. 2010 (Table 1: 0.30 ± 0.02 Hz and 0.65 ± 0.03 body lengths, mean ± SEM, N > 10) and Ramot et al. 2008 (219 ± 29 µm/s off food, mean ± s.d.).
+
+The reversal rate is from Gray, Hill & Bargmann 2005, Fig. 1E, read from the figure: short plus long reversals at 6–16 minutes off food average 1.8 per minute, with whiskers spanning about 1.1–2.5. The model has no food history, so it can't reproduce the fall from about 3.5 per minute just off food to 0.15 per minute after 36 minutes, which depends on neuromodulation.
+
+### 7.4 Behavioural checkpoints
+
+| #   | Checkpoint          | Protocol                                                                                                                                                                                                                            | Pass                                                                                                                                                                                                          | Partial                                                                                                  | Reference                                                                                                                                                                                                                         |
+| --- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Crawling**        | 20 trials × 120 s from random postures; kinematics measured over forward bouts of 10 s or more                                                                                                                                      | Frequency 0.20–0.45 Hz; wavelength 0.50–0.80 body lengths; speed 0.12–0.30 body lengths/s; the four published eigenworms capture ≥ 85% of posture variance; a forward bout of 20 s or more in ≥ 80% of trials | Frequency 0.10–0.60 Hz, wavelength 0.40–1.0, speed 0.06–0.50, eigenworms ≥ 70%, the bout clause in ≥ 50% | Fang-Yen et al. 2010; Ramot et al. 2008; Stephens et al. 2008 (four eigenworms explain over 95% for real worms)                                                                                                                   |
+| 2   | **Anterior touch**  | 50 touches in the ALM/AVM field, during forward crawling, at least 10 s apart                                                                                                                                                       | A reversal within 2 s in ≥ 70% of touches, and more often than in matched spontaneous windows (Fisher's exact test) by at least 3×                                                                            | 40–70%                                                                                                   | Chalfie et al. 1985 (anterior touch reverses; ALM needed for a full response). Stirman et al. 2011: optogenetic ALM/AVM activation reversed 65% of worms (78/120). No verified latency exists, so latency is reported, not graded |
+| 3   | **Posterior touch** | 50 touches in the PLM field during forward crawling                                                                                                                                                                                 | Mean forward speed over the next 2 s rises by ≥ 10% (Wilcoxon signed-rank test)                                                                                                                               | A significant rise under 10%                                                                             | Chalfie et al. 1985 (PLM needed for any tail response). Stirman et al. 2011 and Leifer et al. 2011: PLM activation speeds forward movement                                                                                        |
+| 4   | **Chemotaxis**      | Bargmann et al. 1993's layout (§5.2): 100 independent worms × 60 min each. A worm is counted and stopped on coming within 0.5 cm of either spot, as sodium azide does. CI = (at odour − at control) / total. Control: AWC input off | CI ≥ 0.6, and above the control (Fisher's exact test)                                                                                                                                                         | CI 0.2–0.6 and above the control                                                                         | Bargmann, Hartwieg & Horvitz 1993, Fig. 2: about 0.87 for butanone at 10⁻³ in population assays (read from the figure)                                                                                                            |
+| 5   | **Lesions**         | Each lesion against intact: 30 trials of 120 s for spontaneous behaviour, and 50 touches for the touch rows                                                                                                                         | All five primary lesions move in the reported direction, each by at least the stated amount                                                                                                                   | Three or four do                                                                                         | See below                                                                                                                                                                                                                         |
+| 6   | **Wiring test**     | 10 primary nulls (§3.5), each tuned by §7.3's procedure                                                                                                                                                                             | The verdict map below                                                                                                                                                                                         |                                                                                                          | Spec §4                                                                                                                                                                                                                           |
+
+**Checkpoint 1.** The kinematic clauses are calibration targets, so they are reported as calibrated; the eigenworm and bout clauses are predicted. Four details are fixed now:
+
+- **Eigenworm basis.** A published eigenworm basis is pinned in milestone 0a, before any posture data exist.
+- **Posture sampling.** Postures are 100 tangent angles sampled at 101 equally spaced midline points, with the mean angle removed, as in Stephens et al.
+- **Pass margin.** The pass level sits below Stephens's 95% because the model is simpler than a worm.
+- **Bout clause.** At the calibrated reversal rate, a simulation with exponentially distributed runs and 5–10 s reversals puts about 99% of trials above a 20 s bout. The clause therefore fails only a model that can't sustain forward crawling at all.
+
+**Checkpoint 4 references.** Bargmann et al.'s Fig. 5 values come from single-animal assays scored positive or negative, so they aren't chemotaxis indices. They are cited as context only: 0.77 of intact animals and 0.16 with AWC killed scored positive, against a false-positive rate of 0.11. The spec's silenced-network control lives in checkpoint 0.
+
+**Checkpoint 4 mechanism** (secondary: reported, never gating):
+
+- **Klinokinesis.** The ratio of reorientation rates when heading down the gradient versus up it.
+- **Weathervaning.** The slope of curving rate against bearing, where curving rate is the change in heading per unit path length. It is computed over runs only (windows without a reorientation) and excludes steps shorter than 0.25 × the median stride, the floor nematode's Logbook 035 found essential. Threshold-free companion statistics are reported alongside.
+- **Grading.** "Reproduced" needs both of these; "partial" needs one; otherwise it's "absent". The references are sign-only, because the source studies used salts (Pierce-Shimomura et al. 1999: ammonium chloride and biotin; Iino & Yoshida 2009: NaCl).
+  - The intact statistic's 80% bootstrap interval clears the null in the right direction.
+  - The interval for the intact-minus-AWC-off difference excludes zero, as spec §8.4 requires.
+- **Definitions.**
+  - **Heading:** the direction of the centroid's motion over one undulation period (3.3 s).
+  - **dC/dt:** the concentration change at the nose over the same window.
+  - **Reorientation:** a reversal, or an omega turn: more than 135° of turning within one head swing (Gray et al. 2005).
+  - **Bearing:** the angle from the heading to the local gradient.
+
+**Checkpoint 5 lesions:**
+
+| Lesion    | Pass if                                                                       | Source                                                                                                                                                                                                 |
+| --------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AVA + AVD | Touch-evoked reversals fall ≥ 80%, and spontaneous reversals fall ≥ 30%       | Chalfie et al. 1985 (N = 3): "incapable of moving backward". Piggott et al. 2011, Fig. 2C (read from the figure): AVA⁻AVD⁻ worms still reversed about 1.1 times a minute against about 2.1, a 47% fall |
+| AVB + PVC | Forward speed falls ≥ 80%                                                     | Chalfie et al. 1985: "incapable of generating forward motion with their bodies"                                                                                                                        |
+| PVC       | Checkpoint 3's response falls ≥ 80%, and checkpoint 2's stays ≥ 70% of intact | Chalfie et al. 1985                                                                                                                                                                                    |
+| AVA       | Long reversals fall ≥ 80%, and spontaneous reversals fall ≥ 30%               | Gray et al. 2005: "unable to generate long reversals". Piggott et al. 2011: about a 44% fall                                                                                                           |
+| RIM       | Short reversals rise                                                          | Gray et al. 2005; Piggott et al. 2011 (inhibiting RIM triggers reversals)                                                                                                                              |
+
+AIB, AIY and AIZ lesions are reported as secondary results, not graded, because Gray et al. describe their effects through time off food, which depends on neuromodulation the model lacks.
+
+**Checkpoint 6 verdict map:**
+
+- **Crawl gate.** A null "crawls" if it reaches at least partial on checkpoint 1 after tuning.
+- **Crawling.** Wiring matters if the real wiring crawls and at most 2 of the 10 nulls do; no evidence if 5 or more crawl; inconclusive otherwise.
+- **Checkpoints 2 to 5, compared among crawling nulls only.** Wiring matters if the real wiring passes and at most 20% of the crawling nulls do; no evidence if 50% or more do; inconclusive otherwise. With fewer than 5 crawling nulls, the verdict is "insufficient nulls".
+
+The secondary nulls are reported without verdicts. The report gives every null's results, whichever way they fall.
+
+### 7.5 Harness cost
+
+Trials are independent, so the harness runs them in parallel, one worker per core, against the shared precomputed odour field. The review's single-thread benchmarks put a worm-hour at about 2–11 CPU-minutes, depending on the step.
+
+- **Checkpoint 4 dominates.** Intact plus AWC-off is at most 200 worm-hours per wiring.
+- **Tuning** is about 53 worm-hours per wiring.
+- **A full pass** of checkpoints 1–6 over the real wiring and 10 nulls is on the order of a day on a 16-core machine.
+
+## 8. Testing, CI and deployment
+
+**Unit tests** (Vitest) cover the loader's validation and the physics against cases with known answers:
+
+- a lone neuron relaxes to E_c with time constant C/G_c;
+- two gap-coupled neurons equilibrate at the analytic rate;
+- the integrator's measured convergence order is 2;
+- a passive straight body under uniform drag translates without turning;
+- a passive bend relaxes at the rate the drag-to-stiffness ratio predicts;
+- a prescribed travelling wave moves forward at the speed resistive force theory predicts;
+- a point release of odour matches the analytic 2D Gaussian, which is nematode's Fick kernel;
+- the random-number hash and Gaussian transform match fixed test vectors, including the edge hashes.
+
+**The port check and production check** (§7.2). `tools/reference/ni_reference.py`, run with `uv`, imports Neural Interactome's unmodified `initialize.py` (BSD-3, credited) with its web server stubbed, and calls its own right-hand side, Jacobian and threshold functions. The review confirmed this runs headlessly. Driving Neural Interactome's own code, not a re-implementation, means a misreading can't be shared between reference and port, such as reading `Gs.npy`'s [post, pre] layout the wrong way round. The goldens are stored with the script's hash in `tests/fixtures/ni/`.
+
+**GPU parity** runs as a mode of the same headless-Chrome harness as the visual tests, ported from Universe:
+
+- on the real GPU locally, and on Mesa lavapipe in CI with Universe's flags (`--enable-unsafe-webgpu --use-angle=vulkan --enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE --disable-vulkan-surface`);
+- it never presents a frame, because software stacks read screenshots back as black;
+- a test page exposes `window.__parity()`, which runs fixed states and reads the buffers back;
+- the `webgpu` npm package (Dawn's Node bindings) is an optional local fast loop, not a second CI stack.
+
+Safari and Firefox run their own WebGPU engines, which CI can't cover, so milestones 2, 3 and 6 each include a manual Safari check.
+
+**The behavioural harness.** `npm run harness -- --checkpoint <n>` runs trials in parallel on the CPU reference, writes JSON to `harness-out/`, and regenerates the results tables in `VALIDATION.md`.
+
+**CI jobs.**
+
+- `checks`: lint, format, unit tests including the port and production checks, typecheck, build, and the freshness of `FIDELITY.md` and `DATA_SOURCES.md`.
+- `gpu`: parity on lavapipe, from milestone 2.
+- `visual`: fixed views pixel-compared against baselines, as Universe does, from milestone 1.
+- `deploy`: Pages, gated on `DEPLOY_PAGES`.
+
+## 9. Milestones
+
+Each milestone is one or more focused PRs, each merged before the next starts, and ends with a summary of what works, what doesn't, and checkpoint status.
+
+| Milestone             | Delivers                                                                                                                                                                                                                 | Exit criteria                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| **0a** Data           | The nematode exporter (a PR there), the data build, the runtime file with its notices, the sign cross-check report, and the registries with `FIDELITY.md` and `DATA_SOURCES.md` generated. The eigenworm basis is pinned | Counts and coverage match §2; the docs regenerate cleanly                                                     |
+| **0b** Neural core    | The CPU neural model, the port and production checks, and the step size confirmed                                                                                                                                        | Both checks and the convergence tests pass                                                                    |
+| **0c** Crawling spike | The oscillators, head switch, proprioception, muscles and body on the CPU; the calibration procedure; checkpoint 0's crawling clause; checkpoint 1                                                                       | **Go/no-go with you**: does the connectome-driven body crawl?                                                 |
+| 1                     | The WebGPU 3D neural graph, the inspector with provenance badges, and visual regression CI                                                                                                                               | The graph renders on lavapipe; the inspector shows each connection's sign source                              |
+| 2                     | The neural model on the GPU, with the parity CI job                                                                                                                                                                      | Parity passes on lavapipe and on the Mac; a Safari check; the full-step speed measured against the 10× target |
+| 3                     | The body on the GPU and the plate view: crawling in the browser                                                                                                                                                          | Checkpoint 1 in the harness; 60 fps real time on an M-series Mac in Chrome and Safari                         |
+| 4                     | Odour field, AWC sensing and touch                                                                                                                                                                                       | Checkpoints 2 to 4; checkpoint 0 re-run in full                                                               |
+| 5                     | Lesions and the brain swap                                                                                                                                                                                               | Checkpoints 5 and 6                                                                                           |
+| 6                     | Glow, "About the science", URL state, performance, docs, and Pages when you're ready                                                                                                                                     | `VALIDATION.md` complete; the fast-forward target met or its shortfall logged; a Safari check                 |
+
+## 10. Risks and the fallback menu
+
+| Risk                                                      | Likelihood     | Mitigation                                                                                                                                      |
+| --------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| The rhythm generators and coupling don't produce crawling | High           | The fallback menu below, agreed now and applied only with you at the go/no-go                                                                   |
+| Reversals don't travel backward along the body            | Medium         | A-type oscillators and their mirrored coupling are the default; checkpoint 2 finds out                                                          |
+| The model saturates or falls silent on Cook's weights     | Medium         | Per-type rescaling (§3.2), with shared-connection scales and the sign-sensitivity runs reported                                                 |
+| Chemotaxis needs head steering the model can't produce    | Medium to high | Accept a partial and report it; weathervaning depends on head motor neurons (SMD, RMD) that the data wire to head muscles                       |
+| One GPU workgroup misses the fast-forward target          | Medium         | The second-order scheme allows 2.5 ms steps, and block cyclic reduction keeps the body cheap; a shortfall is logged, not paid for with accuracy |
+| Safari's WebGPU behaves differently                       | Low to medium  | Safari checks at milestones 2, 3 and 6                                                                                                          |
+
+**If milestone 0 can't make the worm crawl**, these are the options, in order. Each is logged, levelled in the ledger, and applied only with your go-ahead:
+
+1. **A delayed proprioceptive loop.** Wen et al. measured delays of about 80 ms per region, with ~300 ms as an upper bound. Kim et al. 2025's unfitted base model sustained locomotion once it had a delayed closed loop of about 0.5–0.6 s.
+2. **Bistable B-type neurons,** as in Boyle, Berri & Cohen 2012, keeping Wen's coupling direction.
+3. **Calibrated class-level gains** in the motor circuit (level 1, counted against the budget).
+4. **An honest partial.** The connectome still drives the muscles, and the app says crawling does not yet emerge.
+
+Never on the menu: a central pattern generator outside the allow-list, or anything that reads behavioural state.
+
+**Changes after held-out results.** If a model change is made after any held-out checkpoint (2 to 5) has been run, that checkpoint, and any checkpoint run later on the changed model, is reported as fitted rather than predicted (spec §1.2).
+
+## 11. Prior art, and what Wormlight adds
+
+| Work                                                                                 | What Wormlight takes from it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Neural Interactome (Kim, Leahy & Shlizerman 2019)                                    | The neural model, its code and data as the port check, and the warning that its threshold rule is what creates Kunert's oscillation                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Kunert-Graf et al. 2017                                                              | Confirmation that the model collapses to a fixed point without constant drive, and the model's published parameter values                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Kim et al. 2025, arXiv 2504.18073 (modWorm; code at `shlizee/modWorm`, BSD-3-Clause) | The closest precedent: the same neural model on 279 neurons, with muscles and a body. Its unfitted base model walked forward and backward after a brief pulse into sensory neurons (PLM forward; ALM and AVM backward), which was then switched off. A ~0.5–0.6 s delayed feedback of the network's own activity sustained the movement; the body state was never read. A later genetic-algorithm tuning of 5,146 synapse scales was optional, and it broke backward locomotion. The lesson kept is the delayed closed loop (fallback 1). Its Cook-based variant fitted postures better than the Varshney base |
+| Ji et al. 2021                                                                       | The head's proprioceptive relaxation switch, with its fitted threshold and derivative weight                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Fouad et al. 2018; Xu et al. 2018; Gao et al. 2018                                   | The rhythm generators in the ventral cord                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Wen et al. 2012                                                                      | The direction and reach of proprioceptive coupling                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Boyle, Berri & Cohen 2012                                                            | The body mechanics and muscle dynamics, but not its proprioception                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Fieseler, Kunert-Graf & Kutz, arXiv 1707.05359                                       | Extends Boyle, Berri & Cohen's model with A- and B-class circuits, and suppresses proprioception to produce omega turns. It does not use the connectome, which is left as future work                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| BAAIWorm (_Nature Computational Science_, 2024)                                      | A biophysically detailed closed brain–body–environment loop, as a reference for what detailed models achieve                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| OpenWorm c302                                                                        | Neuron morphologies and positions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Quantum Nematode                                                                     | The data pipeline, the rewired null, the chemotaxis validation method, and the prior results on wiring against nulls                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+What Wormlight adds: the whole connectome in a closed loop that runs live in a browser on the GPU; a fidelity ledger down to each connection's sign; and validation fixed in advance, including a wiring test in which every null gets the same tuning procedure and budget.

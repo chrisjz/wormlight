@@ -8,15 +8,15 @@ You are building this from scratch in a new repository. Read this whole document
 
 **Behaviour must emerge from the connectome.** No scripted animations, no state machines that say "if touched, reverse". The body moves only because motor neurons drive muscles, and motor neurons act only because of network dynamics. If a behaviour cannot be made to emerge honestly, document the gap rather than faking it. A worm that crawls convincingly for the wrong reasons is a failure.
 
-The wiring diagram alone cannot produce these behaviours, so the rule needs a boundary. Crawling depends on proprioceptive feedback (Wen et al. 2012) and chemotaxis on sensory adaptation, and neither is a connection in the connectome. Signal propagation measured in living worms also departs from wiring-based predictions (Randi et al. 2023).
+The wiring diagram alone cannot produce these behaviours, so the rule needs a boundary. Crawling depends on rhythm generators inside neurons and on proprioceptive feedback (Ji et al. 2021; Gao et al. 2018; Wen et al. 2012), and chemotaxis on sensory adaptation; none of these is a connection in the connectome. Signal propagation measured in living worms also departs from wiring-based predictions (Randi et al. 2023).
 
 ### 1.1 What may sit outside the connectome
 
 Only these layers. Each must be the same for every cell of a class, cited, shared by every brain, and blind to what the worm is doing: nothing outside the network may read "reversing" or "near food".
 
 1. **Sensory transduction and adaptation:** environment to sensory-neuron input.
-2. **Proprioception:** local body curvature to input in the motor neuron classes the literature names (B-type; Wen et al. 2012).
-3. **Intrinsic dynamics per neuron class**, only where a source documents them (for example bistable B-type motor neurons, Boyle et al. 2012).
+2. **Proprioception:** local body curvature to input in the neuron classes the literature names: B-type motor neurons (Wen et al. 2012), SMDD head motor neurons (Yeon et al. 2018), and A-type motor neurons as a hypothesis (Gao et al. 2018).
+3. **Intrinsic dynamics per neuron class**, only where a source documents them (for example the intrinsic oscillation of A-type motor neurons, Gao et al. 2018).
 4. **Neuromuscular transfer and muscle dynamics:** synaptic drive onto muscles to muscle activation.
 5. **Noise:** independent, seeded per-neuron noise.
 
@@ -24,7 +24,7 @@ The brain interface sits on this boundary: every brain receives the same sensory
 
 ### 1.2 Guards against hidden scripting
 
-- **Silenced-network test (checkpoint 0).** With every chemical synapse and gap junction silenced, crawling, both touch reflexes and chemotaxis must all disappear. If one survives, the glue is producing it.
+- **Silenced-network test (checkpoint 0).** With every neuron-to-neuron chemical synapse and gap junction silenced, and neuromuscular junctions and every §1.1 layer kept, forward crawling, both touch reflexes and chemotaxis must all disappear. Residual backward activity from A-type motor neurons is expected, since they oscillate without premotor input (Gao et al. 2018). If anything else survives, the glue is producing it.
 - **Tuning protocol.** Parameters are global or per neuron class, never per neuron unless a cited source gives a per-neuron value. PLAN.md states how many are free. Tune only against the calibration targets: crawling (checkpoint 1) and the spontaneous reversal rate. Checkpoints 2 to 5 are held out and run with parameters frozen. If a held-out result prompts re-tuning, report that checkpoint as fitted, not emergent.
 - **Calibrated or predicted.** VALIDATION.md labels every reported quantity as calibrated (a parameter was tuned to hit it) or predicted (it emerged with parameters frozen).
 
@@ -42,12 +42,12 @@ My existing project, Quantum Nematode (https://github.com/SyntheticBrains/nemato
 
 ### 2.1 What to take from nematode
 
-- Cook et al. 2019 hermaphrodite chemical synapses and gap junctions (EM serial-section counts), via `quantumnematode.connectome`.
+- Cook et al. 2019 hermaphrodite chemical synapses and gap junctions (EM serial-section counts), via `quantumnematode.connectome`. Take them from the release in Emmons 2024 (_PLoS Biol_ 22:e3002939, S1 File; CC BY 4.0), which the exporter vendors beside the 2019 original. Its chemical synapses are identical to the original's, and its gap junctions carry the lab's 2020 and 2023 corrections. The 2019 supplement states no licence.
 - Neuron classes and release identities from the Wang et al. 2024 neurotransmitter atlas, with the per-neuron sign rule in `connectome/neurotransmitters.py` as a baseline that §2.3 refines.
 - The degree-preserving double-edge-swap rewiring (`connectome/rewiring.py`), for the contrast brain.
-- The adaptive chemosensory sensor (`agent/adaptive_sensor.py`, Logbook 028).
+- The adaptive chemosensory sensor (`agent/adaptive_sensor.py`, Logbook 028), as the conceptual precedent for the Levy & Bargmann model (§2.3).
 - The analytic Fick gradient kernel (`env/env.py`), as a check on the diffusion field.
-- Chemotaxis validation: the literature chemotaxis indices (`data/chemotaxis/literature_ci_values.json`) and the klinokinesis and weathervane bias-curve method of Logbook 035.
+- Chemotaxis validation: the klinokinesis and weathervane bias-curve method of Logbook 035. Take chemotaxis indices from Bargmann, Hartwieg & Horvitz 1993 directly, because `data/chemotaxis/literature_ci_values.json` misattributes two entries.
 - Its provenance practice: pin every input by commit and SHA-256, as `data/connectome/PROVENANCE.md` does.
 
 Logbooks 034, 057, 065, 070 and 071 hold nematode's evidence on the real wiring against rewired nulls. Read them before designing checkpoint 6.
@@ -59,7 +59,7 @@ Write it in the nematode repo as a separate, reviewable change that follows that
 - neurons: name, class (sensory, inter, motor or pharyngeal), release identity and baseline sign;
 - chemical synapses: pre, post and EM count;
 - gap junctions: pair and EM count;
-- neuromuscular connections. The loader currently discards muscles, but the vendored Cook sheet holds all 95 body wall muscles (24 dorsal-left, 24 dorsal-right, 23 ventral-left, 24 ventral-right). Add a parse path; expect 956 non-zero entries from 162 cells, many of them sensory neurons and interneurons;
+- neuromuscular connections. The loader currently discards muscles, but the Emmons 2024 file holds all 95 body wall muscles (24 dorsal-left, 24 dorsal-right, 23 ventral-left, 24 ventral-right). Add a parse path; expect 956 non-zero entries from 162 cells, many of them sensory neurons and interneurons;
 - provenance: the nematode commit and input hashes.
 
 Wormlight's own data build merges this export with the sources in §2.3 into the single runtime file the app loads.
@@ -70,12 +70,12 @@ Record each in `DATA_SOURCES.md` with citation, URL, retrieval date, licence and
 
 - **Soma positions:** the c302 NeuroML2 cell files (`openworm/c302`, `c302/NeuroML2/*.cell.nml`; MIT). The morphologies come from the WormBase Virtual Worm, which its authors released into the public domain (per `openworm/CElegansNeuroML`). The y axis runs from the nose (about −350 µm) to the tail (about +425 µm); normalise to fractional body position.
 - **Sensing locations:** the same morphologies. Head sensory neurons sense at their dendrite tips (the nose), and touch receptor neurons along their processes, which give their receptive fields. Never sense at the soma.
-- **Synapse signs:** Fenyves et al. 2020 (_PLoS Comput Biol_, CC BY), S1 Data. These are per-connection predictions from transmitter and receptor expression, including CeNGEN. They cover 73% of chemical synapses; the rest are labelled complex or unpredicted. Join them to Cook 2019 by name and report coverage.
+- **Synapse signs:** Fenyves et al. 2020 (_PLoS Comput Biol_, CC BY): S1 Data (the WormWiring reconstruction) and the Cook sheet of S5 Data. These are per-connection predictions from transmitter and receptor expression, including CeNGEN, and the two files agree wherever both cover a connection. Together they give a clear sign for 47.5% of Cook's chemical connections (55.6% of synaptic sections) and label others complex or unpredicted. Join them to Cook 2019 by name and report coverage.
 - **Sign overrides from the literature**, each cited. Start with AWC→AIY inhibitory (glutamate-gated chloride channels) and AWC→AIB excitatory (AMPA-type receptors), from Chalasani et al. 2007. That paper has a 2016 corrigendum; these findings were upheld. nematode's baseline gets AWC→AIY wrong.
 - **Sign cross-check:** compare against the signs of the Creamer et al. fitted weights (MIT, vendored in nematode) on the ~1,049 head connections they cover, and report disagreements.
-- **Neuron and synapse parameters:** Kunert, Shlizerman & Kutz 2014 (_Phys Rev E_), as implemented in Neural Interactome (Kim, Leahy & Shlizerman 2019; code BSD-3-Clause, `initialize.py`). Reversal potentials and sigmoid width trace to Wicks, Roehrig & Rankin 1996. That model was tuned on Varshney et al. 2011 synapse counts. Cook's section counts run several times larger, by different factors for chemical synapses and gap junctions (roughly 3× and 6× in total), so rescale per connection type before applying its per-unit conductances.
-- **Body, muscles and proprioception:** Boyle, Berri & Cohen 2012, Tables 1–3. That gives 48 body units, agar drag C∥ = 3.2×10⁻³ and C⊥ = 128×10⁻³ kg s⁻¹ (ratio about 40), and a 100 ms muscle time constant. B-type motor neurons take proprioceptive input from local and posterior body, up to half a body length.
-- **Sensory kinetics:** start from nematode's sensor. Kato et al. 2014 show AWC tracking odour changes with subsecond precision while ASH integrates over seconds. Levy & Bargmann 2020 show AWC's threshold adapting to odour history.
+- **Neuron and synapse parameters:** Kunert, Shlizerman & Kutz 2014 (_Phys Rev E_), as implemented in Neural Interactome (Kim, Leahy & Shlizerman 2019; code BSD-3-Clause, `initialize.py`). Reversal potentials and sigmoid width trace to Wicks, Roehrig & Rankin 1996. Use the published time constants (C = 1 pF, a_r = 1 s⁻¹, a_d = 5 s⁻¹, as restated by Kunert-Graf et al. 2017); Neural Interactome's code runs the same model 1.5× slower. That model was tuned on Varshney et al. 2011 synapse counts. Cook's section counts run several times larger, by different factors for chemical synapses and gap junctions (roughly 3× and 6× in total), so rescale per connection type before applying its per-unit conductances.
+- **Body, muscles and proprioception:** Boyle, Berri & Cohen 2012, Tables 1–3. That gives 48 body units, agar drag C∥ = 3.2×10⁻³ and C⊥ = 128×10⁻³ kg s⁻¹ (ratio about 40; whole-worm values, split per rod as the authors' code does), and a 100 ms muscle time constant. Its proprioception, from the B neuron's own and posterior body over half a body length, is not used: Wen et al. 2012 found the coupling runs the other way. Each region's B-type neurons respond to bending of the region in front, over about 200 µm.
+- **Sensory kinetics:** Levy & Bargmann 2020's adaptive threshold for AWC-ON (K = 5.5 µM, τ = 17 s, from the authors' code), with nematode's sensor as the conceptual precedent. Kato et al. 2014 show AWC tracking odour changes with subsecond precision while ASH integrates over seconds.
 - **Behavioural reference data:**
   - crawling frequency and wavelength on agar (Fang-Yen et al. 2010; Berri et al. 2009);
   - posture space, the eigenworms of Stephens et al. 2008;
@@ -86,19 +86,26 @@ Don't vendor the Randi et al. 2023 functional atlas: its OSF deposit states no l
 
 ### 2.4 Known gaps: document, don't research
 
-- **Rhythm generation is unresolved.** Candidates are a proprioceptive reflex chain (Wen et al. 2012), distributed oscillators (Fouad et al. 2018), and A-type motor neurons that oscillate intrinsically during backward locomotion (Gao et al. 2018). Implement one documented hypothesis, by default the proprioceptive chain modelled by Boyle et al. 2012. Name it in the app's explanation and don't present it as settled.
+- **Rhythm generation is unresolved.** Candidates are a proprioceptive reflex chain (Wen et al. 2012), distributed oscillators (Fouad et al. 2018), and A-type motor neurons that oscillate intrinsically during backward locomotion (Gao et al. 2018). Implement one documented hypothesis. The network alone can't supply the rhythm: with fixed thresholds it settles to a stable fixed point (Kunert-Graf et al. 2017), and proprioception alone produces no rhythm in any precedent. The default is documented rhythm generators, and the network decides which of them run:
+  - a proprioceptive relaxation switch in the head (Ji et al. 2021; SMDD, Yeon et al. 2018);
+  - intrinsic oscillators in B- and A-type motor neurons (Fouad et al. 2018; Xu et al. 2018; Gao et al. 2018);
+  - Wen et al. 2012's front-to-back coupling, which carries the wave.
+
+  A delayed proprioceptive loop is the first fallback. Name the hypothesis in the app's explanation and don't present it as settled.
+
 - **Extrasynaptic signalling** (neuropeptides, monoamines; Bentley et al. 2016; Randi et al. 2023) is out of scope, and so are the behaviours that depend on it (§5).
 - **Synaptic strength:** the EM count is assumed to map linearly onto strength.
 - **Uncertain signs:** connections with complex or unpredicted signs get a documented default, and a sensitivity toggle in the harness.
-- **Individual variation:** the data describe one animal, and connectomes vary between individuals (Witvliet et al. 2021).
+- **Individual variation:** the data are assembled from a few animals, with some connections extrapolated where no EM data existed, and connectomes vary between individuals (Witvliet et al. 2021).
 
 ### 2.5 Prior art
 
 Read these before planning, and say in PLAN.md what Wormlight reuses and what it adds:
 
 - Neural Interactome (Kim, Leahy & Shlizerman 2019): an interactive whole-connectome simulation with ablation.
-- Kim et al. 2025 (arXiv 2504.18073): connectome, neural dynamics, muscles and biomechanics with proprioceptive feedback, recovering forward and backward locomotion.
-- Fieseler, Kunert-Graf & Kutz (arXiv 1707.05359): proprioceptive feedback in a whole-connectome model.
+- Kim et al. 2025 (arXiv 2504.18073; code `shlizee/modWorm`): connectome, neural dynamics, muscles and biomechanics. Its unfitted base model walked forward and backward after a brief pulse into sensory neurons, sustained by a ~0.5–0.6 s delayed feedback of the network's own activity rather than body sensing. A later genetic-algorithm tuning of 5,146 synapse scale factors was optional. The delayed closed loop is the lesson worth keeping; it is the first fallback in §2.4.
+- Ji et al. 2021 (_eLife_ 10:e69905): a relaxation-oscillator model of the head's locomotor rhythm, switched by proprioceptive thresholds and fitted to phase-response data.
+- Fieseler, Kunert-Graf & Kutz (arXiv 1707.05359): extends Boyle, Berri & Cohen's model with A- and B-class circuits, and suppresses proprioception to produce omega turns. The connectome is left as future work.
 - BAAIWorm (_Nature Computational Science_, 2024): a closed brain–body–environment loop.
 
 ## 3. Tech constraints
@@ -111,13 +118,13 @@ Read these before planning, and say in PLAN.md what Wormlight reuses and what it
 
 ## 4. Neural model
 
-- **Model:** most _C. elegans_ neurons use graded potentials rather than classic spikes. Default to the graded, conductance-based model of Kunert et al. 2014 (§2.3): leaky membranes, gap junctions (bidirectional, conductance-based), and chemical synapses with sigmoidal activation and a sign from §2.3. Each neuron's threshold is set at the network's equilibrium, as in the source.
-- **Integration:** use a fixed simulation timestep decoupled from frame rate, with multiple substeps per frame as needed. The source uses an adaptive stiff (BDF) solver, and strong gap-junction coupling can make the model stiff. Choose an integrator that stays stable at a fixed step (for example, exponential Euler over each neuron's total conductance), and check it against a high-accuracy solve in the CPU reference.
+- **Model:** most _C. elegans_ neurons use graded potentials rather than classic spikes. Default to the graded, conductance-based model of Kunert et al. 2014 (§2.3): leaky membranes, gap junctions (bidirectional, conductance-based), and chemical synapses with sigmoidal activation and a sign from §2.3. Each neuron's threshold is set at the intact network's equilibrium with no input, and lesions leave it unchanged; Neural Interactome instead recomputes it from the current input, which is kept only for the port check.
+- **Integration:** use a fixed simulation timestep decoupled from frame rate, with multiple substeps per frame as needed. The source uses an adaptive stiff (BDF) solver, and strong gap-junction coupling can make the model stiff. Choose an integrator that stays stable and accurate at a fixed step, and check it against a high-accuracy solve in the CPU reference. Per-neuron exponential Euler is stable but rings on strongly coupled pairs, so PLAN.md uses a second-order linearly implicit scheme.
 - **Noise:** add seeded per-neuron noise (§1.1), with its magnitude calibrated to the spontaneous reversal rate (Gray et al. 2005). Without it there are no spontaneous reversals and no trial-to-trial variation.
 - **Parameters** come from §2.3. Anything you tune yourself goes in a single config file with a comment explaining why, and counts toward the free-parameter total (§1.2).
 - **Architecture interface:** define the brain as a clean interface on the §1.1 boundary so architectures can be swapped at runtime.
   - Ship the connectome model as the default.
-  - Ship one contrast: the same model on a degree-preserving rewiring of the connectome, with sensory and motor identities and the neuromuscular map held fixed.
+  - Ship one contrast: the same model on a degree-preserving rewiring of its chemical synapses, with gap junctions, sensory and motor identities and the neuromuscular map held fixed.
   - A generic recurrent network is optional. If included, it gets the same tuning procedure and budget.
 - **The point is to let a viewer test whether the real wiring matters, not to show that it does.** nematode found no difference between the real wiring and its rewired nulls without learning. Under PPO it found faster learning, but that advantage depends on modelling choices (§2.1). Report whatever Wormlight finds.
 
@@ -125,11 +132,11 @@ Read these before planning, and say in PLAN.md what Wormlight reuses and what it
 
 - **Body:** a 2D worm on an agar surface, rendered with enough depth and lighting to feel physical. Model it as a chain of segments (Boyle et al. 2012 use 48). The worm crawls on its side, so bending is dorsoventral: collapse the four muscle quadrants into a dorsal side (48 muscles) and a ventral side (47), driven through the neuromuscular map (§2.2).
 - **Locomotion physics:** use resistive force theory (anisotropic drag, higher perpendicular to the body than along it) with the agar coefficients from §2.3, so undulation produces forward thrust. Motion must come from this, not from moving the worm along a path. If you tune a physics parameter, the crawling metrics it affects count as calibrated, not predicted (§1.2).
-- **Environment:** a petri dish with a bacterial food lawn and a diffusing attractant. The lawn, and any source the user drops, release an odour sensed by AWC (and AWA). AWC's circuit is one of the best-characterised navigation circuits (Chalasani et al. 2007; Gray et al. 2005), with measured sensory kinetics (§2.3).
+- **Environment:** a petri dish with a bacterial food lawn and a diffusing attractant. The lawn, and any source the user drops, release 2-butanone, which is sensed by AWC-ON alone (Wes & Bargmann 2001). Killing AWC removes almost all chemotaxis to it (Bargmann, Hartwieg & Horvitz 1993), so an AWC-only model can in principle reproduce it. AWC's circuit is one of the best-characterised navigation circuits (Chalasani et al. 2007; Gray et al. 2005), with measured sensory kinetics (§2.3).
   - Odour spreads through the air across a dish within minutes, so a live diffusion field stays honest on interactive timescales. A salt gradient would take hours to form.
   - Model it as 2D diffusion with a cited effective coefficient, document the simplification, and check the field against nematode's Fick kernel.
 - **Sensing:** sensory neurons sample the environment at their sensing locations (§2.3), not their somas.
-- **Scale:** the worm is about 1 mm long on a dish 60–90 mm across, so the plate view follows the worm at body scale, with the whole dish as context.
+- **Scale:** the worm is about 1 mm long on a 10 cm dish, the standard chemotaxis plate (Bargmann, Hartwieg & Horvitz 1993), so the plate view follows the worm at body scale, with the whole dish as context.
 - **Food behaviours** that depend on neuromodulation won't emerge. These include slowing on food (dopamine; Sawin, Ranganathan & Horvitz 2000) and dwelling versus roaming (serotonin and PDF; Flavell et al. 2013). Say so in the app and README, and don't add them.
 
 ## 6. Interaction
@@ -164,7 +171,7 @@ Use the harness to test these behaviours, which must emerge rather than be coded
 1. **Undulatory crawling:** sustained sinusoidal forward locomotion, with body wave frequency and wavelength in the range reported for agar (Fang-Yen et al. 2010; Berri et al. 2009), and postures that project well onto the four eigenworms of Stephens et al. 2008.
 2. **Anterior touch reflex:** touch in the anterior receptive field triggers backward movement (reversal) within a plausible latency.
 3. **Posterior touch reflex:** touch in the posterior field triggers or accelerates forward movement.
-4. **Chemotaxis:** over repeated randomised trials, measure a chemotaxis index against published values (nematode's table). Measure the mechanism too: klinokinesis and weathervane bias curves as in nematode's Logbook 035 (Pierce-Shimomura et al. 1999; Iino & Yoshida 2009). Compare each with sensory input disabled.
+4. **Chemotaxis:** over repeated randomised trials, measure a chemotaxis index against published population values (Bargmann, Hartwieg & Horvitz 1993). Measure the mechanism too: klinokinesis and weathervane bias curves as in nematode's Logbook 035 (Pierce-Shimomura et al. 1999; Iino & Yoshida 2009). Compare each with sensory input disabled.
 5. **Lesion effects:** ablating key command interneurons (e.g. AVA for reversals, AVB for forward drive) degrades the corresponding behaviour in the direction the literature reports (Chalfie et al. 1985; Gray et al. 2005).
 6. **Wiring test:** give the rewired-null brain the same tuning procedure and budget, then gate it on checkpoint 1; if it can't be made to crawl, that is the result. If it crawls, run checkpoints 2 to 5 on it and report the difference against the thresholds fixed in advance, whichever way it falls.
 
@@ -173,7 +180,7 @@ Report results for each checkpoint as pass, partial, or fail, and label each qua
 ## 9. Deliverables
 
 - The app, deployable as a static site.
-- `README.md`: what it is, how to run it, and a short explanation of the science, including the modelling hypothesis and what the model leaves out. It also needs a credit line naming where the data came from: "Connectome: Cook et al. 2019. Neurotransmitter identities: Wang et al. 2024. Exported via Quantum Nematode", with links.
+- `README.md`: what it is, how to run it, and a short explanation of the science, including the modelling hypothesis and what the model leaves out. It also needs a credit line naming where the data came from: "Connectome: Cook et al. 2019, as released in Emmons 2024 (CC BY 4.0). Neurotransmitter identities: Wang et al. 2024. Exported via Quantum Nematode", with links.
 - `VALIDATION.md`: checkpoint results, methods, known simplifications.
 - `FIDELITY.md`: the fidelity ledger (§1.3), generated from the registry.
 - `DATA_SOURCES.md`: every dataset, citation, and licence.
@@ -194,7 +201,7 @@ Report results for each checkpoint as pass, partial, or fail, and label each qua
    - the milestones.
 2. **Milestones**, each ending in a working, committed state:
 
-   0. Feasibility spike, CPU only. Build the exporter and data build, the neural model with the port check, the body with proprioception, and checkpoint 0. The question to answer: does the connectome-driven body crawl? Stop for a go/no-go with me. If it can't crawl, we choose the fallback together.
+   0. Feasibility spike, CPU only. Build the exporter and data build, the neural model with the port check, the rhythm generators, the body with proprioception, and checkpoint 0. The question to answer: does the connectome-driven body crawl? Stop for a go/no-go with me. If it can't crawl, we choose the fallback together.
    1. Neural graph rendered and inspectable.
    2. Neural simulation on GPU, matching the CPU reference.
    3. Body physics on GPU with motor output driving crawling (checkpoint 1).

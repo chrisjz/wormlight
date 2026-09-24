@@ -12,7 +12,8 @@ A living _C. elegans_ in the browser: the Cook et al. 2019 connectome, simulated
 
 - **Behaviour must emerge from the connectome.** Only the layers in spec §1.1 may sit outside the network, and nothing outside it may read behavioural state ("reversing", "near food"). Adding a layer is a major deviation: ask the maintainer first.
 - **The CPU reference is the scientific ground truth.** WGSL kernels mirror it and behavioural trials run on it. A model change lands in both, with a parity test.
-- **Every component, parameter and data element carries a fidelity level and a source** in the registry (spec §1.3). `FIDELITY.md` is generated from it; never edit it by hand. A tuned value is marked calibrated and counts toward the free-parameter total.
+- **Every component, parameter and data element carries a fidelity level and a source** in the registry (spec §1.3). From milestone 0a, `FIDELITY.md` is generated from the registry and `DATA_SOURCES.md` from `data/sources.json`; never edit either by hand. Until those generators exist, both are hand-written and marked "planned" (logged in `DECISIONS.md`). A value we set ourselves is level 1 or 0 and counts toward the free-parameter budget in `PLAN.md` §6.2.
+- **Neural Interactome's matrices are indexed [post, pre].** Read `Gs.npy` the wrong way round and every port-check neuron fails. The port check drives Neural Interactome's own code for that reason.
 - **Validation thresholds are fixed in advance** in `PLAN.md`. Changing one after seeing results is logged in `DECISIONS.md`, and the checkpoint is marked as changed.
 - **Never invent citations.** Check every number against its source, and say so when unsure.
 - Generated data comes from scripts that read pinned, hashed sources; never hand-edit it, rerun the generator.
@@ -23,4 +24,4 @@ A living _C. elegans_ in the browser: the Cook et al. 2019 connectome, simulated
 - One focused PR at a time, always based on `main`, with no stacked PRs. The maintainer merges each before the next starts.
 - Commit messages: an evocative first line, then a short story of the why. Write multi-line messages with `git commit -F <file>`.
 - `gh pr edit` has been broken by a GraphQL deprecation; use `gh api -X PATCH repos/chrisjz/wormlight/pulls/<n>` instead.
-- Prettier reflows Markdown. A nested ordered list that starts at 0 needs a blank line before it, or it merges into the paragraph above. After any scripted edit, grep-verify the result.
+- Prettier reflows Markdown. A nested ordered list that starts at 0 needs a blank line before it, or it merges into the paragraph above. A line straight after a list item is folded into that item, so leave a blank line before a following paragraph. After any scripted edit, grep-verify the result.
