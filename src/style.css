@@ -1,0 +1,71 @@
+:root {
+  --bg: #07090a;
+  --fg: #e4ebe6;
+  --muted: #8c9a92;
+  /* GCaMP emits near 510 nm: the one accent colour the whole app uses for activity. */
+  --glow: #5dfc8f;
+  --warn: #f2c14e;
+  color-scheme: dark;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  line-height: 1.55;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at 50% 35%, #0f1612 0%, var(--bg) 70%);
+}
+
+#app {
+  max-width: 40rem;
+  padding: 3rem 1.25rem;
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: clamp(2.25rem, 6vw, 3.5rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--glow);
+  text-shadow: 0 0 24px rgb(93 252 143 / 35%);
+}
+
+.lede {
+  margin: 0 0 2.5rem;
+  font-size: 1.125rem;
+  color: var(--fg);
+}
+
+.status {
+  border-left: 2px solid var(--muted);
+  padding: 0.25rem 0 0.25rem 1rem;
+}
+
+.status[data-kind='ready'] {
+  border-color: var(--glow);
+}
+
+.status[data-kind='no-webgpu'],
+.status[data-kind='no-adapter'],
+.status[data-kind='failed'] {
+  border-color: var(--warn);
+}
+
+.status-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.status-body {
+  margin: 0;
+  color: var(--muted);
+}
