@@ -74,8 +74,8 @@ Record each in `DATA_SOURCES.md` with citation, URL, retrieval date, licence and
 - **Sign overrides from the literature**, each cited. Start with AWC→AIY inhibitory (glutamate-gated chloride channels) and AWC→AIB excitatory (AMPA-type receptors), from Chalasani et al. 2007. That paper has a 2016 corrigendum; these findings were upheld. nematode's baseline gets AWC→AIY wrong.
 - **Sign cross-check:** compare against the signs of the Creamer et al. fitted weights (MIT, vendored in nematode) on the ~1,049 head connections they cover, and report disagreements.
 - **Neuron and synapse parameters:** Kunert, Shlizerman & Kutz 2014 (_Phys Rev E_), as implemented in Neural Interactome (Kim, Leahy & Shlizerman 2019; code BSD-3-Clause, `initialize.py`). Reversal potentials and sigmoid width trace to Wicks, Roehrig & Rankin 1996. That model was tuned on Varshney et al. 2011 synapse counts. Cook's section counts run several times larger, by different factors for chemical synapses and gap junctions (roughly 3× and 6× in total), so rescale per connection type before applying its per-unit conductances.
-- **Body, muscles and proprioception:** Boyle, Berri & Cohen 2012, Tables 1–3. That gives 48 body units, agar drag C∥ = 3.2×10⁻³ and C⊥ = 128×10⁻³ kg s⁻¹ (ratio about 40), and a 100 ms muscle time constant. B-type motor neurons take proprioceptive input from local and posterior body, up to half a body length.
-- **Sensory kinetics:** start from nematode's sensor. Kato et al. 2014 show AWC tracking odour changes with subsecond precision while ASH integrates over seconds. Levy & Bargmann 2020 show AWC's threshold adapting to odour history.
+- **Body, muscles and proprioception:** Boyle, Berri & Cohen 2012, Tables 1–3. That gives 48 body units, agar drag C∥ = 3.2×10⁻³ and C⊥ = 128×10⁻³ kg s⁻¹ (ratio about 40), and a 100 ms muscle time constant. Its proprioception, from the B neuron's own and posterior body over half a body length, is not used: Wen et al. 2012 found the coupling runs the other way. Each region's B-type neurons respond to bending of the region in front, over about 200 µm.
+- **Sensory kinetics:** Levy & Bargmann 2020's adaptive threshold for AWC-ON (K = 5.5 µM, τ = 17 s, from the authors' code), with nematode's sensor as the conceptual precedent. Kato et al. 2014 show AWC tracking odour changes with subsecond precision while ASH integrates over seconds.
 - **Behavioural reference data:**
   - crawling frequency and wavelength on agar (Fang-Yen et al. 2010; Berri et al. 2009);
   - posture space, the eigenworms of Stephens et al. 2008;
@@ -86,7 +86,7 @@ Don't vendor the Randi et al. 2023 functional atlas: its OSF deposit states no l
 
 ### 2.4 Known gaps: document, don't research
 
-- **Rhythm generation is unresolved.** Candidates are a proprioceptive reflex chain (Wen et al. 2012), distributed oscillators (Fouad et al. 2018), and A-type motor neurons that oscillate intrinsically during backward locomotion (Gao et al. 2018). Implement one documented hypothesis, by default the proprioceptive chain modelled by Boyle et al. 2012. Name it in the app's explanation and don't present it as settled.
+- **Rhythm generation is unresolved.** Candidates are a proprioceptive reflex chain (Wen et al. 2012), distributed oscillators (Fouad et al. 2018), and A-type motor neurons that oscillate intrinsically during backward locomotion (Gao et al. 2018). Implement one documented hypothesis. The default is Wen et al. 2012's front-to-back proprioceptive chain, with the head rhythm expected to emerge from the network. Proprioception alone produces no rhythm in any precedent. Name the hypothesis in the app's explanation and don't present it as settled.
 - **Extrasynaptic signalling** (neuropeptides, monoamines; Bentley et al. 2016; Randi et al. 2023) is out of scope, and so are the behaviours that depend on it (§5).
 - **Synaptic strength:** the EM count is assumed to map linearly onto strength.
 - **Uncertain signs:** connections with complex or unpredicted signs get a documented default, and a sensitivity toggle in the harness.
@@ -97,8 +97,8 @@ Don't vendor the Randi et al. 2023 functional atlas: its OSF deposit states no l
 Read these before planning, and say in PLAN.md what Wormlight reuses and what it adds:
 
 - Neural Interactome (Kim, Leahy & Shlizerman 2019): an interactive whole-connectome simulation with ablation.
-- Kim et al. 2025 (arXiv 2504.18073): connectome, neural dynamics, muscles and biomechanics with proprioceptive feedback, recovering forward and backward locomotion.
-- Fieseler, Kunert-Graf & Kutz (arXiv 1707.05359): proprioceptive feedback in a whole-connectome model.
+- Kim et al. 2025 (arXiv 2504.18073; code `shlizee/modWorm`): connectome, neural dynamics, muscles and biomechanics, recovering forward and backward locomotion. Its feedback is a delayed copy of the network's own activity rather than body sensing, and it tuned 5,146 synapse scale factors with a genetic algorithm. Wormlight's rules exclude both.
+- Fieseler, Kunert-Graf & Kutz (arXiv 1707.05359): extends Boyle, Berri & Cohen's model with A- and B-class circuits, and suppresses proprioception to produce omega turns. The connectome is left as future work.
 - BAAIWorm (_Nature Computational Science_, 2024): a closed brain–body–environment loop.
 
 ## 3. Tech constraints
@@ -125,7 +125,7 @@ Read these before planning, and say in PLAN.md what Wormlight reuses and what it
 
 - **Body:** a 2D worm on an agar surface, rendered with enough depth and lighting to feel physical. Model it as a chain of segments (Boyle et al. 2012 use 48). The worm crawls on its side, so bending is dorsoventral: collapse the four muscle quadrants into a dorsal side (48 muscles) and a ventral side (47), driven through the neuromuscular map (§2.2).
 - **Locomotion physics:** use resistive force theory (anisotropic drag, higher perpendicular to the body than along it) with the agar coefficients from §2.3, so undulation produces forward thrust. Motion must come from this, not from moving the worm along a path. If you tune a physics parameter, the crawling metrics it affects count as calibrated, not predicted (§1.2).
-- **Environment:** a petri dish with a bacterial food lawn and a diffusing attractant. The lawn, and any source the user drops, release an odour sensed by AWC (and AWA). AWC's circuit is one of the best-characterised navigation circuits (Chalasani et al. 2007; Gray et al. 2005), with measured sensory kinetics (§2.3).
+- **Environment:** a petri dish with a bacterial food lawn and a diffusing attractant. The lawn, and any source the user drops, release 2-butanone, which is sensed by AWC-ON alone (Wes & Bargmann 2001). Killing AWC removes almost all chemotaxis to it (Bargmann, Hartwieg & Horvitz 1993), so an AWC-only model can in principle reproduce it. AWC's circuit is one of the best-characterised navigation circuits (Chalasani et al. 2007; Gray et al. 2005), with measured sensory kinetics (§2.3).
   - Odour spreads through the air across a dish within minutes, so a live diffusion field stays honest on interactive timescales. A salt gradient would take hours to form.
   - Model it as 2D diffusion with a cited effective coefficient, document the simplification, and check the field against nematode's Fick kernel.
 - **Sensing:** sensory neurons sample the environment at their sensing locations (§2.3), not their somas.
