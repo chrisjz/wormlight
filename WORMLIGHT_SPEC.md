@@ -42,7 +42,7 @@ My existing project, Quantum Nematode (https://github.com/SyntheticBrains/nemato
 
 ### 2.1 What to take from nematode
 
-- Cook et al. 2019 hermaphrodite chemical synapses and gap junctions (EM serial-section counts), via `quantumnematode.connectome`.
+- Cook et al. 2019 hermaphrodite chemical synapses and gap junctions (EM serial-section counts), via `quantumnematode.connectome`. Take them from the release in Emmons 2024 (_PLoS Biol_ 22:e3002939, S1 File; CC BY 4.0), which the exporter vendors beside the 2019 original. Its chemical synapses are identical to the original's, and its gap junctions carry the lab's 2020 and 2023 corrections. The 2019 supplement states no licence.
 - Neuron classes and release identities from the Wang et al. 2024 neurotransmitter atlas, with the per-neuron sign rule in `connectome/neurotransmitters.py` as a baseline that §2.3 refines.
 - The degree-preserving double-edge-swap rewiring (`connectome/rewiring.py`), for the contrast brain.
 - The adaptive chemosensory sensor (`agent/adaptive_sensor.py`, Logbook 028), as the conceptual precedent for the Levy & Bargmann model (§2.3).
@@ -59,7 +59,7 @@ Write it in the nematode repo as a separate, reviewable change that follows that
 - neurons: name, class (sensory, inter, motor or pharyngeal), release identity and baseline sign;
 - chemical synapses: pre, post and EM count;
 - gap junctions: pair and EM count;
-- neuromuscular connections. The loader currently discards muscles, but the vendored Cook sheet holds all 95 body wall muscles (24 dorsal-left, 24 dorsal-right, 23 ventral-left, 24 ventral-right). Add a parse path; expect 956 non-zero entries from 162 cells, many of them sensory neurons and interneurons;
+- neuromuscular connections. The loader currently discards muscles, but the Emmons 2024 file holds all 95 body wall muscles (24 dorsal-left, 24 dorsal-right, 23 ventral-left, 24 ventral-right). Add a parse path; expect 956 non-zero entries from 162 cells, many of them sensory neurons and interneurons;
 - provenance: the nematode commit and input hashes.
 
 Wormlight's own data build merges this export with the sources in §2.3 into the single runtime file the app loads.
@@ -96,7 +96,7 @@ Don't vendor the Randi et al. 2023 functional atlas: its OSF deposit states no l
 - **Extrasynaptic signalling** (neuropeptides, monoamines; Bentley et al. 2016; Randi et al. 2023) is out of scope, and so are the behaviours that depend on it (§5).
 - **Synaptic strength:** the EM count is assumed to map linearly onto strength.
 - **Uncertain signs:** connections with complex or unpredicted signs get a documented default, and a sensitivity toggle in the harness.
-- **Individual variation:** the data describe one animal, and connectomes vary between individuals (Witvliet et al. 2021).
+- **Individual variation:** the data are assembled from a few animals, with some connections extrapolated where no EM data existed, and connectomes vary between individuals (Witvliet et al. 2021).
 
 ### 2.5 Prior art
 
@@ -180,7 +180,7 @@ Report results for each checkpoint as pass, partial, or fail, and label each qua
 ## 9. Deliverables
 
 - The app, deployable as a static site.
-- `README.md`: what it is, how to run it, and a short explanation of the science, including the modelling hypothesis and what the model leaves out. It also needs a credit line naming where the data came from: "Connectome: Cook et al. 2019. Neurotransmitter identities: Wang et al. 2024. Exported via Quantum Nematode", with links.
+- `README.md`: what it is, how to run it, and a short explanation of the science, including the modelling hypothesis and what the model leaves out. It also needs a credit line naming where the data came from: "Connectome: Cook et al. 2019, as released in Emmons 2024 (CC BY 4.0). Neurotransmitter identities: Wang et al. 2024. Exported via Quantum Nematode", with links.
 - `VALIDATION.md`: checkpoint results, methods, known simplifications.
 - `FIDELITY.md`: the fidelity ledger (§1.3), generated from the registry.
 - `DATA_SOURCES.md`: every dataset, citation, and licence.

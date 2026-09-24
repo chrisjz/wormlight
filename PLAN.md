@@ -20,6 +20,7 @@ For review under spec §10. The scaffold is on `main`; everything below is propo
    - **Checkpoint 0:** residual A-type backward activity is expected when the network is silenced (Gao et al. 2018).
    - **Dish:** 10 cm, the standard chemotaxis plate, rather than 60–90 mm.
    - **Prior art:** corrected descriptions of Kim et al. 2025 and Fieseler et al., and Ji et al. 2021 added.
+   - **Connectome source:** Cook et al. 2019's matrices come from Emmons 2024's CC BY release, which carries the lab's corrections, and the README credit line names it (§2.1), as you agreed.
 3. The decisions marked "needs sign-off" in `DECISIONS.md`.
 4. The free-parameter budget, raised from 10 to 14, as you agreed (§6.2).
 5. The fallback menu (§10).
@@ -75,7 +76,12 @@ On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes,
 
 ### 2.1 The nematode exporter
 
-A separate PR in the nematode repo, through its OpenSpec process. It adds `scripts/export_wormlight.py` and emits `connectome.v1.json`:
+A separate PR in the nematode repo, through its OpenSpec process.
+
+- **Input.** It vendors the S1 File of Emmons 2024 (_PLoS Biol_ 22:e3002939), which is Cook et al. 2019's connectome released under CC BY 4.0 by Cook et al.'s senior author. Its chemical matrix is identical to the 2019 original; its gap junctions carry the lab's July 2020 corrections and its 2023 BDU–ALM and BDU–PLM junctions.
+- **Existing experiments.** The file sits alongside the 2019 original that nematode already vendors, and nematode's own experiments keep using the original, so their results stay reproducible.
+- **Parsing.** The layout matches the original's, so nematode's existing sheet parser reads it. Only the gap-junction sheet names differ ("hermaphrodite gap jn symmetric" rather than "herm gap jn symmetric").
+- **Output.** It adds `scripts/export_wormlight.py` and emits `connectome.v1.json`:
 
 ```json
 {
@@ -88,7 +94,7 @@ A separate PR in the nematode repo, through its OpenSpec process. It adds `scrip
 }
 ```
 
-The example counts are Cook's. The export keeps Cook's 38 autapses. The neuromuscular part needs a new parse path: nematode's loader drops muscles, but the vendored Cook sheet holds all 95 body wall muscles, with 956 non-zero entries from 162 cells.
+The example counts are Cook's. The export keeps Cook's 38 autapses and has 1,095 gap-junction pairs among neurons. The neuromuscular part needs a new parse path: nematode's loader drops muscles, but the file holds all 95 body wall muscles, with 956 non-zero entries from 162 cells.
 
 ### 2.2 The Wormlight data build
 
@@ -153,7 +159,7 @@ dsᵢ/dt  = a_r φᵢ (1 − sᵢ) − a_d sᵢ,        φᵢ = 1 / (1 + exp(−
 | Sigmoid width β                   | 0.125 mV⁻¹                  | 3     | Wicks, Roehrig & Rankin 1996                                                                      |
 | Synaptic rise a_r / decay a_d     | 1 and 5 s⁻¹                 | 3     | Kunert-Graf et al. 2017: "ar = 1 s−1 and ad = 5 s−1"                                              |
 | Conductance per Varshney unit     | 100 pS, gap and chemical    | 3     | Kunert, Shlizerman & Kutz 2014                                                                    |
-| Cook-to-Varshney scale            | 0.3444 chemical, 0.2087 gap | 2     | Matched totals over the 279 shared neurons, autapses excluded as in Neural Interactome's matrices |
+| Cook-to-Varshney scale            | 0.3444 chemical, 0.2055 gap | 2     | Matched totals over the 279 shared neurons, autapses excluded as in Neural Interactome's matrices |
 
 Neural Interactome's code uses 1.5 pF with both rates divided by 1.5: the same model run 1.5× slower. Its values are used only in "Neural Interactome mode" for the port check, which validates the equations and data handling but can't see a uniform time rescale, so the time scale rests on the publication.
 
