@@ -491,6 +491,8 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 - **Checkpoint 0** runs formally with the harness, from milestone 3. While the intact model doesn't crawl, its crawling clause can't fail, so a pass says nothing about the wiring.
 - **GPU parity.** Milestone 2's long-run parity check compares crawling frequency and speed (§7.2). If the worm still doesn't crawl then, the statistic it compares is settled, and logged, when milestone 2 starts.
 
+**Milestone 1's outcome (2026-09-26): done.** The graph renders on a local GPU and on CI's software GPU, where the visual tests match their baselines exactly, and the inspector shows each connection's sign source and fidelity level (DECISIONS.md).
+
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 
 - the classes and parameters, and the free-parameter budget raise they need (§6.2);

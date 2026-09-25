@@ -6,7 +6,8 @@
   /* GCaMP emits near 510 nm: the one accent colour the whole app uses for activity. */
   --glow: #5dfc8f;
   --warn: #f2c14e;
-  --panel: rgb(10 14 13 / 72%);
+  --panel: rgb(10 14 13 / 78%);
+  --line: #2f3834;
   color-scheme: dark;
   font-family:
     system-ui,
@@ -108,11 +109,286 @@ a:hover {
   outline-offset: -4px;
 }
 
-.brand,
-.selection {
+.brand {
   position: absolute;
   margin: 0;
   pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.find {
+  margin-top: 0.75rem;
+  width: 14rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
+  pointer-events: auto;
+}
+
+.find::placeholder {
+  color: var(--faint);
+}
+
+.find:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+.find[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
+.hover-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.3rem;
+  background: var(--panel);
+  color: var(--fg);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.hover-label[hidden] {
+  display: none;
+}
+
+/* The inspector: a panel at the right, or a sheet along the bottom on narrow screens. */
+.inspector {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  width: min(24rem, 42vw);
+  max-height: calc(100% - 2.5rem);
+  overflow-y: auto;
+  padding: 1rem 1.1rem 0.9rem;
+  border-radius: 0.6rem;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector[hidden] {
+  display: none;
+}
+
+.inspector-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.inspector-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.inspector-class {
+  color: var(--muted);
+}
+
+.inspector-close {
+  margin-left: auto;
+  padding: 0 0.35rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.inspector-close:hover,
+.inspector-close:focus-visible {
+  color: var(--fg);
+}
+
+.inspector-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.8rem;
+  margin: 0.6rem 0 0.2rem;
+}
+
+.inspector-facts dt {
+  color: var(--muted);
+}
+
+.inspector-facts dd {
+  margin: 0;
+}
+
+.inspector-heading {
+  margin: 0.9rem 0 0.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.inspector-count {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.inspector-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inspector-row {
+  display: grid;
+  grid-template-columns: 5.5rem 1rem 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.12rem 0;
+}
+
+.row-name {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+}
+
+button.row-name {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.2em;
+}
+
+button.row-name:hover,
+button.row-name:focus-visible {
+  text-decoration-color: currentColor;
+}
+
+.row-sign {
+  text-align: center;
+  color: var(--muted);
+}
+
+.row-sign[data-sign='1'] {
+  color: #f0875a;
+}
+
+.row-sign[data-sign='-1'] {
+  color: #6e9ef4;
+}
+
+.row-sections {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.row-bar {
+  height: 0.3rem;
+  border-radius: 0.15rem;
+  background: var(--line);
+}
+
+.row-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.05rem 0.4rem 0.05rem 0.15rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.badge-level {
+  display: inline-grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  font-weight: 650;
+  background: var(--line);
+  color: var(--fg);
+}
+
+/* Brighter the better the evidence: measured, derived, and assumed. */
+.badge-5 .badge-level {
+  background: #e6e0d3;
+  color: var(--bg);
+}
+
+.badge-4 .badge-level {
+  background: #8c9a92;
+  color: var(--bg);
+}
+
+.badge-0 {
+  border-style: dashed;
+}
+
+.inspector-more {
+  margin-top: 0.2rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.inspector-key {
+  margin-top: 0.9rem;
+  color: var(--muted);
+}
+
+.inspector-key summary {
+  cursor: pointer;
+}
+
+.inspector-key dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 0.6rem;
+  margin: 0.5rem 0;
+}
+
+.inspector-key dd {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.inspector-scale {
+  margin: 0;
+  font-size: 0.75rem;
 }
 
 .brand {
@@ -133,19 +409,6 @@ a:hover {
 .brand-lede {
   margin: 0.25rem 0 0;
   color: var(--muted);
-}
-
-.selection {
-  top: 1.25rem;
-  right: 1.5rem;
-  max-width: 26rem;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--fg);
-}
-
-.selection:empty {
-  display: none;
 }
 
 /* The legend and the hint and credit share one row along the bottom, wrapping rather than overlapping. */
@@ -256,20 +519,29 @@ a:hover {
     display: none;
   }
 
-  .brand,
-  .selection {
+  .brand {
     left: 1rem;
     right: 1rem;
-  }
-
-  .brand {
     top: 1rem;
   }
 
-  .selection {
-    top: 3.25rem;
-    max-width: none;
-    text-align: left;
+  .find {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .inspector {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 55%;
+    border-radius: 0.8rem 0.8rem 0 0;
+  }
+
+  .graph.inspecting .footer {
+    display: none;
   }
 
   .footer {

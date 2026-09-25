@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { DEFAULT_LAYOUT, graphLayout, isCordNeuron, unbendNeurons } from '../src/render/layout.ts';
 import { linkKind, Wiring } from '../src/ui/connections.ts';
+import { inspect, musclesByNeuron } from '../src/ui/inspection.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -84,5 +85,49 @@ describe('the wiring the graph draws', () => {
     const listed = aval.find((c) => c.kind === 'out' && wiring.names[c.partner] === first.post);
     expect(listed?.signSource).toBe(first.signSource);
     expect(linkKind(listed!)).toBe(first.sign > 0 ? 'excitatory' : first.sign < 0 ? 'inhibitory' : 'unsigned');
+  });
+});
+
+describe('the inspector', () => {
+  const wiring = new Wiring(data);
+  const muscles = musclesByNeuron(data);
+  const look = (name: string) => inspect(data, wiring, muscles, at(name));
+
+  it("lists AVAL's partners by kind, strongest first", () => {
+    const aval = look('AVAL');
+    expect(aval.groups.map((g) => [g.kind, g.rows.length])).toEqual([
+      ['out', 43],
+      ['in', 65],
+      ['gap', 44],
+    ]);
+    for (const g of aval.groups) {
+      for (let k = 1; k < g.rows.length; k++) expect(g.rows[k].sections).toBeLessThanOrEqual(g.rows[k - 1].sections);
+    }
+  });
+
+  it("badges every synapse with its data's sign source, and a physiology sign with its paper", () => {
+    const labels = { physiology: 'Physiology', expression: 'Expression', rule: 'Transmitter', none: 'No basis' };
+    for (const name of ['AVAL', 'AWCL', 'RIML']) {
+      const { groups } = look(name);
+      for (const row of groups.find((g) => g.kind === 'out')?.rows ?? []) {
+        const c = data.chemical.find((d) => d.pre === name && d.post === row.name);
+        expect(row.provenance.label, `${name}→${row.name}`).toBe(labels[c!.signSource]);
+      }
+    }
+    const aib = look('AWCL').groups[0].rows.find((r) => r.name === 'AIBL');
+    expect(aib?.provenance.cite).toBe('chalasani2007');
+  });
+
+  it("shows a motor neuron's muscles, and gap junctions without a sign", () => {
+    const vb6 = look('VB6');
+    const onMuscle = vb6.groups.find((g) => g.kind === 'muscle');
+    expect(onMuscle?.rows.length).toBe(data.neuromuscular.filter((j) => j.pre === 'VB6').length);
+    expect(onMuscle?.rows.every((r) => r.neuron === null && r.provenance.label === 'Receptors')).toBe(true);
+    expect(vb6.groups.find((g) => g.kind === 'gap')?.rows.every((r) => r.sign === null)).toBe(true);
+  });
+
+  it('says which neurons release no identified transmitter', () => {
+    const silent = data.neurons.find((n) => n.transmitters.length === 0)!;
+    expect(look(silent.name).facts[0].value).toMatch(/^none identified/);
   });
 });

@@ -7,6 +7,8 @@
     "../src/science/*.ts",
     "../src/render/layout.ts",
     "../src/render/palette.ts",
-    "../src/ui/connections.ts"
+    "../src/ui/connections.ts",
+    "../src/ui/inspection.ts",
+    "../src/science/provenance.ts"
   ]
 }
