@@ -361,3 +361,30 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 
 A CPU step costs about 34 µs.
 **Status.** Done.
+
+## 2026-09-25 — The loop outside the brain, and what a first look found
+
+**Decision.** Milestone 0c's second part wires the layers of PLAN §4.3–4.4 to the brain and body, stepped in PLAN §1's order:
+
+1. The body's curvature.
+2. The proprioceptive and head-switch currents.
+3. The brain.
+4. The neuromuscular layer.
+5. The body.
+
+Details PLAN left open, settled here:
+
+- **Oscillators in the voltage solve.** A FitzHugh–Nagumo current is a negative conductance of up to g_osc on its middle branch, and g_osc must exceed an oscillating neuron's own conductance (0.15–1.4 nS for the A- and B-types) to cycle at all, which is more than the solve's 1.5 C/dt = 0.6 nS. Linearising all of it would make the system indefinite, which conjugate gradients can't solve. So the stabilising part (−g_osc(x² − 1) where |x| > 1) goes on the left and the rest is explicit, first order in that term alone. A lone oscillator at g_osc = 2 nS cycles within 0.61% of the period of an RK4 solution of the same equations at 2.5 ms, and 0.22% at 0.5 ms, with every solve converging.
+- **The head switch's gate** is the four SMDs' mean depolarisation above threshold, compared with θ_osc (level 0). Its own antiphase current roughly cancels in that mean, so it can't hold itself on.
+- **Proprioceptive fields** span each motor neuron's neuromuscular targets: B-types sense the 0.2 body lengths in front, A-types the 0.2 behind. Two A-types, DA9 and VA12, have muscles reaching the tail and nothing behind, so they get no proprioception. Dorsal neurons read dorsal curvature and ventral ones its opposite.
+- **Muscles to segments.** Each of the body's 48 segments takes the mean of the left and right muscles covering its middle, and muscle activation follows its drive exactly over each step.
+- **Restarts.** The step after the head-switch current changes (a flip, or the gate opening or closing) is implicit Euler, by PLAN §3.4's rule.
+
+**What a first look found.** Hand values and a 64-sample random search over wide ranges of the eight calibrated parameters, 30 s each, drew three conclusions:
+
+- **Nothing moves from rest unless θ_osc is negative.** Every neuron rests at its threshold by construction (§3.3), and with FitzHugh's textbook constants an oscillator with no drive is excitable, not oscillating. So the B-types cycle at rest only when θ_osc sits 2–12 mV below it (for a neuron held by about 1 nS), and A-types only when depolarised. Calibration's bounds on θ_osc must therefore include negative values.
+- **No sample crawled.** The fastest moved at 0.02 body lengths per second against the 0.22 target. The head switch flipped at most twice in 30 s, and midbody curvature rarely oscillated.
+- **The loop works as built, though.** Signs and wiring check out (SMDD drives dorsal muscles and SMDV ventral ones), and every layer passes its unit tests.
+
+Whether calibration can find crawling is part 3's question, and the go/no-go's.
+**Status.** Done; the exploration informs part 3.

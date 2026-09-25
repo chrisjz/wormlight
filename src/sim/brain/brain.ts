@@ -10,6 +10,22 @@ import type { Network } from './network.ts';
 import { gaussian } from './rng.ts';
 import { ConjugateGradient, type Solve } from './solver.ts';
 
+// Intrinsic oscillators on the A- and B-type motor neurons (PLAN §4.3): a FitzHugh–Nagumo pair per neuron,
+// I_osc = g_osc v₀ (x − x³/3 − w) with x = (V − V_th − θ)/v₀ and τ_w dw/dt = x + 0.7 − 0.8 w, where
+// v₀ = 1/(2β) and θ is the drive threshold for B-types and 0 for A-types.
+export interface Oscillators {
+  neurons: Int32Array;
+  // θ for each, in mV.
+  shift: Float64Array;
+  // g_osc in nS and τ_w in s.
+  gain: number;
+  recovery: number;
+}
+
+// FitzHugh's textbook constants.
+const FHN_A = 0.7;
+const FHN_B = 0.8;
+
 export interface SolverOptions {
   tolerance?: number;
   maxIterations?: number;
@@ -90,7 +106,11 @@ export class Brain {
   // met a residual that isn't finite.
   lastSolve: Solve = { iterations: 0, converged: true };
   unconverged = 0;
+  // The oscillators, if any, and each one's recovery variable w.
+  oscillators: Oscillators | null = null;
+  recovery = new Float64Array(0);
 
+  private previousRecovery = new Float64Array(0);
   private readonly previousVoltage: Float64Array;
   private readonly previousActivation: Float64Array;
   private historyStep = 0;
@@ -121,15 +141,34 @@ export class Brain {
     this.rest();
   }
 
-  // Every neuron at its threshold with activation at the midpoint: the network's fixed point with no input.
+  // Attach oscillators, each starting on its w-nullcline at the neuron's present voltage.
+  setOscillators(oscillators: Oscillators | null): void {
+    this.oscillators = oscillators;
+    const count = oscillators?.neurons.length ?? 0;
+    this.recovery = new Float64Array(count);
+    this.previousRecovery = new Float64Array(count);
+    if (oscillators) {
+      const v0 = 1 / (2 * this.network.slope);
+      oscillators.neurons.forEach((i, k) => {
+        const x = (this.voltage[i] - this.threshold[i] - oscillators.shift[k]) / v0;
+        this.recovery[k] = (x + FHN_A) / FHN_B;
+      });
+    }
+    this.historyStep = 0;
+  }
+
+  // Every neuron at its threshold with activation at the midpoint: the network's fixed point with no input,
+  // and with oscillators off. Oscillators start on their w-nullclines.
   rest(): void {
     this.setState(this.threshold, new Float64Array(this.n).fill(midpointActivation(this.network)));
+    if (this.oscillators) this.setOscillators(this.oscillators);
   }
 
   // Set the state, as after `steps` steps, so a restored state draws the noise it would have drawn next.
-  setState(voltage: ArrayLike<number>, activation: ArrayLike<number>, steps = 0): void {
+  setState(voltage: ArrayLike<number>, activation: ArrayLike<number>, steps = 0, recovery?: ArrayLike<number>): void {
     this.voltage.set(voltage);
     this.activation.set(activation);
+    if (recovery) this.recovery.set(recovery);
     this.steps = steps;
     this.historyStep = 0;
   }
@@ -163,6 +202,19 @@ export class Brain {
       d[i] = g;
       b[i] = current;
     }
+    // The oscillators' current, linearised about this step's voltage: implicitly where the cubic stabilises
+    // (|x| > 1, the outer branches), which only adds conductance and keeps the system positive definite, and
+    // explicitly where it destabilises (the middle branch, crossed in a fast jump).
+    const osc = this.oscillators;
+    const v0 = 1 / (2 * network.slope);
+    if (osc) {
+      osc.neurons.forEach((i, k) => {
+        const x = (v[i] - this.threshold[i] - osc.shift[k]) / v0;
+        const stabilising = osc.gain * Math.max(x * x - 1, 0);
+        d[i] += stabilising;
+        b[i] += osc.gain * v0 * (x - (x * x * x) / 3 - this.recovery[k]) + stabilising * v[i];
+      });
+    }
     const next = this.next;
     next.set(v);
     this.lastSolve = this.solver.solve(d, gap, b, next, this.tolerance, this.maxIterations);
@@ -177,6 +229,18 @@ export class Brain {
       s[i] = updated;
       vp[i] = v[i];
       v[i] = next[i];
+    }
+    // Recovery by BDF2 (implicit Euler first), linear in w, with x at the new voltage.
+    if (osc) {
+      const w = this.recovery;
+      const wp = this.previousRecovery;
+      const h = dt / osc.recovery;
+      osc.neurons.forEach((i, k) => {
+        const x = (v[i] - this.threshold[i] - osc.shift[k]) / v0;
+        const history = bdf2 ? 2 * w[k] - 0.5 * wp[k] : w[k];
+        wp[k] = w[k];
+        w[k] = (history + h * (x + FHN_A)) / (a + h * FHN_B);
+      });
     }
     this.historyStep = dt;
     this.steps++;
