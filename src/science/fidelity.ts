@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      'Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, no setting of the planned model made the body crawl (DECISIONS.md)',
+      'Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl (DECISIONS.md)',
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -206,7 +206,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [5],
     basis: 'Cook et al. 2019, as released in Emmons 2024',
     caveats:
-      "As above, and more so: 45% of the neuron–muscle edges were extrapolated from their neighbours' weights, half of them the sublateral motor neurons'",
+      "Like the chemical synapses', and more so: 45% of the neuron–muscle edges were extrapolated from their neighbours' weights, half of them the sublateral motor neurons'",
     upgrade: '',
     sources: ['cook2019', 'emmons2024'],
     testedBy: [{ check: 'checkpoint0' }, { check: 'checkpoint1' }],
@@ -321,10 +321,10 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'neurons',
     levels: [2],
     basis: "Our adaptation of Kunert's equilibrium threshold (DECISIONS.md)",
-    caveats:
-      "Every neuron rests at half activation, though measured resting potentials differ by class: −71.7 mV in VA5 against −53.2 mV in VB6 (Liu, Chen & Wang 2014). In Cook's data the A-types' junctions onto body muscle about match the B-types' ventrally and double them dorsally, so half-on A-types drive the muscles as much as the B-types do",
+    caveats: (f) =>
+      `Every neuron rests at half activation, though measured resting potentials differ by class: −71.7 mV in VA5 against −53.2 mV in VB6 (Liu, Chen & Wang 2014). In Cook's data the A-types' excitatory junctions onto muscle have ${f.motorMuscle.A.ventral} EM sections ventrally and ${f.motorMuscle.A.dorsal} dorsally, against the B-types' ${f.motorMuscle.B.ventral} and ${f.motorMuscle.B.dorsal}, so half-on A-types drive the muscles at least as much as the B-types do`,
     upgrade: 'Measured resting states',
-    sources: ['kunert2014', 'liu2014'],
+    sources: ['kunert2014', 'liu2014', 'cook2019'],
     testedBy: [{ check: 'checkpoint5' }],
   },
   {

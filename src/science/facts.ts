@@ -23,6 +23,8 @@ export interface Facts {
   silentMuscleInputs: number;
   // The neuron with the most gap-junction sections, and how many it has.
   largestGap: { name: string; sections: number };
+  // The EM sections of the A- and B-type motor neurons' excitatory junctions onto dorsal and ventral muscle.
+  motorMuscle: Record<'A' | 'B', { dorsal: number; ventral: number }>;
 }
 
 export function countFacts(data: WormlightData): Facts {
@@ -51,7 +53,20 @@ export function countFacts(data: WormlightData): Facts {
     },
     silentMuscleInputs: new Set(data.neuromuscular.filter((j) => j.sign === 0).map((j) => j.pre)).size,
     largestGap: largestGap(data),
+    motorMuscle: motorMuscle(data),
   };
+}
+
+function motorMuscle(data: WormlightData): Facts['motorMuscle'] {
+  const type = new Map(data.neurons.map((n) => [n.name, n.oscillator]));
+  const side = new Map(data.muscles.map((m) => [m.name, m.quadrant.startsWith('D') ? 'dorsal' : 'ventral'] as const));
+  const out = { A: { dorsal: 0, ventral: 0 }, B: { dorsal: 0, ventral: 0 } };
+  for (const j of data.neuromuscular) {
+    const t = type.get(j.pre);
+    const s = side.get(j.muscle);
+    if (j.sign > 0 && (t === 'A' || t === 'B') && s) out[t][s] += j.sections;
+  }
+  return out;
 }
 
 function largestGap(data: WormlightData): { name: string; sections: number } {

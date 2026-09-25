@@ -2,7 +2,7 @@
 
 A living _C. elegans_ in the browser. The worm's full connectome runs on the GPU and drives a physically simulated body on an agar plate, and its neurons glow as they activate, in the style of calcium imaging.
 
-**Status:** planning. The build spec is [WORMLIGHT_SPEC.md](WORMLIGHT_SPEC.md); nothing is simulated yet.
+**Status:** milestone 0c is done. The CPU reference simulates the connectome, the layers outside it and the body, but crawling does not yet emerge ([DECISIONS.md](DECISIONS.md), 2026-09-26). Nothing runs in the browser yet. The build spec is [WORMLIGHT_SPEC.md](WORMLIGHT_SPEC.md).
 
 ## Run it
 

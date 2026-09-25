@@ -62,7 +62,7 @@ export function formatNumber(v: number): string {
 }
 
 export function formatValue(param: Param): string {
-  if (param.value === null) return param.level === 1 ? 'calibrated in milestone 0c' : 'set by rule';
+  if (param.value === null) return param.level === 1 ? 'not yet calibrated' : 'set by rule';
   return formatNumber(param.value);
 }
 
@@ -127,7 +127,7 @@ export function fidelityPage(facts: Facts): string {
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    '> **Status: planned.** Nothing is simulated yet, so each level is the one the part is planned at. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.',
+    '> **Status: milestone 0c.** The CPU reference simulates the network, the layers outside it and the body, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). No behavioural checkpoint has run and the calibrated parameters have no values yet, so "Tested by" lists the checks planned for each part, and the parts not built yet (odour, touch and the dish) carry the levels planned for them. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.',
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],
