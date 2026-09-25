@@ -5,11 +5,19 @@ on:
     branches: [main]
   pull_request:
 
+# The repository is public and pull requests from forks run this workflow, so its token can only read
+# unless a job asks for more, as deploy does.
+permissions:
+  contents: read
+
 jobs:
   checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -34,6 +42,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -53,16 +63,69 @@ jobs:
           path: data/cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
-  # A Pages site is public even when its repository is private, so deploying
-  # stays off until the project is ready. To go live: Settings → Pages →
-  # Source: GitHub Actions, then set the repository variable DEPLOY_PAGES=true.
-  # BASE_PATH defaults to the project-site path; set the variable BASE_PATH=/
-  # if a custom domain is added.
+  # The rendered pixels: the built app in headless Chrome on a runner with no GPU, a fixed set of views
+  # read back through the app's own snapshot and compared with the baselines in tests/visual/baseline/. It
+  # catches what lint, types and unit tests can't, such as a shader or bind-group change that blanks a
+  # pass. After Universe Atlas's job.
+  #
+  # Chrome and the runner image are pinned, since either changes the pixels and this job gates merging and
+  # deploying: an unpinned stable Chrome broke Universe's identical job. WebGPU here is SwiftShader, the
+  # software Vulkan that ships with Chrome, offered as the fallback adapter, so pinning Chrome pins it too.
+  # Chrome offers no adapter at all without Mesa's Vulkan drivers, so they are installed. Chrome's version
+  # is the one the installed puppeteer-core targets (node_modules/puppeteer-core/lib/puppeteer/revisions.js);
+  # bump the two together and refresh the baselines in the same PR. The capture log names the Chrome version
+  # and the adapter that drew the frames.
+  visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: 154.0.8037.57
+      - name: Install Mesa's Vulkan drivers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
+      - name: Capture views (WebGPU on SwiftShader)
+        id: capture
+        run: npm run visual:capture
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          WEBGPU_CI: 1
+      # Compare whatever was captured, even when some views failed, so their diffs are uploaded.
+      - name: Compare with baselines
+        if: ${{ !cancelled() && steps.capture.outcome != 'skipped' }}
+        run: npm run visual:compare
+      - name: Upload captures and diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual
+          path: visual-out/
+          retention-days: 14
+
+  # Publishes main to GitHub Pages, https://chrisjz.github.io/wormlight/, once every other job has passed.
+  # Pages takes its source from GitHub Actions, and the repository variable DEPLOY_PAGES=true turns this job
+  # on; set it to anything else to stop deploying. BASE_PATH defaults to the project-site path; set the
+  # variable BASE_PATH=/ if a custom domain is added. Deploys queue rather than overlap.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true'
-    needs: [checks, data]
+    needs: [checks, data, visual]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
@@ -70,6 +133,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24

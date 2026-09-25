@@ -1,4 +1,12 @@
 {
   "extends": "../scripts/tsconfig.json",
-  "include": ["**/*.ts", "../src/sim/**/*.ts", "../src/data/schema.ts", "../src/science/*.ts"]
+  "include": [
+    "**/*.ts",
+    "../src/sim/**/*.ts",
+    "../src/data/schema.ts",
+    "../src/science/*.ts",
+    "../src/render/layout.ts",
+    "../src/render/palette.ts",
+    "../src/ui/connections.ts"
+  ]
 }

@@ -3,7 +3,7 @@ dist/
 coverage/
 *.local
 .DS_Store
-visual-out/
+visual-out*/
 harness-out/
 data/cache/
 .venv/

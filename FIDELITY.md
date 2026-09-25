@@ -124,7 +124,7 @@ A level describes the kind of evidence, not how much a part matters, and not cer
 ## Presentation
 
 - Calcium-style glow: model activity filtered through published GCaMP kinetics (Chen et al. 2013). The colour and normalisation are display choices.
-- The 3D graph keeps anatomical order but scales the body axis non-uniformly so the head stays readable.
+- The 3D graph places each soma where one reconstruction has it (the WormBase Virtual Worm, via c302; Gleeson et al. 2018), unbent along the ventral cord, with the body axis stretched where neurons crowd and the cross-section enlarged. Order along the unbent body is kept.
 - The camera follows the worm at body scale.
 
 ## Reference data for validation
