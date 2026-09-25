@@ -1,0 +1,7 @@
+# Check out text with LF endings everywhere, so nothing a build hashes changes with the platform.
+* text=auto eol=lf
+
+# Pinned by SHA-256: stored and checked out byte for byte, never converted.
+data/vendor/** -text
+data/c302-cells.sha256 -text
+data/sign-overrides.csv -text

@@ -9,29 +9,13 @@ import { bodyFrame, checkAxes, muscles, oscillator, position, sensing } from './
 import { dataSourcesPage, noticePage } from './docs.ts';
 import { parseMorphology, type Morphology } from './nml.ts';
 import { formatMarkdown, renderJson } from './render.ts';
+import { checkExport, type NematodeExport } from './export.ts';
 import { buildReport, crossCheckReport, parseCreamer } from './reports.ts';
 import { edgeKey, parseOverrides, readFenyves, signChemical, signNeuromuscular } from './signs.ts';
 import { ROOT, loadSources, pinById, readFile, readManifest, sha256, type Pin } from './sources.ts';
 import { readSheet } from './xlsx.ts';
 
-// The part of Quantum Nematode's `wormlight.connectome/1` export this build reads.
-interface NematodeExport {
-  schema: string;
-  provenance: { nematodeCommit: string; nematodeDirty: boolean };
-  neurons: {
-    name: string;
-    class: WormlightData['neurons'][number]['class'];
-    transmitters: string[];
-    ruleSign: 1 | -1 | null;
-  }[];
-  muscles: string[];
-  chemical: { pre: string; post: string; sections: number }[];
-  gap: { a: string; b: string; sections: number }[];
-  neuromuscular: { pre: string; muscle: string; sections: number }[];
-}
-
 const OVERRIDES = 'data/sign-overrides.csv';
-const TRANSMITTER_SIGN: Record<string, 1 | -1> = { ACh: 1, Glu: 1, GABA: -1 };
 
 function firstFile(pin: Pin): NonNullable<Pin['files']>[number] {
   const file = pin.files?.[0];
@@ -39,29 +23,13 @@ function firstFile(pin: Pin): NonNullable<Pin['files']>[number] {
   return file;
 }
 
-async function readExport(pin: Pin): Promise<NematodeExport> {
-  const exported = JSON.parse((await readFile(firstFile(pin))).toString('utf8')) as NematodeExport;
-  if (exported.schema !== 'wormlight.connectome/1') throw new Error(`nematode export has schema ${exported.schema}`);
-  if (exported.provenance.nematodeDirty) throw new Error('nematode export was made from a dirty tree');
-  if (exported.provenance.nematodeCommit !== pin.origin?.commit) {
-    throw new Error(
-      `nematode export records commit ${exported.provenance.nematodeCommit}, not the pinned ${pin.origin?.commit}`,
-    );
-  }
-  // The export's rule sign must be the one its primary identity implies, so the primary can be read
-  // as the first identity.
-  for (const n of exported.neurons) {
-    const implied = TRANSMITTER_SIGN[n.transmitters[0] ?? ''] ?? null;
-    if (implied !== n.ruleSign)
-      throw new Error(`${n.name}: rule sign ${n.ruleSign} does not follow from ${n.transmitters[0]}`);
-  }
-  return exported;
-}
-
 async function build(): Promise<Map<string, string>> {
   const sources = loadSources();
   const exportPin = pinById(sources, 'nematode-export');
-  const exported = await readExport(exportPin);
+  const exported = checkExport(
+    JSON.parse((await readFile(firstFile(exportPin))).toString('utf8')) as NematodeExport,
+    exportPin.origin?.commit,
+  );
   const neuronNames = new Set(exported.neurons.map((n) => n.name));
   const edges = new Set(exported.chemical.map((c) => edgeKey(c.pre, c.post)));
 
@@ -90,22 +58,28 @@ async function build(): Promise<Map<string, string>> {
   const overridesText = readFileSync(join(ROOT, OVERRIDES), 'utf8');
   const overrides = parseOverrides(overridesText);
 
-  const primary = new Map(exported.neurons.map((n) => [n.name, n.transmitters[0]]));
-  const chemical = signChemical(exported.chemical, {
+  const identities = new Map(exported.neurons.map((n) => [n.name, n.transmitters]));
+  const { chemical, setAside } = signChemical(exported.chemical, {
+    identities,
     ruleSign: new Map(exported.neurons.map((n) => [n.name, n.ruleSign])),
     fenyves: [fenyvesS1, fenyvesS5],
     overrides,
   });
   const neuromuscular: Neuromuscular[] = exported.neuromuscular.map((j) => ({
     ...j,
-    ...signNeuromuscular(primary.get(j.pre)),
+    ...signNeuromuscular(identities.get(j.pre)?.[0]),
   }));
 
   const data = validateWormlightData({
     meta: {
       schema: SCHEMA,
-      signCitations: { expression: 'fenyves2020', rule: 'wang2024', receptor: 'richmond1999' },
-      muscleSpacing: 'even',
+      signBasis: { expression: 'fenyves2020', ruleIdentities: 'wang2024', receptor: 'richmond1999' },
+      muscleSpacing: 'shared-grid',
+      citations: sources.citations,
+      licences: sources.datasets
+        .filter((d) => d.use === 'shipped' && d.notice)
+        .map((d) => ({ dataset: d.id, spdx: d.notice?.spdx ?? '' })),
+      notice: 'NOTICE.md',
       sources: [
         ...sources.pins.flatMap((pin) =>
           pin.manifest
@@ -139,6 +113,7 @@ async function build(): Promise<Map<string, string>> {
   const report = buildReport({
     data,
     fenyves: [fenyvesS1, fenyvesS5],
+    setAside,
     overrides,
     frame,
     axes,
@@ -150,7 +125,7 @@ async function build(): Promise<Map<string, string>> {
   for (const [path, markdown] of [
     ['public/data/NOTICE.md', noticePage(sources)],
     ['DATA_SOURCES.md', dataSourcesPage(sources)],
-    ['data/reports/sign-crosscheck.md', crossCheckReport(chemical, creamer)],
+    ['data/reports/sign-crosscheck.md', crossCheckReport(chemical, creamer, sources)],
     ['data/reports/data-build.md', report],
   ] as const) {
     outputs.set(path, await formatMarkdown(markdown, join(ROOT, path)));

@@ -18,7 +18,8 @@ export function renderJson(value: Record<string, unknown>): string {
 }
 
 export async function formatMarkdown(markdown: string, path: string): Promise<string> {
-  const options = (await resolveConfig(path)) ?? {};
+  // Resolve options as the Prettier CLI does, .editorconfig included, so both format the page the same way.
+  const options = (await resolveConfig(path, { editorconfig: true })) ?? {};
   return format(markdown, { ...options, parser: 'markdown', filepath: path });
 }
 

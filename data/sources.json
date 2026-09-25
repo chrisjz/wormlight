@@ -1,7 +1,14 @@
 {
   "$comment": "Every input the data build reads, pinned by digest, and every dataset Wormlight credits. `npm run data:build` reads this file and generates DATA_SOURCES.md and public/data/NOTICE.md from it. Edit this file, never the generated pages.",
+  "citations": {
+    "chalasani2007": "Chalasani SH, Chronis N, Tsunozaki M, et al. Dissecting a circuit for olfactory behaviour in Caenorhabditis elegans. Nature 450:63–70 (2007), doi:10.1038/nature06292",
+    "fenyves2020": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16:e1007974 (2020), doi:10.1371/journal.pcbi.1007974",
+    "wang2024": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402",
+    "richmond1999": "Richmond JE, Jorgensen EM. One GABA and two acetylcholine receptors function at the C. elegans neuromuscular junction. Nature Neuroscience 2:791–797 (1999), doi:10.1038/12160"
+  },
   "licenceTexts": {
-    "mit-openworm-2024": "MIT License\n\nCopyright (c) 2024 OpenWorm\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    "mit-openworm-2024": "MIT License\n\nCopyright (c) 2024 OpenWorm\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
+    "mit-creamer-2026": "MIT License\n\nCopyright (c) 2026 Matthew S. Creamer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
   },
   "pins": [
     {
@@ -84,7 +91,9 @@
       "notice": {
         "title": "Connectome",
         "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
-        "attribution": "Cook SJ, Jarrell TA, Brittin CA, et al. Whole-animal connectomes of both Caenorhabditis elegans sexes. Nature 571:63–71 (2019), doi:10.1038/s41586-019-1352-7. As released in Emmons SW. Comprehensive analysis of the C. elegans connectome reveals novel circuits and functions of previously unstudied neurons. PLoS Biology 22(12):e3002939 (2024), doi:10.1371/journal.pbio.3002939, S1 File. Wormlight uses the hermaphrodite matrices' counts unchanged, restricted to the 302 neurons and the 95 body wall muscles, with the two directions of each gap junction folded into one pair."
+        "attribution": "Cook SJ, Jarrell TA, Brittin CA, et al. Whole-animal connectomes of both Caenorhabditis elegans sexes. Nature 571:63–71 (2019), doi:10.1038/s41586-019-1352-7. As released in Emmons SW. Comprehensive analysis of the C. elegans connectome reveals novel circuits and functions of previously unstudied neurons. PLoS Biology 22(12):e3002939 (2024), doi:10.1371/journal.pbio.3002939, S1 File (doi:10.1371/journal.pbio.3002939.s001). Wormlight uses the hermaphrodite matrices' counts unchanged, restricted to the 302 neurons and the 95 body wall muscles, with the two directions of each gap junction folded into one pair and the 14 gap junctions between a neuron and itself omitted.",
+        "copyright": "© 2024 Scott W. Emmons",
+        "spdx": "CC-BY-4.0"
       }
     },
     {
@@ -98,7 +107,9 @@
       "notice": {
         "title": "Neurotransmitter identities",
         "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
-        "attribution": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402, Supplementary File 2. Quantum Nematode reads each neuron's release identities from it, excluding orphan and unknown entries, uptake-only entries, the atlas's hedged entries and one precursor."
+        "attribution": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402, Supplementary File 2. Quantum Nematode reads each neuron's release identities from it, excluding orphan and unknown entries, uptake-only entries, the atlas's hedged entries and one precursor.",
+        "copyright": "© 2024, Wang et al.",
+        "spdx": "CC-BY-4.0"
       }
     },
     {
@@ -111,10 +122,12 @@
       "licence": "MIT, Copyright (c) 2024 OpenWorm. cect attributes its classification to Cook et al. 2019 and WormAtlas",
       "notice": {
         "title": "Neuron classes",
-        "licence": "MIT, Copyright (c) 2024 OpenWorm (https://github.com/openworm/ConnectomeToolbox); licence text below",
+        "licence": "MIT (https://github.com/openworm/ConnectomeToolbox); licence text below",
         "attribution": "Neuron classes from OpenWorm ConnectomeToolbox (cect) Cells.py v0.3.1, as curated in Quantum Nematode (https://github.com/SyntheticBrains/nematode, Apache-2.0).",
-        "licenceText": "mit-openworm-2024"
-      }
+        "copyright": "Copyright (c) 2024 OpenWorm",
+        "spdx": "MIT"
+      },
+      "licenceText": "mit-openworm-2024"
     },
     {
       "id": "c302",
@@ -126,23 +139,27 @@
       "licence": "MIT (c302). The morphologies come from the WormBase Virtual Worm (Grove & Sternberg), released into the public domain",
       "notice": {
         "title": "Neuron positions",
-        "licence": "MIT, Copyright (c) 2024 OpenWorm; licence text below. The underlying WormBase Virtual Worm model is in the public domain",
+        "licence": "MIT; licence text below. The underlying WormBase Virtual Worm model is in the public domain",
         "attribution": "Neuron positions and process extents derived from the c302 NeuroML2 cell morphologies (OpenWorm, https://github.com/openworm/c302), which OpenWorm converted from the WormBase Virtual Worm, a 3D model of the worm made by Christian Grove and Paul Sternberg (Caltech).",
-        "licenceText": "mit-openworm-2024"
-      }
+        "copyright": "Copyright (c) 2024 OpenWorm",
+        "spdx": "MIT"
+      },
+      "licenceText": "mit-openworm-2024"
     },
     {
       "id": "fenyves2020",
       "use": "shipped",
       "pins": ["fenyves2020-s1", "fenyves2020-s5"],
       "dataset": "Fenyves et al. 2020, _PLoS Comput Biol_ 16:e1007974, files `journal.pcbi.1007974.s003` (S1 Data, the WormWiring reconstruction) and `s007` (S5 Data, its \"5. Sign prediction (Cook)\" sheet)",
-      "takes": "Synapse signs predicted from transmitter and receptor expression (\"NT+R\"). The two files agree on all 3,121 connections they share",
+      "takes": "Synapse signs predicted from transmitter and receptor expression (\"NT+R\"), used where the presynaptic transmitter the prediction rests on is one of the cell's identities in Wang et al. 2024. The two files agree on all 3,121 connections they share",
       "route": "Wormlight data build",
       "licence": "CC BY 4.0. Cite Fenyves et al. 2020",
       "notice": {
         "title": "Synapse signs",
         "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
-        "attribution": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16(12):e1007974 (2020), doi:10.1371/journal.pcbi.1007974, S1 and S5 Data. Wormlight takes the predicted polarity of each connection."
+        "attribution": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16(12):e1007974 (2020), doi:10.1371/journal.pcbi.1007974, S1 Data (doi:10.1371/journal.pcbi.1007974.s003) and S5 Data (doi:10.1371/journal.pcbi.1007974.s007). Wormlight takes the predicted polarity of each connection, and sets it aside where the presynaptic transmitter it rests on is not among the cell's identities in Wang et al. 2024.",
+        "copyright": "© 2020 Fenyves et al.",
+        "spdx": "CC-BY-4.0"
       }
     },
     {
@@ -157,9 +174,10 @@
       "id": "creamer-lds",
       "use": "tests",
       "pins": ["creamer-lds"],
-      "dataset": "Creamer, Leifer & Pillow fitted weights (`Creamer_LDS_2026`, also vendored in nematode)",
+      "dataset": "Creamer, Leifer & Pillow fitted weights (`Creamer_LDS_2026`, pinned from the authors' repository; nematode vendors the same file)",
       "takes": "The sign cross-check report on the 1,049 head connections they cover; never used as strengths",
-      "licence": "MIT"
+      "licence": "MIT, Copyright (c) 2026 Matthew S. Creamer. The cross-check report reproduces the licence text beside the weights it quotes",
+      "licenceText": "mit-creamer-2026"
     },
     {
       "id": "eigenworms",

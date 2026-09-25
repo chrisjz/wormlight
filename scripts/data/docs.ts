@@ -63,14 +63,15 @@ export function dataSourcesPage(sources: Sources): string {
 
 export function noticePage(sources: Sources): string {
   const shipped = sources.datasets.filter((d) => d.use === 'shipped' && d.notice);
-  const texts = [...new Set(shipped.flatMap((d) => (d.notice?.licenceText ? [d.notice.licenceText] : [])))];
+  const texts = [...new Set(shipped.flatMap((d) => (d.licenceText ? [d.licenceText] : [])))];
   return [
     '# Data notices',
     GENERATED,
-    "`wormlight.v1.json` combines the datasets below. Each keeps its own licence and attribution requirements, reproduced here. Wormlight's code is licensed separately, under Apache-2.0.",
+    "`wormlight.v1.json` combines the datasets below, and its `meta.licences` names each one's licence. Each keeps its own licence and attribution requirements, reproduced here. Wormlight's code is licensed separately, under Apache-2.0.",
     ...shipped.flatMap((d) => [
       `## ${d.notice?.title ?? d.id}`,
       d.notice?.attribution ?? '',
+      `Copyright: ${d.notice?.copyright ?? ''}`,
       `Licence: ${d.notice?.licence ?? ''}`,
     ]),
     ...texts.flatMap((key) => [`## Licence text (${key})`, `\`\`\`text\n${sources.licenceTexts[key]}\n\`\`\``]),

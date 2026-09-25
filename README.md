@@ -6,7 +6,7 @@ A living _C. elegans_ in the browser. The worm's full connectome runs on the GPU
 
 ## Run it
 
-Needs Node 22.18 or later, and a browser with WebGPU (recent Chrome or Edge, or Safari 26 or later).
+Needs Node 22.22.1 or later (or 23.6 or later), and a browser with WebGPU (recent Chrome or Edge, or Safari 26 or later).
 
 ```sh
 npm install

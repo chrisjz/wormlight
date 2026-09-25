@@ -19,11 +19,23 @@ What `npm run data:build` read, kept, ignored and assigned when it wrote `public
 | Step | Source                                    | Connections  | Sections      |
 | ---- | ----------------------------------------- | ------------ | ------------- |
 | 1    | Cited physiology                          | 7 (0.2%)     | 91 (0.4%)     |
-| 2    | Fenyves et al. 2020 expression prediction | 1756 (47.3%) | 11556 (55.1%) |
+| 2    | Fenyves et al. 2020 expression prediction | 1716 (46.3%) | 11427 (54.5%) |
 | 3    | Transmitter rule: ACh and Glu +, GABA −   | 1453 (39.2%) | 7392 (35.3%)  |
-| 4    | No basis: no fast effect                  | 493 (13.3%)  | 1926 (9.2%)   |
+| 4    | No basis: no fast effect                  | 533 (14.4%)  | 2055 (9.8%)   |
 
-Before the overrides, Fenyves's prediction signs 1763 connections. Of the 7 physiology overrides, 7 fall on connections it signs the same way, 0 on connections it signs the other way, and 0 on connections it leaves unsigned. Of the connections Fenyves calls "complex", 438 take the transmitter rule's sign and 8 have none.
+Fenyves's prediction signs 1763 connections. The build uses a Fenyves sign only where the presynaptic transmitter it rests on is one of the cell's identities in Wang et al. 2024, which sets aside the 40 connections listed below. Of the 7 physiology overrides, 7 fall on connections it signs the same way, 0 on connections it signs the other way, and 0 on connections it leaves unsigned. Of the connections Fenyves calls "complex", 438 take the transmitter rule's sign and 8 have none.
+
+### Fenyves signs set aside
+
+Fenyves's prediction for a connection rests on the primary transmitter it assigns the presynaptic cell, from the expression data available in 2020. Wang et al. 2024's knock-in atlas records no release of that transmitter by these cells, so the prediction has no footing, and each connection falls through to the transmitter rule: 0 of them take its sign and 40 have none.
+
+| Presynaptic cell | Fenyves transmitter | Wang et al. 2024 identities | Connections | Sections |
+| ---------------- | ------------------- | --------------------------- | ----------- | -------- |
+| AVFL             | GABA                | none                        | 12          | 32       |
+| AVFR             | GABA                | none                        | 13          | 39       |
+| PVM              | Glu                 | none                        | 6           | 38       |
+| PVQL             | Glu                 | none                        | 4           | 11       |
+| PVQR             | Glu                 | none                        | 5           | 9        |
 
 ### Physiology overrides (`data/sign-overrides.csv`)
 
@@ -60,7 +72,7 @@ Each presynaptic cell's primary release identity decides: acetylcholine excites 
 
 ## Anatomy
 
-The body frame runs from -349.5 µm (the most anterior point of any neuron, at the nose) to 448.4 µm (the most posterior), 797.9 µm in all, and positions are fractions of it. 96 of 99 left/right pairs have the left cell at larger x, and the ventral-cord somas lie at smaller z than the somas overall, confirming the axes.
+The body frame runs from -349.5 µm (the most anterior point of any neuron, at the nose) to 448.4 µm (the most posterior), 797.9 µm in all, and positions are fractions of it. The Virtual Worm is posed with a dorsoventral bend, so positions measured along y are a projection; the midline itself is about 5% longer. 96 of 99 left/right pairs have the left cell at larger x, and at the nose all 12 dorsal sensory dendrites (CEP, IL1, IL2, OLQ, URA, URY) end at larger z than their ventral partners, confirming the axes where they can be read.
 
 | Neuron | Senses              | Where (fraction of body length) |
 | ------ | ------------------- | ------------------------------- |
@@ -75,4 +87,4 @@ The body frame runs from -349.5 µm (the most anterior point of any neuron, at t
 
 Rhythm generators: 21 A-type (DA1, DA2, DA3, DA4, DA5, DA6, DA7, DA8, DA9, VA1, VA10, VA11, VA12, VA2, VA3, VA4, VA5, VA6, VA7, VA8, VA9), 18 B-type (DB1, DB2, DB3, DB4, DB5, DB6, DB7, VB1, VB10, VB11, VB2, VB3, VB4, VB5, VB6, VB7, VB8, VB9) and 4 head-switch neurons (SMDDL, SMDDR, SMDVL, SMDVR).
 
-Muscles are assumed evenly spaced along each quadrant (PLAN §4.4, level 0).
+Muscles sit on one grid of 24 slots per quadrant, so the quadrants line up; the ventral-left quadrant's 23rd and last cell covers the last two slots, because Cook's innervation matches it to vBWMR24 (PLAN §4.4, level 0).

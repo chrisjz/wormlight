@@ -26,11 +26,12 @@ describe('the committed runtime file', () => {
 
   it('signs chemical synapses with the coverage of PLAN §2.4', () => {
     const sections = (source: SignSource) => bySource(source).reduce((sum, c) => sum + c.sections, 0);
-    // Fenyves signs 1,763 connections; the seven physiology overrides take seven of them.
+    // Fenyves signs 1,763 connections. The seven physiology overrides take seven of them, and 40 are set
+    // aside because their presynaptic transmitter is not one of the cell's Wang identities.
     const counts = (['physiology', 'expression', 'rule', 'none'] as const).map((source) => bySource(source).length);
-    expect(counts).toEqual([7, 1756, 1453, 493]);
+    expect(counts).toEqual([7, 1716, 1453, 533]);
     expect([sections('physiology'), sections('expression'), sections('rule'), sections('none')]).toEqual([
-      91, 11556, 7392, 1926,
+      91, 11427, 7392, 2055,
     ]);
   });
 
@@ -72,7 +73,12 @@ describe('the committed runtime file', () => {
   it('orders somas from nose to tail and sides them correctly', () => {
     expect(neuron('AWCL')?.position.s).toBeLessThan(neuron('ALML')?.position.s ?? 0);
     expect(neuron('ALML')?.position.s).toBeLessThan(neuron('PLML')?.position.s ?? 0);
-    expect(neuron('ALML')?.position.lateralUm).toBeGreaterThan(neuron('ALMR')?.position.lateralUm ?? Infinity);
+    const x = (name: string) => neuron(name)?.position.reconstructionUm[0] ?? NaN;
+    expect(x('ALML')).toBeGreaterThan(x('ALMR'));
+  });
+
+  it('keeps the reconstruction frame the positions are measured in', () => {
+    expect(neuron('AWCL')?.position).toEqual({ s: 0.1022, reconstructionUm: [3.8, -267.95, 38.95], source: 'c302' });
   });
 
   it('carries 21 A-type, 18 B-type and 4 head-switch generators', () => {
@@ -80,9 +86,15 @@ describe('the committed runtime file', () => {
     expect([count('A'), count('B'), count('headSwitch')]).toEqual([21, 18, 4]);
   });
 
-  it('spaces the 95 muscles evenly, 24 to a quadrant and 23 ventral-left', () => {
+  it('lines the four quadrants up on one grid, with ventral-left short one cell at the tail', () => {
     const quadrant = (q: string) => data.muscles.filter((m) => m.quadrant === q);
     expect(['DL', 'DR', 'VL', 'VR'].map((q) => quadrant(q).length)).toEqual([24, 24, 23, 24]);
-    expect(quadrant('VL').at(-1)).toMatchObject({ name: 'vBWML23', s1: 1 });
+    const span = (name: string) => {
+      const m = data.muscles.find((muscle) => muscle.name === name);
+      return [m?.s0, m?.s1];
+    };
+    expect(span('vBWML17')).toEqual(span('vBWMR17'));
+    expect(span('vBWML22')).toEqual(span('dBWML22'));
+    expect(span('vBWML23')).toEqual([0.9167, 1]);
   });
 });

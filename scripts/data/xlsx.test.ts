@@ -44,38 +44,61 @@ function zip(files: Record<string, string>): Buffer {
   return Buffer.concat([...locals, directory, end]);
 }
 
-const workbook = zip({
-  'xl/workbook.xml':
-    '<workbook xmlns:r="r"><sheets><sheet name="Other" sheetId="1" r:id="rId1"/>' +
-    '<sheet name="5. Sign &amp; prediction" sheetId="2" r:id="rId2"/></sheets></workbook>',
-  'xl/_rels/workbook.xml.rels':
-    '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/>' +
-    '<Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>',
-  'xl/sharedStrings.xml':
-    '<sst><si><t>AWCL</t></si><si><r><t>AI</t></r><r><t xml:space="preserve">YL</t></r></si><si><t>&lt;&amp;&gt;</t></si></sst>',
-  'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1"><c r="A1"><v>9</v></c></row></sheetData></worksheet>',
-  'xl/worksheets/sheet2.xml':
-    '<worksheet><sheetData>' +
-    '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="D1" t="s"><v>1</v></c><c r="E1"><v>22</v></c></row>' +
-    '<row r="3"><c r="B3" t="inlineStr"><is><t>inline</t></is></c><c r="C3" t="b"><v>1</v></c>' +
-    '<c r="D3" t="str"><v>formula</v></c><c r="E3" t="s"><v>2</v></c><c r="F3"/></row>' +
-    '</sheetData></worksheet>',
-});
+// Relationships point each sheet at the other's file name, so a reader that guessed a sheet's part
+// from its position would read the wrong one.
+function workbook(sheet: string, shared = sharedStrings): Buffer {
+  return zip({
+    'xl/workbook.xml':
+      '<workbook xmlns:r="r"><sheets><sheet name="Other" sheetId="1" r:id="rId1"/>' +
+      '<sheet name="5. Sign &amp; prediction" sheetId="2" r:id="rId2"/></sheets></workbook>',
+    'xl/_rels/workbook.xml.rels':
+      '<Relationships><Relationship Id="rId1" Target="worksheets/sheet2.xml"/>' +
+      '<Relationship Id="rId2" Target="worksheets/sheet1.xml"/></Relationships>',
+    'xl/sharedStrings.xml': shared,
+    'xl/worksheets/sheet2.xml': '<worksheet><sheetData><row r="1"><c r="A1"><v>9</v></c></row></sheetData></worksheet>',
+    'xl/worksheets/sheet1.xml': `<worksheet><sheetData>${sheet}</sheetData></worksheet>`,
+  });
+}
+
+const sharedStrings =
+  '<sst uniqueCount="4"><si><t>AWCL</t></si><si/><si><r><t>AI</t></r><r><t xml:space="preserve">YL</t></r></si>' +
+  '<si><t>&lt;&amp;&gt;</t></si></sst>';
+
+const rows =
+  '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="D1" t="s"><v>2</v></c><c r="E1"><v>22</v></c></row>' +
+  '<row r="2"/>' +
+  '<row r="3"><c r="B3" t="inlineStr"><is><t>inline</t></is></c><c r="C3" t="b"><v>1</v></c>' +
+  '<c r="D3" t="str"><v>formula</v></c><c r="E3" t="s"><v>3</v></c><c r="F3"/></row>' +
+  '<row><c t="s"><v>1</v></c><c><v>7</v></c></row>';
 
 describe('readSheet', () => {
   it('reads shared, rich-text and inline strings, numbers and booleans, in their columns', () => {
-    const rows = readSheet(workbook, '5. Sign & prediction');
-    expect(rows[0]).toEqual(['AWCL', null, null, 'AIYL', 22]);
-    expect(rows[1]).toEqual([]);
-    expect(rows[2]).toEqual([null, 'inline', true, 'formula', '<&>', null]);
+    const read = readSheet(workbook(rows), '5. Sign & prediction');
+    expect(read[0]).toEqual(['AWCL', null, null, 'AIYL', 22]);
+    expect(read[1]).toEqual([]);
+    expect(read[2]).toEqual([null, 'inline', true, 'formula', '<&>', null]);
   });
 
-  it('finds a sheet by name, not by position', () => {
-    expect(readSheet(workbook, 'Other')).toEqual([[9]]);
+  it('numbers rows and cells without a reference after the one before', () => {
+    expect(readSheet(workbook(rows), '5. Sign & prediction')[3]).toEqual(['', 7]);
+  });
+
+  it('finds a sheet through its relationship, not its position', () => {
+    expect(readSheet(workbook(rows), 'Other')).toEqual([[9]]);
   });
 
   it('names the sheets it has when asked for one it lacks', () => {
-    expect(() => readSheet(workbook, 'Missing')).toThrow(/"Other","5. Sign & prediction"/);
+    expect(() => readSheet(workbook(rows), 'Missing')).toThrow(/"Other","5. Sign & prediction"/);
+  });
+
+  it('refuses what it cannot read rather than returning blanks', () => {
+    const sheet = '5. Sign & prediction';
+    expect(() => readSheet(workbook('<row r="1"><c r="A1" t="s"><v>9</v></c></row>'), sheet)).toThrow(/does not exist/);
+    expect(() => readSheet(workbook('<row r="1"><c r="A1"><v></v></c></row>'), sheet)).toThrow(/empty value/);
+    expect(() => readSheet(workbook('<x:row r="1"></x:row>'), sheet)).toThrow(/prefixed/);
+    expect(() => readSheet(workbook(rows, sharedStrings.replace('uniqueCount="4"', 'uniqueCount="5"')), sheet)).toThrow(
+      /declares 5/,
+    );
   });
 
   it('refuses a file that is not a zip', () => {

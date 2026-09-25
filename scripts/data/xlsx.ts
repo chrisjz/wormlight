@@ -71,8 +71,9 @@ function columnIndex(reference: string): number {
   return index - 1;
 }
 
-// The rows of the named sheet. Row i of the result is the sheet's row i + 1, and each row is as long
-// as its last non-empty cell; empty cells are null.
+// The rows of the named sheet. Row i of the result is the sheet's row i + 1. A row runs to its last
+// written cell, and cells between written ones are null. Anything the reader cannot interpret, such as a
+// shared string that does not exist or prefixed (namespaced) sheet XML, is an error rather than a blank.
 export function readSheet(xlsx: Buffer, sheetName: string): Cell[][] {
   const files = readZip(xlsx);
   const part = (name: string): string => {
@@ -95,27 +96,51 @@ export function readSheet(xlsx: Buffer, sheetName: string): Cell[][] {
   if (!target) throw new Error(`sheet "${sheetName}" has no target part`);
   const sheetPath = target.startsWith('/') ? target.slice(1) : `xl/${target}`;
 
-  const shared = files.has('xl/sharedStrings.xml')
-    ? [...part('xl/sharedStrings.xml').matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => itemText(m[1]))
-    : [];
+  const shared: string[] = [];
+  if (files.has('xl/sharedStrings.xml')) {
+    const xml = part('xl/sharedStrings.xml');
+    for (const item of xml.matchAll(/<si\b[^>]*?(?:\/>|>([\s\S]*?)<\/si>)/g)) shared.push(itemText(item[1] ?? ''));
+    const declared = attribute(/<sst\b[^>]*>/.exec(xml)?.[0] ?? '', 'uniqueCount');
+    if (declared !== undefined && Number(declared) !== shared.length) {
+      throw new Error(`shared strings: read ${shared.length}, the workbook declares ${declared}`);
+    }
+  }
+  const sharedString = (raw: string, where: string): string => {
+    const value = shared[Number(raw)];
+    if (value === undefined) throw new Error(`${where}: shared string ${raw} does not exist`);
+    return value;
+  };
+
+  const xml = part(sheetPath);
+  if (/<\w+:(?:row|c)\b/.test(xml))
+    throw new Error(`sheet "${sheetName}" uses prefixed element names, which this reader does not read`);
 
   const rows: Cell[][] = [];
-  for (const row of part(sheetPath).matchAll(/<row\s([^>]*)>([\s\S]*?)<\/row>|<row\s([^>]*)\/>/g)) {
-    const rowNumber = Number(attribute(` ${row[1] ?? row[3]}`, 'r'));
+  let rowNumber = 0;
+  for (const row of xml.matchAll(/<row\b([^>]*?)(?:\/>|>([\s\S]*?)<\/row>)/g)) {
+    const numbered = attribute(` ${row[1]}`, 'r');
+    rowNumber = numbered === undefined ? rowNumber + 1 : Number(numbered);
     const cells: Cell[] = [];
-    for (const cell of (row[2] ?? '').matchAll(/<c\s([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    let column = -1;
+    for (const cell of (row[2] ?? '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const tag = ` ${cell[1]}`;
       const body = cell[2] ?? '';
+      const reference = attribute(tag, 'r');
+      column = reference === undefined ? column + 1 : columnIndex(reference);
+      const where = `row ${rowNumber}, column ${column + 1}`;
+      if (column < 0) throw new Error(`${where}: unreadable cell reference ${reference}`);
       const type = attribute(tag, 't') ?? 'n';
       const raw = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1];
       let value: Cell = null;
-      if (type === 's' && raw !== undefined) value = shared[Number(raw)] ?? null;
-      else if (type === 'inlineStr') value = itemText(body);
-      else if (type === 'str' && raw !== undefined) value = decodeXml(raw);
-      else if (type === 'b' && raw !== undefined) value = raw === '1';
-      else if (type === 'n' && raw !== undefined) value = Number(raw);
-      const column = columnIndex(attribute(tag, 'r') ?? '');
-      if (column < 0) throw new Error(`cell without a reference in row ${rowNumber}`);
+      if (type === 'inlineStr') value = itemText(body);
+      else if (raw === '') throw new Error(`${where}: empty value`);
+      else if (raw !== undefined) {
+        if (type === 's') value = sharedString(raw, where);
+        else if (type === 'str') value = decodeXml(raw);
+        else if (type === 'b') value = raw === '1';
+        else if (type === 'n') value = Number(raw);
+        else throw new Error(`${where}: unsupported cell type ${type}`);
+      }
       while (cells.length < column) cells.push(null);
       cells[column] = value;
     }
