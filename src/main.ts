@@ -45,8 +45,6 @@ async function start(root: HTMLElement): Promise<void> {
     throw new Error(title);
   }
   const { device } = support;
-  // The visual tests log which adapter drew their frames.
-  (window as unknown as { __adapter?: string }).__adapter = support.adapter;
   let graph: GraphHandle | null = null;
   let failed = false;
   const fail = (title: string, body: string): void => {

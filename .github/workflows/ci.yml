@@ -90,9 +90,8 @@ jobs:
         id: chrome
         with:
           chrome-version: 154.0.8037.57
-      # Chrome's SwiftShader is reached through the system's Vulkan loader.
-      - name: Install the Vulkan loader
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libvulkan1
+      - name: Install Mesa's Vulkan drivers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
       - name: Capture views (WebGPU on SwiftShader)
         id: capture
         run: npm run visual:capture

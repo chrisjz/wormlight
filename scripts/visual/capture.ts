@@ -112,8 +112,16 @@ try {
         'the app becoming ready',
       );
       if (!adapterLogged) {
-        const adapter = await page.evaluate(() => (globalThis as unknown as { __adapter?: string }).__adapter);
-        console.log(`GPU adapter: ${adapter ?? 'unknown'}`);
+        // Everything the adapter says about itself, since a software GPU's name alone can mislead.
+        const adapter = await page.evaluate(`(async () => {
+          const a = await navigator.gpu.requestAdapter();
+          const i = a && a.info;
+          if (!i) return 'none';
+          return ['vendor', 'architecture', 'device', 'description', 'isFallbackAdapter']
+            .map((k) => k + '=' + JSON.stringify(i[k]))
+            .join(' ');
+        })()`);
+        console.log(`GPU adapter: ${String(adapter)}`);
         adapterLogged = true;
       }
       const dataUrl = await withTimeout(
