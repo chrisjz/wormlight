@@ -9,6 +9,7 @@ A living _C. elegans_ in the browser: the Cook et al. 2019 connectome, simulated
 - `npm run lint` / `npm run format:check` — both are CI gates; a pre-commit hook formats staged files.
 - `npm run data:build` — rebuilds `public/data/wormlight.v1.json`, its `NOTICE.md`, `DATA_SOURCES.md` and `data/reports/` from the pins in `data/sources.json`. `npm run data:check` is the CI gate that fails when a committed output is stale.
 - `npm run docs:fidelity` — regenerates `FIDELITY.md` from the registry and the runtime data; `npm run docs:check` is its CI gate.
+- `node scripts/experiments/go-no-go/run.ts` — reruns milestone 0c's go/no-go experiments, whose tables are in `DECISIONS.md` (2026-09-26).
 - `uv run --project tools/reference python tools/reference/ni_reference.py` (and `cook_reference.py`) — regenerate the port and production check goldens in `tests/fixtures/`. The checks in `tests/` fail when a golden is stale (its script, its pinned inputs or Cook's wiring changed since it was made) or was edited by hand.
 
 ## Hard conventions

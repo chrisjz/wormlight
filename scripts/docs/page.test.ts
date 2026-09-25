@@ -57,6 +57,7 @@ describe('countFacts on the committed runtime file', () => {
     expect(facts.signs.none).toMatchObject({ count: 533, percentWhole: '14%' });
     expect(facts.silentMuscleInputs).toBe(32);
     expect(facts.largestGap).toEqual({ name: 'ALA', sections: 1314 });
+    expect(facts.motorMuscle).toEqual({ A: { dorsal: 346, ventral: 318 }, B: { dorsal: 170, ventral: 338 } });
   });
 });
 

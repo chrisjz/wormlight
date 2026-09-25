@@ -201,6 +201,23 @@ export const CITATIONS = {
     venue: 'Neuron 105:534–548',
     doi: '10.1016/j.neuron.2019.10.034',
   },
+  liu2014: {
+    short: 'Liu, Chen & Wang 2014',
+    authors: 'Liu P, Chen B, Wang ZW',
+    year: 2014,
+    title: 'SLO-2 potassium channel is an important regulator of neurotransmitter release in Caenorhabditis elegans',
+    venue: 'Nature Communications 5:5155',
+    doi: '10.1038/ncomms6155',
+  },
+  liu2017: {
+    short: 'Liu et al. 2017',
+    authors: 'Liu P, Chen B, Mailler R, Wang ZW',
+    year: 2017,
+    title:
+      'Antidromic-rectifying gap junctions amplify chemical transmission at functionally mixed electrical-chemical synapses',
+    venue: 'Nature Communications 8:14818',
+    doi: '10.1038/ncomms14818',
+  },
   lugg1968: {
     short: 'Lugg 1968',
     authors: 'Lugg GA',
