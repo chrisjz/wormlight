@@ -39,14 +39,14 @@ export const CITATIONS = {
     venue: 'Frontiers in Computational Neuroscience 6:10',
     doi: '10.3389/fncom.2012.00010',
   },
-  c302: {
-    short: 'OpenWorm c302',
-    authors: 'OpenWorm',
-    year: 2024,
-    title: 'c302: NeuroML2 cell morphologies of the 302 neurons, converted from the WormBase Virtual Worm',
-    venue: 'github.com/openworm/c302 (MIT)',
-    url: 'https://github.com/openworm/c302',
-    note: 'The underlying 3D model is by Christian Grove and Paul Sternberg (WormBase, Caltech), released into the public domain.',
+  broekmans2016: {
+    short: 'Broekmans et al. 2016',
+    authors: 'Broekmans OD, Rodgers JB, Ryu WS, Stephens GJ',
+    year: 2016,
+    title: 'Resolving coiled shapes reveals new reorientation behaviors in C. elegans',
+    venue: 'eLife 5:e17227',
+    doi: '10.7554/eLife.17227',
+    note: 'Takes its eigenworms "from Stephens et al. (2008)".',
   },
   chalasani2007: {
     short: 'Chalasani et al. 2007',
@@ -55,7 +55,7 @@ export const CITATIONS = {
     title: 'Dissecting a circuit for olfactory behaviour in Caenorhabditis elegans',
     venue: 'Nature 450:63–70',
     doi: '10.1038/nature06292',
-    note: 'A 2016 corrigendum (doi:10.1038/nature16515) leaves the AWC→AIY and AWC→AIB findings standing.',
+    note: 'An erratum followed in 2008 (doi:10.1038/nature06540), and in 2016 a corrigendum (doi:10.1038/nature16515) regenerated the imaging figures after finding duplicated or mislabelled files. It reports "The properties of AWC ON, AIB and AIY neurons were fully supported"; five experiments, among them two AIB time points, are now considered preliminary.',
   },
   chalfie1985: {
     short: 'Chalfie et al. 1985',
@@ -124,6 +124,15 @@ export const CITATIONS = {
     venue: 'eLife 7:e29915',
     doi: '10.7554/eLife.29915',
   },
+  gleeson2018: {
+    short: 'Gleeson et al. 2018',
+    authors: 'Gleeson P, Lung D, Grosu R, Hasani R, Larson SD',
+    year: 2018,
+    title: 'c302: a multiscale framework for modelling the nervous system of Caenorhabditis elegans',
+    venue: 'Philosophical Transactions of the Royal Society B 373:20170379',
+    doi: '10.1098/rstb.2017.0379',
+    note: 'The c302 NeuroML2 cell morphologies (github.com/openworm/c302, MIT), converted from the WormBase Virtual Worm by Christian Grove and Paul Sternberg (Caltech), which they released into the public domain.',
+  },
   gray2005: {
     short: 'Gray, Hill & Bargmann 2005',
     authors: 'Gray JM, Hill JJ, Bargmann CI',
@@ -131,15 +140,6 @@ export const CITATIONS = {
     title: 'A circuit for navigation in Caenorhabditis elegans',
     venue: 'PNAS 102:3184–3191',
     doi: '10.1073/pnas.0409009101',
-  },
-  ji2021: {
-    short: 'Ji et al. 2021',
-    authors: 'Ji H, Fouad AD, Teng S, et al.',
-    year: 2021,
-    title:
-      'Phase response analyses support a relaxation oscillator model of locomotor rhythm generation in Caenorhabditis elegans',
-    venue: 'eLife 10:e69905',
-    doi: '10.7554/eLife.69905',
   },
   hebert2021: {
     short: 'Hebert et al. 2021',
@@ -149,6 +149,15 @@ export const CITATIONS = {
     venue: 'PLoS Computational Biology 17:e1008914',
     doi: '10.1371/journal.pcbi.1008914',
     note: 'Its repository, iteal/wormpose, distributes the eigenworm basis the harness pins.',
+  },
+  ji2021: {
+    short: 'Ji et al. 2021',
+    authors: 'Ji H, Fouad AD, Teng S, et al.',
+    year: 2021,
+    title:
+      'Phase response analyses support a relaxation oscillator model of locomotor rhythm generation in Caenorhabditis elegans',
+    venue: 'eLife 10:e69905',
+    doi: '10.7554/eLife.69905',
   },
   kim2019: {
     short: 'Kim, Leahy & Shlizerman 2019',
@@ -191,6 +200,16 @@ export const CITATIONS = {
     title: 'Diffusion coefficients of some organic and other vapors in air',
     venue: 'Analytical Chemistry 40:1072–1077',
     doi: '10.1021/ac60263a006',
+  },
+  oist2025: {
+    short: 'OIST Physics of Behavior tutorials 2025',
+    authors:
+      'OIST Physics of Behavior tutorials contributors (Zenodo creators: IrinaKorshok, a-beraud, Greg Stephens, AkiraK)',
+    year: 2025,
+    title: 'Physics of Behavior Tutorials, v1.0',
+    venue: 'Zenodo (CC BY 4.0)',
+    doi: '10.5281/zenodo.15099731',
+    note: 'Its data/shapes.csv holds 6,655 real postures that the tutorial introduces as coming from the experiment of Stephens et al. 2008.',
   },
   randi2023: {
     short: 'Randi et al. 2023',

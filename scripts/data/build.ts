@@ -61,7 +61,7 @@ async function build(): Promise<Map<string, string>> {
   const overrides = parseOverrides(overridesText);
   // Every citation the runtime file uses resolves in the registry, src/science/citations.ts.
   const signBasis = { expression: 'fenyves2020', ruleIdentities: 'wang2024', receptor: 'richmond1999' } as const;
-  const isCitation = (id: string): id is CitationId => id in CITATIONS;
+  const isCitation = (id: string): id is CitationId => Object.hasOwn(CITATIONS, id);
   for (const o of overrides) {
     if (!isCitation(o.citation))
       throw new Error(`sign override ${o.pre} → ${o.post} cites ${o.citation}, which is not in the registry`);

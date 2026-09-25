@@ -32,6 +32,44 @@ export interface Subsystem {
   tag?: Tag;
 }
 
+// The checks and checkpoints of PLAN §7 and the tests of §5 and §8 that exercise the model.
+export type Check =
+  | 'port'
+  | 'production'
+  | 'unit'
+  | 'passiveBend'
+  | 'signSensitivity'
+  | 'sharedScale'
+  | 'checkpoint0'
+  | 'checkpoint1'
+  | 'checkpoint2'
+  | 'checkpoint3'
+  | 'checkpoint4'
+  | 'checkpoint5'
+  | 'checkpoint6';
+
+export const CHECKS: Record<Check, string> = {
+  port: 'Port check',
+  production: 'Production check',
+  unit: 'Unit tests',
+  passiveBend: 'Passive-bend relaxation test',
+  signSensitivity: 'Sign sensitivity runs',
+  sharedScale: 'Shared-connection scale runs',
+  checkpoint0: 'Checkpoint 0',
+  checkpoint1: 'Checkpoint 1',
+  checkpoint2: 'Checkpoint 2',
+  checkpoint3: 'Checkpoint 3',
+  checkpoint4: 'Checkpoint 4',
+  checkpoint5: 'Checkpoint 5',
+  checkpoint6: 'Checkpoint 6',
+};
+
+// A check that exercises a component, and the part of it that does, where only part does.
+export interface Test {
+  check: Check;
+  detail?: string;
+}
+
 export interface Component {
   name: Text;
   subsystem: SubsystemId;
@@ -41,8 +79,8 @@ export interface Component {
   caveats: Text;
   upgrade: Text;
   sources: readonly CitationId[];
-  // The checks and checkpoints (PLAN §7) that test it.
-  testedBy: readonly string[];
+  // The checks and checkpoints that test it.
+  testedBy: readonly Test[];
 }
 
 export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
@@ -147,7 +185,7 @@ export const COMPONENTS: readonly Component[] = [
       `Assembled from several animals, with some connections extrapolated where no EM data existed; counts are EM sections, which fold synapse number and size together; includes ${f.autapses} autapses`,
     upgrade: 'More whole-animal connectomes',
     sources: ['cook2019', 'emmons2024'],
-    testedBy: ['Checkpoint 6'],
+    testedBy: [{ check: 'checkpoint6' }],
   },
   {
     name: (f) => `Gap junctions (${grouped(f.gapPairs)} pairs)`,
@@ -168,7 +206,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'As above',
     upgrade: '',
     sources: ['cook2019', 'emmons2024'],
-    testedBy: ['Checkpoint 0', 'Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint0' }, { check: 'checkpoint1' }],
   },
   {
     name: 'Transmitter identities',
@@ -188,7 +226,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats:
       'One reconstruction, normalised to body length along its anteroposterior axis; the model is posed with a dorsoventral bend, so that axis is a projection (the midline is about 5% longer)',
     upgrade: 'A multi-animal position atlas',
-    sources: ['c302'],
+    sources: ['gleeson2018'],
     testedBy: [],
   },
 
@@ -203,7 +241,13 @@ export const COMPONENTS: readonly Component[] = [
       `${grouped(f.signs.rule.count)} connections (${f.signs.rule.percentWhole}) take the rule, and ${grouped(f.signs.none.count)} (${f.signs.none.percentWhole}) have no basis and default to no fast effect, among them the Fenyves predictions set aside because Wang et al. 2024 do not support their transmitter (listed in \`data/reports/data-build.md\`)`,
     upgrade: 'A signed functional connectome',
     sources: ['chalasani2007', 'fenyves2020', 'wang2024'],
-    testedBy: ['Checkpoints 2–5', 'Sign sensitivity runs'],
+    testedBy: [
+      { check: 'checkpoint2' },
+      { check: 'checkpoint3' },
+      { check: 'checkpoint4' },
+      { check: 'checkpoint5' },
+      { check: 'signSensitivity' },
+    ],
   },
   {
     name: 'Neuromuscular signs',
@@ -213,7 +257,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: (f) => `${f.silentMuscleInputs} cells releasing neither get no fast effect on muscle (0)`,
     upgrade: 'Evidence for other receptors on body wall muscle',
     sources: ['richmond1999', 'wang2024'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint1' }],
   },
 
   // Synaptic strengths.
@@ -225,17 +269,25 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Connections shared with Varshney end up about a third weaker than in Neural Interactome',
     upgrade: 'Per-connection physiology',
     sources: ['kunert2014', 'varshney2011', 'cook2019'],
-    testedBy: ['Production check', 'Shared-connection scale runs'],
+    testedBy: [{ check: 'sharedScale' }],
   },
   {
     name: 'Strength proportional to EM section count',
     subsystem: 'strengths',
     levels: [0],
     basis: 'An assumption',
-    caveats: "ALA's 1,314 gap-junction sections show how much it carries",
+    caveats: (f) =>
+      `${f.largestGap.name}'s ${grouped(f.largestGap.sections)} gap-junction sections show how much a single cell carries`,
     upgrade: 'Per-connection physiology',
     sources: [],
-    testedBy: ['Checkpoints 1–6'],
+    testedBy: [
+      { check: 'checkpoint1' },
+      { check: 'checkpoint2' },
+      { check: 'checkpoint3' },
+      { check: 'checkpoint4' },
+      { check: 'checkpoint5' },
+      { check: 'checkpoint6' },
+    ],
   },
 
   // Neuron dynamics.
@@ -248,17 +300,18 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Every neuron alike; no action potentials (AWA has them), plateaus or channel diversity',
     upgrade: 'Cell-type-specific membrane models',
     sources: ['kunert2014', 'kim2019'],
-    testedBy: ['Port check', 'Production check'],
+    testedBy: [{ check: 'port' }, { check: 'production' }],
   },
   {
     name: 'Membrane and synapse parameters (C 1 pF, G_c 10 pS, rates 1 and 5 s⁻¹, reversals, sigmoid)',
     subsystem: 'neurons',
     levels: [3],
     basis: 'Kunert et al. 2014, as restated by Kunert-Graf et al. 2017; Wicks, Roehrig & Rankin 1996',
-    caveats: "The same values for every neuron; Neural Interactome's code runs them 1.5× slower",
+    caveats:
+      "The same values for every neuron. No check isolates them: the port check runs Neural Interactome's own values, 1.5× slower and with −48 mV where Kunert's papers use −45 mV",
     upgrade: 'Per-class electrophysiology',
     sources: ['kunert2014', 'kunertgraf2017', 'wicks1996'],
-    testedBy: ['Port check'],
+    testedBy: [{ check: 'unit', detail: 'a lone neuron relaxes with time constant C/G_c' }],
   },
   {
     name: 'Threshold set at rest, unchanged by lesions',
@@ -268,17 +321,20 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Every neuron rests at half activation',
     upgrade: 'Measured resting states',
     sources: ['kunert2014'],
-    testedBy: ['Checkpoint 5'],
+    testedBy: [{ check: 'checkpoint5' }],
   },
   {
     name: 'Neural noise',
     subsystem: 'neurons',
     levels: [1],
-    basis: 'Calibrated to the spontaneous reversal rate',
+    basis: 'Calibrated to the spontaneous reversal rate (PLAN §7.3)',
     caveats: 'White current noise; its intensity is tuned',
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
-    testedBy: ['Checkpoint 1 (calibrated)'],
+    testedBy: [
+      { check: 'checkpoint1', detail: 'bout clause' },
+      { check: 'checkpoint5', detail: 'spontaneous-reversal rows' },
+    ],
   },
   {
     name: 'Lesions',
@@ -288,7 +344,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'No developmental compensation',
     upgrade: '',
     sources: ['chalfie1985', 'gray2005'],
-    testedBy: ['Checkpoint 5'],
+    testedBy: [{ check: 'checkpoint5' }],
   },
 
   // Rhythm and proprioception.
@@ -297,11 +353,11 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'rhythm',
     levels: [2, 1, 0],
     basis:
-      'Ji et al. 2021 (threshold 2.33, derivative weight 46 ms; level 2 on agar); Yeon et al. 2018 (SMDD proprioceptive)',
-    caveats: 'The gain is calibrated (1); gating by network drive and the curvature region are ours (0)',
+      'Ji et al. 2021 (threshold 2.33 and derivative weight 46 ms, on curvature averaged over the 0.1–0.3 head region; level 2 on agar); Yeon et al. 2018 (SMDD proprioceptive)',
+    caveats: 'The gain is calibrated (1); gating by network drive is ours (0)',
     upgrade: 'Recordings of the head rhythm generator',
     sources: ['ji2021', 'yeon2018'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint1' }],
   },
   {
     name: 'B-type intrinsic oscillators, gated by drive',
@@ -311,7 +367,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'The FitzHugh–Nagumo form is ours (0); its parameters are calibrated (1)',
     upgrade: 'A parameterised model of the B-type rhythm',
     sources: ['fouad2018', 'xu2018', 'chalfie1985'],
-    testedBy: ['Checkpoint 0', 'Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint0' }, { check: 'checkpoint1' }, { check: 'checkpoint5', detail: 'AVB + PVC row' }],
   },
   {
     name: 'A-type intrinsic oscillators',
@@ -321,7 +377,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'As above',
     upgrade: 'A parameterised model of the A-type rhythm',
     sources: ['gao2018'],
-    testedBy: ['Checkpoint 0', 'Checkpoint 2'],
+    testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint5', detail: 'AVA and AVA + AVD rows' }],
   },
   {
     name: 'Proprioceptive input to B-type neurons',
@@ -331,7 +387,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'The gain is calibrated (1)',
     upgrade: 'Identified stretch receptors and their gain',
     sources: ['wen2012'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint1' }],
   },
   {
     name: 'Proprioceptive input to A-type neurons',
@@ -341,7 +397,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'No direct evidence; shares the B-type gain',
     upgrade: 'Direct evidence on A-type sensing',
     sources: ['wen2012', 'gao2018'],
-    testedBy: ['Checkpoint 2'],
+    testedBy: [{ check: 'checkpoint2' }],
   },
 
   // Sensing.
@@ -354,7 +410,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Parameters are for butanone in microfluidic devices',
     upgrade: 'Threshold measurements on assay plates',
     sources: ['levy2020', 'troemel1999', 'wes2001'],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'checkpoint4' }],
   },
   {
     name: 'AWC odour-to-current form',
@@ -364,7 +420,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: 'Current-clamp recordings from AWC',
     sources: ['chalasani2007'],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'checkpoint4' }],
   },
   {
     name: 'AWC gain',
@@ -374,7 +430,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Aqueous-equivalent concentration at the agar is assumed',
     upgrade: 'Recordings that fix the gain',
     sources: [],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'checkpoint4' }],
   },
   {
     name: 'Sensing locations and touch receptive fields',
@@ -383,8 +439,8 @@ export const COMPONENTS: readonly Component[] = [
     basis: 'Dendrite tips and process extents in the c302 morphologies',
     caveats: '',
     upgrade: '',
-    sources: ['c302', 'chalfie1985'],
-    testedBy: ['Checkpoint 2', 'Checkpoint 3'],
+    sources: ['gleeson2018', 'chalfie1985'],
+    testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint3' }],
   },
   {
     name: 'Touch stimulus',
@@ -394,7 +450,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: 'Recorded receptor currents',
     sources: [],
-    testedBy: ['Checkpoint 2', 'Checkpoint 3'],
+    testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint3' }],
   },
   {
     name: 'Other sensory neurons',
@@ -416,7 +472,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Muscle action potentials are not modelled',
     upgrade: '',
     sources: ['boyle2012', 'ji2021'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint1' }],
   },
   {
     name: 'Muscle placement along the body',
@@ -427,7 +483,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: 'Measured muscle positions',
     sources: ['cook2019'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'checkpoint1' }],
   },
   {
     name: 'Four quadrants collapsed to dorsal and ventral',
@@ -447,7 +503,11 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Resistive force theory approximates agar; 2D; no self-contact',
     upgrade: 'Measured agar mechanics; a 3D body',
     sources: ['boyle2012'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [
+      { check: 'passiveBend' },
+      { check: 'unit', detail: 'a prescribed wave crawls at the predicted speed' },
+      { check: 'checkpoint1' },
+    ],
   },
   {
     name: 'Agar drag coefficients',
@@ -457,7 +517,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: '',
     sources: ['boyle2012'],
-    testedBy: ['Checkpoint 1'],
+    testedBy: [{ check: 'passiveBend' }, { check: 'checkpoint1' }],
   },
 
   // Environment.
@@ -469,7 +529,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: '',
     sources: ['lugg1968', 'tang2015'],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'unit', detail: 'a point release matches the analytic Gaussian' }, { check: 'checkpoint4' }],
   },
   {
     name: 'Odour field geometry',
@@ -480,7 +540,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: "Tanimoto et al. 2017's plate measurements (2-nonanone) are context only",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['tanimoto2017'],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'checkpoint4' }],
   },
   {
     name: 'Food lawn',
@@ -500,7 +560,7 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: '',
     sources: ['bargmann1993'],
-    testedBy: ['Checkpoint 4'],
+    testedBy: [{ check: 'checkpoint4' }],
   },
 ];
 

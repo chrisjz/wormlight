@@ -1,30 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { CITATIONS, reference, type CitationId } from './citations.ts';
-import { COMPONENTS, OMITTED, PRESENTATION, SUBSYSTEMS, subsystemLevels, type SubsystemId } from './fidelity.ts';
+import { CITATIONS, reference, type Citation, type CitationId } from './citations.ts';
+import { COMPONENTS, SUBSYSTEMS, subsystemLevels, type SubsystemId } from './fidelity.ts';
 import { isFree, levelRange } from './levels.ts';
 import { FREE_PARAMETER_BUDGET, PARAMS, freeParams, type Param } from './params.ts';
-import { REFERENCE_DATA } from './validation.ts';
+import { usedCitations } from './used.ts';
 
 const params = Object.values(PARAMS) as Param[];
 
 describe('citations', () => {
   it('are each used somewhere in the registry', () => {
-    const used = new Set<CitationId>([
-      ...COMPONENTS.flatMap((c) => c.sources),
-      ...Object.values(SUBSYSTEMS).flatMap((s) => s.sources),
-      ...params.flatMap((p) => p.sources),
-      ...[...OMITTED, ...PRESENTATION].flatMap((item) => item.sources),
-      ...REFERENCE_DATA.flatMap((r) => r.sources),
-    ]);
+    const used = usedCitations();
     expect((Object.keys(CITATIONS) as CitationId[]).filter((id) => !used.has(id))).toEqual([]);
   });
 
   it('carry a well-formed DOI or a URL', () => {
-    for (const [id, c] of Object.entries(CITATIONS) as [CitationId, (typeof CITATIONS)[CitationId]][]) {
-      const doi: string | undefined = 'doi' in c ? c.doi : undefined;
-      const url: string | undefined = 'url' in c ? c.url : undefined;
-      expect(doi ?? url, id).toBeTruthy();
-      if (doi) expect(doi, id).toMatch(/^10\.\d{4,}\/\S+$/);
+    for (const id of Object.keys(CITATIONS) as CitationId[]) {
+      const c: Citation = CITATIONS[id];
+      expect(c.doi ?? c.url, id).toBeTruthy();
+      if (c.doi) expect(c.doi, id).toMatch(/^10\.\d{4,}\/\S+$/);
     }
   });
 
@@ -32,7 +25,7 @@ describe('citations', () => {
     expect(reference('cook2019')).toBe(
       'Cook SJ, Jarrell TA, Brittin CA, et al. Whole-animal connectomes of both Caenorhabditis elegans sexes. Nature 571:63–71 (2019), doi:10.1038/s41586-019-1352-7',
     );
-    expect(reference('c302')).toMatch(/^OpenWorm\. c302:/);
+    expect(reference('gleeson2018')).toMatch(/^Gleeson P, Lung D, Grosu R, Hasani R, Larson SD\. c302:/);
   });
 });
 
@@ -54,6 +47,18 @@ describe('parameters', () => {
         expect(p.value !== null || Boolean(p.rule), p.name).toBe(true);
       }
     }
+  });
+
+  it('say what would raise every parameter, and hold bounds for every calibrated one', () => {
+    for (const p of params) {
+      expect(p.upgrade, p.name).toBeTruthy();
+      expect('bounds' in p, p.name).toBe(p.level === 1);
+    }
+  });
+
+  it("take the head switch's curvature region from Ji et al. 2021, so it is not free", () => {
+    expect([PARAMS.headSwitchRegionStart.value, PARAMS.headSwitchRegionEnd.value]).toEqual([0.1, 0.3]);
+    expect([PARAMS.headSwitchRegionStart.level, PARAMS.headSwitchRegionEnd.level]).toEqual([2, 2]);
   });
 
   it('cite a source for every value taken from the literature', () => {

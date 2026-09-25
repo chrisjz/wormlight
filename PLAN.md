@@ -222,12 +222,12 @@ nematode's adaptive sensor (Logbook 028) is the conceptual precedent.
 
 ### 4.3 The rhythm and proprioception
 
-The network alone can't generate the rhythm. With thresholds fixed at rest, both the Varshney and the Cook-scaled networks settle to a stable fixed point under constant drive; Kunert's PLM oscillation exists only because Neural Interactome moves thresholds with the input. Kunert-Graf et al. 2017 say the same: "In the absence of constant stimulus, the neural state will collapse onto a static, stable fixed point". So the rhythm comes from documented generators, and the network decides which of them run.
+The network alone can't generate the rhythm. With thresholds fixed at rest, both the Varshney and the Cook-scaled networks settle to a stable fixed point under constant drive; Kunert's PLM oscillation exists only because Neural Interactome moves thresholds with the input. Kunert-Graf et al. 2017 make the same point about their own model, which "does not sustain oscillation in the absence of explicit external input". So the rhythm comes from documented generators, and the network decides which of them run.
 
 - **The head: a proprioceptive relaxation switch (Ji et al. 2021).**
   - Ji et al. locate the primary rhythm generator "near the head". The active muscle moment switches sign when a proprioceptive signal `P = K + b·dK/dt` reaches `±P_th`.
   - Wormlight puts that switch in the SMD head motor neurons. SMDD senses head-muscle stretch through two TRPC channels and is required and sufficient for head bending (Yeon et al. 2018), and Ji et al. name SMDD among the candidate generators. SMDV is taken as its ventral counterpart.
-  - A binary state `h` flips when `P` crosses `±P_th`, and injects `I_sw = ±g_sw (h − ½)` into SMDD and SMDV in antiphase. `K` is the curvature of the anterior 0.2 body lengths, multiplied by body length; that region is our choice (level 0).
+  - A binary state `h` flips when `P` crosses `±P_th`, and injects `I_sw = ±g_sw (h − ½)` into SMDD and SMDV in antiphase. `K` is the scaled curvature κL averaged over body coordinates 0.1–0.3, the head region where Ji et al. measured it and fitted `b` and `P_th` (level 2, with them).
   - `b = 46 ms` and `P_th = 2.33` come from Ji et al. They were fitted in a 120 mPa·s fluid, so on agar they are level 2. The gain `g_sw` is calibrated.
   - The switch operates only while network input holds the neuron above the drive threshold `θ_osc`, so a silenced network has no head rhythm (level 0).
 - **Forward: B-type intrinsic oscillators.**
@@ -327,7 +327,7 @@ That is fourteen values: eight calibrated and six fixed in advance. The budget i
 Values taken from a source aren't free, even when adapted. These include:
 
 - the neural constants (§3.2) and the adaptation constants K and τ (Levy & Bargmann 2020);
-- the head switch's `b` and `P_th` (Ji et al. 2021);
+- the head switch's `b`, `P_th` and the head region they were fitted in (Ji et al. 2021);
 - the proprioceptive reach of 0.2 body lengths (Wen et al. 2012);
 - the diffusion coefficient (Lugg 1968);
 - the body, drag and muscle constants (Boyle, Berri & Cohen 2012).
@@ -383,9 +383,9 @@ The reversal rate is from Gray, Hill & Bargmann 2005, Fig. 1E, read from the fig
 
 **Checkpoint 1.** The kinematic clauses are calibration targets, so they are reported as calibrated; the eigenworm and bout clauses are predicted. Five details are fixed now, before any posture data exist:
 
-- **Eigenworm basis.** The eigenworms of Stephens et al. 2008, as the authors' group distributes them with WormPose (`EigenWorms.csv`, pinned in `data/sources.json`): the first four of its 100 modes, read with the head at angle 1. The file names no source, so its identity with the 2008 basis is inferred (DECISIONS.md); its first four modes capture 96.5% of the variance of a published set of real postures.
+- **Eigenworm basis.** The eigenworms of Stephens et al. 2008, as the authors' group distributes them with WormPose (`EigenWorms.csv`, pinned in `data/sources.json`): the first four of its 100 modes, read with the head at angle 1. The file names no source, so its identity with the 2008 basis is inferred (DECISIONS.md). A published set of real postures, which its tutorial introduces as coming from Stephens et al.'s experiment, is consistent with it: the first four modes capture 96.46% of their variance, against 96.48% for the best any four modes can do.
 - **Posture sampling.** Postures are 100 tangent angles sampled at 101 equally spaced midline points, with the mean angle removed, as in Stephens et al.
-- **Variance captured.** Σₖ₌₁..₄ eₖᵀ C eₖ / tr C, where the eₖ are the four modes and C is the covariance of the postures pooled over all 20 trials, sampled at 4 Hz as Stephens et al. did, leaving out each trial's first 10 s, which start from a random posture. Pooling all behaviour, reversals and turns included, matches how Stephens et al. measured their 95%.
+- **Variance captured.** Σₖ₌₁..₄ eₖᵀ C eₖ / tr C, where the eₖ are the four modes and C is the covariance of the postures pooled over all 20 trials, sampled at 4 Hz as Stephens et al. did, leaving out each trial's first 10 s, which start from a random posture, and leaving out self-intersecting postures. That matches how Stephens et al. measured their 95%: all the behaviour of freely crawling worms, reversals and shallow turns included, as "Cases of self-intersection were excluded from processing". The simulated body has no self-contact, so it can form postures they never measured.
 - **Pass margin.** The pass level sits below Stephens's 95% because the model is simpler than a worm.
 - **Bout clause.** At the calibrated reversal rate, a simulation with exponentially distributed runs and 5–10 s reversals puts about 99% of trials above a 20 s bout. The clause therefore fails only a model that can't sustain forward crawling at all.
 

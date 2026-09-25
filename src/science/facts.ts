@@ -21,6 +21,8 @@ export interface Facts {
   signs: Record<SignSource, Share>;
   // Cells that synapse onto muscle but release neither acetylcholine nor GABA.
   silentMuscleInputs: number;
+  // The neuron with the most gap-junction sections, and how many it has.
+  largestGap: { name: string; sections: number };
 }
 
 export function countFacts(data: WormlightData): Facts {
@@ -48,7 +50,21 @@ export function countFacts(data: WormlightData): Facts {
       none: share('none'),
     },
     silentMuscleInputs: new Set(data.neuromuscular.filter((j) => j.sign === 0).map((j) => j.pre)).size,
+    largestGap: largestGap(data),
   };
+}
+
+function largestGap(data: WormlightData): { name: string; sections: number } {
+  const totals = new Map<string, number>();
+  for (const g of data.gap) {
+    totals.set(g.a, (totals.get(g.a) ?? 0) + g.sections);
+    totals.set(g.b, (totals.get(g.b) ?? 0) + g.sections);
+  }
+  let best = { name: '', sections: -1 };
+  for (const [name, sections] of totals) {
+    if (sections > best.sections || (sections === best.sections && name < best.name)) best = { name, sections };
+  }
+  return best;
 }
 
 // A thousands separator, as the ledger writes counts; by hand, so no locale data is involved.
