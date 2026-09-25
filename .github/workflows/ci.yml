@@ -53,6 +53,40 @@ jobs:
           path: data/cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
+  # The rendered pixels: the built app in headless Chrome, WebGPU on Mesa lavapipe (software Vulkan; these
+  # runners have no GPU), a fixed set of views read back through the app's own snapshot and compared with
+  # the baselines in tests/visual/baseline/. It catches what lint, types and unit tests can't, such as a
+  # shader or bind-group change that blanks a pass. After Universe Atlas's job.
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+      - name: Install Mesa lavapipe (software Vulkan)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
+      - name: Capture views (WebGPU on lavapipe)
+        run: npm run visual:capture
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          WEBGPU_CI: 1
+      - name: Compare with baselines
+        run: npm run visual:compare
+      - name: Upload captures and diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual
+          path: visual-out/
+          retention-days: 14
+
   # A Pages site is public even when its repository is private, so deploying
   # stays off until the project is ready. To go live: Settings → Pages →
   # Source: GitHub Actions, then set the repository variable DEPLOY_PAGES=true.
@@ -60,7 +94,7 @@ jobs:
   # if a custom domain is added.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true'
-    needs: [checks, data]
+    needs: [checks, data, visual]
     runs-on: ubuntu-latest
     permissions:
       pages: write

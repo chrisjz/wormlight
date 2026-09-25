@@ -2,9 +2,11 @@
   --bg: #07090a;
   --fg: #e4ebe6;
   --muted: #8c9a92;
+  --faint: #56625c;
   /* GCaMP emits near 510 nm: the one accent colour the whole app uses for activity. */
   --glow: #5dfc8f;
   --warn: #f2c14e;
+  --panel: rgb(10 14 13 / 72%);
   color-scheme: dark;
   font-family:
     system-ui,
@@ -24,7 +26,19 @@ body {
   background: radial-gradient(ellipse at 50% 35%, #0f1612 0%, var(--bg) 70%);
 }
 
-#app {
+a {
+  color: inherit;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The message page: while loading, and when the graph can't run. */
+
+#app:not(.graph) {
   max-width: 40rem;
   padding: 3rem 1.25rem;
 }
@@ -68,4 +82,171 @@ body {
 .status-body {
   margin: 0;
   color: var(--muted);
+}
+
+/* The graph: a full-window canvas with quiet overlays at its edges. */
+
+#app.graph {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-size: 0.8125rem;
+}
+
+#gpu {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+
+.brand,
+.selection,
+.legend,
+.hint,
+.credit {
+  position: absolute;
+  margin: 0;
+  pointer-events: none;
+}
+
+.brand {
+  top: 1.25rem;
+  left: 1.5rem;
+  max-width: 26rem;
+}
+
+.brand-title {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--glow);
+  text-shadow: 0 0 18px rgb(93 252 143 / 30%);
+}
+
+.brand-lede {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.selection {
+  top: 1.25rem;
+  right: 1.5rem;
+  max-width: 24rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.selection:empty {
+  display: none;
+}
+
+.legend {
+  left: 1.5rem;
+  bottom: 1.25rem;
+  max-width: 34rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  color: var(--muted);
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.35rem;
+  padding: 0;
+  list-style: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--fg);
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+}
+
+.swatch-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.swatch-line {
+  width: 1.25rem;
+  border-top: 2px solid currentColor;
+}
+
+.swatch-dashed {
+  border-top-style: dashed;
+}
+
+.legend-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.hint {
+  right: 1.5rem;
+  bottom: 2.6rem;
+  color: var(--faint);
+  text-align: right;
+}
+
+.credit {
+  right: 1.5rem;
+  bottom: 1.25rem;
+  color: var(--faint);
+  text-align: right;
+  pointer-events: auto;
+}
+
+@media (max-width: 40rem) {
+  .brand-lede,
+  .hint,
+  .legend-note {
+    display: none;
+  }
+
+  .brand,
+  .selection,
+  .legend,
+  .credit {
+    left: 1rem;
+    right: 1rem;
+  }
+
+  .brand {
+    top: 1rem;
+  }
+
+  .selection {
+    top: 3.25rem;
+    max-width: none;
+    text-align: left;
+  }
+
+  .legend {
+    bottom: 3.25rem;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .credit {
+    bottom: 1rem;
+    font-size: 0.6875rem;
+    text-align: left;
+  }
 }

@@ -529,3 +529,30 @@ Every primary null gets the same procedure and budget. R's parameterisation come
 - **The spec**'s §2.5 description of Kim et al. is corrected to match PLAN §11.
 
 **Status.** Decided with the maintainer on 2026-09-26. The spec §2.5 correction needs the maintainer's sign-off.
+
+## 2026-09-26 — The 3D graph: a straightened, stretched worm, drawn in raw WebGPU
+
+**Decision.** Milestone 1's first part draws the connectome as a rotatable 3D graph and adds visual regression CI. The inspector with provenance badges follows in its own PR.
+
+- **Layout.** Each soma sits where the WormBase Virtual Worm reconstruction (via c302) puts it, with three changes, all display choices the ledger lists as presentation:
+  - **The posed bend is taken out.** The reconstruction is posed with a bend, which in a graph reads as the worm bending. The 75 ventral-cord motor neurons, whose somata all sit in the cord, trace that pose: a Gaussian-weighted local linear fit (30 µm wide), held at its end values beyond the cord. Every neuron is drawn at its offset from that line at its own point along the body. The cord becomes straight (its somata a median 2.1 µm from the axis, at most 9.2 µm), everything else keeps its place relative to it, and ahead of the cord the head's cross-section is exactly the reconstruction's.
+  - **The body axis is stretched where neurons crowd.** A soma at fraction s of the body is drawn at u(s) = 0.4 s + 0.6 F(s), where F is the share of somata in front of s, smoothed over 1% of the body length. The head's first sixth holds 190 of the 302 somata and gets 42% of the drawn length. Order along the body is kept exactly.
+  - **The cross-section is enlarged,** to 0.034 layout units per µm against 0.017 on average along the body.
+- **Drawing.** Raw WebGPU, as spec §3 requires:
+  - Neurons are sphere impostors, their edges antialiased by alpha-to-coverage into a 4× multisampled target, sized by the square root of their total EM sections and coloured by class.
+  - Only a selected neuron's connections are drawn (spec §7), as lines of constant screen width. Their width and opacity grow with the square root of their EM sections, their colour gives the sign (excitatory, inhibitory, no fast effect), and gap junctions are dashed. Every other neuron dims.
+  - Mild fog gives depth. The GCaMP green stays reserved for activity, which milestone 2 brings.
+- **Camera.** An orbit camera starts in front of the animal's left side and a little above it, head nearest, at the distance where every soma falls inside the frame at any aspect ratio. Drag turns it, scroll or pinch zooms, shift- or right-drag pans, and a double-click resets it. The URL can pin a view: `neuron`, `yaw`, `pitch` (degrees), `dist`, and `tx`, `ty`, `tz` for its target.
+- **Visual regression CI,** ported from Universe Atlas's:
+  - The `visual` job serves the build, runs it in headless Chrome with WebGPU on Mesa lavapipe, and captures four fixed views: the whole graph, the head, AVAL selected and VB6 selected.
+  - Each frame is read back through the app's `window.__snap`, which renders into a texture of its own; on software GPUs every canvas-side readback is black. With `?norender=1` nothing is presented, so the snapshot is the only work on the queue.
+  - A capture fails on a uniform frame, a page error or an app that never becomes ready. A comparison fails when more than 0.5% of pixels differ beyond pixelmatch's threshold of 0.12.
+  - The baselines are CI's own captures, since lavapipe's pixels differ from a local GPU's.
+- **Dependencies.** Development only: `puppeteer-core` drives Chrome, and `pixelmatch` and `pngjs` compare the PNGs. The app gains no runtime dependency.
+
+**Why.**
+
+- **The layout.** Spec §7 asks for anatomical positions with a readable head. Straightening removes the pose's false curvature without moving any neuron relative to the cord, and a density-weighted axis gives the ganglia room while keeping order, which uniform scaling can't do: at uniform scale the head's 190 somata would share a sixth of the length.
+- **The CI.** Universe's net already works on GitHub's GPU-less runners, and lint, types and unit tests can't see a blank render pass.
+
+**Status.** Done. The baselines are the first CI run's captures.

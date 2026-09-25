@@ -1,11 +1,11 @@
 /** What the page learned when it asked the browser for a GPU. */
 export type GpuSupport =
-  | { kind: 'ready'; adapter: string }
+  | { kind: 'ready'; adapter: string; device: GPUDevice }
   | { kind: 'no-webgpu' }
   | { kind: 'no-adapter' }
   | { kind: 'failed'; reason: string };
 
-/** Ask for a WebGPU adapter without throwing: every outcome becomes a GpuSupport the page can explain. */
+/** Ask for a WebGPU adapter and device without throwing: every outcome becomes a GpuSupport the page can explain. */
 export async function probeWebGpu(gpu: GPU | undefined): Promise<GpuSupport> {
   if (!gpu) return { kind: 'no-webgpu' };
   try {
@@ -13,14 +13,18 @@ export async function probeWebGpu(gpu: GPU | undefined): Promise<GpuSupport> {
     if (!adapter) return { kind: 'no-adapter' };
     const info = adapter.info;
     const name = [info?.vendor, info?.architecture].filter(Boolean).join(' ');
-    return { kind: 'ready', adapter: name || 'an unnamed adapter' };
+    const device = await adapter.requestDevice();
+    return { kind: 'ready', adapter: name || 'an unnamed adapter', device };
   } catch (err) {
     return { kind: 'failed', reason: err instanceof Error ? err.message : String(err) };
   }
 }
 
+/** An outcome as the page describes it: a ready GPU is described by its adapter alone. */
+export type DescribedSupport = Exclude<GpuSupport, { kind: 'ready' }> | { kind: 'ready'; adapter: string };
+
 /** The words shown for each outcome. A browser without WebGPU gets an explanation, never a blank page. */
-export function describeGpuSupport(support: GpuSupport): { title: string; body: string } {
+export function describeGpuSupport(support: DescribedSupport): { title: string; body: string } {
   switch (support.kind) {
     case 'ready':
       return { title: 'WebGPU is ready', body: `Your browser offered a GPU adapter (${support.adapter}).` };
