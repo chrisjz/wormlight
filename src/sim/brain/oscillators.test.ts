@@ -16,7 +16,7 @@ const lone: Network = {
   chemical: chemicalRows(1, []),
 };
 const V0 = 1 / (2 * lone.slope);
-const GAIN = 2; // nS: twice the solve's 1.5 C/dt at 2.5 ms, so the fast jumps are stiff at that step
+const GAIN = 2; // nS: over three times the solve's 1.5 C/dt at 2.5 ms, so the fast jumps are stiff there
 const RECOVERY = 1; // s
 
 function oscillator(shift: number, bias: number): Brain {
@@ -42,12 +42,13 @@ const period = (times: number[]): number => (times[times.length - 1] - times[0])
 
 // The same neuron as a two-variable ODE in x and w, integrated independently by RK4 at a fine step:
 // C v₀ dx/dt = −G_c v₀ x + I + g v₀ (x − x³/3 − w), τ_w dw/dt = x + 0.7 − 0.8 w.
-function referencePeriod(bias: number): number {
+// `offset` is the neuron's threshold less its leak potential, the leak's pull in units of x.
+function referencePeriod(bias: number, offset = 0): number {
   const dt = 1e-5;
   let x = 0;
   let w = 0.7 / 0.8;
   const f = (xx: number, ww: number): [number, number] => [
-    (-lone.leak * V0 * xx + bias + GAIN * V0 * (xx - (xx * xx * xx) / 3 - ww)) / (lone.capacitance * V0),
+    (-lone.leak * (V0 * xx + offset) + bias + GAIN * V0 * (xx - (xx * xx * xx) / 3 - ww)) / (lone.capacitance * V0),
     (xx + 0.7 - 0.8 * ww) / RECOVERY,
   ];
   return period(
@@ -84,9 +85,116 @@ describe('the oscillators', () => {
   });
 
   it('keep the voltage solve positive definite through the fast jumps', () => {
-    const brain = oscillator(0, bias);
-    for (let k = 0; k < 8000; k++) brain.step(0.0025);
+    // Twelve gap-coupled oscillators; after every step, each row of the solve's own matrix must stay
+    // diagonally dominant, which the stabilising-only linearisation guarantees.
+    const n = 12;
+    const chain: Network = {
+      ...lone,
+      names: Array.from({ length: n }, (_, i) => `N${i}`),
+      leak: 0.3,
+      gap: gapRows(
+        n,
+        Array.from({ length: n - 1 }, (_, i): [number, number, number] => [i, i + 1, 0.05]),
+      ),
+      chemical: chemicalRows(n, []),
+    };
+    const brain = new Brain(chain, new Float64Array(n).fill(-35));
+    brain.setOscillators({
+      neurons: Int32Array.from({ length: n }, (_, i) => i),
+      shift: Float64Array.from({ length: n }, (_, i) => -6 - (i % 3)),
+      gain: GAIN,
+      recovery: RECOVERY,
+    });
+    const diagonal = (brain as unknown as { d: Float64Array }).d;
+    let margin = Infinity;
+    for (let k = 0; k < 4000; k++) {
+      brain.step(0.0025);
+      for (let i = 0; i < n; i++) {
+        const offDiagonal = (i > 0 ? 0.05 : 0) + (i < n - 1 ? 0.05 : 0);
+        margin = Math.min(margin, diagonal[i] - offDiagonal);
+      }
+    }
+    expect(margin).toBeGreaterThan(0);
     expect(brain.unconverged).toBe(0);
+  });
+
+  it('read each neuron by its own index, threshold and shift', () => {
+    // Three neurons; the oscillator sits on the third, whose threshold is 15 mV above the leak potential.
+    const three: Network = {
+      ...lone,
+      names: ['A', 'B', 'C'],
+      gap: gapRows(3, []),
+      chemical: chemicalRows(3, []),
+    };
+    const threshold = -20;
+    const shift = -3;
+    // Oscillator 0 sits on neuron 2 and oscillator 1 on neuron 0, which cycles at another bias.
+    const brain = new Brain(three, Float64Array.of(-35, -35, threshold));
+    brain.setOscillators({
+      neurons: Int32Array.of(2, 0),
+      shift: Float64Array.of(shift, 0),
+      gain: GAIN,
+      recovery: RECOVERY,
+    });
+    brain.input[2] = bias;
+    brain.input[0] = 1.2 * GAIN * V0;
+    const x2 = (): number => (brain.voltage[2] - threshold - shift) / V0;
+    const x0 = (): number => (brain.voltage[0] + 35) / V0;
+    const times2: number[] = [];
+    const times0: number[] = [];
+    let p2 = x2();
+    let p0 = x0();
+    for (let k = 1; k <= 12000; k++) {
+      brain.step(0.0025);
+      if (k * 0.0025 > 5 && p2 < 0 && x2() >= 0) times2.push(k * 0.0025);
+      if (k * 0.0025 > 5 && p0 < 0 && x0() >= 0) times0.push(k * 0.0025);
+      p2 = x2();
+      p0 = x0();
+    }
+    // In x, the leak pulls towards (E_c − V_th − shift)/v₀.
+    expect(Math.abs(period(times2) / referencePeriod(bias, threshold + shift + 35) - 1)).toBeLessThan(0.015);
+    expect(Math.abs(period(times0) / referencePeriod(1.2 * GAIN * V0) - 1)).toBeLessThan(0.015);
+  });
+
+  it('step the recovery variable by implicit Euler first, then BDF2, at the new voltage', () => {
+    const brain = oscillator(0, bias);
+    const w0 = brain.recovery[0];
+    const dt = 0.0025;
+    const h = dt / RECOVERY;
+    brain.step(dt);
+    const x1 = (brain.voltage[0] + 35) / V0;
+    const w1 = (w0 + h * (x1 + 0.7)) / (1 + h * 0.8);
+    expect(brain.recovery[0]).toBeCloseTo(w1, 14);
+    brain.step(dt);
+    const x2 = (brain.voltage[0] + 35) / V0;
+    expect(brain.recovery[0]).toBeCloseTo((2 * w1 - 0.5 * w0 + h * (x2 + 0.7)) / (1.5 + h * 0.8), 14);
+  });
+
+  it('reset with the rest of the state', () => {
+    const brain = oscillator(0, bias);
+    for (let k = 0; k < 400; k++) brain.step(0.0025);
+    // Rest puts every oscillator back on its w-nullcline.
+    brain.rest();
+    expect(brain.recovery[0]).toBeCloseTo(0.7 / 0.8, 12);
+    // The nullcline at the neuron's own x: shifted 4 mV, it rests at x = 1, w = (1 + 0.7)/0.8.
+    const shifted = oscillator(-4, 0);
+    expect(shifted.recovery[0]).toBeCloseTo(1.7 / 0.8, 12);
+    // setState can restore w, and the next step starts afresh (implicit Euler) from it.
+    brain.setState([-30], [0], 0, [0.2]);
+    expect(brain.recovery[0]).toBe(0.2);
+    brain.step(0.0025);
+    const x = (brain.voltage[0] + 35) / V0;
+    expect(brain.recovery[0]).toBeCloseTo(
+      (0.2 + (0.0025 / RECOVERY) * (x + 0.7)) / (1 + (0.0025 / RECOVERY) * 0.8),
+      14,
+    );
+    // So does setOscillators, after steps have built a history.
+    for (let k = 0; k < 10; k++) brain.step(0.0025);
+    brain.setOscillators(brain.oscillators);
+    const w = brain.recovery[0];
+    brain.step(0.0025);
+    const x2 = (brain.voltage[0] + 35) / V0;
+    expect(brain.recovery[0]).toBeCloseTo((w + (0.0025 / RECOVERY) * (x2 + 0.7)) / (1 + (0.0025 / RECOVERY) * 0.8), 14);
   });
 
   it('cycle only within a window of drive above their threshold', () => {

@@ -26,14 +26,15 @@ export class Muscles {
   // For each of the body's segments, the muscle covering its middle in each quadrant.
   private readonly cover: { DL: Int32Array; DR: Int32Array; VL: Int32Array; VR: Int32Array };
 
-  constructor(data: WormlightData, params: MuscleParams, segments: number) {
+  // Junctions from the `excluded` neurons (lesioned ones) are left out.
+  constructor(data: WormlightData, params: MuscleParams, segments: number, excluded: ReadonlySet<string> = new Set()) {
     this.params = params;
     this.names = data.muscles.map((m) => m.name);
     const muscleAt = new Map(this.names.map((name, i) => [name, i]));
     const neuronAt = new Map(data.neurons.map((n, i) => [n.name, i]));
     // Connections from cells with no fast effect on muscle carry no drive.
     const edges = data.neuromuscular
-      .filter((j) => j.sign !== 0)
+      .filter((j) => j.sign !== 0 && !excluded.has(j.pre))
       .map((j) => [muscleAt.get(j.muscle) ?? -1, neuronAt.get(j.pre) ?? -1, j.sections * j.sign] as const);
     if (edges.some(([m, n]) => m < 0 || n < 0)) throw new Error('a neuromuscular connection names an unknown cell');
     const count = this.names.length;

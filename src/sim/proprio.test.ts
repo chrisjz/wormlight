@@ -43,12 +43,30 @@ describe('curvature', () => {
   });
 });
 
+describe('curvature on unequal spacing', () => {
+  it('divides the turn by the mean of the two segments beside the rod', () => {
+    const body = new Body(boyleBody());
+    body.straighten(0, 0, Math.PI);
+    // Rods 0–2 in an L: a first segment 10 µm long along +x, then 30 µm along +y, a 90° turn anticlockwise.
+    body.x[0] = 0;
+    body.y[0] = 0;
+    body.x[1] = 10e-6;
+    body.y[1] = 0;
+    body.x[2] = 10e-6;
+    body.y[2] = 30e-6;
+    const k = new Float64Array(body.rods);
+    curvature(body, k);
+    expect(k[1]).toBeCloseTo((Math.PI / 2 / 20e-6) * 1e-3, 6);
+  });
+});
+
 describe('regionMean', () => {
   const k = Float64Array.from({ length: 49 }, (_, i) => i);
 
   it('averages the interior rods inside the region, or takes the nearest one', () => {
-    // Rods 12 to 24 lie in [0.25, 0.5].
+    // Rods 12 to 24 lie in [0.25, 0.5], both ends included.
     expect(regionMean(k, 0.25, 0.5)).toBe(18);
+    expect(regionMean(k, 0.25, 0.3)).toBe(13);
     // [0.001, 0.01] holds no rod; the nearest interior one is rod 1.
     expect(regionMean(k, 0.001, 0.01)).toBe(1);
     // The end rods, which have no curvature, are never read.
@@ -84,9 +102,26 @@ describe('the head switch', () => {
 
   it('holds while not gated on, tracking K so its derivative stays true', () => {
     const sw = new HeadSwitch(0.046, 2.33);
-    expect(sw.update(3, 0.0025, false)).toBe(false);
+    sw.update(0, 0.0025, true);
+    // Gated off while K rises past the threshold: it holds.
+    expect(sw.update(1, 0.0025, false)).toBe(false);
+    expect(sw.update(2, 0.0025, false)).toBe(false);
     expect(sw.h).toBe(1);
-    // Gated on again with K steady, P is K: past the threshold, so it switches.
-    expect(sw.update(3, 0.0025, true)).toBe(true);
+    // Gated on with K steady at 2: P is 2, short of 2.33, because K was tracked while it was off. Had it not
+    // been, the jump from 0 would read as a derivative and switch it.
+    expect(sw.update(2, 0.0025, true)).toBe(false);
+    expect(sw.update(2.4, 1, true)).toBe(true);
+    // And the tracked K carries its derivative across the gap: rising from 2 to 2.2 in one step reads as
+    // P = 2.2 + 0.046 × 80 when it is gated on again.
+    const again = new HeadSwitch(0.046, 2.33);
+    again.update(1, 0.0025, false);
+    again.update(2, 0.0025, false);
+    expect(again.update(2.2, 0.0025, true)).toBe(true);
+  });
+
+  it('switches when P reaches the threshold exactly', () => {
+    const sw = new HeadSwitch(0.046, 2.5);
+    expect(sw.update(2.5, 0.0025, true)).toBe(true);
+    expect(sw.update(-2.5, 1, true)).toBe(true);
   });
 });

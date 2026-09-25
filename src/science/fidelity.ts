@@ -371,9 +371,10 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'rhythm',
     levels: [2, 1, 0],
     basis: 'Fouad et al. 2018; Xu et al. 2018 (abstract only); AVB needed for forward movement (Chalfie et al. 1985)',
-    caveats: 'The FitzHugh–Nagumo form is ours (0); its parameters are calibrated (1)',
+    caveats:
+      'Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1)',
     upgrade: 'A parameterised model of the B-type rhythm',
-    sources: ['fouad2018', 'xu2018', 'chalfie1985'],
+    sources: ['fouad2018', 'xu2018', 'chalfie1985', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [
       { check: 'unit', detail: 'they cycle at the FitzHugh–Nagumo period, only within a window of drive' },
       { check: 'checkpoint0' },
@@ -386,9 +387,10 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'rhythm',
     levels: [2, 1, 0],
     basis: 'Gao et al. 2018 (sufficient for backward locomotion without premotor interneurons)',
-    caveats: 'As above',
+    caveats:
+      'As above. With these constants and no drive threshold the A-types do not cycle on their own, even without their premotor interneurons, only when the B-types drive them; the model does not yet show the intrinsic rhythm it cites (DECISIONS.md)',
     upgrade: 'A parameterised model of the A-type rhythm',
-    sources: ['gao2018'],
+    sources: ['gao2018', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint5', detail: 'AVA and AVA + AVD rows' }],
   },
   {

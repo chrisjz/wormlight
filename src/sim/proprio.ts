@@ -55,13 +55,17 @@ export interface Field {
 
 export function proprioceptiveFields(data: WormlightData, reach: number): Field[] {
   const muscles = new Map(data.muscles.map((m) => [m.name, m]));
+  // Muscle edges lie on PLAN §4.4's grid of slots; the data file rounds them to four places, so snap them
+  // back, or rounding alone would decide whether a field's edge rod counts.
+  const slots = Math.max(...data.muscles.map((m) => m.index));
+  const snap = (s: number): number => Math.round(s * slots) / slots;
   const fields: Field[] = [];
   data.neurons.forEach((neuron, i) => {
     if (neuron.oscillator !== 'A' && neuron.oscillator !== 'B') return;
     const targets = data.neuromuscular.filter((j) => j.pre === neuron.name).map((j) => muscles.get(j.muscle));
     if (targets.length === 0 || targets.some((m) => m === undefined)) return;
-    const front = Math.min(...targets.map((m) => m?.s0 ?? 1));
-    const back = Math.max(...targets.map((m) => m?.s1 ?? 0));
+    const front = snap(Math.min(...targets.map((m) => m?.s0 ?? 1)));
+    const back = snap(Math.max(...targets.map((m) => m?.s1 ?? 0)));
     const [from, to] =
       neuron.oscillator === 'B' ? [Math.max(0, front - reach), front] : [back, Math.min(1, back + reach)];
     if (to - from <= 0) return;

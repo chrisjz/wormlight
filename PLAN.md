@@ -229,7 +229,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
   - Wormlight puts that switch in the SMD head motor neurons. SMDD senses head-muscle stretch through two TRPC channels and is required and sufficient for head bending (Yeon et al. 2018), and Ji et al. name SMDD among the candidate generators. SMDV is taken as its ventral counterpart.
   - A binary state `h` flips when `P` crosses `±P_th`, and injects `I_sw = ±g_sw (h − ½)` into SMDD and SMDV in antiphase. `K` is the scaled curvature κL averaged over body coordinates 0.1–0.3, the head region where Ji et al. measured it and fitted `b` and `P_th` (level 2, with them).
   - `b = 46 ms` and `P_th = 2.33` come from Ji et al. They were fitted in a 120 mPa·s fluid, so on agar they are level 2. The gain `g_sw` is calibrated.
-  - The switch operates only while network input holds the neuron above the drive threshold `θ_osc`, so a silenced network has no head rhythm (level 0). The drive it reads is the four SMDs' mean depolarisation above their thresholds, in which its own antiphase current roughly cancels.
+  - The switch operates only while network input holds the neuron above the drive threshold `θ_osc`, so a silenced network has no head rhythm (level 0). The drive it reads is, for each SMD, the voltage its partners and leak would hold it at, less its threshold, averaged over the four; the SMDs' own voltages, and so the switch's own current, don't enter. It is 0 at rest and E_c − V_th, about −28 mV, in the silenced network.
 - **Forward: B-type intrinsic oscillators.**
   - Fouad et al. 2018 found that "multiple sections of forward locomotor circuitry are capable of independently generating rhythms", with secondary rhythms coming from cholinergic motor neurons in the midbody.
   - Xu et al. 2018 report B-type motor neurons with intrinsic rhythmic activity that proprioceptive coupling entrains; only their abstract has been checked.
@@ -247,7 +247,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
   - `θᵢ` is `θ_osc` for B-types and 0 for A-types.
   - The excitability `g_osc` and recovery time `τ_w` are calibrated and shared by A and B.
   - No published, parameterised model of these cells exists, so the form is ours (level 0), while the mechanism is level 2.
-  - With these constants a neuron cycles only while its network holds it within a window of drive above its threshold; at no drive it is excitable, not oscillating. So B-types cycle at rest only if `θ_osc` sits below their rest, which AVB's drive holds them at, and A-types cycle only when depolarised.
+  - With these constants a neuron cycles only while its network holds it within a window of drive; with none it is excitable, not oscillating. In the network the B-types cycle when `θ_osc` sits well below their rest (all 18 from −8 to −32 mV at g_osc = 2 nS), while the A-types, with no drive threshold, don't cycle on their own (DECISIONS.md).
   - In the voltage solve, the part of the oscillator current that stabilises (the cubic's outer branches) is implicit and the rest explicit, which keeps the system positive definite (DECISIONS.md).
 
 - **Proprioceptive coupling (Wen et al. 2012).**
