@@ -509,6 +509,7 @@ export const COMPONENTS: readonly Component[] = [
     sources: ['boyle2012'],
     testedBy: [
       { check: 'passiveBend' },
+      { check: 'unit', detail: "the paper's force law, written independently, gives its velocities" },
       { check: 'unit', detail: 'a prescribed wave crawls at the predicted speed' },
       { check: 'checkpoint1' },
     ],
@@ -517,11 +518,16 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Agar drag coefficients',
     subsystem: 'body',
     levels: [3],
-    basis: 'Boyle et al. 2012, split per rod as their code does',
+    basis:
+      "Boyle et al. 2012, split per rod as their code does, which also resists each rod's rotation with 4πR² times its tangential coefficient",
     caveats: '',
     upgrade: '',
     sources: ['boyle2012'],
-    testedBy: [{ check: 'passiveBend' }, { check: 'checkpoint1' }],
+    testedBy: [
+      { check: 'passiveBend' },
+      { check: 'unit', detail: "a uniform force moves the body at the registry's drag" },
+      { check: 'checkpoint1' },
+    ],
   },
 
   // Environment.

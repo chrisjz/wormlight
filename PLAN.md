@@ -268,9 +268,9 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
 
 - **Structure** (Boyle, Berri & Cohen 2012, level 3). 48 units, built from 49 rods, over 1 mm, with a radius profile peaking at 40 µm, joined by damped lateral and diagonal springs using their Table 1 constants. Neuron positions are fractions of body length, so the 0.8 mm morphology maps onto the 1 mm body.
 - **Drag.** The body is overdamped, so each step balances internal forces against resistive drag. The whole worm's agar coefficients are C∥ = 3.2 × 10⁻³ and C⊥ = 128 × 10⁻³ kg s⁻¹, a ratio of 40. Each rod gets the whole-worm value divided by twice the rod count, C/98, exactly as Boyle et al.'s code (`worm.cc`: C/(2·NBAR)) and Fieseler et al.'s Table 1 do.
-- **Integration.** A linearly implicit step solves the 49 × (3×3) block-tridiagonal system for the rod velocities by block cyclic reduction: 6 parallel levels in one workgroup, measured at 3.6 µs per step, where banded elimination took 75–305 µs.
+- **Integration.** A semi-implicit step solves the 49 × (3×3) block-tridiagonal system for the rod velocities, with drag and dampers implicit and the springs explicit; every spring has a damper in parallel, which keeps it stable to about 20 ms. The CPU reference eliminates the blocks in order; the GPU uses block cyclic reduction, 6 parallel levels in one workgroup, measured at 3.6 µs per step where banded elimination took 75–305 µs.
 - **Tests.**
-  - A passive-bend relaxation test depends on the drag-to-stiffness ratio, so it catches a wrong drag scale that the translation tests can't.
+  - A passive-bend relaxation test depends on the stiffness-to-drag ratio, so it catches a wrong stiffness that the translation tests can't, while they pin the drag.
   - A prescribed muscle wave at 0.30 Hz must crawl before the brain is attached.
 - **Lying side.** Each trial draws which side the worm lies on, which mirrors the dorsoventral plane on screen.
 
