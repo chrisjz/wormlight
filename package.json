@@ -10,12 +10,14 @@
     "url": "git+https://github.com/chrisjz/wormlight.git"
   },
   "engines": {
-    "node": ">=22.12"
+    "node": "^22.22.1 || >=23.6.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p scripts && vite build",
     "preview": "vite preview",
+    "data:build": "node scripts/data/build.ts",
+    "data:check": "node scripts/data/build.ts --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -35,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
     "@webgpu/types": "^0.1.74",
     "eslint": "^10.11.0",
     "husky": "^9.1.7",

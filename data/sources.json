@@ -1,0 +1,227 @@
+{
+  "$comment": "Every input the data build reads, pinned by digest, and every dataset Wormlight credits. `npm run data:build` reads this file and generates DATA_SOURCES.md and public/data/NOTICE.md from it. Edit this file, never the generated pages.",
+  "citations": {
+    "chalasani2007": "Chalasani SH, Chronis N, Tsunozaki M, et al. Dissecting a circuit for olfactory behaviour in Caenorhabditis elegans. Nature 450:63–70 (2007), doi:10.1038/nature06292",
+    "fenyves2020": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16:e1007974 (2020), doi:10.1371/journal.pcbi.1007974",
+    "wang2024": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402",
+    "richmond1999": "Richmond JE, Jorgensen EM. One GABA and two acetylcholine receptors function at the C. elegans neuromuscular junction. Nature Neuroscience 2:791–797 (1999), doi:10.1038/12160"
+  },
+  "licenceTexts": {
+    "mit-openworm-2024": "MIT License\n\nCopyright (c) 2024 OpenWorm\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
+    "mit-creamer-2026": "MIT License\n\nCopyright (c) 2026 Matthew S. Creamer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+  },
+  "pins": [
+    {
+      "id": "nematode-export",
+      "description": "Quantum Nematode's `wormlight.connectome/1` export: neurons, chemical synapses, gap junctions and neuromuscular connections",
+      "files": [
+        {
+          "path": "data/vendor/nematode/connectome.v1.json",
+          "sha256": "b8befe874bea964e9413e14650833076d020680e572c9fe51f985091cf2a57eb"
+        }
+      ],
+      "origin": {
+        "repository": "https://github.com/SyntheticBrains/nematode",
+        "commit": "fb6a162f7ef9ed3d701475bce497050fb4ab79ed",
+        "command": "uv run python scripts/export_wormlight.py --out <wormlight>/data/vendor/nematode/connectome.v1.json"
+      },
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "c302-cells",
+      "description": "The 302 neuron morphologies in `openworm/c302`, `c302/NeuroML2/*.cell.nml`",
+      "manifest": {
+        "path": "data/c302-cells.sha256",
+        "sha256": "3c0c8db8abd68907cd067c9636f8c34c81a9cf4ad8de203574a72499616ecf6d",
+        "urlTemplate": "https://raw.githubusercontent.com/openworm/c302/6cd861f8ca4d3241ee9cf4627884caa930dab53c/c302/NeuroML2/{file}"
+      },
+      "origin": {
+        "repository": "https://github.com/openworm/c302",
+        "commit": "6cd861f8ca4d3241ee9cf4627884caa930dab53c"
+      },
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "fenyves2020-s1",
+      "description": "Fenyves et al. 2020, S1 Data (`journal.pcbi.1007974.s003`), sheet \"5. Sign prediction\"",
+      "files": [
+        {
+          "url": "https://journals.plos.org/ploscompbiol/article/file?type=supplementary&id=10.1371/journal.pcbi.1007974.s003",
+          "sha256": "85959066fd7cbdbc2024d0ebb323b71c4365f4083bc85e555ee973f470697c47"
+        }
+      ],
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "fenyves2020-s5",
+      "description": "Fenyves et al. 2020, S5 Data (`journal.pcbi.1007974.s007`), sheet \"5. Sign prediction (Cook)\"",
+      "files": [
+        {
+          "url": "https://journals.plos.org/ploscompbiol/article/file?type=supplementary&id=10.1371/journal.pcbi.1007974.s007",
+          "sha256": "35902e0f43842ed25a65b4cc1c95028bcd73db121c6ad4d831ddc5ce5612ec81"
+        }
+      ],
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "creamer-lds",
+      "description": "Creamer, Leifer & Pillow's fitted weights, `quick_start_examples/model_weights.csv` in `Nondairy-Creamer/Creamer_LDS_2026`",
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/Nondairy-Creamer/Creamer_LDS_2026/bba43302d50a4947804d98b01779856e648237cc/quick_start_examples/model_weights.csv",
+          "sha256": "f452b88461aa90d414fd652e246e11302293d207510b9f4c94bf9a9a8098924c"
+        }
+      ],
+      "origin": {
+        "repository": "https://github.com/Nondairy-Creamer/Creamer_LDS_2026",
+        "commit": "bba43302d50a4947804d98b01779856e648237cc"
+      },
+      "retrieved": "2026-09-25"
+    }
+  ],
+  "datasets": [
+    {
+      "id": "cook2019",
+      "use": "shipped",
+      "pins": ["nematode-export"],
+      "dataset": "Cook et al. 2019, _Nature_ 571:63, in the corrected release of Emmons 2024, _PLoS Biol_ 22:e3002939, S1 File (`journal.pbio.3002939.s001`, \"Connectome Adjacency Matrices\")",
+      "takes": "Hermaphrodite chemical synapses, gap junctions and neuromuscular connections, as EM serial-section counts",
+      "route": "Quantum Nematode export, which vendors this file beside the 2019 original that nematode's own experiments keep using",
+      "licence": "CC BY 4.0. Cite Cook et al. 2019 and Emmons 2024. The chemical matrix is identical to the 2019 original, including all 956 neuromuscular entries; the gap junctions carry the lab's July 2020 corrections and its 2023 BDU–ALM and BDU–PLM junctions. The 2019 supplement itself states no licence, which is why this release is used",
+      "notice": {
+        "title": "Connectome",
+        "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+        "attribution": "Cook SJ, Jarrell TA, Brittin CA, et al. Whole-animal connectomes of both Caenorhabditis elegans sexes. Nature 571:63–71 (2019), doi:10.1038/s41586-019-1352-7. As released in Emmons SW. Comprehensive analysis of the C. elegans connectome reveals novel circuits and functions of previously unstudied neurons. PLoS Biology 22(12):e3002939 (2024), doi:10.1371/journal.pbio.3002939, S1 File (doi:10.1371/journal.pbio.3002939.s001). Wormlight uses the hermaphrodite matrices' counts unchanged, restricted to the 302 neurons and the 95 body wall muscles, with the two directions of each gap junction folded into one pair and the 14 gap junctions between a neuron and itself omitted.",
+        "copyright": "© 2024 Scott W. Emmons",
+        "spdx": "CC-BY-4.0"
+      }
+    },
+    {
+      "id": "wang2024",
+      "use": "shipped",
+      "pins": ["nematode-export"],
+      "dataset": "Wang et al. 2024, _eLife_ 13:RP95402, Supplementary File 2",
+      "takes": "Each neuron's neurotransmitter release identities",
+      "route": "Quantum Nematode export",
+      "licence": "CC BY 4.0 (eLife). Cite Wang et al. 2024",
+      "notice": {
+        "title": "Neurotransmitter identities",
+        "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+        "attribution": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402, Supplementary File 2. Quantum Nematode reads each neuron's release identities from it, excluding orphan and unknown entries, uptake-only entries, the atlas's hedged entries and one precursor.",
+        "copyright": "© 2024, Wang et al.",
+        "spdx": "CC-BY-4.0"
+      }
+    },
+    {
+      "id": "cect-classes",
+      "use": "shipped",
+      "pins": ["nematode-export"],
+      "dataset": "OpenWorm ConnectomeToolbox (`cect`) `Cells.py`, v0.3.1, as curated into Quantum Nematode's neuron table",
+      "takes": "Each neuron's class: sensory, interneuron, motor or pharyngeal",
+      "route": "Quantum Nematode export",
+      "licence": "MIT, Copyright (c) 2024 OpenWorm. cect attributes its classification to Cook et al. 2019 and WormAtlas",
+      "notice": {
+        "title": "Neuron classes",
+        "licence": "MIT (https://github.com/openworm/ConnectomeToolbox); licence text below",
+        "attribution": "Neuron classes from OpenWorm ConnectomeToolbox (cect) Cells.py v0.3.1, as curated in Quantum Nematode (https://github.com/SyntheticBrains/nematode, Apache-2.0).",
+        "copyright": "Copyright (c) 2024 OpenWorm",
+        "spdx": "MIT"
+      },
+      "licenceText": "mit-openworm-2024"
+    },
+    {
+      "id": "c302",
+      "use": "shipped",
+      "pins": ["c302-cells"],
+      "dataset": "`openworm/c302`, `c302/NeuroML2/*.cell.nml`",
+      "takes": "Soma positions, dendrite tips (where head sensory neurons sense) and process extents (touch receptive fields)",
+      "route": "Wormlight data build",
+      "licence": "MIT (c302). The morphologies come from the WormBase Virtual Worm (Grove & Sternberg), released into the public domain",
+      "notice": {
+        "title": "Neuron positions",
+        "licence": "MIT; licence text below. The underlying WormBase Virtual Worm model is in the public domain",
+        "attribution": "Neuron positions and process extents derived from the c302 NeuroML2 cell morphologies (OpenWorm, https://github.com/openworm/c302), which OpenWorm converted from the WormBase Virtual Worm, a 3D model of the worm made by Christian Grove and Paul Sternberg (Caltech).",
+        "copyright": "Copyright (c) 2024 OpenWorm",
+        "spdx": "MIT"
+      },
+      "licenceText": "mit-openworm-2024"
+    },
+    {
+      "id": "fenyves2020",
+      "use": "shipped",
+      "pins": ["fenyves2020-s1", "fenyves2020-s5"],
+      "dataset": "Fenyves et al. 2020, _PLoS Comput Biol_ 16:e1007974, files `journal.pcbi.1007974.s003` (S1 Data, the WormWiring reconstruction) and `s007` (S5 Data, its \"5. Sign prediction (Cook)\" sheet)",
+      "takes": "Synapse signs predicted from transmitter and receptor expression (\"NT+R\"), used where the presynaptic transmitter the prediction rests on is one of the cell's identities in Wang et al. 2024. The two files agree on all 3,121 connections they share",
+      "route": "Wormlight data build",
+      "licence": "CC BY 4.0. Cite Fenyves et al. 2020",
+      "notice": {
+        "title": "Synapse signs",
+        "licence": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+        "attribution": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16(12):e1007974 (2020), doi:10.1371/journal.pcbi.1007974, S1 Data (doi:10.1371/journal.pcbi.1007974.s003) and S5 Data (doi:10.1371/journal.pcbi.1007974.s007). Wormlight takes the predicted polarity of each connection, and sets it aside where the presynaptic transmitter it rests on is not among the cell's identities in Wang et al. 2024.",
+        "copyright": "© 2020 Fenyves et al.",
+        "spdx": "CC-BY-4.0"
+      }
+    },
+    {
+      "id": "neural-interactome",
+      "use": "tests",
+      "planned": "milestone 0b",
+      "dataset": "Neural Interactome (Kim, Leahy & Shlizerman 2019), `shlizee/C-elegans-Neural-Interactome`: `initialize.py`, `Gg.npy`, `Gs.npy`, `emask.npy`",
+      "takes": "The port check runs Neural Interactome's own code on its Varshney et al. 2011 matrices, which are indexed [post, pre]",
+      "licence": "BSD-3-Clause"
+    },
+    {
+      "id": "creamer-lds",
+      "use": "tests",
+      "pins": ["creamer-lds"],
+      "dataset": "Creamer, Leifer & Pillow fitted weights (`Creamer_LDS_2026`, pinned from the authors' repository; nematode vendors the same file)",
+      "takes": "The sign cross-check report on the 1,049 head connections they cover; never used as strengths",
+      "licence": "MIT, Copyright (c) 2026 Matthew S. Creamer. The cross-check report reproduces the licence text beside the weights it quotes",
+      "licenceText": "mit-creamer-2026"
+    },
+    {
+      "id": "eigenworms",
+      "use": "tests",
+      "planned": "milestone 0a",
+      "dataset": "A published eigenworm basis (pinned before any posture data exist)",
+      "takes": "Checkpoint 1's posture clause",
+      "licence": "Recorded when pinned"
+    },
+    {
+      "id": "randi2023",
+      "use": "consulted",
+      "dataset": "Randi et al. 2023, _Nature_ 623:406, signal-propagation atlas",
+      "takes": "Cited only. The OSF deposit states no licence, and the `wormneuroatlas` copy is GPL-3.0, so it can't be bundled with Apache-2.0 code"
+    },
+    {
+      "id": "levy-bargmann-code",
+      "use": "consulted",
+      "dataset": "Levy & Bargmann 2020, `LevySagi/Adaptive-Concentration-Threshold` (CC BY 4.0 per its LICENSE)",
+      "takes": "The adaptive-threshold constants K = 5.5 µM and τ = 17 s were read from `NoiseFilteringAnalysis_Fig6.m`. No code or data is bundled"
+    },
+    {
+      "id": "modworm",
+      "use": "consulted",
+      "dataset": "Kim et al. 2025, `shlizee/modWorm` (BSD-3-Clause)",
+      "takes": "Reviewed as prior art. Its muscle map is not used, because Wormlight takes neuromuscular connections straight from Cook et al. 2019"
+    },
+    {
+      "id": "boyle-code",
+      "use": "consulted",
+      "dataset": "Boyle, Berri & Cohen 2012, the model's source code (`worm.cc`)",
+      "takes": "Consulted for how the whole-worm drag is split per rod. No code is bundled"
+    },
+    {
+      "id": "ji2021-data",
+      "use": "consulted",
+      "dataset": "Ji et al. 2021 data and code (Dryad, doi:10.5061/dryad.wwpzgmsk2)",
+      "takes": "Not used directly; the head switch's parameters are taken from the paper"
+    },
+    {
+      "id": "cook2019-si5",
+      "use": "consulted",
+      "dataset": "Cook et al. 2019 SI 5, original and \"corrected July 2020\" versions (wormwiring.org; the original is vendored in nematode via cect)",
+      "takes": "Compared cell by cell with Emmons 2024's S1 File: identical chemical synapses, and gap junctions that differ only by the 2020 corrections and the 2023 BDU junctions. Neither states a licence; WormWiring shows only \"Emmons Lab Copyright (c) 2020\""
+    }
+  ]
+}

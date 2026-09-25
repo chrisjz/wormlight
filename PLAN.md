@@ -101,39 +101,39 @@ The example counts are Cook's. The export keeps Cook's 38 autapses and has 1,095
 `npm run data:build` is TypeScript run by Node. It reads sources pinned in `data/sources.json` (URL, SHA-256, retrieval date, licence), caches downloads in `data/cache/` (git-ignored), and writes files that are committed and never hand-edited. It:
 
 1. reads the nematode export;
-2. reads the c302 morphologies: soma position, dendrite tip and process extent, normalised so the nose is 0 and the tail tip is 1 along the body (the morphologies span 798 µm, from −349.5 to +448.4 µm);
-3. reads both of Fenyves et al.'s prediction files, S1 Data (`journal.pcbi.1007974.s003`, the WormWiring reconstruction) and the Cook sheet of S5 Data (`s007`), keyed by (pre, post) after un-padding names like `VB01`. The two agree on all 3,121 connections they share. Rows that aren't Cook edges are ignored and counted;
+2. reads the c302 morphologies: soma position, dendrite tip and process extent, normalised so the nose is 0 and the tail tip is 1 along the reconstruction's anteroposterior axis (the morphologies span 797.9 µm, from −349.5 to +448.4 µm). The Virtual Worm is posed with a dorsoventral bend, so this is a projection (the midline is about 5% longer), and its z coordinate is dorsal only near the head;
+3. reads both of Fenyves et al.'s prediction files, S1 Data (`journal.pcbi.1007974.s003`, the WormWiring reconstruction) and the Cook sheet of S5 Data (`s007`), keyed by (pre, post) after un-padding names like `VB01`, with the primary transmitter each prediction rests on. The two agree on all 3,121 connections they share. Rows that aren't Cook edges are ignored and counted;
 4. applies `data/sign-overrides.csv`, where every row cites its source;
-5. assigns every chemical connection a sign (§2.4) and every neuromuscular connection a sign (§4.5), recording which rule set each;
-6. cross-checks signs against the Creamer et al. fitted weights (vendored in nematode) on the 1,049 head connections they cover, and writes the disagreements to `data/reports/sign-crosscheck.md`. The review found about 364, including AIY's heaviest outputs on the AWC path, which Fenyves signs negative and Creamer fits as positive;
+5. assigns every chemical connection a sign (§2.4) and every neuromuscular connection a sign (§4.4), recording which rule set each;
+6. cross-checks signs against the Creamer et al. fitted weights (MIT; pinned from the authors' repository, the same file nematode vendors) on the 1,049 head connections they cover, and writes the disagreements, with the weights' licence, to `data/reports/sign-crosscheck.md`. There are 364, including AIY's heaviest outputs on the AWC path, which Fenyves signs negative and Creamer fits as positive;
 7. checks counts, name coverage and symmetry. The ignored Fenyves rows, the 23 neurons S5's Cook sheet lacks, and zero-padded names are expected and listed; anything else fails the build;
 8. generates `DATA_SOURCES.md` and `public/data/NOTICE.md` from `data/sources.json`, so the site ships its data licences and attributions (spec §9).
 
 ### 2.3 Runtime format
 
-One JSON file, `public/data/wormlight.v1.json`, about 400 KB (about 80 KB gzipped). Every element carries its provenance, so the inspector can show where it came from.
+One JSON file, `public/data/wormlight.v1.json`, about 480 KB (about 38 KB gzipped). Every element carries its provenance, so the inspector can show where it came from.
 
-- **neurons:** name, class, primary transmitter; position `{ s, lateral, dorsoventral }` with `s` from 0 (nose) to 1 (tail), and its source; sensing `{ kind: 'tip' | 'field' | 'none', s0, s1 }`; oscillator class (`A`, `B`, `headSwitch` or none).
-- **chemical:** pre, post, sections, sign (+1, −1 or 0), sign source (`physiology`, `expression`, `rule` or `none`) and a citation id.
+- **neurons:** name, class, release identities (`transmitters`, in the order Quantum Nematode reads the atlas; the sign rules read the first); position `{ s, reconstructionUm: [x, y, z], source }`, with `s` from 0 (nose) to 1 (tail) along the reconstruction's y axis and the soma's raw coordinates beside it; sensing `{ kind: 'tip', s }`, `{ kind: 'field', s0, s1 }` or `{ kind: 'none' }`; oscillator class (`A`, `B`, `headSwitch` or none).
+- **chemical:** pre, post, sections, sign (+1, −1 or 0), sign source (`physiology`, `expression`, `rule` or `none`), and a citation id on each physiology sign; the other sources each have one basis, recorded in `meta`.
 - **gap:** the pairs with their section counts.
 - **neuromuscular:** pre, muscle, sections, sign, and sign source (`receptor` or `none`).
-- **muscles:** quadrant, index, and the stretch of body each one covers.
-- **meta:** schema version, source hashes and licence ids.
+- **muscles:** quadrant, index, and the stretch of body each one covers, on the grid of §4.4.
+- **meta:** schema version; the basis of each sign source and a reference for every citation id; each shipped dataset's licence as an SPDX id, with a pointer to `NOTICE.md`; and the digest of every input.
 
 Constants such as the Cook-to-Varshney scale live in `src/science/params.ts` alone, never in the data file, so a sweep changes one place.
 
 ### 2.4 Synapse signs
 
-Each chemical connection takes its sign from the first step that gives one. Coverage was measured on Cook's 3,709 chemical connections:
+Each chemical connection takes its sign from the first step that gives one. Coverage is counted by the data build on Cook's 3,709 chemical connections:
 
-| Step | Source                                                             | Level | Connections                                                    |
-| ---- | ------------------------------------------------------------------ | ----- | -------------------------------------------------------------- |
-| 1    | Cited physiology, e.g. AWC→AIY and AWC→AIB (Chalasani et al. 2007) | 5     | a handful, listed in the overrides file                        |
-| 2    | Fenyves et al. 2020, "+" or "−", from S1 and S5 Data together      | 4     | 1,763 (47.5%; 55.6% of synaptic sections)                      |
-| 3    | Transmitter rule: ACh and Glu +, GABA −                            | 0     | 1,453 (39.2%; 35.3%), including 438 of Fenyves's 446 "complex" |
-| 4    | No basis: no fast effect                                           | 0     | 493 (13.3%; 9.2%), including the other 8 "complex"             |
+| Step | Source                                                                                                                    | Level | Connections                                                             |
+| ---- | ------------------------------------------------------------------------------------------------------------------------- | ----- | ----------------------------------------------------------------------- |
+| 1    | Cited physiology, e.g. AWC→AIY and AWC→AIB (Chalasani et al. 2007)                                                        | 5     | a handful, listed in the overrides file                                 |
+| 2    | Fenyves et al. 2020, "+" or "−", from S1 and S5 Data together, where its transmitter is one of the cell's Wang identities | 4     | 1,716 (46.3%; 54.5% of synaptic sections)                               |
+| 3    | Transmitter rule: ACh and Glu +, GABA −                                                                                   | 0     | 1,453 (39.2%; 35.3%), including 438 of Fenyves's 446 "complex"          |
+| 4    | No basis: no fast effect                                                                                                  | 0     | 533 (14.4%; 9.8%), including the other 8 "complex" and the 40 set aside |
 
-Fenyves already predicts AWC→AIY as inhibitory; the override lifts it from level 4 to 5. The transmitter rule disagrees with Fenyves on about a fifth of the connections where both give a sign, so steps 3 and 4 get a sensitivity check (spec §2.4). The harness reruns the checkpoints with those 1,946 connections set four ways: by the rule (the default), all excitatory, all silent, and ten random-sign draws.
+Fenyves signs 1,763 connections in all. Seven of them are AWC→AIY and AWC→AIB, which Fenyves already signs the way the physiology does; the overrides lift them from level 4 to 5. Fenyves's predictions rest on the transmitter expression known in 2020, and 40 connections, from AVFL/R (GABA, which Wang et al. 2024 record as uptake only), PVM and PVQL/R (glutamate, where the atlas records no identity), rest on a transmitter the atlas no longer supports; they are set aside and listed in `data/reports/data-build.md`. A further 67 connections from AIM, AVA, AVB and RIB rest partly on a second transmitter the atlas doesn't list; their primary one agrees, so they keep Fenyves's sign. The transmitter rule disagrees with Fenyves on about a fifth of the connections where both give a sign, so steps 3 and 4 get a sensitivity check (spec §2.4). The harness reruns the checkpoints with those 1,986 connections set four ways: by the rule (the default), all excitatory, all silent, and ten random-sign draws.
 
 ## 3. Neural model
 
@@ -216,7 +216,7 @@ nematode's adaptive sensor (Logbook 028) is the conceptual precedent.
 
 ### 4.2 Touch
 
-- **Where it acts.** A tap at body position `s` stimulates every touch receptor whose process covers `s`, using the c302 morphologies (level 4). As fractions of body length: ALM L/R 0.06–0.39, AVM 0.04–0.37, PVM 0.24–0.67, and PLM L/R 0.50–0.97.
+- **Where it acts.** A tap at body position `s` stimulates every touch receptor whose process covers `s`, using the c302 morphologies (level 4). As fractions of body length: ALM L/R 0.05–0.39, AVM 0.04–0.37, PVM 0.24–0.67, and PLM L/R 0.50–0.97.
 - **How strong.** A current step that holds the receptor 10 mV above its rest for 500 ms. The current is computed once, from each receptor's input conductance in the intact real wiring, and applied unchanged to every brain and every lesion: a tap is the same physical stimulus whatever the wiring. The values are fixed in advance (level 0). Neural Interactome's preset amplitudes can't be borrowed, because they are only meaningful when thresholds are recomputed around the input.
 - Nose touch (ASH, FLP, OLQ) is a different circuit and is left out of v1.
 
@@ -259,7 +259,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
 - **Signs.** Body wall muscle responds through one GABA receptor and two acetylcholine receptors (Richmond & Jorgensen 1999). So a cholinergic cell excites, a GABAergic cell inhibits (DD and VD, and also RME and AVL), and a cell releasing neither has no fast effect on muscle (level 4). That last group is 32 of the 162 cells that synapse onto muscle, 366 of 5,515 sections: glutamatergic IL1 and RIM, dopaminergic cells, and cells with no identity. A harness toggle applies the transmitter rule to them instead.
 - **Drive.** The shared neuromuscular layer computes `u_m = Σⱼ w_jm · sign_j · s_j`, where `w_jm` is Cook's neuromuscular section count (level 5).
 - **Activation.** `τ_M dA_m/dt = σ(g_nmj (u_m − θ_nmj)) − A_m`, with `τ_M = 100 ms` (Boyle et al. 2012; Ji et al.'s muscle switching time is also 100 ms). The gain and threshold are calibrated (level 1).
-- **Placement.** Each quadrant's muscles (24, or 23 ventral-left) are assumed evenly spaced along the body (level 0). A body unit's dorsal activation is the mean of the dorsal-left and dorsal-right muscles covering it, and likewise ventrally.
+- **Placement.** Each quadrant's muscles sit on one grid of 24 slots from nose to tail, so muscle i of every quadrant covers the same stretch (level 0). The ventral-left quadrant has 23 cells, and its last covers the last two slots: Cook's innervation matches vBWMLi to vBWMRi for most i up to 21, and vBWML23 to vBWMR24. A body unit's dorsal activation is the mean of the dorsal-left and dorsal-right muscles covering it, and likewise ventrally.
 - **Muscles as springs.** As in Boyle et al., each muscle is a spring and damper whose rest length shortens with activation, with the strength gradient along the body from their Table 1.
 
 ## 5. Body and environment
@@ -303,7 +303,7 @@ The fidelity ledger (spec §1.3) lives in code, so the app, the docs and the tes
 - `src/science/fidelity.ts` lists every component (level or tag, basis, caveats, upgrade path, sources, and the checkpoints that test it). It also lists every subsystem (summary, what's solid, what isn't, upgrade path). A subsystem's level is never set by hand: it is shown as the range of its components' levels.
 - The runtime data carries per-element provenance: each connection's sign source, each neuron's position source.
 
-`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. Until the generators exist in milestone 0a, both pages are hand-written and marked "planned", an exception logged in `DECISIONS.md`. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge.
+`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. `DATA_SOURCES.md` is generated from milestone 0a's first PR; until the registry lands in its second, `FIDELITY.md` is hand-written and marked "planned", an exception logged in `DECISIONS.md`. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge.
 
 ### 6.2 The free-parameter budget
 
@@ -459,10 +459,11 @@ Safari and Firefox run their own WebGPU engines, which CI can't cover, so milest
 
 **CI jobs.**
 
-- `checks`: lint, format, unit tests including the port and production checks, typecheck, build, and the freshness of `FIDELITY.md` and `DATA_SOURCES.md`.
+- `checks`: lint, format, unit tests including the port and production checks, typecheck, build, and the freshness of `FIDELITY.md`.
+- `data`: rebuilds the runtime data, `DATA_SOURCES.md` and the reports from their pins, and fails if any committed output differs.
 - `gpu`: parity on lavapipe, from milestone 2.
 - `visual`: fixed views pixel-compared against baselines, as Universe does, from milestone 1.
-- `deploy`: Pages, gated on `DEPLOY_PAGES`.
+- `deploy`: Pages, gated on `DEPLOY_PAGES`, after `checks` and `data` pass.
 
 ## 9. Milestones
 

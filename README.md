@@ -6,7 +6,7 @@ A living _C. elegans_ in the browser. The worm's full connectome runs on the GPU
 
 ## Run it
 
-Needs Node 22.12 or later, and a browser with WebGPU (recent Chrome or Edge, or Safari 26 or later).
+Needs Node 22.22.1 or later (or 23.6 or later), and a browser with WebGPU (recent Chrome or Edge, or Safari 26 or later).
 
 ```sh
 npm install
@@ -19,4 +19,4 @@ Connectome: Cook et al. 2019, _Nature_ 571:63, as released in Emmons 2024, _PLoS
 
 ## Licence
 
-The code is Apache-2.0 (see [LICENSE](LICENSE)). Bundled data keeps its original licences and attribution requirements, which will be listed in `DATA_SOURCES.md`.
+The code is Apache-2.0 (see [LICENSE](LICENSE)). Bundled data keeps its original licences and attribution requirements: see [DATA_SOURCES.md](DATA_SOURCES.md), and [public/data/NOTICE.md](public/data/NOTICE.md), which ships with the site.

@@ -5,3 +5,4 @@ coverage/
 .DS_Store
 visual-out/
 harness-out/
+data/cache/

@@ -24,6 +24,33 @@ jobs:
       - name: Typecheck & build
         run: npm run build
 
+  # Rebuilds the runtime data from its pinned sources and fails if any committed output differs. The
+  # cache holds downloads named by their digest, each checked on read, so any earlier cache is safe to
+  # start from; it is saved even when the check fails, so a failing run doesn't download again.
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: data/cache
+          key: data-${{ hashFiles('data/sources.json', 'data/c302-cells.sha256') }}
+          restore-keys: data-
+      - name: Data build is up to date
+        run: npm run data:check
+      - if: always() && steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: data/cache
+          key: ${{ steps.cache.outputs.cache-primary-key }}
+
   # A Pages site is public even when its repository is private, so deploying
   # stays off until the project is ready. To go live: Settings → Pages →
   # Source: GitHub Actions, then set the repository variable DEPLOY_PAGES=true.
@@ -31,7 +58,7 @@ jobs:
   # if a custom domain is added.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true'
-    needs: checks
+    needs: [checks, data]
     runs-on: ubuntu-latest
     permissions:
       pages: write

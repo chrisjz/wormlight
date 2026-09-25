@@ -7,16 +7,17 @@ A living _C. elegans_ in the browser: the Cook et al. 2019 connectome, simulated
 - `npm run dev` — Vite dev server. `npm run build` — typecheck + bundle.
 - `npm test` — unit tests (Vitest).
 - `npm run lint` / `npm run format:check` — both are CI gates; a pre-commit hook formats staged files.
+- `npm run data:build` — rebuilds `public/data/wormlight.v1.json`, its `NOTICE.md`, `DATA_SOURCES.md` and `data/reports/` from the pins in `data/sources.json`. `npm run data:check` is the CI gate that fails when a committed output is stale.
 
 ## Hard conventions
 
 - **Behaviour must emerge from the connectome.** Only the layers in spec §1.1 may sit outside the network, and nothing outside it may read behavioural state ("reversing", "near food"). Adding a layer is a major deviation: ask the maintainer first.
 - **The CPU reference is the scientific ground truth.** WGSL kernels mirror it and behavioural trials run on it. A model change lands in both, with a parity test.
-- **Every component, parameter and data element carries a fidelity level and a source** in the registry (spec §1.3). From milestone 0a, `FIDELITY.md` is generated from the registry and `DATA_SOURCES.md` from `data/sources.json`; never edit either by hand. Until those generators exist, both are hand-written and marked "planned" (logged in `DECISIONS.md`). A value we set ourselves is level 1 or 0 and counts toward the free-parameter budget in `PLAN.md` §6.2.
+- **Every component, parameter and data element carries a fidelity level and a source** in the registry (spec §1.3). `DATA_SOURCES.md` is generated from `data/sources.json`, and `FIDELITY.md` will be generated from the registry; never edit either by hand. Until the registry exists, `FIDELITY.md` is hand-written and marked "planned" (logged in `DECISIONS.md`). A value we set ourselves is level 1 or 0 and counts toward the free-parameter budget in `PLAN.md` §6.2.
 - **Neural Interactome's matrices are indexed [post, pre].** Read `Gs.npy` the wrong way round and every port-check neuron fails. The port check drives Neural Interactome's own code for that reason.
 - **Validation thresholds are fixed in advance** in `PLAN.md`. Changing one after seeing results is logged in `DECISIONS.md`, and the checkpoint is marked as changed.
 - **Never invent citations.** Check every number against its source, and say so when unsure.
-- Generated data comes from scripts that read pinned, hashed sources; never hand-edit it, rerun the generator.
+- Generated data comes from scripts that read pinned, hashed sources; never hand-edit it, rerun the generator. The scripts in `scripts/` run on Node's built-in TypeScript support, so their relative imports carry the `.ts` extension.
 - Docs use British spelling, as the spec does.
 
 ## Process
