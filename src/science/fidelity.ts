@@ -120,7 +120,8 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     name: 'Rhythm and proprioception',
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
-    notSolid: 'Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned',
+    notSolid:
+      'Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, no setting of the planned model made the body crawl (DECISIONS.md)',
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -193,9 +194,10 @@ export const COMPONENTS: readonly Component[] = [
     levels: [5],
     basis:
       "Cook et al. 2019, with the lab's July 2020 corrections and 2023 BDU–ALM and BDU–PLM junctions (Emmons 2024)",
-    caveats: 'As above; no rectification or innexin identity; the 14 junctions between a neuron and itself are omitted',
+    caveats:
+      'As above; no rectification or innexin identity, though current crosses the AVA–A-type junctions only from the motor neurons into AVA (Liu et al. 2017); the 14 junctions between a neuron and itself are omitted',
     upgrade: 'Innexin expression and rectification data',
-    sources: ['cook2019', 'emmons2024'],
+    sources: ['cook2019', 'emmons2024', 'liu2017'],
     testedBy: [],
   },
   {
@@ -203,7 +205,8 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'anatomy',
     levels: [5],
     basis: 'Cook et al. 2019, as released in Emmons 2024',
-    caveats: 'As above',
+    caveats:
+      "As above, and more so: 45% of the neuron–muscle edges were extrapolated from their neighbours' weights, half of them the sublateral motor neurons'",
     upgrade: '',
     sources: ['cook2019', 'emmons2024'],
     testedBy: [{ check: 'checkpoint0' }, { check: 'checkpoint1' }],
@@ -277,9 +280,9 @@ export const COMPONENTS: readonly Component[] = [
     levels: [0],
     basis: 'An assumption',
     caveats: (f) =>
-      `${f.largestGap.name}'s ${grouped(f.largestGap.sections)} gap-junction sections show how much a single cell carries`,
+      `${f.largestGap.name}'s ${grouped(f.largestGap.sections)} gap-junction sections show how much a single cell carries. Measured signal propagation among head neurons agrees poorly with a model that takes its weights from the connectome, even with weights and signs fitted (Randi et al. 2023)`,
     upgrade: 'Per-connection physiology',
-    sources: [],
+    sources: ['randi2023'],
     testedBy: [
       { check: 'checkpoint1' },
       { check: 'checkpoint2' },
@@ -318,9 +321,10 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'neurons',
     levels: [2],
     basis: "Our adaptation of Kunert's equilibrium threshold (DECISIONS.md)",
-    caveats: 'Every neuron rests at half activation',
+    caveats:
+      "Every neuron rests at half activation, though measured resting potentials differ by class: −71.7 mV in VA5 against −53.2 mV in VB6 (Liu, Chen & Wang 2014). In Cook's data the A-types' junctions onto body muscle about match the B-types' ventrally and double them dorsally, so half-on A-types drive the muscles as much as the B-types do",
     upgrade: 'Measured resting states',
-    sources: ['kunert2014'],
+    sources: ['kunert2014', 'liu2014'],
     testedBy: [{ check: 'checkpoint5' }],
   },
   {

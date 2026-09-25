@@ -395,3 +395,121 @@ Details PLAN left open, settled here:
   4. One neuromuscular threshold can't serve the whole body: resting drive falls about five-fold from head to tail.
 
 **Status.** The loop is done. Whether and how to change the model is the go/no-go (PLAN §9, §10), brought forward to follow this PR.
+
+## 2026-09-26 — The go/no-go: crawling doesn't emerge, and milestone 0c closes as an honest partial
+
+**Decision.** No-go on crawling. No setting of the model PLAN approved crawls, and neither of the first two fallbacks changes that. The maintainer chose fallback 4, an honest partial:
+
+- Milestone 0c closes, the ledger says crawling does not yet emerge, and milestone 1 is next.
+- Fallback 3, class-level fitting, becomes research track R (PLAN §9). It is bounded in advance, and every primary null is tuned by the same procedure on the same budget.
+- Its new parameters will need the free-parameter budget raised, which is settled when its proposal is approved.
+- Nothing in the model changes.
+
+**The experiments.** `node scripts/experiments/go-no-go/run.ts` reproduces every number here in about 4 minutes on 18 cores.
+
+- **How it runs.** It composes the World's loop from the simulation's own parts, with a switch for each change tested; none of the switches is part of the model. Each variant runs the same 48 draws of the eight calibrated parameters, over ranges wide enough to hold every plausible value, for 30 s from a straight body. Neural noise is off, so each draw is deterministic.
+- **What it measures.** Speed is the centroid's motion along the head's direction over the last 20 s, in body lengths per second. Checkpoint 1's partial band starts at 0.06, and the calibration target is 0.22. Frequency is that of the mid-body's bending.
+
+The plan, and the fallbacks:
+
+| Variant                                                           | Best speed | Draws above 0.06 | Its frequency (Hz) |
+| ----------------------------------------------------------------- | ---------- | ---------------- | ------------------ |
+| The plan as merged                                                | 0.018      | 0                | 0.03               |
+| Fallback 1: proprioception delayed 80, 300 or 550 ms              | 0.018      | 0                | 0.03               |
+| Fallback 2: bistable B-types                                      | 0.017      | 0                | 0.03               |
+| No A-type proprioception                                          | 0.018      | 0                | 0.03               |
+| Drive relative per muscle                                         | 0.021      | 0                | 0.05               |
+| Both of those                                                     | 0.022      | 0                | 0.05               |
+| Both, and bistable B-types                                        | 0.025      | 0                | 0.05               |
+| Both, and delayed 300 ms                                          | 0.021      | 0                | 0.05               |
+| Both, and the head switch also drives the RMDs                    | 0.051      | 0                | 0.17               |
+| Fallback 3: all three, B-type oscillators off, B-type links × 0.3 | 0.056      | 0                | 0.38               |
+| The same with B-type links × 0.1                                  | 0.079      | 1                | 0.47               |
+| The same with B-type links cut                                    | 0.084      | 2                | 0.28               |
+
+- **The plan.** Its best draw's body holds a bend rather than undulating, and fallback 1's delays and fallback 2's bistable B-types change nothing.
+- **What helps.** Two diagnostic changes help a little: removing the A-types' mirrored proprioception, and scaling each muscle's drive between its own resting and highest values, so one threshold serves every muscle. Adding the RMDs to the head switch helps more.
+- **Reaching the partial band.** Only a class-level gain on every B-type connection, on top of those three changes and with the B-type oscillators off, reaches checkpoint 1's partial speed. It does so in one or two draws of 48, and only with the B-types at a tenth of their links or cut from the network.
+
+The head alone isn't the obstacle. With the head switch forced to alternate at 0.3 Hz, relative drive and no A-type proprioception, the whole network moves at most 0.015. With the oscillators also off it reaches 0.031, then 0.049 with every gap junction at a tenth, and 0.033 with none.
+
+The ladder starts from the B-type chain alone:
+
+- The B-types are cut from every other neuron and the A-types removed.
+- The SMDs keep only their junctions onto muscles starting in the first 0.3 body lengths.
+- The head is forced at 0.3 Hz, the oscillators are off and drive is relative per muscle.
+
+Each rung then adds one thing back:
+
+| Variant                                  | Best speed | Draws above 0.06 |
+| ---------------------------------------- | ---------- | ---------------- |
+| The B-type chain alone                   | 0.109      | 4                |
+| + AVB–B-type gap junctions               | 0.087      | 3                |
+| + the same, passing current one way only | 0.088      | 3                |
+| + gap junctions among the B-types        | 0.102      | 3                |
+| + all of the B-types' gap junctions      | 0.047      | 0                |
+| + all of the B-types' chemical synapses  | 0.119      | 5                |
+| + the A-types, without proprioception    | 0.114      | 3                |
+| + the SMDs' full reach                   | 0.060      | 0                |
+| + the FitzHugh–Nagumo oscillators        | 0.041      | 0                |
+| + one neuromuscular threshold            | 0.021      | 0                |
+
+- **What the chain does.** The chain alone crawls at the forced 0.30 Hz, at half the real worm's speed. Gao et al. 2018 saw much the same in worms without premotor interneurons or A-types: "an oscillating head slowly pulled a body with shallow bending".
+- **What breaks it.** Four things each take it out of the partial band: all of the B-types' gap junctions together, though AVB's alone or those among the B-types cost little; the SMDs' junctions down the body; the oscillators; and one neuromuscular threshold for every muscle.
+- **What doesn't.** The B-types' chemical synapses and the A-types, without their proprioception, leave it crawling.
+
+The biology-informed combination tries the literature's answers together:
+
+- The A-types rest 20 mV below threshold; Liu, Chen & Wang 2014 measured VA5 18.5 mV below VB6.
+- AVB's junctions onto the B-types pass current one way, with no gap junctions among the B-types.
+- The A-types have no proprioception, the SMDs are confined to the head, drive is relative per muscle and the oscillators are off.
+
+With the head forced it reaches 0.065 in one draw; with the head switch, 0.043; with the switch also driving the RMDs, 0.077 in one draw.
+
+**The settings at the partial speed, checked.** With `--draw` and `--seconds 120`:
+
+- **They hold.** Each of the three best draws keeps its speed over 120 s, as long as a checkpoint 1 trial. B-type links at a tenth give 0.079 at 0.37 Hz, and cut 0.084 at 0.27 Hz (draw 27). The informed combination driving the RMDs gives 0.077 at 0.36 Hz.
+- **Silenced, none moves.** With every neuron-to-neuron connection cut, no draw of any of the three moves faster than 0.001, so each would pass checkpoint 0's clause.
+- **Why none of them is a crawling model.** They reach only the bottom of checkpoint 1's speed band, in one or two draws of 48, and the wavelength, eigenworm and bout clauses were not measured. Each needs changes beyond the approved model. Where the B-type links are cut, the wave travels by proprioception alone. They are where track R starts.
+
+Kim et al. 2025's mechanism, as their code has it:
+
+- A sensory pulse is held for 1.18 s and then decays, with thresholds recomputed from it.
+- A feedback delayed by 0.3–0.8 s then projects the network's own voltages onto the patterns the neuromuscular map can see.
+- Their Hill-type muscles drive the body.
+
+On Wormlight's network and body, it reaches at most 0.006 body lengths per second from a PLM pulse, 0.012 with rest thresholds, 0.002 with Wormlight's muscles and 0.006 from an ALM and AVM pulse. Their model moves in a fluid of 10 mPa·s, from stimuli chosen by "maximizing locomotion distance". PLAN §11 called their base model unfitted without saying either, and now does.
+
+**Why: the literature.** A sweep for precedents found no published model that makes the whole connectome crawl on agar with anatomy's weights and without fitting (PLAN §11):
+
+- **Kunert, Proctor, Brunton & Kutz 2017**, on this model class: "In the absence of constant stimulus, the neural state will collapse onto a static, stable fixed point, i.e. a state of no movement."
+- **Chung & Kim 2026**, fitting Cook's motor circuit: "the model using anatomical connectome weights directly did not achieve that."
+- **Randi et al. 2023**, measuring signal propagation among head neurons, found "fairly poor agreement between anatomy-based model predictions and our measurements".
+- **Models that do crawl** fitted their circuits: Izquierdo & Beer 2018; Olivares, Izquierdo & Beer 2021. Olivares et al. found, as the ladder does, that "As the strength of the gap junctions was increased, the bending in the body decreased".
+
+A second sweep, over the biology, found three of the model's assumptions contradicted by measurement:
+
+1. **Every neuron rests half-on.** Resting potentials differ by class: "−71.7 ± 2.4 mV in VA5, −53.2 ± 2.5 mV in VB6" (Liu, Chen & Wang 2014), and "VB and VA are never co-active" (Haspel, O'Donovan & Hart 2010). In Cook's data the A-types' junctions onto body muscle match the B-types' on the ventral side (318 sections against 338) and double them on the dorsal (346 against 170), so half-on A-types drive the muscles as much as the B-types do.
+2. **Gap junctions pass current both ways.** The AVA–A-type junctions "only allow current flow from A-MNs into AVA" (Liu et al. 2017). The AVB–B-type junctions need "UNC-7S expression in AVB interneurons and UNC-9 expression in B motor neurons" (Starich et al. 2009), a pair whose channels gate asymmetrically in oocytes; whether they rectify in the worm hasn't been measured.
+3. **Section counts are weights.** Where the reconstruction had gaps, Cook et al. extrapolated: "neuromuscular junctions amount to 45% of the neuron-muscle edges, half of which involve the sublateral motor neurons", SMD and SAB among them.
+
+Two more findings fit the ladder:
+
+- **Dorsal and ventral B-types.** Xu et al. 2018 saw that "neighboring VB/DB motor neuron exhibited oscillatory yet anticorrelated calcium activities", where the model's gap-coupled B-types cycle together.
+- **Inhibition.** Deng et al. 2021 find that "inhibition is not necessary for muscle alternation during slow undulation", and the B-type chain crawls without the D-types.
+
+**Track R.** Its proposal fixes, before it runs:
+
+- which classes get gains, resting offsets or rectification;
+- how many parameters that adds, and the budget raise;
+- its evaluation budget.
+
+Every primary null gets the same procedure and budget, so checkpoint 6 stays fair. The ladder and the informed combination are its starting points, and PLAN §10's rule on changes after held-out results applies.
+
+**What changes now.**
+
+- **The ledger** says crawling does not yet emerge. It records the three contradicted assumptions as caveats on the thresholds, gap junctions, neuromuscular connections and synaptic strengths, and Liu et al. 2014 and 2017 join `citations.ts`.
+- **PLAN** records the outcome and track R in §9, what each fallback did in §10, and the corrected Kim et al. entry and the precedents above in §11.
+- **Exploratory runs.** The maintainer chose on exploratory runs in which the best fallback-3 and informed settings reached only 0.065 and 0.031. The script samples its own draws and found the three above; none of them is a setting of the approved model or its first two fallbacks.
+
+**Status.** Decided with the maintainer on 2026-09-26.
