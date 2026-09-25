@@ -108,6 +108,14 @@ export const CITATIONS = {
     venue: 'Cell 154:1023–1035',
     doi: '10.1016/j.cell.2013.08.001',
   },
+  fitzhugh1961: {
+    short: 'FitzHugh 1961',
+    authors: 'FitzHugh R',
+    year: 1961,
+    title: 'Impulses and physiological states in theoretical models of nerve membrane',
+    venue: 'Biophysical Journal 1:445–466',
+    doi: '10.1016/S0006-3495(61)86902-6',
+  },
   fouad2018: {
     short: 'Fouad et al. 2018',
     authors: 'Fouad AD, Teng S, Mark JR, et al.',
@@ -200,6 +208,14 @@ export const CITATIONS = {
     title: 'Diffusion coefficients of some organic and other vapors in air',
     venue: 'Analytical Chemistry 40:1072–1077',
     doi: '10.1021/ac60263a006',
+  },
+  nagumo1962: {
+    short: 'Nagumo, Arimoto & Yoshizawa 1962',
+    authors: 'Nagumo J, Arimoto S, Yoshizawa S',
+    year: 1962,
+    title: 'An active pulse transmission line simulating nerve axon',
+    venue: 'Proceedings of the IRE 50:2061–2070',
+    doi: '10.1109/JRPROC.1962.288235',
   },
   oist2025: {
     short: 'OIST Physics of Behavior tutorials 2025',

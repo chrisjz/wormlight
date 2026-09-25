@@ -361,3 +361,37 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 
 A CPU step costs about 34 µs.
 **Status.** Done.
+
+## 2026-09-25 — The loop outside the brain, and why it doesn't yet crawl
+
+**Decision.** Milestone 0c's second part wires the layers of PLAN §4.3–4.4 to the brain and body, stepped in PLAN §1's order:
+
+1. The body's curvature.
+2. The proprioceptive and head-switch currents.
+3. The brain.
+4. The neuromuscular layer.
+5. The body.
+
+Details PLAN left open, settled here:
+
+- **Oscillators in the voltage solve.** A FitzHugh–Nagumo current is a negative conductance of up to g_osc on its middle branch, and g_osc must exceed an oscillating neuron's own conductance (0.15–1.4 nS for the A- and B-types) to cycle at all, which is more than the solve's 1.5 C/dt = 0.6 nS. Linearising all of it would make the system indefinite. So the stabilising part (−g_osc(x² − 1) where |x| > 1) goes on the left and the rest is explicit, which keeps every row of the system diagonally dominant. A lone oscillator at g_osc = 2 nS cycles within 0.61% of the period of an RK4 solution of the same equations at 2.5 ms, and 0.22% at 0.5 ms. That term converges more slowly than second order, so with oscillators on, checkpoint 1's comparison at dt and dt/2 is the check on the step, not the order test.
+- **The head switch's gate** reads, for each SMD, the voltage its partners and leak would hold it at, less its threshold, averaged over the four (level 0). The SMDs' own voltages, and so the switch's current, don't enter: links among the SMDs count at their rest values. It is 0 at rest and E_c − V_th, about −28 mV, in the silenced network, so θ_osc above that keeps the silenced network's head still. A first version read the SMDs' mean voltage; the switch's own current shifted that mean by about 0.04 mV per pA, closing its own gate and chattering at the step rate for many gains.
+- **Which side the switch drives first** is drawn from the seed.
+- **Proprioceptive fields** span each motor neuron's neuromuscular targets: B-types sense the 0.2 body lengths in front, A-types the 0.2 behind. Their edges are snapped to the 24-slot muscle grid, since the data file rounds them to four places; unsnapped, rounding decided whether 13 of 37 fields reached their edge rod. Two A-types, DA9 and VA12, have muscles reaching the tail and nothing behind, so they get no proprioception. Dorsal neurons read dorsal curvature and ventral ones its opposite.
+- **Muscles to segments.** Each of the body's 48 segments takes the mean of the left and right muscles covering its middle. Muscle activation follows its drive exactly for a drive held over the step.
+- **Lesions and other brains.** A lesion removes a neuron's connections, neuromuscular junctions, oscillator and proprioceptive input, and every neuron keeps the intact threshold (§3.3). A rewired brain gets its own thresholds. The silenced network of checkpoint 0 cuts every neuron-to-neuron connection and keeps everything else.
+- **Restarts.** The step after the head-switch current changes (a flip, or the gate opening or closing) is implicit Euler, by PLAN §3.4's rule.
+- **FitzHugh's constants.** The oscillators use the model's standard 0.7 and 0.8 (FitzHugh 1961; Nagumo et al. 1962), part of the form PLAN approved, not parameters of their own.
+
+**What the exploration and the review found.** None of it is a bug: the signs run end to end, and the model steps the same at 0.5 ms as at 2.5 ms.
+
+- **The resting body isn't straight.** Resting muscle drive differs between the dorsal and ventral sides, so with every loop layer off the head settles at K ≈ −3.5, and proprioception drives the motor neurons from that bend.
+- **The oscillators need drive.** With FitzHugh's constants an undriven oscillator is excitable, not oscillating. In the network the B-types cycle when θ_osc sits well below their rest (all 18 from −8 to −32 mV at g_osc = 2 nS). The A-types, with no drive threshold, don't cycle on their own, even with AVA, AVB, AVD, AVE and PVC removed; they follow the B-types when those cycle. So the model does not yet show the intrinsic A-type rhythm Gao et al. report, which checkpoint 0's expected residual backward activity rests on.
+- **No crawling.** A 64-sample random search over the eight calibrated parameters, 30 s each, found none: rerun with the fixed gate, the best moved at 0.014 body lengths per second, from the transient after a switch flip, and the switch flipped at most twice. The review's second search, over re-centred ranges, found none either.
+- **Where the loop fails.** With the head switch forced to alternate at 0.3 Hz, no draw of the other parameters gave a travelling wave (the best of 144, the review's 96 and 48 of mine, moved at 0.004 body lengths per second), so calibration alone cannot make it crawl. Four causes:
+  1. The SMDs cannot bend the head to Ji et al.'s P_th: driven hard with the SMDVs suppressed, they bend it to at most K = 1.99 against 2.33. Next to SAB's they carry little head-muscle drive, and the network moves SAB against them. SAB's neuromuscular counts are identical across its cells in Cook et al.'s SI5 and Emmons's S1 files themselves.
+  2. The B-types, gap-coupled through the AVB hub, cycle dorsal and ventral together, which co-contracts rather than bends.
+  3. The A-types' mirrored proprioception cancels much of the B-types' bending drive on the same muscles, and nothing silences the A-types in forward drive while every neuron rests half-on.
+  4. One neuromuscular threshold can't serve the whole body: resting drive falls about five-fold from head to tail.
+
+**Status.** The loop is done. Whether and how to change the model is the go/no-go (PLAN §9, §10), brought forward to follow this PR.

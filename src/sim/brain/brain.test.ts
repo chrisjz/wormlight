@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Brain, equilibrium, inputConductance, midpointActivation } from './brain.ts';
 import { chemicalRows, connections, gapRows, lesion, type Network } from './network.ts';
+import { gaussian } from './rng.ts';
 
 // Production units: nF, nS, mV, s, pA.
 function network(
@@ -211,6 +212,19 @@ describe('noise', () => {
   it('draws independently for each neuron', () => {
     // The correlation's standard error over 1,000 s is about 0.01.
     expect(Math.abs(measure(0.0025, 3, 1000).correlation)).toBeLessThan(0.05);
+  });
+
+  it("draws each step's noise from the hash of (seed, step, neuron)", () => {
+    // One implicit Euler step of a lone neuron at rest: C (V′ − V)/dt = −G_c (V′ − E_c) + σ/√dt · z.
+    const lone = network(1);
+    const brain = new Brain(lone, Float64Array.of(-35));
+    brain.noise = sigma;
+    brain.seed = 9;
+    brain.setState([-35], [0], 7);
+    brain.step(0.0025);
+    const z = gaussian(9, 7, 0);
+    const c = lone.capacitance / 0.0025;
+    expect(brain.voltage[0]).toBeCloseTo(-35 + ((sigma / Math.sqrt(0.0025)) * z) / (c + lone.leak), 12);
   });
 
   it('is fixed by its seed, and continues from a restored step count', () => {
