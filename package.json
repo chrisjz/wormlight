@@ -18,6 +18,8 @@
     "preview": "vite preview",
     "data:build": "node scripts/data/build.ts",
     "data:check": "node scripts/data/build.ts --check",
+    "docs:fidelity": "node scripts/docs/fidelity.ts",
+    "docs:check": "node scripts/docs/fidelity.ts --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

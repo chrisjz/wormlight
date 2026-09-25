@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { REFERENCE_DATA } from '../../src/science/validation.ts';
 import { download, loadSources, readLocal, sha256, validateSources, type Sources } from './sources.ts';
 
 const bytes = Buffer.from('pinned bytes');
@@ -11,11 +12,15 @@ describe('the committed sources file', () => {
   it('passes its own validation', () => {
     expect(loadSources().datasets.filter((d) => d.use === 'shipped')).toHaveLength(5);
   });
+
+  it('holds the pin of every reference dataset the checkpoints read', () => {
+    const pins = new Set(loadSources().pins.map((p) => p.id));
+    expect(REFERENCE_DATA.map((r) => r.pin).filter((pin) => !pins.has(pin))).toEqual([]);
+  });
 });
 
 describe('validateSources', () => {
   const sources = (): Sources => ({
-    citations: {},
     licenceTexts: { mit: 'MIT' },
     pins: [
       { id: 'p', description: 'd', files: [{ url: 'https://example.invalid/x', sha256: digest }], retrieved: 'r' },

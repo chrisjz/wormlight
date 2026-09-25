@@ -5,10 +5,12 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { SCHEMA, validateWormlightData, type Neuromuscular, type WormlightData } from '../../src/data/schema.ts';
+import { CITATIONS, reference, type CitationId } from '../../src/science/citations.ts';
 import { bodyFrame, checkAxes, muscles, oscillator, position, sensing } from './anatomy.ts';
 import { dataSourcesPage, noticePage } from './docs.ts';
 import { parseMorphology, type Morphology } from './nml.ts';
 import { formatMarkdown, renderJson } from './render.ts';
+import { checkEigenworms, parseMatrix } from './eigenworms.ts';
 import { checkExport, type NematodeExport } from './export.ts';
 import { buildReport, crossCheckReport, parseCreamer } from './reports.ts';
 import { edgeKey, parseOverrides, readFenyves, signChemical, signNeuromuscular } from './signs.ts';
@@ -57,6 +59,16 @@ async function build(): Promise<Map<string, string>> {
   );
   const overridesText = readFileSync(join(ROOT, OVERRIDES), 'utf8');
   const overrides = parseOverrides(overridesText);
+  // Every citation the runtime file uses resolves in the registry, src/science/citations.ts.
+  const signBasis = { expression: 'fenyves2020', ruleIdentities: 'wang2024', receptor: 'richmond1999' } as const;
+  const isCitation = (id: string): id is CitationId => Object.hasOwn(CITATIONS, id);
+  for (const o of overrides) {
+    if (!isCitation(o.citation))
+      throw new Error(`sign override ${o.pre} → ${o.post} cites ${o.citation}, which is not in the registry`);
+  }
+  const cited = [
+    ...new Set<CitationId>([...Object.values(signBasis), ...overrides.map((o) => o.citation as CitationId)]),
+  ].sort();
 
   const identities = new Map(exported.neurons.map((n) => [n.name, n.transmitters]));
   const { chemical, setAside } = signChemical(exported.chemical, {
@@ -73,9 +85,9 @@ async function build(): Promise<Map<string, string>> {
   const data = validateWormlightData({
     meta: {
       schema: SCHEMA,
-      signBasis: { expression: 'fenyves2020', ruleIdentities: 'wang2024', receptor: 'richmond1999' },
+      signBasis,
       muscleSpacing: 'shared-grid',
-      citations: sources.citations,
+      citations: Object.fromEntries(cited.map((id) => [id, reference(id)])),
       licences: sources.datasets
         .filter((d) => d.use === 'shipped' && d.notice)
         .map((d) => ({ dataset: d.id, spdx: d.notice?.spdx ?? '' })),
@@ -110,6 +122,10 @@ async function build(): Promise<Map<string, string>> {
     (await readFile(firstFile(pinById(sources, 'creamer-lds')))).toString('utf8'),
     neuronNames,
   );
+  const eigenworms = checkEigenworms(
+    parseMatrix((await readFile(firstFile(pinById(sources, 'eigenworms')))).toString('utf8')),
+    100,
+  );
   const report = buildReport({
     data,
     fenyves: [fenyvesS1, fenyvesS5],
@@ -118,6 +134,7 @@ async function build(): Promise<Map<string, string>> {
     frame,
     axes,
     exportCommit: exported.provenance.nematodeCommit,
+    eigenworms,
   });
 
   const outputs = new Map<string, string>();
