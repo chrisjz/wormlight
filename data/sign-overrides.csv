@@ -1,0 +1,8 @@
+pre,post,sign,citation,evidence
+AWCL,AIBL,1,chalasani2007,"AWC neurons ""activate the AIB interneurons through AMPA-type glutamate receptors"""
+AWCL,AIBR,1,chalasani2007,"AWC neurons ""activate the AIB interneurons through AMPA-type glutamate receptors"""
+AWCR,AIBL,1,chalasani2007,"AWC neurons ""activate the AIB interneurons through AMPA-type glutamate receptors"""
+AWCR,AIBR,1,chalasani2007,"AWC neurons ""activate the AIB interneurons through AMPA-type glutamate receptors"""
+AWCL,AIYL,-1,chalasani2007,"""The AWC neuron inhibits AIY interneurons through glutamate-gated chloride channels"""
+AWCR,AIYL,-1,chalasani2007,"""The AWC neuron inhibits AIY interneurons through glutamate-gated chloride channels"""
+AWCR,AIYR,-1,chalasani2007,"""The AWC neuron inhibits AIY interneurons through glutamate-gated chloride channels"""

@@ -24,6 +24,24 @@ jobs:
       - name: Typecheck & build
         run: npm run build
 
+  # Rebuilds the runtime data from its pinned sources and fails if any committed output differs.
+  # Downloads are verified against their pins and cached by those pins.
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: data/cache
+          key: data-${{ hashFiles('data/sources.json', 'data/c302-cells.sha256') }}
+      - name: Data build is up to date
+        run: npm run data:check
+
   # A Pages site is public even when its repository is private, so deploying
   # stays off until the project is ready. To go live: Settings → Pages →
   # Source: GitHub Actions, then set the repository variable DEPLOY_PAGES=true.

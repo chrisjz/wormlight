@@ -104,14 +104,14 @@ The example counts are Cook's. The export keeps Cook's 38 autapses and has 1,095
 2. reads the c302 morphologies: soma position, dendrite tip and process extent, normalised so the nose is 0 and the tail tip is 1 along the body (the morphologies span 798 µm, from −349.5 to +448.4 µm);
 3. reads both of Fenyves et al.'s prediction files, S1 Data (`journal.pcbi.1007974.s003`, the WormWiring reconstruction) and the Cook sheet of S5 Data (`s007`), keyed by (pre, post) after un-padding names like `VB01`. The two agree on all 3,121 connections they share. Rows that aren't Cook edges are ignored and counted;
 4. applies `data/sign-overrides.csv`, where every row cites its source;
-5. assigns every chemical connection a sign (§2.4) and every neuromuscular connection a sign (§4.5), recording which rule set each;
+5. assigns every chemical connection a sign (§2.4) and every neuromuscular connection a sign (§4.4), recording which rule set each;
 6. cross-checks signs against the Creamer et al. fitted weights (vendored in nematode) on the 1,049 head connections they cover, and writes the disagreements to `data/reports/sign-crosscheck.md`. The review found about 364, including AIY's heaviest outputs on the AWC path, which Fenyves signs negative and Creamer fits as positive;
 7. checks counts, name coverage and symmetry. The ignored Fenyves rows, the 23 neurons S5's Cook sheet lacks, and zero-padded names are expected and listed; anything else fails the build;
 8. generates `DATA_SOURCES.md` and `public/data/NOTICE.md` from `data/sources.json`, so the site ships its data licences and attributions (spec §9).
 
 ### 2.3 Runtime format
 
-One JSON file, `public/data/wormlight.v1.json`, about 400 KB (about 80 KB gzipped). Every element carries its provenance, so the inspector can show where it came from.
+One JSON file, `public/data/wormlight.v1.json`, about 480 KB (about 36 KB gzipped). Every element carries its provenance, so the inspector can show where it came from.
 
 - **neurons:** name, class, primary transmitter; position `{ s, lateral, dorsoventral }` with `s` from 0 (nose) to 1 (tail), and its source; sensing `{ kind: 'tip' | 'field' | 'none', s0, s1 }`; oscillator class (`A`, `B`, `headSwitch` or none).
 - **chemical:** pre, post, sections, sign (+1, −1 or 0), sign source (`physiology`, `expression`, `rule` or `none`) and a citation id.
@@ -216,7 +216,7 @@ nematode's adaptive sensor (Logbook 028) is the conceptual precedent.
 
 ### 4.2 Touch
 
-- **Where it acts.** A tap at body position `s` stimulates every touch receptor whose process covers `s`, using the c302 morphologies (level 4). As fractions of body length: ALM L/R 0.06–0.39, AVM 0.04–0.37, PVM 0.24–0.67, and PLM L/R 0.50–0.97.
+- **Where it acts.** A tap at body position `s` stimulates every touch receptor whose process covers `s`, using the c302 morphologies (level 4). As fractions of body length: ALM L/R 0.05–0.39, AVM 0.04–0.37, PVM 0.24–0.67, and PLM L/R 0.50–0.97.
 - **How strong.** A current step that holds the receptor 10 mV above its rest for 500 ms. The current is computed once, from each receptor's input conductance in the intact real wiring, and applied unchanged to every brain and every lesion: a tap is the same physical stimulus whatever the wiring. The values are fixed in advance (level 0). Neural Interactome's preset amplitudes can't be borrowed, because they are only meaningful when thresholds are recomputed around the input.
 - Nose touch (ASH, FLP, OLQ) is a different circuit and is left out of v1.
 

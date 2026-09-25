@@ -220,3 +220,31 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 - **Alternatives rejected.** Varshney et al. 2011 is CC BY, but its connectivity file sits on WormAtlas rather than in the licensed supplement. It also records neuromuscular junctions only as a count per neuron, never naming a muscle.
 
 **Status.** Approved by the maintainer on 2026-09-25.
+
+## 2026-09-25 — The data build pins every input and vendors the nematode export
+
+**Decision.** `npm run data:build` reads each input through a pin in `data/sources.json` and checks every byte against its SHA-256. Downloads are cached in `data/cache/` under their digest.
+
+- **The nematode export is committed**, under `data/vendor/nematode/`, because nematode doesn't commit its exports. The build refuses an export whose recorded commit differs from the pin, or one made from a dirty tree.
+- **The 302 c302 morphologies** are pinned at one commit through a manifest of per-file digests, `data/c302-cells.sha256`.
+- **No spreadsheet dependency.** The build reads one sheet from each of two files, and a small reader over Node's zlib does that. Its tests build workbooks in memory.
+- **The scripts run on Node's built-in TypeScript support**, so the build adds only `@types/node`, and Node 22.18 becomes the minimum.
+
+**Why.** Anyone can rebuild the runtime file from its sources and get the same bytes. CI's `data` job does exactly that and fails when a committed output is stale.
+**Status.** Done.
+
+## 2026-09-25 — DATA_SOURCES.md is generated; FIDELITY.md waits for the registry
+
+**Decision.** `DATA_SOURCES.md` and `public/data/NOTICE.md` are now generated from `data/sources.json`, which closes half of the earlier exception. `FIDELITY.md` stays hand-written and marked "planned" until the registry lands, in the next milestone-0a PR.
+**Status.** Done. CLAUDE.md is updated.
+
+## 2026-09-25 — Where the model senses, the body's frame, and the sign of a dual-identity cell on muscle
+
+**Decision.**
+
+- **Sensing sites exist only where the model has a stimulus.** AWCL and AWCR sense at their dendrite tips; ALM, AVM, PVM and PLM sense along their processes. Every other neuron has none, because its stimulus is outside v1.
+- **The body's frame is the reconstruction's extremes.** The nose is the most anterior point of any neuron (CEPDL's dendrite tip, −349.5 µm) and the tail the most posterior (AVG's process, 448.4 µm), so positions are fractions of 797.9 µm. The build checks the axes rather than assuming them: the left cell lies at larger x in 96 of 99 pairs, and the ventral-cord somas lie at smaller z. ALM's touch field therefore starts at 0.05, not the 0.06 PLAN §4.2 had.
+- **A cell with two release identities signs muscle by its primary one.** Eleven of the 162 cells that synapse onto muscle have a second identity. The four SMDs are cholinergic first and GABAergic second, so they excite. This is the rule nematode's sign grounding uses, and it gives PLAN §4.4's figures: 32 cells and 366 sections with no fast effect.
+
+**Alternatives.** Letting any GABA identity inhibit would make the SMDs inhibit their head muscles. The build has no cited measurement of SMD's net effect on muscle, so the primary identity stands until one is found.
+**Status.** Done.
