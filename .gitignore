@@ -6,3 +6,5 @@ coverage/
 visual-out/
 harness-out/
 data/cache/
+.venv/
+__pycache__/

@@ -14,7 +14,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && tsc --noEmit -p scripts && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p scripts && tsc --noEmit -p tests && vite build",
     "preview": "vite preview",
     "data:build": "node scripts/data/build.ts",
     "data:check": "node scripts/data/build.ts --check",

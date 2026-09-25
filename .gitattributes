@@ -5,3 +5,7 @@
 data/vendor/** -text
 data/c302-cells.sha256 -text
 data/sign-overrides.csv -text
+
+# Goldens and the licence beside them are checked by digest: stored byte for byte, never diffed as text.
+tests/fixtures/** -text
+*.f32 binary

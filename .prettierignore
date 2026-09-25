@@ -5,3 +5,4 @@ package-lock.json
 LICENSE
 public/data/*.json
 data/vendor/
+tests/fixtures/

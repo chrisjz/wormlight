@@ -68,7 +68,7 @@ On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes,
 6. Advance the body under resistive force theory.
 7. In the app, advance the odour field in sub-steps of at most 4 ms. The harness reads a precomputed field instead (§5.2).
 
-**Time.** The neural and body step targets 2.5 ms, confirmed in milestone 0b against the reference. Pause, slow motion and fast forward only change how many steps a frame runs.
+**Time.** The neural and body step targets 2.5 ms. Milestone 0b confirmed it for the neural model: both checks pass at 2.5 ms, and the port check fails at 5 ms. Milestone 0c confirms it for the body, by checkpoint 1's metrics agreeing at dt and dt/2. Pause, slow motion and fast forward only change how many steps a frame runs.
 
 **Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms; milestone 2 measures the full step, and a shortfall is logged rather than paid for with accuracy.
 
@@ -181,9 +181,9 @@ Each step is second order in both variables:
 
 - **Voltages:** BDF2, with leak, gap-junction and synaptic conductances on the left, and synaptic activation extrapolated to the new step (2sₙ − sₙ₋₁).
 - **Activation:** BDF2, with φ evaluated at the new voltages.
-- **Start:** one implicit Euler step, since BDF2 needs a history.
+- **Start:** one implicit Euler step, since BDF2 needs a history. The same goes for the step after any jump in the input, such as a stimulus or the head switch turning on or off: a history that spans the jump makes BDF2 first order there. Whatever switches an input restarts the integrator, on the GPU as on the CPU.
 
-The review measured order 2.0 for this pairing, and all four Neural Interactome presets passing the port check at 2.5 ms. The first draft's first-order splitting failed at every step from 1 to 5 ms.
+The review measured order 2.0 for this pairing, and all four Neural Interactome presets passing the port check at 2.5 ms. The first draft's first-order splitting failed at every step from 1 to 5 ms. Milestone 0b's CPU reference confirmed both: order 1.99 and 2.10 on the Cook model, and every neuron within tolerance in both checks at 2.5 ms (DECISIONS.md).
 
 The linear system is sparse, symmetric and positive definite, with 302 unknowns. Conjugate gradients solve it with a Jacobi preconditioner, warm-started from the last step, stopping when the recursive residual falls below 10⁻⁶‖b‖ on the CPU (f64) or 10⁻⁵‖b‖ on the GPU (f32, safely above the ~10⁻⁶ floor the review measured for f32 on this system). A cap of 64 iterations sets a flag that the harness and app report, so the solve can never spin.
 
@@ -191,7 +191,7 @@ On the GPU the whole step runs in one workgroup, two neurons per invocation, wit
 
 ### 3.5 Noise, lesions and the contrast brain
 
-- **Noise.** White current noise of intensity σ_n (in pA·√s, calibrated), drawn each step with standard deviation σ_n/√dt so its power doesn't depend on the step size. A counter-based hash of (seed, step, neuron) gives the same 32-bit integer h in TypeScript and WGSL. Then u = (⌊h / 2⁸⌋ + 0.5) · 2⁻²⁴ lies strictly inside (0, 1) and is exact in f32, so Box–Muller never takes log(0). Test vectors include h = 0 and h = 2³² − 1, and noisy parity allows for WGSL's error bounds on `log` and `cos`.
+- **Noise.** White current noise of intensity σ_n (in pA·√s, calibrated), drawn each step with standard deviation σ_n/√dt so its power doesn't depend on the step size. A counter-based hash of (seed, step, neuron) gives the same 32-bit integer h in TypeScript and WGSL. Then u = (⌊h / 2⁹⌋ + 0.5) · 2⁻²³ lies strictly inside (0, 1) and is exact in f32, so Box–Muller never takes log(0). Test vectors include h = 0 and h = 2³² − 1, and noisy parity allows for WGSL's error bounds on `log` and `cos`.
 - **Lesions.** A lesion zeroes every connection of the ablated neuron, chemical, gap and neuromuscular; thresholds are unchanged (§3.3).
 - **Contrast brain (checkpoint 6).** The primary null is a port of nematode's degree-preserving double-edge swap, applied to the chemical graph only:
   - each directed connection keeps its section count and sign at its presynaptic end, so every neuron keeps its outgoing strength and its excitatory/inhibitory mix;
@@ -445,7 +445,7 @@ Trials are independent, so the harness runs them in parallel, one worker per cor
 - a point release of odour matches the analytic 2D Gaussian, which is nematode's Fick kernel;
 - the random-number hash and Gaussian transform match fixed test vectors, including the edge hashes.
 
-**The port check and production check** (§7.2). `tools/reference/ni_reference.py`, run with `uv`, imports Neural Interactome's unmodified `initialize.py` (BSD-3, credited) with its web server stubbed, and calls its own right-hand side, Jacobian and threshold functions. The review confirmed this runs headlessly. Driving Neural Interactome's own code, not a re-implementation, means a misreading can't be shared between reference and port, such as reading `Gs.npy`'s [post, pre] layout the wrong way round. The goldens are stored with the script's hash in `tests/fixtures/ni/`.
+**The port check and production check** (§7.2). `tools/reference/ni_reference.py`, run with `uv`, imports Neural Interactome's unmodified `initialize.py` (BSD-3, credited) with its web server stubbed, and calls its own right-hand side, Jacobian and threshold functions. The review confirmed this runs headlessly. Driving Neural Interactome's own code, not a re-implementation, means a misreading can't be shared between reference and port, such as reading `Gs.npy`'s [post, pre] layout the wrong way round. The goldens are stored with the script's hash in `tests/fixtures/ni/`. For the production check, `tools/reference/cook_reference.py` is an independent, dense implementation of the production model that reads the runtime data file, solved by Radau in the same way; its goldens in `tests/fixtures/cook/` record the constants they used, which a test compares with the registry, and a digest of the wiring they read. The tests fail when a golden is stale (its script, its pinned inputs or the wiring changed without it being regenerated) or was edited by hand, since each manifest also records its outputs' digests.
 
 **GPU parity** runs as a mode of the same headless-Chrome harness as the visual tests, ported from Universe:
 
