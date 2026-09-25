@@ -1,11 +1,5 @@
 {
   "$comment": "Every input the data build reads, pinned by digest, and every dataset Wormlight credits. `npm run data:build` reads this file and generates DATA_SOURCES.md and public/data/NOTICE.md from it. Edit this file, never the generated pages.",
-  "citations": {
-    "chalasani2007": "Chalasani SH, Chronis N, Tsunozaki M, et al. Dissecting a circuit for olfactory behaviour in Caenorhabditis elegans. Nature 450:63–70 (2007), doi:10.1038/nature06292",
-    "fenyves2020": "Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16:e1007974 (2020), doi:10.1371/journal.pcbi.1007974",
-    "wang2024": "Wang C, Vidal B, Sural S, et al. A neurotransmitter atlas of C. elegans males and hermaphrodites. eLife 13:RP95402 (2024), doi:10.7554/eLife.95402",
-    "richmond1999": "Richmond JE, Jorgensen EM. One GABA and two acetylcholine receptors function at the C. elegans neuromuscular junction. Nature Neuroscience 2:791–797 (1999), doi:10.1038/12160"
-  },
   "licenceTexts": {
     "mit-openworm-2024": "MIT License\n\nCopyright (c) 2024 OpenWorm\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
     "mit-creamer-2026": "MIT License\n\nCopyright (c) 2026 Matthew S. Creamer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
@@ -75,6 +69,21 @@
       "origin": {
         "repository": "https://github.com/Nondairy-Creamer/Creamer_LDS_2026",
         "commit": "bba43302d50a4947804d98b01779856e648237cc"
+      },
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "eigenworms",
+      "description": "The eigenworm basis of Stephens et al. 2008, as the Stephens group distributes it with WormPose: `extras/EigenWorms.csv`, 100 modes over 100 tangent angles",
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/iteal/wormpose/fb1d77eac56538569f639ab58a62470bff10f04c/extras/EigenWorms.csv",
+          "sha256": "bc806b9073972f6c6f6b0c48ecf8b9278bff2433ee2b39906423d58b156d930f"
+        }
+      ],
+      "origin": {
+        "repository": "https://github.com/iteal/wormpose",
+        "commit": "fb1d77eac56538569f639ab58a62470bff10f04c"
       },
       "retrieved": "2026-09-25"
     }
@@ -182,10 +191,11 @@
     {
       "id": "eigenworms",
       "use": "tests",
-      "planned": "milestone 0a",
-      "dataset": "A published eigenworm basis (pinned before any posture data exist)",
-      "takes": "Checkpoint 1's posture clause",
-      "licence": "Recorded when pinned"
+      "pins": ["eigenworms"],
+      "dataset": "The eigenworms of Stephens et al. 2008, _PLoS Comput Biol_ 4:e1000028, as distributed by the authors' group with WormPose (Hebert et al. 2021; `iteal/wormpose`, `extras/EigenWorms.csv`, unchanged since its first commit in July 2020)",
+      "takes": "Checkpoint 1's posture clause: the first four modes, with the head at angle 1. The file names no source; its identity with the 2008 basis is inferred: WormPose projects onto eigenworms citing Stephens et al. 2008, and the group's Broekmans et al. 2016 took its eigenworms from that paper; and its first four modes capture 96.5% of the variance of the 6,655 real postures in the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731, CC BY 4.0), as Stephens et al. report for theirs (over 95%)",
+      "route": "Downloaded and checked by the data build; read by the harness",
+      "licence": "BSD-3-Clause, Copyright (c) 2020, Okinawa Institute of Science and Technology. Not redistributed: the build and the harness read it from its pinned URL"
     },
     {
       "id": "randi2023",

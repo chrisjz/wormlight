@@ -14,5 +14,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts", "../src/data/schema.ts"]
+  "include": ["**/*.ts", "../src/data/schema.ts", "../src/science/*.ts"]
 }

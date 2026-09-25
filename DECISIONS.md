@@ -266,3 +266,28 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 **Decision.** The body wall muscles of all four quadrants sit on one grid of 24 slots from nose to tail, so muscle i covers the same stretch in every quadrant. The 23-cell ventral-left quadrant's last cell, vBWML23, covers the last two slots.
 **Why.** Spacing ventral-left in 23 even steps drifted its middle cells by up to a muscle from the ventral-right ones they are averaged with. Cook's innervation says they mostly belong together. By the Jaccard index of their presynaptic cells, vBWMLi matches vBWMRi best for 12 of the 15 cells from vBWML7 to vBWML21, and clearly from 17 to 21 (vBWML17: 0.86 against vBWMR17, 0.56 against vBWMR18). At 10, 12 and 14 the next ventral-right cell overlaps more (0.20 against 0.19, 0.36 against 0.29, 0.32 against 0.24), and vBWML23 matches vBWMR24 (0.67 against 0.60). An even stretch fits none of this better.
 **Status.** Approved by the maintainer on 2026-09-25. Still an assumption (level 0).
+
+## 2026-09-25 — The registry is the source of FIDELITY.md, and of every citation
+
+**Decision.** `src/science/` holds the registry: `citations.ts` (every source once), `params.ts` (every constant, with its level and source) and `fidelity.ts` (every component and subsystem). `npm run docs:fidelity` generates `FIDELITY.md` from it, and CI's `checks` job fails when the page is stale. This closes the exception that kept the page hand-written.
+
+- **Figures come from the data.** The ledger's sign coverage and connection counts are computed from `public/data/wormlight.v1.json` when the page is generated, so they can't drift from the file the model loads.
+- **One citation list.** The data build takes the references in the runtime file's `meta.citations` from the registry, and refuses a sign override that cites an id the registry lacks. Every entry was checked against Crossref or the publisher; the Neural Interactome DOI the notes had was wrong (the paper is doi:10.3389/fncom.2019.00008).
+- **Parameters: what the plan fixes so far.** `params.ts` holds the 14 free parameters and every constant PLAN §3.2, §4 and §5 give a value. Constants that only later milestones use, such as the body's spring constants and the oscillator's fixed coefficients, join it with the code that uses them. A test holds the free count at 14: eight calibrated, six fixed in advance.
+- **Checkpoints per component.** Each component lists the checks and checkpoints that test it, as PLAN §6.1 asks.
+
+**Why.** The spec asks for one machine-readable ledger that the page, the app and the tests all read.
+**Status.** Done.
+
+## 2026-09-25 — Checkpoint 1's eigenworms are the Stephens group's published basis
+
+**Decision.** Pin `extras/EigenWorms.csv` from the Stephens group's WormPose repository (`iteal/wormpose` at `fb1d77ea`; SHA-256 `bc806b90…`; BSD-3-Clause, not redistributed) as checkpoint 1's basis, and fix the metric now: the variance the first four modes capture in postures pooled over all 20 trials at 4 Hz, each trial's first 10 s left out.
+**Why.**
+
+- **It is the basis the spec names.** Stephens et al. 2008 give the eigenworms only as figures. The group distributes the basis as this file with WormPose (Hebert et al. 2021), which projects postures onto "a canonical lower dimensional space of 'eigenworms'" citing Stephens et al. 2008; the group's Broekmans et al. 2016 likewise took its eigenworms "from Stephens et al. (2008)". The file itself names no source, so its identity with the 2008 basis is inferred, and `DATA_SOURCES.md` says so.
+- **It checks out.** The build confirms a 100 × 100 orthonormal basis whose constant rotation mode is the last column. Its first four modes capture 96.5% of the variance of the 6,655 real postures in the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731), and 95.8% read tail first, so head first is the orientation. Stephens et al. report over 95%.
+- **It fits the plan's representation.** It uses the same 100 tangent angles, so no resampling is needed.
+- **The metric follows the source.** Stephens et al. measured all the behaviour of freely crawling worms, reversals and turns included, so the checkpoint pools all postures rather than only forward bouts, which would be easier to pass. The first 10 s of each trial are left out because the trials start from random postures.
+
+**Alternatives rejected.** The Schafer lab's `master_eigen_worms_N2.mat` (Brown et al. 2013; Yemini et al. 2013; MIT via OpenWorm and Tierpsy) has 48 angles, was fitted to worms on food, and orders its modes differently. Resampling it to 100 angles works numerically, but it would no longer be a published basis.
+**Status.** Done, before any posture data exist.

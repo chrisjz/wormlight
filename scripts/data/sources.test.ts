@@ -15,7 +15,6 @@ describe('the committed sources file', () => {
 
 describe('validateSources', () => {
   const sources = (): Sources => ({
-    citations: {},
     licenceTexts: { mit: 'MIT' },
     pins: [
       { id: 'p', description: 'd', files: [{ url: 'https://example.invalid/x', sha256: digest }], retrieved: 'r' },

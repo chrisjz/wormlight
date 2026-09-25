@@ -3,6 +3,7 @@
 
 import type { Chemical, WormlightData } from '../../src/data/schema.ts';
 import { countBySource, edgeKey, type FenyvesSheet, type Override, type SetAside } from './signs.ts';
+import type { EigenwormCheck } from './eigenworms.ts';
 import type { Sources } from './sources.ts';
 import { table } from './render.ts';
 
@@ -77,9 +78,19 @@ export interface BuildFacts {
   frame: { noseUm: number; tailUm: number };
   axes: { leftLarger: number; pairs: number; nosePairs: number };
   exportCommit: string;
+  eigenworms: EigenwormCheck;
 }
 
-export function buildReport({ data, fenyves, setAside, overrides, frame, axes, exportCommit }: BuildFacts): string {
+export function buildReport({
+  data,
+  fenyves,
+  setAside,
+  overrides,
+  frame,
+  axes,
+  exportCommit,
+  eigenworms,
+}: BuildFacts): string {
   const chemical = data.chemical;
   const connections = chemical.length;
   const sections = chemical.reduce((sum, c) => sum + c.sections, 0);
@@ -217,5 +228,7 @@ export function buildReport({ data, fenyves, setAside, overrides, frame, axes, e
     ),
     `Rhythm generators: ${oscillators('A').length} A-type (${oscillators('A').join(', ')}), ${oscillators('B').length} B-type (${oscillators('B').join(', ')}) and ${oscillators('headSwitch').length} head-switch neurons (${oscillators('headSwitch').join(', ')}).`,
     `Muscles sit on one grid of 24 slots per quadrant, so the quadrants line up; the ventral-left quadrant's 23rd and last cell covers the last two slots, because Cook's innervation matches it to vBWMR24 (PLAN §4.4, level 0).`,
+    '## Eigenworm basis',
+    `The pinned basis for checkpoint 1 has ${eigenworms.modes} modes over ${eigenworms.angles} tangent angles, which checkpoint 1 reads head first (an inferred orientation; see \`DATA_SOURCES.md\`). Its columns are orthonormal to within ${eigenworms.orthonormalError.toExponential(1)}, column ${eigenworms.rotationMode} is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.`,
   ].join('\n\n');
 }

@@ -88,3 +88,7 @@ The body frame runs from -349.5 µm (the most anterior point of any neuron, at t
 Rhythm generators: 21 A-type (DA1, DA2, DA3, DA4, DA5, DA6, DA7, DA8, DA9, VA1, VA10, VA11, VA12, VA2, VA3, VA4, VA5, VA6, VA7, VA8, VA9), 18 B-type (DB1, DB2, DB3, DB4, DB5, DB6, DB7, VB1, VB10, VB11, VB2, VB3, VB4, VB5, VB6, VB7, VB8, VB9) and 4 head-switch neurons (SMDDL, SMDDR, SMDVL, SMDVR).
 
 Muscles sit on one grid of 24 slots per quadrant, so the quadrants line up; the ventral-left quadrant's 23rd and last cell covers the last two slots, because Cook's innervation matches it to vBWMR24 (PLAN §4.4, level 0).
+
+## Eigenworm basis
+
+The pinned basis for checkpoint 1 has 100 modes over 100 tangent angles, which checkpoint 1 reads head first (an inferred orientation; see `DATA_SOURCES.md`). Its columns are orthonormal to within 1.3e-5, column 100 is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.

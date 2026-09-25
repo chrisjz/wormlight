@@ -46,8 +46,6 @@ export interface Dataset {
 }
 
 export interface Sources {
-  // A short reference for every citation id the runtime file uses.
-  citations: Record<string, string>;
   // Full licence texts that notices and reports must reproduce, by key.
   licenceTexts: Record<string, string>;
   pins: Pin[];

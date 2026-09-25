@@ -1,0 +1,51 @@
+// The pinned eigenworm basis: a CSV whose columns are posture modes over tangent angles, head first. The
+// build checks the file is the basis checkpoint 1 expects before anything relies on it.
+
+export interface EigenwormCheck {
+  angles: number;
+  modes: number;
+  // The largest departure of the columns from an orthonormal set.
+  orthonormalError: number;
+  // The one column that is the constant rotation mode, which the posture analysis removes.
+  rotationMode: number;
+}
+
+export function parseMatrix(csv: string): number[][] {
+  return csv
+    .trim()
+    .split(/\r?\n/)
+    .map((line, i) =>
+      line.split(',').map((cell) => {
+        const value = Number(cell);
+        if (!Number.isFinite(value)) throw new Error(`eigenworm basis row ${i + 1}: "${cell}" is not a number`);
+        return value;
+      }),
+    );
+}
+
+// Check a square basis of `angles` modes: orthonormal columns, one of them the constant rotation mode,
+// and the first `used` modes free of rotation (each sums to zero), as the posture analysis assumes.
+export function checkEigenworms(rows: number[][], angles: number, used = 4): EigenwormCheck {
+  if (rows.length !== angles || rows.some((row) => row.length !== angles)) {
+    throw new Error(`eigenworm basis: expected ${angles} × ${angles}`);
+  }
+  const column = (j: number): number[] => rows.map((row) => row[j]);
+  let orthonormalError = 0;
+  for (let a = 0; a < angles; a++) {
+    for (let b = a; b < angles; b++) {
+      const dot = rows.reduce((sum, row) => sum + row[a] * row[b], 0);
+      orthonormalError = Math.max(orthonormalError, Math.abs(dot - (a === b ? 1 : 0)));
+    }
+  }
+  if (orthonormalError > 1e-4) throw new Error(`eigenworm basis: columns are not orthonormal (${orthonormalError})`);
+  const constant = [...Array(angles).keys()].filter((j) => {
+    const c = column(j);
+    return c.every((v) => Math.abs(v - c[0]) < 1e-4);
+  });
+  if (constant.length !== 1) throw new Error(`eigenworm basis: expected one rotation mode, found ${constant.length}`);
+  for (let j = 0; j < used; j++) {
+    const sum = column(j).reduce((a, b) => a + b, 0);
+    if (Math.abs(sum) > 1e-3) throw new Error(`eigenworm basis: mode ${j + 1} is not free of rotation (sum ${sum})`);
+  }
+  return { angles, modes: angles, orthonormalError, rotationMode: constant[0] + 1 };
+}
