@@ -63,16 +63,16 @@ jobs:
           path: data/cache
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
-  # The rendered pixels: the built app in headless Chrome, WebGPU on Mesa lavapipe (software Vulkan; these
-  # runners have no GPU), a fixed set of views read back through the app's own snapshot and compared with
-  # the baselines in tests/visual/baseline/. It catches what lint, types and unit tests can't, such as a
-  # shader or bind-group change that blanks a pass. After Universe Atlas's job.
+  # The rendered pixels: the built app in headless Chrome, WebGPU on SwiftShader, the software Vulkan that
+  # ships with Chrome (these runners have no GPU), a fixed set of views read back through the app's own
+  # snapshot and compared with the baselines in tests/visual/baseline/. It catches what lint, types and unit
+  # tests can't, such as a shader or bind-group change that blanks a pass. After Universe Atlas's job.
   #
   # Chrome and the runner image are pinned, since either changes the pixels and this job gates merging and
-  # deploying: an unpinned stable Chrome broke Universe's identical job. Chrome's version is the one the
-  # installed puppeteer-core targets (node_modules/puppeteer-core/lib/puppeteer/revisions.js); bump the two
-  # together and refresh the baselines in the same PR. Mesa comes from the image's archive, which drops old
-  # versions, so it can't be pinned; the capture log names the adapter that drew the frames.
+  # deploying: an unpinned stable Chrome broke Universe's identical job. Pinning Chrome pins SwiftShader
+  # with it. Chrome's version is the one the installed puppeteer-core targets
+  # (node_modules/puppeteer-core/lib/puppeteer/revisions.js); bump the two together and refresh the
+  # baselines in the same PR. The capture log names the Chrome version and the adapter that drew the frames.
   visual:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -90,9 +90,7 @@ jobs:
         id: chrome
         with:
           chrome-version: 154.0.8037.57
-      - name: Install Mesa lavapipe (software Vulkan)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
-      - name: Capture views (WebGPU on lavapipe)
+      - name: Capture views (WebGPU on SwiftShader)
         id: capture
         run: npm run visual:capture
         env:

@@ -4,7 +4,8 @@
 //
 //   npm run build && npm run visual:capture [-- outDir]      (default visual-out)
 //   CHROME_PATH=...   the Chrome binary (default: the macOS app)
-//   WEBGPU_CI=1       adds the flags for WebGPU on Mesa lavapipe, and runs the app with ?norender=1
+//   WEBGPU_CI=1       adds the flags for WebGPU on a GPU-less runner (Chrome's SwiftShader), and runs the app
+//                     with ?norender=1
 //   ONLY=<name>       captures one view
 //
 // A capture fails if the page reports an error, the app never becomes ready, or the frame is one colour:

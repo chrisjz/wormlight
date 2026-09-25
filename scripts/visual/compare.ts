@@ -8,7 +8,7 @@
 //   ONLY=<name>                 compares one view
 //   VISUAL_NEW_BASELINES=1      lets a view without a baseline pass, for the run that adds it
 //
-// Baselines come from CI, since lavapipe's pixels differ from a local GPU's. Take them only from the
+// Baselines come from CI, since SwiftShader's pixels differ from a local GPU's. Take them only from the
 // `visual` artifact of a run on a branch of this repository, at the commit being baselined, never from a
 // fork's run, and copy only the <view>.png files into tests/visual/baseline/, never diff-*.png.
 
