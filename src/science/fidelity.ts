@@ -509,6 +509,7 @@ export const COMPONENTS: readonly Component[] = [
     sources: ['boyle2012'],
     testedBy: [
       { check: 'passiveBend' },
+      { check: 'unit', detail: "the paper's force law, written independently, gives its velocities" },
       { check: 'unit', detail: 'a prescribed wave crawls at the predicted speed' },
       { check: 'checkpoint1' },
     ],
