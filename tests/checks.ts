@@ -24,12 +24,14 @@ const RANGE_FLOOR = 1;
 
 export interface Score {
   neuron: string;
-  // RMS error over max(range, 1 mV).
+  // RMS error over max(range, 1 mV); NaN when the model's trajectory isn't finite.
   ratio: number;
   range: number;
 }
 
-// Every neuron's score, worst first.
+const rank = (s: Score): number => (Number.isNaN(s.ratio) ? Infinity : s.ratio);
+
+// Every neuron's score, worst first, a NaN before anything finite.
 export function score(names: readonly string[], reference: Float32Array[], model: Float64Array[]): Score[] {
   if (reference.length !== model.length) throw new Error('the trajectories differ in length');
   return names
@@ -45,7 +47,8 @@ export function score(names: readonly string[], reference: Float32Array[], model
       const range = high - low;
       return { neuron, ratio: Math.sqrt(squares / reference.length) / Math.max(range, RANGE_FLOOR), range };
     })
-    .sort((a, b) => b.ratio - a.ratio);
+    .sort((a, b) => rank(b) - rank(a));
 }
 
-export const failures = (scores: Score[]): Score[] => scores.filter((s) => s.ratio > TOLERANCE);
+// A score fails unless it is within tolerance, so a NaN fails.
+export const failures = (scores: Score[]): Score[] => scores.filter((s) => !(s.ratio <= TOLERANCE));

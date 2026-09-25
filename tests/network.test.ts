@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { countFacts } from '../src/science/facts.ts';
-import { lesion, cookNetwork } from '../src/sim/brain/network.ts';
+import { connections, cookNetwork, lesion } from '../src/sim/brain/network.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -56,18 +56,13 @@ describe('cookNetwork', () => {
 });
 
 describe('lesion', () => {
-  it('removes every connection of the lesioned neurons and nothing else', () => {
-    const cut = lesion(network, ['AVAL', 'AVAR']);
+  it('removes every connection of the lesioned neurons and leaves the rest exactly as they were', () => {
     const gone = new Set([at('AVAL'), at('AVAR')]);
-    const touching = (rows: typeof network.gap): number => {
-      let count = 0;
-      for (let i = 0; i < network.names.length; i++) {
-        for (let k = rows.start[i]; k < rows.start[i + 1]; k++) if (gone.has(i) || gone.has(rows.index[k])) count++;
-      }
-      return count;
-    };
-    expect(touching(cut.gap) + touching(cut.chemical)).toBe(0);
-    expect(cut.gap.index.length).toBe(network.gap.index.length - touching(network.gap));
-    expect(cut.chemical.index.length).toBe(network.chemical.index.length - touching(network.chemical));
+    const before = connections(network);
+    const after = connections(lesion(network, ['AVAL', 'AVAR']));
+    expect(after.gap).toEqual(before.gap.filter(([a, b]) => !gone.has(a) && !gone.has(b)));
+    expect(after.chemical).toEqual(before.chemical.filter(([post, pre]) => !gone.has(post) && !gone.has(pre)));
+    expect(after.gap.length).toBeLessThan(before.gap.length);
+    expect(after.chemical.length).toBeLessThan(before.chemical.length);
   });
 });

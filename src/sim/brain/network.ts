@@ -119,6 +119,22 @@ export function cookNetwork(data: WormlightData): Network {
   };
 }
 
+// Every connection as a list: gap pairs once, as [a, b, g] with a < b, and chemical synapses as
+// [post, pre, g, E], in row order.
+export function connections(network: Network): {
+  gap: [number, number, number][];
+  chemical: [number, number, number, number][];
+} {
+  const gap: [number, number, number][] = [];
+  const chemical: [number, number, number, number][] = [];
+  const { gap: g, chemical: c } = network;
+  for (let i = 0; i < network.names.length; i++) {
+    for (let k = g.start[i]; k < g.start[i + 1]; k++) if (i < g.index[k]) gap.push([i, g.index[k], g.weight[k]]);
+    for (let k = c.start[i]; k < c.start[i + 1]; k++) chemical.push([i, c.index[k], c.weight[k], c.reversal[k]]);
+  }
+  return { gap, chemical };
+}
+
 // The same network with every chemical and gap connection of the named neurons removed, as laser ablation
 // removes them (PLAN §3.5); the body lesions their neuromuscular connections. Thresholds are not
 // recomputed: the caller keeps the intact network's.
@@ -126,19 +142,18 @@ export function lesion(network: Network, lesioned: readonly string[]): Network {
   const n = network.names.length;
   const cut = new Set(lesioned.map((name) => network.names.indexOf(name)));
   if (cut.has(-1)) throw new Error(`unknown neuron in ${lesioned.join(', ')}`);
-  const gap: [number, number, number][] = [];
-  const chemical: [number, number, number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    const { start, index, weight } = network.gap;
-    for (let k = start[i]; k < start[i + 1]; k++) {
-      if (i < index[k] && !cut.has(i) && !cut.has(index[k])) gap.push([i, index[k], weight[k]]);
-    }
-    const c = network.chemical;
-    for (let k = c.start[i]; k < c.start[i + 1]; k++) {
-      if (!cut.has(i) && !cut.has(c.index[k])) chemical.push([i, c.index[k], c.weight[k], c.reversal[k]]);
-    }
-  }
-  return { ...network, gap: gapRows(n, gap), chemical: chemicalRows(n, chemical) };
+  const { gap, chemical } = connections(network);
+  return {
+    ...network,
+    gap: gapRows(
+      n,
+      gap.filter(([a, b]) => !cut.has(a) && !cut.has(b)),
+    ),
+    chemical: chemicalRows(
+      n,
+      chemical.filter(([post, pre]) => !cut.has(post) && !cut.has(pre)),
+    ),
+  };
 }
 
 function fail(message: string): never {

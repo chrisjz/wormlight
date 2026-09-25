@@ -9,7 +9,8 @@ from a seeded generator.
 
 Writes tests/fixtures/ni/: network.json (the matrices, presets, constants and start state NI used, read
 from its module), one <preset>.f32 file of V - Vth per preset (float32, samples x neurons), NI's BSD
-licence, and manifest.json with this script's SHA-256, so the tests can tell when the goldens are stale.
+licence, and manifest.json with this script's SHA-256 and every output's, so the tests can tell when the
+goldens are stale or have been edited by hand.
 
     uv run --project tools/reference python tools/reference/ni_reference.py
 """
@@ -175,6 +176,9 @@ def main() -> None:
         "generatorSha256": digest_of(Path(__file__)),
         "helperSha256": digest_of(Path(__file__).with_name("pins.py")),
         "inputs": {name: digest_of(path) for name, path in sorted(files.items())},
+        "outputs": {
+            name: digest_of(OUT / name) for name in ["network.json", "LICENSE", *(f"{p}.f32" for p in PRESETS)]
+        },
         "solver": {"method": "Radau", "rtol": TOLERANCE, "atol": TOLERANCE},
         "sample": SAMPLE,
         "end": T_END,

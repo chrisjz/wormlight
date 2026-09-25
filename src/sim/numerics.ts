@@ -1,7 +1,8 @@
 // Numerical settings (PLAN §3.4). They set accuracy, not biology, so they are not parameters in the
 // registry; the port check, the production check and the convergence tests are what justify them.
 
-// The neural step, in seconds: the largest the port check passes at with room to spare (DECISIONS.md).
+// The neural step, in seconds: PLAN's target. Both checks pass at it with room to spare, and at 3.33 ms
+// with less; the port check fails at 5 ms (DECISIONS.md).
 export const NEURAL_STEP = 0.0025;
 
 // Conjugate gradients stop when the recursive residual falls below this fraction of ‖b‖ (f64, CPU).

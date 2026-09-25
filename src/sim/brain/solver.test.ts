@@ -34,6 +34,13 @@ describe('ConjugateGradient', () => {
     });
   });
 
+  it('reports a system holding a NaN as unconverged, at once rather than at the cap', () => {
+    const x = new Float64Array(4);
+    const poisoned = Float64Array.from(b);
+    poisoned[2] = NaN;
+    expect(new ConjugateGradient(4).solve(d, gap, poisoned, x, 1e-12, 64)).toEqual({ iterations: 0, converged: false });
+  });
+
   it('stops at the cap and says so', () => {
     const x = new Float64Array(4);
     expect(new ConjugateGradient(4).solve(d, gap, b, x, 1e-12, 1)).toEqual({ iterations: 1, converged: false });

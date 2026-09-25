@@ -1,8 +1,12 @@
 {
   "generator": "tools/reference/cook_reference.py",
-  "generatorSha256": "f5df7dd3a1296b64a3e5e3f4c3e1ab163bdd699239e907295285cc3313605559",
+  "generatorSha256": "8268aa776cb3fb86e881af182caccc0ff76e8dce9498ae72d276b3ff2bb40f30",
   "helperSha256": "104f7f576ff2a48de7af31d21fbdc0b518d67797b9351d7c215b0ea80ec953e8",
   "wiringSha256": "40f6c78fc6fe238b74676d20081d6804262a1318af55d8d203d05855b2e3d5a1",
+  "outputs": {
+    "PLM-pulse.f32": "6f3701b514a5c3d3362cafc6ba2c26a5e5dc95e6d9b8e152d637957ab5a64cd2",
+    "AVB-step.f32": "c215b5a759b0b20f1226f90c4fcc8a9dd1c9b3e700dfbce6f350729aaf800417"
+  },
   "constants": {
     "capacitance": 0.001,
     "leak": 0.01,

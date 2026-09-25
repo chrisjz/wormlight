@@ -2,7 +2,8 @@
 // order. Each step solves the voltages by BDF2, with leak, gap-junction and synaptic conductances on the
 // left and synaptic activation extrapolated to the new time (2sₙ − sₙ₋₁); it then advances activation by
 // BDF2 with φ at the new voltages. That update is linear in s, so it has a closed form. The first step,
-// and any step after a change of step size, is implicit Euler, since BDF2 needs a history.
+// any step after a change of step size, and the step after `restart()` are implicit Euler: BDF2 needs a
+// history, and a history that spans a jump in the input costs it an order.
 
 import { CG_MAX_ITERATIONS, CG_TOLERANCE } from '../numerics.ts';
 import type { Network } from './network.ts';
@@ -83,11 +84,12 @@ export class Brain {
   // White current noise intensity, σ_n in current·√s: each step adds σ_n/√dt times a standard normal draw.
   noise = 0;
   seed = 0;
-  time = 0;
+  // Steps taken since the state was set: the noise's counter, and the clock of fixed-step callers.
   steps = 0;
-  // The last voltage solve, and how many solves have stopped at the iteration cap.
+  // The last voltage solve, and how many solves have failed to converge: stopped at the iteration cap, or
+  // met a residual that isn't finite.
   lastSolve: Solve = { iterations: 0, converged: true };
-  capped = 0;
+  unconverged = 0;
 
   private readonly previousVoltage: Float64Array;
   private readonly previousActivation: Float64Array;
@@ -124,11 +126,17 @@ export class Brain {
     this.setState(this.threshold, new Float64Array(this.n).fill(midpointActivation(this.network)));
   }
 
-  setState(voltage: ArrayLike<number>, activation: ArrayLike<number>, time = 0): void {
+  // Set the state, as after `steps` steps, so a restored state draws the noise it would have drawn next.
+  setState(voltage: ArrayLike<number>, activation: ArrayLike<number>, steps = 0): void {
     this.voltage.set(voltage);
     this.activation.set(activation);
-    this.time = time;
-    this.steps = 0;
+    this.steps = steps;
+    this.historyStep = 0;
+  }
+
+  // Make the next step implicit Euler. Call it whenever the input jumps, such as a stimulus switching on or
+  // off: BDF2 across a jump is first order.
+  restart(): void {
     this.historyStep = 0;
   }
 
@@ -158,7 +166,7 @@ export class Brain {
     const next = this.next;
     next.set(v);
     this.lastSolve = this.solver.solve(d, gap, b, next, this.tolerance, this.maxIterations);
-    if (!this.lastSolve.converged) this.capped++;
+    if (!this.lastSolve.converged) this.unconverged++;
 
     const { rise, decay, slope } = network;
     for (let i = 0; i < n; i++) {
@@ -171,7 +179,6 @@ export class Brain {
       v[i] = next[i];
     }
     this.historyStep = dt;
-    this.time += dt;
     this.steps++;
   }
 }

@@ -1,9 +1,8 @@
 // Counter-based random numbers for neural noise (PLAN §3.5). A hash of (seed, step, index) gives the same
 // 32-bit integer here and in WGSL, so the GPU draws the same noise without carrying generator state.
 
-// One step of O'Neill's 32-bit PCG generator (default multiplier and increment, RXS-M-XS output, as in the
-// reference pcg-c), used as a hash. Jarzynski & Olano ("Hash Functions for GPU Rendering", JCGT 2020)
-// evaluate it as "pcg" and recommend nesting it to hash several inputs, as `hash` does.
+// One step of the 32-bit PCG generator (default multiplier and increment, RXS-M-XS output, as in the
+// reference pcg-c), used as a hash and nested to hash several inputs. DECISIONS.md gives its sources.
 export function pcg(v: number): number {
   const state = (Math.imul(v, 747796405) + 2891336453) >>> 0;
   const word = Math.imul((state >>> ((state >>> 28) + 4)) ^ state, 277803737) >>> 0;

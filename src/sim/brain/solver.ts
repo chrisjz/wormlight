@@ -6,7 +6,7 @@ import type { Rows } from './network.ts';
 
 export interface Solve {
   iterations: number;
-  // False when the solve stopped at the iteration cap.
+  // False when the solve stopped at the iteration cap, or met a residual that isn't finite.
   converged: boolean;
 }
 
@@ -26,7 +26,8 @@ export class ConjugateGradient {
   }
 
   // Solve in place, starting from x, with a Jacobi preconditioner. It stops when the recursive residual
-  // falls below tolerance·‖b‖, or after maxIterations.
+  // falls below tolerance·‖b‖, after maxIterations, or as soon as the residual isn't finite, so a NaN or
+  // infinity anywhere in the system is reported rather than passed off as converged.
   solve(d: Float64Array, gap: Rows, b: Float64Array, x: Float64Array, tolerance: number, maxIterations: number): Solve {
     const { n, r, z, p, q } = this;
     apply(d, gap, x, q);
@@ -43,8 +44,8 @@ export class ConjugateGradient {
     }
     const target = tolerance * tolerance * bb;
     let iterations = 0;
-    while (rr > target) {
-      if (iterations === maxIterations) return { iterations, converged: false };
+    while (!(rr <= target)) {
+      if (iterations === maxIterations || !Number.isFinite(rr)) return { iterations, converged: false };
       apply(d, gap, p, q);
       let pq = 0;
       for (let i = 0; i < n; i++) pq += p[i] * q[i];

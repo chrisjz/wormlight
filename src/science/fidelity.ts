@@ -332,7 +332,7 @@ export const COMPONENTS: readonly Component[] = [
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [
-      { check: 'unit', detail: 'its power is the same at any step' },
+      { check: 'unit', detail: 'its power is the same at any step, and each neuron draws its own' },
       { check: 'checkpoint1', detail: 'bout clause' },
       { check: 'checkpoint5', detail: 'spontaneous-reversal rows' },
     ],
@@ -346,7 +346,7 @@ export const COMPONENTS: readonly Component[] = [
     upgrade: '',
     sources: ['chalfie1985', 'gray2005'],
     testedBy: [
-      { check: 'unit', detail: "a lesion removes every one of the neuron's connections" },
+      { check: 'unit', detail: "a lesion removes every one of the neuron's connections and leaves the rest intact" },
       { check: 'checkpoint5' },
     ],
   },

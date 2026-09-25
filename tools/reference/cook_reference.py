@@ -9,7 +9,7 @@ conductance at rest, the current that would hold it 10 mV above rest with every 
 
 Writes tests/fixtures/cook/: one <stimulus>.f32 file of V - Vth per stimulus (float32, samples x neurons)
 and manifest.json, which records the constants used (the tests check them against src/science/params.ts),
-the amplitudes, a digest of the wiring read, and this script's SHA-256.
+the amplitudes, a digest of the wiring read, this script's SHA-256 and every output's.
 
     uv run --project tools/reference python tools/reference/cook_reference.py
 """
@@ -154,6 +154,7 @@ def main() -> None:
         "generatorSha256": digest_of(Path(__file__)),
         "helperSha256": digest_of(Path(__file__).with_name("pins.py")),
         "wiringSha256": wiring_digest(data),
+        "outputs": {f"{name}.f32": digest_of(OUT / f"{name}.f32") for name in STIMULI},
         "constants": CONSTANTS,
         "depolarisation": DEPOLARISATION,
         "stimuli": stimuli,

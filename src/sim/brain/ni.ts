@@ -101,7 +101,8 @@ export class NiRun {
   }
 
   // One step, with the input and thresholds taken at its end, counted in whole steps so the switch at
-  // transitEnd falls on the step it should.
+  // transitEnd falls on the step it should. The input jumps there by 6 × 10⁻⁶ of its value, the tanh's
+  // remainder, which is too small to need a restart.
   step(dt: number): void {
     const t = (this.brain.steps + 1) * dt;
     this.brain.threshold.set(this.threshold(t));

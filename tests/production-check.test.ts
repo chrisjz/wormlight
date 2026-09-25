@@ -25,6 +25,7 @@ interface Manifest {
   generatorSha256: string;
   helperSha256: string;
   wiringSha256: string;
+  outputs: Record<string, string>;
   constants: Record<string, number>;
   depolarisation: number;
   stimuli: Record<string, Stimulus>;
@@ -55,6 +56,15 @@ describe('the production check goldens', () => {
     expect(manifest.generatorSha256).toBe(digest('tools/reference/cook_reference.py'));
     expect(manifest.helperSha256).toBe(digest('tools/reference/pins.py'));
     expect(manifest.wiringSha256).toBe(wiringDigest(data));
+  });
+
+  it('are unedited', () => {
+    expect(Object.keys(manifest.outputs).sort()).toEqual(
+      Object.keys(manifest.stimuli)
+        .map((s) => `${s}.f32`)
+        .sort(),
+    );
+    for (const [file, sha256] of Object.entries(manifest.outputs)) expect(digest(`${DIR}/${file}`), file).toBe(sha256);
   });
 
   it('were made with the constants in the registry', () => {
@@ -91,13 +101,14 @@ describe('the production check', () => {
       expect(reference).toHaveLength(Math.round(manifest.end / manifest.sample) + 1);
       const brain = new Brain(network, threshold);
       const per = Math.round(manifest.sample / NEURAL_STEP);
-      // The input is on for on < t ≤ off, counted in whole steps.
+      // The input is on for on < t ≤ off, counted in whole steps, and the step after each switch restarts.
       const on = Math.round(stimulus.on / NEURAL_STEP);
       const off = stimulus.off === null ? Infinity : Math.round(stimulus.off / NEURAL_STEP);
       const model = [Float64Array.from(brain.voltage, (v, i) => v - threshold[i])];
       for (let k = 1; k < reference.length; k++) {
         for (let q = 0; q < per; q++) {
           const step = brain.steps + 1;
+          if (step === on + 1 || step === off + 1) brain.restart();
           brain.input.fill(0);
           if (step > on && step <= off) {
             for (const [cell, amplitude] of Object.entries(stimulus.amplitudes)) {
@@ -109,7 +120,7 @@ describe('the production check', () => {
         model.push(Float64Array.from(brain.voltage, (v, i) => v - threshold[i]));
       }
       expect(failures(score(names, reference, model))).toEqual([]);
-      expect(brain.capped).toBe(0);
+      expect(brain.unconverged).toBe(0);
     });
   }
 });

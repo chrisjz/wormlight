@@ -14,6 +14,7 @@ interface Manifest {
   generatorSha256: string;
   helperSha256: string;
   inputs: Record<string, string>;
+  outputs: Record<string, string>;
   sample: number;
   end: number;
   presets: string[];
@@ -36,13 +37,17 @@ function check(file: NiNetworkFile, preset: string) {
     compared.push(reference[k]);
     model.push(Float64Array.from(run.brain.voltage, (v, i) => v - run.brain.threshold[i]));
   }
-  return { scores: score(file.names, compared, model), capped: run.brain.capped };
+  return { scores: score(file.names, compared, model), unconverged: run.brain.unconverged };
 }
 
 describe('the port check goldens', () => {
-  it('come from the committed reference script', () => {
+  it('come from the committed reference script, unedited', () => {
     expect(manifest.generatorSha256).toBe(digest('tools/reference/ni_reference.py'));
     expect(manifest.helperSha256).toBe(digest('tools/reference/pins.py'));
+    expect(Object.keys(manifest.outputs).sort()).toEqual(
+      ['LICENSE', 'network.json', ...manifest.presets.map((p) => `${p}.f32`)].sort(),
+    );
+    for (const [file, sha256] of Object.entries(manifest.outputs)) expect(digest(`${DIR}/${file}`), file).toBe(sha256);
   });
 
   it('were made from the pinned Neural Interactome files, whose licence sits beside them', () => {
@@ -64,9 +69,9 @@ describe('the port check goldens', () => {
 describe('the port check', () => {
   for (const preset of manifest.presets) {
     it(`passes for every neuron in the ${preset} preset at the production step`, () => {
-      const { scores, capped } = check(network, preset);
+      const { scores, unconverged } = check(network, preset);
       expect(failures(scores)).toEqual([]);
-      expect(capped).toBe(0);
+      expect(unconverged).toBe(0);
     });
   }
 

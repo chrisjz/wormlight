@@ -1,6 +1,6 @@
 {
   "generator": "tools/reference/ni_reference.py",
-  "generatorSha256": "bdb136860dc25911fd7ada92643fe9165fdf0312e7af2f2838d67ccfcf1fc4e7",
+  "generatorSha256": "f16b013c578ed18443e22eb42dc4940cb8eb4c955b9eeb64e385b79619417b7c",
   "helperSha256": "104f7f576ff2a48de7af31d21fbdc0b518d67797b9351d7c215b0ea80ec953e8",
   "inputs": {
     "Gg.npy": "01a3c438c8be50dc5fdd8f20d4b48b9063a1bd33e2a0a4af010b8079883d2c10",
@@ -13,6 +13,14 @@
     "presets/AVA.json": "b108f848bf0b7f6240b0019115e926ba0479e604351cacfb05e55e8ceaefa416",
     "presets/AVB.json": "e492e6d28261d3664e949f7fd3ec0ea3872a3f9dbd2b434a91d39bf84f187265",
     "presets/PLM.json": "c7b0b4ddee0d60f241ff036f5af93177460129c5873bfb03eb2b07586d806c84"
+  },
+  "outputs": {
+    "network.json": "fb7dd482827e008684881059eefc710800eb36432c2cbbf027e84d92be19e6ce",
+    "LICENSE": "bff9fa1cc192c6f9cecf6341db16a42e7c62adaededb3651789ece7557ec2329",
+    "ALM.f32": "808c8467dec3b00efc808e59c9f10910b07d2b3336c986160dc76049184d2c30",
+    "AVA.f32": "ff7887e4953d52a92e3133a296f9b277644428110cf95af1dc69f76504d4467b",
+    "AVB.f32": "3e912e3483f40179c5bda77a54ee6d42c5d5a8ac0c96a8ecee0a2cca3aa4db95",
+    "PLM.f32": "3b989d8c1363dd41c1c529fa8363ea918e1390fd282f65c87e753370cff5f4bc"
   },
   "solver": {
     "method": "Radau",
