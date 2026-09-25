@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PITCH_LIMIT } from '../render/camera';
 import { applyTarget, readParams } from './params';
 
 describe('readParams', () => {
@@ -21,6 +22,14 @@ describe('readParams', () => {
     expect(p.distance).toBe(7.5);
     expect(p.target).toEqual({ 0: -3.3, 2: 0 });
     expect(p.noRender).toBe(true);
+  });
+
+  it("keeps pitch within the camera's limit, and draws unless norender is 1", () => {
+    expect(readParams('?pitch=90').pitch).toBeCloseTo(PITCH_LIMIT, 12);
+    expect(readParams('?pitch=-120').pitch).toBeCloseTo(-PITCH_LIMIT, 12);
+    expect(readParams('?norender=0').noRender).toBe(false);
+    expect(readParams('?norender').noRender).toBe(false);
+    expect(readParams('?neuron=%20').neuron).toBeNull();
   });
 
   it('ignores values that are not numbers, and distances that are not positive', () => {

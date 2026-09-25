@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisWarp, isCordNeuron, midline } from './layout';
+import { axisWarp, isCordNeuron, midline, unbend } from './layout';
 
 describe('axisWarp', () => {
   const crowded = [0.1, 0.1, 0.11, 0.12, 0.12, 0.13, 0.5, 0.9];
@@ -26,16 +26,43 @@ describe('axisWarp', () => {
 });
 
 describe('midline', () => {
-  it('follows a straight line through its points exactly, and holds its ends beyond them', () => {
+  it('follows a straight line through its points exactly, and runs on along it beyond them', () => {
     const points = Array.from({ length: 20 }, (_, i) => [2 + 0.1 * i * 10, i * 10, -5 + 0.3 * i * 10] as const);
-    const line = midline(points, 30);
-    for (const y of [0, 35, 111, 190]) {
-      const [x, z] = line(y);
+    const line = midline(points, 15);
+    for (const y of [-100, 0, 35, 111, 190, 500]) {
+      const [x, , z] = line(y);
       expect(x).toBeCloseTo(2 + 0.1 * y, 9);
       expect(z).toBeCloseTo(-5 + 0.3 * y, 9);
     }
-    expect(line(-100)).toEqual(line(0));
-    expect(line(500)).toEqual(line(190));
+  });
+});
+
+describe('unbend', () => {
+  // A cord bent into a circular arc of radius 400 µm in the y–z plane, sampled every 2 µm, and somata placed
+  // at known distances along it and known offsets across it.
+  const R = 400;
+  const at = (theta: number, up: number, left: number): [number, number, number] => [
+    left,
+    (R + up) * Math.sin(theta),
+    (R + up) * Math.cos(theta) - R,
+  ];
+  const cord = Array.from({ length: 401 }, (_, k) => at(-0.5 + k / 400, 0, 0));
+  const [y0, y1] = [R * Math.sin(-0.5), R * Math.sin(0.5)];
+  const somata = [at(-0.3, 12, 0), at(0, -8, 5), at(0.2, 30, -9), at(0.41, 3, 2)];
+  const body = unbend(
+    somata,
+    somata.map((p) => (p[1] - y0) / (y1 - y0)),
+    midline(cord, 4),
+  );
+
+  it('measures each soma along the bent line and across it', () => {
+    [-0.3, 0, 0.2, 0.41].forEach((theta, i) => expect(body.arc[i]).toBeCloseTo(R * (theta + 0.5), 1));
+    expect(Array.from(body.dorsal)).toEqual([12, -8, 30, 3].map((v) => expect.closeTo(v, 1) as number));
+    expect(Array.from(body.lateral)).toEqual([0, 5, -9, 2].map((v) => expect.closeTo(v, 1) as number));
+  });
+
+  it('measures the body as the arc from nose to tail tip', () => {
+    expect(body.length).toBeCloseTo(R, 0);
   });
 });
 

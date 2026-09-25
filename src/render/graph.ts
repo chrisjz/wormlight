@@ -36,48 +36,66 @@ export class GraphRenderer {
   private colour: GPUTexture | null = null;
   private depth: GPUTexture | null = null;
 
-  constructor(device: GPUDevice, canvas: HTMLCanvasElement) {
+  private readonly uniforms = new Float32Array(FRAME_BYTES / 4);
+
+  private constructor(
+    device: GPUDevice,
+    canvas: HTMLCanvasElement,
+    context: GPUCanvasContext,
+    format: GPUTextureFormat,
+    pipelines: [GPURenderPipeline, GPURenderPipeline],
+  ) {
     this.device = device;
     this.canvas = canvas;
-    this.format = navigator.gpu.getPreferredCanvasFormat();
+    this.context = context;
+    this.format = format;
+    [this.neuronPipeline, this.linkPipeline] = pipelines;
+    this.frame = device.createBuffer({ size: FRAME_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  }
+
+  // Build the renderer. The pipelines are created asynchronously, so a shader or pipeline that fails
+  // validation rejects here, where the page can explain it, rather than leaving a blank canvas.
+  static async create(device: GPUDevice, canvas: HTMLCanvasElement): Promise<GraphRenderer> {
+    const format = navigator.gpu.getPreferredCanvasFormat();
     const context = canvas.getContext('webgpu');
     if (!context) throw new Error('the canvas has no WebGPU context');
-    this.context = context;
-    context.configure({ device, format: this.format, alphaMode: 'opaque' });
-    this.frame = device.createBuffer({ size: FRAME_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    context.configure({ device, format, alphaMode: 'opaque' });
     const depthStencil = (write: boolean): GPUDepthStencilState => ({
       format: 'depth24plus',
       depthWriteEnabled: write,
       depthCompare: 'less-equal',
     });
     const neurons = device.createShaderModule({ code: NEURON_SHADER });
-    this.neuronPipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: { module: neurons, entryPoint: 'vs' },
-      fragment: { module: neurons, entryPoint: 'fs', targets: [{ format: this.format }] },
-      depthStencil: depthStencil(true),
-      multisample: { count: SAMPLES, alphaToCoverageEnabled: true },
-    });
     const links = device.createShaderModule({ code: LINK_SHADER });
-    this.linkPipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: { module: links, entryPoint: 'vs' },
-      fragment: {
-        module: links,
-        entryPoint: 'fs',
-        targets: [
-          {
-            format: this.format,
-            blend: {
-              color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
-              alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+    const pipelines = await Promise.all([
+      device.createRenderPipelineAsync({
+        layout: 'auto',
+        vertex: { module: neurons, entryPoint: 'vs' },
+        fragment: { module: neurons, entryPoint: 'fs', targets: [{ format }] },
+        depthStencil: depthStencil(true),
+        multisample: { count: SAMPLES, alphaToCoverageEnabled: true },
+      }),
+      device.createRenderPipelineAsync({
+        layout: 'auto',
+        vertex: { module: links, entryPoint: 'vs' },
+        fragment: {
+          module: links,
+          entryPoint: 'fs',
+          targets: [
+            {
+              format,
+              blend: {
+                color: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+                alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha' },
+              },
             },
-          },
-        ],
-      },
-      depthStencil: depthStencil(false),
-      multisample: { count: SAMPLES },
-    });
+          ],
+        },
+        depthStencil: depthStencil(false),
+        multisample: { count: SAMPLES },
+      }),
+    ]);
+    return new GraphRenderer(device, canvas, context, format, pipelines);
   }
 
   private storage(data: Float32Array, old: GPUBuffer | null): GPUBuffer {
@@ -115,10 +133,11 @@ export class GraphRenderer {
     this.linkCount = data.length / LINK_FLOATS;
   }
 
-  // Match the drawing buffer to the canvas's displayed size, in device pixels.
+  // Match the drawing buffer to the canvas's displayed size, in device pixels, within the device's limit.
   resize(width: number, height: number): void {
-    const w = Math.max(1, Math.round(width));
-    const h = Math.max(1, Math.round(height));
+    const limit = this.device.limits.maxTextureDimension2D;
+    const w = Math.max(1, Math.min(limit, Math.round(width)));
+    const h = Math.max(1, Math.min(limit, Math.round(height)));
     if (this.canvas.width === w && this.canvas.height === h && this.colour) return;
     this.canvas.width = w;
     this.canvas.height = h;
@@ -145,7 +164,7 @@ export class GraphRenderer {
   // Draw one frame into `target`, or into the canvas.
   render(state: FrameState, target?: GPUTextureView): void {
     if (!this.colour || !this.depth) return;
-    const values = new Float32Array(FRAME_BYTES / 4);
+    const values = this.uniforms;
     values.set(state.view, 0);
     values.set(state.projection, 16);
     values.set(state.viewProjection, 32);
@@ -191,32 +210,35 @@ export class GraphRenderer {
       format: this.format,
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
     });
-    this.render(state, texture.createView());
     const rowBytes = Math.ceil((w * 4) / 256) * 256;
     const buffer = this.device.createBuffer({
       size: rowBytes * h,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
-    const encoder = this.device.createCommandEncoder();
-    encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow: rowBytes }, [w, h]);
-    this.device.queue.submit([encoder.finish()]);
-    await buffer.mapAsync(GPUMapMode.READ);
-    const src = new Uint8Array(buffer.getMappedRange());
-    const out = new Uint8ClampedArray(w * h * 4);
-    const red = this.format === 'bgra8unorm' ? 2 : 0;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const s = y * rowBytes + x * 4;
-        const d = (y * w + x) * 4;
-        out[d] = src[s + red];
-        out[d + 1] = src[s + 1];
-        out[d + 2] = src[s + 2 - red];
-        out[d + 3] = 255;
+    try {
+      this.render(state, texture.createView());
+      const encoder = this.device.createCommandEncoder();
+      encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow: rowBytes }, [w, h]);
+      this.device.queue.submit([encoder.finish()]);
+      await buffer.mapAsync(GPUMapMode.READ);
+      const src = new Uint8Array(buffer.getMappedRange());
+      const out = new Uint8ClampedArray(w * h * 4);
+      const red = this.format === 'bgra8unorm' ? 2 : 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const s = y * rowBytes + x * 4;
+          const d = (y * w + x) * 4;
+          out[d] = src[s + red];
+          out[d + 1] = src[s + 1];
+          out[d + 2] = src[s + 2 - red];
+          out[d + 3] = 255;
+        }
       }
+      buffer.unmap();
+      return new ImageData(out, w, h);
+    } finally {
+      buffer.destroy();
+      texture.destroy();
     }
-    buffer.unmap();
-    buffer.destroy();
-    texture.destroy();
-    return new ImageData(out, w, h);
   }
 }

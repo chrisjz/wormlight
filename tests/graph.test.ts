@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { DEFAULT_LAYOUT, graphLayout, isCordNeuron } from '../src/render/layout.ts';
+import { DEFAULT_LAYOUT, graphLayout, isCordNeuron, unbendNeurons } from '../src/render/layout.ts';
 import { linkKind, Wiring } from '../src/ui/connections.ts';
 import { readJson } from './checks.ts';
 
@@ -11,42 +11,52 @@ const positions = graphLayout(data.neurons);
 const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
 
 describe('the graph layout', () => {
-  it('keeps every neuron in its order along the body', () => {
-    const order = data.neurons.map((n, i) => [n.position.s, positions[3 * i]] as const).sort((a, b) => a[0] - b[0]);
+  const body = unbendNeurons(data.neurons);
+  const cord = data.neurons.flatMap((n, i) => (isCordNeuron(n.name) ? [i] : []));
+
+  it('keeps every neuron in its order along the unbent body, and ties together', () => {
+    const order = Array.from(body.arc, (arc, i) => [arc, positions[3 * i]] as const).sort((a, b) => a[0] - b[0]);
     for (let k = 1; k < order.length; k++) {
       if (order[k][0] > order[k - 1][0]) expect(order[k][1]).toBeGreaterThan(order[k - 1][1]);
+      else expect(order[k][1]).toBe(order[k - 1][1]);
     }
   });
 
-  it('straightens the posed bend: the ventral-cord neurons lie within 6 µm of the axis', () => {
-    const tolerance = 6 * DEFAULT_LAYOUT.crossScale;
-    const cord = data.neurons.flatMap((n, i) => (isCordNeuron(n.name) ? [i] : []));
+  it('unbends the posed bend: the ventral-cord somata lie on the axis', () => {
     expect(cord).toHaveLength(75);
-    const off = cord.filter((i) => Math.hypot(positions[3 * i + 1], positions[3 * i + 2]) > tolerance);
-    // A few cord somata sit off the cord's line in the reconstruction itself.
-    expect(off.length).toBeLessThanOrEqual(3);
+    const off = cord.map((i) => Math.hypot(body.dorsal[i], body.lateral[i])).sort((a, b) => a - b);
+    // A few cord somata sit off the cord's line in the reconstruction itself, VD7 and VB7 by the vulva.
+    expect(off[37]).toBeLessThan(1);
+    expect(off[74]).toBeLessThan(8);
   });
 
-  it('gives the head, a sixth of the body, over a third of the drawn length', () => {
-    const head = data.neurons.flatMap((n, i) => (n.position.s < 1 / 6 ? [positions[3 * i]] : []));
-    expect(Math.max(...head) - Math.min(...head)).toBeGreaterThan(DEFAULT_LAYOUT.length / 3);
+  it('gives the head, a sixth of the unbent body, over two fifths of the drawn length', () => {
+    const head = data.neurons.flatMap((_, i) => (body.arc[i] < body.length / 6 ? [positions[3 * i]] : []));
+    expect(head.length).toBeGreaterThan(151);
+    expect(Math.max(...head) - Math.min(...head)).toBeGreaterThan((2 / 5) * DEFAULT_LAYOUT.length);
   });
 
-  it("keeps the reconstruction's cross-section, scaled, ahead of the cord, with the animal's left on +z", () => {
-    // Ahead of the cord the midline holds still, so offsets between neurons are the reconstruction's own.
-    const front = Math.min(
-      ...data.neurons.filter((n) => isCordNeuron(n.name)).map((n) => n.position.reconstructionUm[1]),
-    );
-    const head = data.neurons.flatMap((n, i) => (n.position.reconstructionUm[1] < front ? [i] : []));
-    expect(head.length).toBeGreaterThan(100);
-    const [a, b] = [head[0], head[head.length - 1]];
-    const [xa, , za] = data.neurons[a].position.reconstructionUm;
-    const [xb, , zb] = data.neurons[b].position.reconstructionUm;
-    const k = DEFAULT_LAYOUT.crossScale;
-    expect(positions[3 * a + 1] - positions[3 * b + 1]).toBeCloseTo((za - zb) * k, 4);
-    expect(positions[3 * a + 2] - positions[3 * b + 2]).toBeCloseTo((xa - xb) * k, 4);
+  it("keeps the head ahead of the cord rigid, and the animal's left on +z", () => {
+    // Ahead of the cord the midline is straight, so unbending there only turns the head: every distance
+    // between two somata is kept.
+    const start = Math.min(...cord.map((i) => body.arc[i]));
+    const head = data.neurons.flatMap((_, i) => (body.arc[i] < start - 1 ? [i] : []));
+    expect(head.length).toBeGreaterThan(140);
+    for (const a of head) {
+      for (const b of head) {
+        const pa = data.neurons[a].position.reconstructionUm;
+        const pb = data.neurons[b].position.reconstructionUm;
+        const unbent = Math.hypot(
+          body.arc[a] - body.arc[b],
+          body.dorsal[a] - body.dorsal[b],
+          body.lateral[a] - body.lateral[b],
+        );
+        expect(unbent).toBeCloseTo(Math.hypot(pa[0] - pb[0], pa[1] - pb[1], pa[2] - pb[2]), 6);
+      }
+    }
     // ALML and ALMR, the anterior touch cells, sit on the left and right of the body.
-    expect(positions[3 * at('ALML') + 2]).toBeGreaterThan(positions[3 * at('ALMR') + 2]);
+    expect(positions[3 * at('ALML') + 2]).toBeGreaterThan(0);
+    expect(positions[3 * at('ALMR') + 2]).toBeLessThan(0);
   });
 });
 

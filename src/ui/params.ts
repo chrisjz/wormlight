@@ -2,7 +2,7 @@
 // ?neuron=AVAL selects a neuron; yaw, pitch (degrees) and dist place the camera, and tx, ty, tz its target.
 // ?norender=1 draws nothing to the screen, leaving the GPU to snapshots (the visual tests on CI).
 
-import type { Vec3 } from '../render/camera.ts';
+import { PITCH_LIMIT, type Vec3 } from '../render/camera.ts';
 
 export interface ViewParams {
   neuron: string | null;
@@ -31,13 +31,15 @@ export function readParams(search: string): ViewParams {
     if (v !== null) target[axis as 0 | 1 | 2] = v;
   });
   const distance = num('dist');
+  const pitch = radians('pitch');
+  const neuron = p.get('neuron')?.trim();
   return {
-    neuron: p.get('neuron'),
+    neuron: neuron ? neuron : null,
     yaw: radians('yaw'),
-    pitch: radians('pitch'),
+    pitch: pitch === null ? null : Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, pitch)),
     distance: distance !== null && distance > 0 ? distance : null,
     target,
-    noRender: p.has('norender'),
+    noRender: p.get('norender') === '1',
   };
 }
 

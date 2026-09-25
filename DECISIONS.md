@@ -18,7 +18,7 @@ A running log of significant design choices and why (spec §9). Each entry says 
 
 **Decision.** The deploy job runs only when the repository variable `DEPLOY_PAGES` is `true`. `BASE_PATH` defaults to `/wormlight/`.
 **Why.** A Pages site is public even when its repository is private.
-**Status.** Done. To go live, enable Pages (Source: GitHub Actions) and set `DEPLOY_PAGES=true`.
+**Status.** Done. Superseded on 2026-09-26: the repository is public and deploys are on (below).
 
 ## 2026-09-24 — Synapse signs come from a four-step hierarchy (revised after review)
 
@@ -530,29 +530,54 @@ Every primary null gets the same procedure and budget. R's parameterisation come
 
 **Status.** Decided with the maintainer on 2026-09-26. The spec §2.5 correction needs the maintainer's sign-off.
 
-## 2026-09-26 — The 3D graph: a straightened, stretched worm, drawn in raw WebGPU
+## 2026-09-26 — The 3D graph: an unbent, stretched worm, drawn in raw WebGPU
 
-**Decision.** Milestone 1's first part draws the connectome as a rotatable 3D graph and adds visual regression CI. The inspector with provenance badges follows in its own PR.
+**Decision.** Milestone 1's first part draws the connectome as a rotatable 3D graph and adds visual regression CI. The inspector with provenance badges follows in its own PR. The PR's review reworked the layout, the line rendering and the picking; this entry describes the result.
 
-- **Layout.** Each soma sits where the WormBase Virtual Worm reconstruction (via c302) puts it, with three changes, all display choices the ledger lists as presentation:
-  - **The posed bend is taken out.** The reconstruction is posed with a bend, which in a graph reads as the worm bending. The 75 ventral-cord motor neurons, whose somata all sit in the cord, trace that pose: a Gaussian-weighted local linear fit (30 µm wide), held at its end values beyond the cord. Every neuron is drawn at its offset from that line at its own point along the body. The cord becomes straight (its somata a median 2.1 µm from the axis, at most 9.2 µm), everything else keeps its place relative to it, and ahead of the cord the head's cross-section is exactly the reconstruction's.
-  - **The body axis is stretched where neurons crowd.** A soma at fraction s of the body is drawn at u(s) = 0.4 s + 0.6 F(s), where F is the share of somata in front of s, smoothed over 1% of the body length. The head's first sixth holds 190 of the 302 somata and gets 42% of the drawn length. Order along the body is kept exactly.
-  - **The cross-section is enlarged,** to 0.034 layout units per µm against 0.017 on average along the body.
+- **Layout.** Each soma starts where the WormBase Virtual Worm reconstruction (via c302) puts it, with three changes, all display choices the ledger lists as presentation:
+  - **The posed bend is unbent.** The reconstruction is posed with a bend, which in a graph reads as the worm bending. The 75 motor neurons of the eight ventral-cord classes (AS, DA, DB, DD, VA, VB, VC and VD), whose somata line the ventral midline from the retrovesicular to the preanal ganglion, trace the posed midline: a Gaussian-weighted local linear fit (standard deviation 15 µm). Beyond the cord the line runs on straight along its end direction. Each soma is placed by how far along that line its nearest point lies, and by its offset from the line, measured across it, so its place relative to the cord is kept.
+    - The cord's somata end up a median 0.65 µm from the axis; the furthest are VD7 (7.1 µm) and VB7 (4.7 µm), beside the vulva.
+    - The fit's tightest bend has a radius of 69 µm, more than any soma's 41.6 µm offset, so every soma has one nearest point.
+    - The head ahead of the cord is unbent rigidly, turned with the cord's end: every distance between its somata is kept.
+    - The review of this PR found that a first version subtracted the line's offset at each soma's own position without turning the frame. That shear moved somata well above a tilted stretch of cord along the body by up to 18 µm; unbending replaced it.
+  - **The body axis is stretched where neurons crowd.** A soma at fraction f of the unbent body (865.5 µm from nose to tail tip) is drawn at u(f) = 0.4 f + 0.6 F(f), where F is the share of somata in front of f, smoothed by a Gaussian with a standard deviation of 1% of the body. The first sixth of the body holds 187 of the 302 somata and gets 44% of the drawn length. Order along the unbent body is kept exactly.
+  - **The cross-section is enlarged,** to 0.034 layout units per µm against 0.014 on average along the body, about 2.5 times as much. The stretch is uneven, though: where neurons crowd, the axis is stretched more than the cross-section, and 163 of the 302 somata sit where it is, so the head is drawn elongated.
 - **Drawing.** Raw WebGPU, as spec §3 requires:
   - Neurons are sphere impostors, their edges antialiased by alpha-to-coverage into a 4× multisampled target, sized by the square root of their total EM sections and coloured by class.
-  - Only a selected neuron's connections are drawn (spec §7), as lines of constant screen width. Their width and opacity grow with the square root of their EM sections, their colour gives the sign (excitatory, inhibitory, no fast effect), and gap junctions are dashed. Every other neuron dims.
+  - Only a selected neuron's connections are drawn (spec §7), as lines of constant screen width. Their width and opacity grow with the square root of their EM sections, their colour gives the sign (excitatory, inhibitory, or no sign known), and gap junctions are dashed. Every other neuron dims.
+  - Lines are clipped to the near plane before projection, interpolate linearly in screen space, and take their alpha from their coverage of each pixel, so width and dashes hold at any depth.
   - Mild fog gives depth. The GCaMP green stays reserved for activity, which milestone 2 brings.
-- **Camera.** An orbit camera starts in front of the animal's left side and a little above it, head nearest, at the distance where every soma falls inside the frame at any aspect ratio. Drag turns it, scroll or pinch zooms, shift- or right-drag pans, and a double-click resets it. The URL can pin a view: `neuron`, `yaw`, `pitch` (degrees), `dist`, and `tx`, `ty`, `tz` for its target.
+- **Camera and input.** An orbit camera starts in front of the animal's left side and a little above it, head nearest, at the distance where every soma falls inside the frame, and refits as the window changes shape until it is moved.
+  - Mouse: drag turns, scroll zooms, shift- or right-drag pans, a click selects, and a double-click flies to a neuron or, on empty space, resets.
+  - Touch: drag turns, a pinch zooms, two fingers pan, a tap selects.
+  - Keyboard, with the canvas focused: the arrows turn (with shift, pan), + and − zoom, [ and ] step through the neurons from nose to tail, Home resets and Escape clears the selection.
+  - Picking takes the neuron whose drawn disc is under the pointer, nearest the camera first, and only then the nearest within a reach (8 px for a mouse, 18 for touch).
+  - The URL can pin a view: `neuron`, `yaw`, `pitch` (degrees), `dist`, and `tx`, `ty`, `tz` for its target.
+- **Failures are explained.** Every failure after the GPU check, including a pipeline that fails validation, the GPU being lost at any point and a GPU error while drawing, replaces the graph with a message, as spec §3 requires.
 - **Visual regression CI,** ported from Universe Atlas's:
   - The `visual` job serves the build, runs it in headless Chrome with WebGPU on Mesa lavapipe, and captures four fixed views: the whole graph, the head, AVAL selected and VB6 selected.
   - Each frame is read back through the app's `window.__snap`, which renders into a texture of its own; on software GPUs every canvas-side readback is black. With `?norender=1` nothing is presented, so the snapshot is the only work on the queue.
-  - A capture fails on a uniform frame, a page error or an app that never becomes ready. A comparison fails when more than 0.5% of pixels differ beyond pixelmatch's threshold of 0.12.
+  - A capture fails on a uniform frame, a page error or an app that never becomes ready. A comparison fails when more than 0.1% of pixels differ beyond pixelmatch's threshold of 0.12, or when a view has no baseline. At 0.5%, the review found, losing every link or swapping the signs in the VB6 view passed; CI reproduces its baselines exactly, and a local GPU comes within 0.03% of them.
+  - Chrome (154.0.8037.57, the version puppeteer-core 25.12 targets) and the runner image (ubuntu-24.04) are pinned: an unpinned stable Chrome broke Universe's identical job, and this one gates merging and deploying. The log names Chrome's version and the adapter that drew the frames.
   - The baselines are CI's own captures, since lavapipe's pixels differ from a local GPU's.
 - **Dependencies.** Development only: `puppeteer-core` drives Chrome, and `pixelmatch` and `pngjs` compare the PNGs. The app gains no runtime dependency.
 
 **Why.**
 
-- **The layout.** Spec §7 asks for anatomical positions with a readable head. Straightening removes the pose's false curvature without moving any neuron relative to the cord, and a density-weighted axis gives the ganglia room while keeping order, which uniform scaling can't do: at uniform scale the head's 190 somata would share a sixth of the length.
+- **The layout.** Spec §7 asks for anatomical positions with a readable head. Unbending removes the pose's false curvature while keeping every soma's place relative to the cord, and a density-weighted axis gives the ganglia room while keeping order, which uniform scaling can't do: at uniform scale the head's 187 somata would share a sixth of the length.
 - **The CI.** Universe's net already works on GitHub's GPU-less runners, and lint, types and unit tests can't see a blank render pass.
 
-**Status.** Done. The baselines are the first CI run's captures.
+**Status.** Done. The baselines are CI's captures of the final commit.
+
+## 2026-09-26 — The repository is public, and main deploys to GitHub Pages
+
+**Decision.** The maintainer made the repository public, and the site now deploys from `main` to https://chrisjz.github.io/wormlight/.
+
+- **Pages.** Its source is GitHub Actions, and the repository variable `DEPLOY_PAGES` is `true`, so the `deploy` job publishes `main` after `checks`, `data` and `visual` pass, one deploy at a time. `BASE_PATH` stays at its default, `/wormlight/`, since the account has no custom domain; the build puts every asset, the data file and the notice under it. The first deploy was a rerun of `main`'s CI at the merge of PR #7.
+- **Security.** Secret scanning with push protection, Dependabot alerts and private vulnerability reporting are on, and `SECURITY.md` says how to report. Dependabot's automatic pull requests are off, since they would cut across one PR at a time. The workflow's token only reads unless a job asks for more, checkouts keep no credentials, and the one third-party action, `browser-actions/setup-chrome`, is pinned by commit.
+- **Before going public** the tracked files and their history were checked for local paths, tokens, keys and environment files; none were found. Neural Interactome's code isn't vendored: the reference tools fetch it at a pinned commit.
+- The repository's description, homepage and topics are set, and a ruleset the maintainer set up protects `main`, requiring a pull request and the `checks`, `data` and `visual` jobs.
+
+**Why.** The project is meant to be shared, and a Pages site is public either way. The rest is the usual care for a public repository whose workflow runs on other people's pull requests.
+
+**Status.** Done. It supersedes the 2026-09-24 entry that kept deploys gated while the repository was private.

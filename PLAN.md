@@ -466,7 +466,7 @@ Safari and Firefox run their own WebGPU engines, which CI can't cover, so milest
 - `data`: rebuilds the runtime data, `DATA_SOURCES.md` and the reports from their pins, and fails if any committed output differs.
 - `gpu`: parity on lavapipe, from milestone 2.
 - `visual`: fixed views pixel-compared against baselines, as Universe does, from milestone 1.
-- `deploy`: Pages, gated on `DEPLOY_PAGES`, after `checks` and `data` pass.
+- `deploy`: Pages, gated on `DEPLOY_PAGES`, after `checks`, `data` and `visual` pass. Live since 2026-09-26 at https://chrisjz.github.io/wormlight/.
 
 ## 9. Milestones
 
@@ -482,7 +482,7 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 | 3                     | The body on the GPU and the plate view                                                                                                                                                                                   | Checkpoint 1 in the harness, a fail until track R succeeds; 60 fps real time on an M-series Mac in Chrome and Safari |
 | 4                     | Odour field, AWC sensing and touch                                                                                                                                                                                       | Checkpoints 2 to 4, or not reached until track R; checkpoint 0 re-run in full                                        |
 | 5                     | Lesions and the brain swap                                                                                                                                                                                               | Checkpoints 5 and 6, or not reached until track R                                                                    |
-| 6                     | Glow, "About the science", URL state, performance, docs, and Pages when you're ready                                                                                                                                     | `VALIDATION.md` complete; the fast-forward target met or its shortfall logged; a Safari check                        |
+| 6                     | Glow, "About the science", URL state, performance and docs (Pages has deployed `main` since 2026-09-26)                                                                                                                  | `VALIDATION.md` complete; the fast-forward target met or its shortfall logged; a Safari check                        |
 
 **Milestone 0c's outcome (2026-09-26): no-go on crawling.** The loop is built and tested, but none of the parameter draws tried makes the planned model crawl, and neither fallback 1 nor 2 changes that (DECISIONS.md). You chose fallback 4: 0c closes as an honest partial, and milestone 1 comes next. The ledger says crawling does not yet emerge, and the app will say so from its first view of the body. Of what 0c's row lists, calibration and checkpoints 0 and 1 did not run formally:
 

@@ -2,7 +2,7 @@
   --bg: #07090a;
   --fg: #e4ebe6;
   --muted: #8c9a92;
-  --faint: #56625c;
+  --faint: #7a8781;
   /* GCaMP emits near 510 nm: the one accent colour the whole app uses for activity. */
   --glow: #5dfc8f;
   --warn: #f2c14e;
@@ -103,11 +103,13 @@ a:hover {
   touch-action: none;
 }
 
+#gpu:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: -4px;
+}
+
 .brand,
-.selection,
-.legend,
-.hint,
-.credit {
+.selection {
   position: absolute;
   margin: 0;
   pointer-events: none;
@@ -136,7 +138,7 @@ a:hover {
 .selection {
   top: 1.25rem;
   right: 1.5rem;
-  max-width: 24rem;
+  max-width: 26rem;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--fg);
@@ -146,15 +148,28 @@ a:hover {
   display: none;
 }
 
-.legend {
+/* The legend and the hint and credit share one row along the bottom, wrapping rather than overlapping. */
+.footer {
+  position: absolute;
   left: 1.5rem;
+  right: 1.5rem;
   bottom: 1.25rem;
-  max-width: 34rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 2rem;
+  pointer-events: none;
+}
+
+.legend {
+  flex: 0 1 34rem;
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   background: var(--panel);
   backdrop-filter: blur(6px);
   color: var(--muted);
+  pointer-events: auto;
 }
 
 .legend-row {
@@ -193,38 +208,56 @@ a:hover {
   border-top-style: dashed;
 }
 
+.legend-about summary {
+  margin-top: 0.3rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+
 .legend-note {
   margin: 0.4rem 0 0;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   line-height: 1.45;
 }
 
-.hint {
-  right: 1.5rem;
-  bottom: 2.6rem;
-  color: var(--faint);
+.footer-aside {
+  flex: 0 1 26rem;
+  margin-left: auto;
   text-align: right;
+  color: var(--faint);
+}
+
+.hint,
+.credit {
+  margin: 0.25rem 0 0;
 }
 
 .credit {
-  right: 1.5rem;
-  bottom: 1.25rem;
-  color: var(--faint);
-  text-align: right;
   pointer-events: auto;
 }
 
+/* Touch devices get the touch hint, pointer devices the pointer one. */
+.hint-touch {
+  display: none;
+}
+
+@media (hover: none) {
+  .hint-pointer {
+    display: none;
+  }
+
+  .hint-touch {
+    display: inline;
+  }
+}
+
 @media (max-width: 40rem) {
-  .brand-lede,
-  .hint,
-  .legend-note {
+  .brand-lede {
     display: none;
   }
 
   .brand,
-  .selection,
-  .legend,
-  .credit {
+  .selection {
     left: 1rem;
     right: 1rem;
   }
@@ -239,14 +272,27 @@ a:hover {
     text-align: left;
   }
 
-  .legend {
-    bottom: 3.25rem;
-    padding: 0.6rem 0.8rem;
+  .footer {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
   }
 
-  .credit {
-    bottom: 1rem;
-    font-size: 0.6875rem;
+  .legend,
+  .footer-aside {
+    flex-basis: 100%;
+  }
+
+  .footer-aside {
     text-align: left;
+  }
+}
+
+/* Short screens, such as a phone on its side, keep the legend to its swatches. */
+@media (max-height: 30rem) {
+  .brand-lede,
+  .legend-about,
+  .hint {
+    display: none;
   }
 }

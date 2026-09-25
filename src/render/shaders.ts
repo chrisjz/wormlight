@@ -43,9 +43,9 @@ const RING_OUTER = 1.7;
 struct Out {
   @builtin(position) clip: vec4f,
   @location(0) uv: vec2f,
-  @location(1) colour: vec4f,
-  @location(2) mark: vec2f,
-  @location(3) fog: f32,
+  @location(1) @interpolate(flat) colour: vec4f,
+  @location(2) @interpolate(flat) mark: vec2f,
+  @location(3) @interpolate(flat) fog: f32,
 }
 
 @vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) i: u32) -> Out {
@@ -63,7 +63,7 @@ struct Out {
 
 @fragment fn fs(in: Out) -> @location(0) vec4f {
   let r = length(in.uv);
-  let aa = fwidth(r);
+  let aa = max(fwidth(r), 1e-4);
   let ring = max(in.mark.x, in.mark.y * 0.6);
   // The ring: a thin band just outside the sphere.
   let band = smoothstep(1.28 - aa, 1.28, r) * (1.0 - smoothstep(1.48, 1.48 + aa, r));
@@ -82,7 +82,10 @@ struct Out {
 }
 `;
 
-// Each connection: its two ends, its width in CSS pixels, a dash period (0 for solid) and its colour.
+// Each connection: its two ends, its width in CSS pixels, a dash period (0 for solid) and its colour. The
+// segment is clipped to the near plane before projection, so an end behind the camera can't fold the quad.
+// Width and dashes are measured in screen space, so they interpolate linearly, and each fragment's alpha is
+// its coverage of the line: the quad reaches a pixel past the line's edge for the antialiasing to fall in.
 export const LINK_SHADER = /* wgsl */ `
 ${FRAME}
 struct Link {
@@ -96,11 +99,12 @@ struct Link {
 
 struct Out {
   @builtin(position) clip: vec4f,
-  @location(0) colour: vec4f,
-  @location(1) side: f32,
-  @location(2) along: f32,
-  @location(3) dash: f32,
-  @location(4) fog: f32,
+  @location(0) @interpolate(flat) colour: vec4f,
+  @location(1) @interpolate(linear) side: f32, // device pixels from the centreline
+  @location(2) @interpolate(linear) along: f32, // CSS pixels from the first end
+  @location(3) @interpolate(flat) dash: f32,
+  @location(4) @interpolate(flat) halfWidth: f32, // device pixels
+  @location(5) fog: f32,
 }
 
 @vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) i: u32) -> Out {
@@ -108,28 +112,38 @@ struct Out {
   let c = CORNERS[v];
   let ca = frame.viewProjection * vec4f(l.a, 1.0);
   let cb = frame.viewProjection * vec4f(l.b, 1.0);
+  var out: Out;
+  out.colour = l.colour;
+  out.dash = l.dash;
+  out.halfWidth = l.width * 0.5 * frame.pixelRatio;
+  if (ca.z < 0.0 && cb.z < 0.0) {
+    // Wholly behind the near plane: a degenerate quad outside the view.
+    out.clip = vec4f(2.0, 2.0, 2.0, 1.0);
+    return out;
+  }
+  // Clip space is linear along the segment, so the near plane (z = 0) cuts it at one parameter.
+  let cut = ca.z / (ca.z - cb.z);
+  let ta = select(0.0, cut, ca.z < 0.0);
+  let tb = select(1.0, cut, cb.z < 0.0);
+  let pa = mix(ca, cb, ta);
+  let pb = mix(ca, cb, tb);
   let half = frame.viewport * 0.5;
-  let sa = ca.xy / ca.w * half;
-  let sb = cb.xy / cb.w * half;
-  let span = sb - sa;
+  let span = pb.xy / pb.w * half - pa.xy / pa.w * half;
   let len = max(length(span), 1e-4);
   let normal = vec2f(-span.y, span.x) / len;
   let t = (c.x + 1.0) * 0.5;
-  let clip = mix(ca, cb, t);
-  let offset = normal * c.y * (l.width * 0.5 + 1.0) * frame.pixelRatio / half * clip.w;
-  var out: Out;
-  out.clip = vec4f(clip.xy + offset, clip.zw);
-  out.colour = l.colour;
-  out.side = c.y * (l.width * 0.5 + 1.0) / (l.width * 0.5);
+  let clip = mix(pa, pb, t);
+  let reach = out.halfWidth + 1.0;
+  out.clip = vec4f(clip.xy + normal * c.y * reach / half * clip.w, clip.zw);
+  out.side = c.y * reach;
   out.along = t * len / frame.pixelRatio;
-  out.dash = l.dash;
-  out.fog = fogAt(-(frame.view * vec4f(mix(l.a, l.b, t), 1.0)).z);
+  out.fog = fogAt(-(frame.view * vec4f(mix(l.a, l.b, mix(ta, tb, t)), 1.0)).z);
   return out;
 }
 
 @fragment fn fs(in: Out) -> @location(0) vec4f {
-  let edge = 1.0 - smoothstep(0.7, 1.0, abs(in.side));
-  var a = in.colour.a * edge * (1.0 - in.fog);
+  let coverage = clamp(in.halfWidth + 0.5 - abs(in.side), 0.0, 1.0);
+  var a = in.colour.a * coverage * (1.0 - in.fog);
   if (in.dash > 0.0 && fract(in.along / in.dash) > 0.55) { a = 0.0; }
   if (a < 0.004) { discard; }
   return vec4f(in.colour.rgb * a, a);
