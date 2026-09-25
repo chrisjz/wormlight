@@ -332,6 +332,7 @@ export const COMPONENTS: readonly Component[] = [
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [
+      { check: 'unit', detail: 'its power is the same at any step' },
       { check: 'checkpoint1', detail: 'bout clause' },
       { check: 'checkpoint5', detail: 'spontaneous-reversal rows' },
     ],
@@ -344,7 +345,10 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'No developmental compensation',
     upgrade: '',
     sources: ['chalfie1985', 'gray2005'],
-    testedBy: [{ check: 'checkpoint5' }],
+    testedBy: [
+      { check: 'unit', detail: "a lesion removes every one of the neuron's connections" },
+      { check: 'checkpoint5' },
+    ],
   },
 
   // Rhythm and proprioception.

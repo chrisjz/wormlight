@@ -1,0 +1,59 @@
+{
+  "generator": "tools/reference/cook_reference.py",
+  "generatorSha256": "f5df7dd3a1296b64a3e5e3f4c3e1ab163bdd699239e907295285cc3313605559",
+  "helperSha256": "104f7f576ff2a48de7af31d21fbdc0b518d67797b9351d7c215b0ea80ec953e8",
+  "wiringSha256": "40f6c78fc6fe238b74676d20081d6804262a1318af55d8d203d05855b2e3d5a1",
+  "constants": {
+    "capacitance": 0.001,
+    "leak": 0.01,
+    "leakPotential": -35.0,
+    "reversalExcitatory": 0.0,
+    "reversalInhibitory": -48.0,
+    "rise": 1.0,
+    "decay": 5.0,
+    "slope": 0.125,
+    "conductancePerSynapse": 0.1,
+    "cookToVarshneyChemical": 0.3444,
+    "cookToVarshneyGap": 0.2055
+  },
+  "depolarisation": 10.0,
+  "stimuli": {
+    "PLM-pulse": {
+      "neurons": [
+        "PLML",
+        "PLMR"
+      ],
+      "on": 0.5,
+      "off": 1.0,
+      "amplitudes": {
+        "PLML": 9.456099417803422,
+        "PLMR": 7.4563815024336755
+      }
+    },
+    "AVB-step": {
+      "neurons": [
+        "AVBL",
+        "AVBR"
+      ],
+      "on": 0.5,
+      "off": null,
+      "amplitudes": {
+        "AVBL": 28.30701383726384,
+        "AVBR": 26.630812130489613
+      }
+    }
+  },
+  "solver": {
+    "method": "Radau",
+    "rtol": 1e-10,
+    "atol": 1e-10
+  },
+  "sample": 0.01,
+  "end": 3.0,
+  "layout": "float32 little-endian, samples x neurons in the data file's order, V - Vth in mV, samples at 0, 0.01, ... 3 s",
+  "versions": {
+    "python": "3.14.7",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1"
+  }
+}

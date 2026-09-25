@@ -1,0 +1,37 @@
+{
+  "generator": "tools/reference/ni_reference.py",
+  "generatorSha256": "bdb136860dc25911fd7ada92643fe9165fdf0312e7af2f2838d67ccfcf1fc4e7",
+  "helperSha256": "104f7f576ff2a48de7af31d21fbdc0b518d67797b9351d7c215b0ea80ec953e8",
+  "inputs": {
+    "Gg.npy": "01a3c438c8be50dc5fdd8f20d4b48b9063a1bd33e2a0a4af010b8079883d2c10",
+    "Gs.npy": "d4b4cf00c11a9bc79b2b6d581ef471f9237c8f09ddd13ec90c866bf19004b3fd",
+    "LICENSE": "bff9fa1cc192c6f9cecf6341db16a42e7c62adaededb3651789ece7557ec2329",
+    "emask.npy": "b19b49efcfd78fa471fecaa70cbe765aa319c2db7165add45475f69a053e74e8",
+    "initialize.py": "fd045492eed4684e029f3849ae6b57bf20f19d26575510af044742d6a2b4291d",
+    "neuron_names.txt": "b83e6a16cdc93e90af4ba66950ab6b39a6ab22b69724a1ac1bb46d991763a89b",
+    "presets/ALM.json": "20a049fca3081760b4421bf85ac976f8226162a8a8a297f321feb8eac9b64e15",
+    "presets/AVA.json": "b108f848bf0b7f6240b0019115e926ba0479e604351cacfb05e55e8ceaefa416",
+    "presets/AVB.json": "e492e6d28261d3664e949f7fd3ec0ea3872a3f9dbd2b434a91d39bf84f187265",
+    "presets/PLM.json": "c7b0b4ddee0d60f241ff036f5af93177460129c5873bfb03eb2b07586d806c84"
+  },
+  "solver": {
+    "method": "Radau",
+    "rtol": 1e-10,
+    "atol": 1e-10
+  },
+  "sample": 0.01,
+  "end": 5.0,
+  "seed": 0,
+  "presets": [
+    "ALM",
+    "AVA",
+    "AVB",
+    "PLM"
+  ],
+  "layout": "float32 little-endian, samples x neurons, V - Vth in mV, samples at 0, 0.01, ... 5 s",
+  "versions": {
+    "python": "3.14.7",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1"
+  }
+}

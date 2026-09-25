@@ -2,7 +2,8 @@
   "$comment": "Every input the data build reads, pinned by digest, and every dataset Wormlight credits. `npm run data:build` reads this file and generates DATA_SOURCES.md and public/data/NOTICE.md from it. Edit this file, never the generated pages.",
   "licenceTexts": {
     "mit-openworm-2024": "MIT License\n\nCopyright (c) 2024 OpenWorm\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
-    "mit-creamer-2026": "MIT License\n\nCopyright (c) 2026 Matthew S. Creamer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE."
+    "mit-creamer-2026": "MIT License\n\nCopyright (c) 2026 Matthew S. Creamer\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.",
+    "bsd-neural-interactome-2018": "BSD 3-Clause License\n\nCopyright (c) 2018, Data-Driven Dynamical Systems Research Group\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n* Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n* Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\n* Neither the name of the copyright holder nor the names of its\n  contributors may be used to endorse or promote products derived from\n  this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
   },
   "pins": [
     {
@@ -84,6 +85,58 @@
       "origin": {
         "repository": "https://github.com/iteal/wormpose",
         "commit": "fb1d77eac56538569f639ab58a62470bff10f04c"
+      },
+      "retrieved": "2026-09-25"
+    },
+    {
+      "id": "neural-interactome",
+      "description": "Neural Interactome's code, Varshney-based matrices and stimulation presets (`shlizee/C-elegans-Neural-Interactome`), which the port check drives unmodified",
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/initialize.py",
+          "sha256": "fd045492eed4684e029f3849ae6b57bf20f19d26575510af044742d6a2b4291d"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/Gg.npy",
+          "sha256": "01a3c438c8be50dc5fdd8f20d4b48b9063a1bd33e2a0a4af010b8079883d2c10"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/Gs.npy",
+          "sha256": "d4b4cf00c11a9bc79b2b6d581ef471f9237c8f09ddd13ec90c866bf19004b3fd"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/emask.npy",
+          "sha256": "b19b49efcfd78fa471fecaa70cbe765aa319c2db7165add45475f69a053e74e8"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/neuron_names.txt",
+          "sha256": "b83e6a16cdc93e90af4ba66950ab6b39a6ab22b69724a1ac1bb46d991763a89b"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/presets/ALM.json",
+          "sha256": "20a049fca3081760b4421bf85ac976f8226162a8a8a297f321feb8eac9b64e15"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/presets/AVA.json",
+          "sha256": "b108f848bf0b7f6240b0019115e926ba0479e604351cacfb05e55e8ceaefa416"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/presets/AVB.json",
+          "sha256": "e492e6d28261d3664e949f7fd3ec0ea3872a3f9dbd2b434a91d39bf84f187265"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/presets/PLM.json",
+          "sha256": "c7b0b4ddee0d60f241ff036f5af93177460129c5873bfb03eb2b07586d806c84"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/shlizee/C-elegans-Neural-Interactome/bdb94ca174980e46777f7b1936f539903c688719/LICENSE",
+          "sha256": "bff9fa1cc192c6f9cecf6341db16a42e7c62adaededb3651789ece7557ec2329"
+        }
+      ],
+      "origin": {
+        "repository": "https://github.com/shlizee/C-elegans-Neural-Interactome",
+        "commit": "bdb94ca174980e46777f7b1936f539903c688719",
+        "command": "uv run --project tools/reference python tools/reference/ni_reference.py"
       },
       "retrieved": "2026-09-25"
     }
@@ -174,10 +227,12 @@
     {
       "id": "neural-interactome",
       "use": "tests",
-      "planned": "milestone 0b",
-      "dataset": "Neural Interactome (Kim, Leahy & Shlizerman 2019), `shlizee/C-elegans-Neural-Interactome`: `initialize.py`, `Gg.npy`, `Gs.npy`, `emask.npy`",
+      "dataset": "Neural Interactome (Kim, Leahy & Shlizerman 2019), `shlizee/C-elegans-Neural-Interactome`: `initialize.py`, `Gg.npy`, `Gs.npy`, `emask.npy`, `neuron_names.txt` and the ALM, AVA, AVB and PLM presets",
       "takes": "The port check runs Neural Interactome's own code on its Varshney et al. 2011 matrices, which are indexed [post, pre]",
-      "licence": "BSD-3-Clause"
+      "licence": "BSD-3-Clause, Copyright (c) 2018, Data-Driven Dynamical Systems Research Group; the licence text is kept beside the fixtures derived from it",
+      "pins": ["neural-interactome"],
+      "route": "`tools/reference/ni_reference.py` runs it and writes the golden trajectories and the network it used to `tests/fixtures/ni/`",
+      "licenceText": "bsd-neural-interactome-2018"
     },
     {
       "id": "creamer-lds",

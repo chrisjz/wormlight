@@ -17,12 +17,13 @@ function pinned(pin: Pin): string[][] {
       ],
     ];
   }
-  return (pin.files ?? []).map((file) => [
-    pin.id,
-    `${pin.description}${commit}: ${file.path ? `\`${file.path}\`` : `<${file.url}>`}`,
-    `\`${file.sha256}\``,
-    pin.retrieved,
-  ]);
+  // A pin of several files describes itself once, on its first file's row.
+  return (pin.files ?? []).map((file, k) => {
+    const where = file.path ? `\`${file.path}\`` : `<${file.url}>`;
+    return k === 0
+      ? [pin.id, `${pin.description}${commit}: ${where}`, `\`${file.sha256}\``, pin.retrieved]
+      : ['', where, `\`${file.sha256}\``, ''];
+  });
 }
 
 function route(dataset: Dataset): string {
