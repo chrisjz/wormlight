@@ -715,3 +715,33 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 **Speed.** The brain step runs at about 16× real time in Safari and the whole step at about 11×, for the step alone: under half Chrome's (29× and 24×), and still above PLAN's 10× target, which PLAN sets in Chrome. The spec's Safari target, 60 fps in real time, is checked with the plate view.
 
 **Status.** Done: milestone 2 is complete, and milestone 3's Safari parity criterion is met. Its other Safari criterion, 60 fps real time, waits for the plate view.
+
+## 2026-09-26 — The behavioural harness, and what checkpoints 0 and 1 run on before calibration
+
+**Decision.** Milestone 3's second part is the behavioural harness (PLAN §8), running checkpoint 0's crawling clause and checkpoint 1 on the CPU reference. Three things PLAN left open were put to the maintainer, and settled, before any trial ran.
+
+- **Parameters.** Calibration waits for track R, so the eight calibrated parameters have no values, and a trial can't run without them. Until calibration, the harness and the app run on provisional values: the best of the planned model's 96 go/no-go draws, draw 46, which moved at 0.021 body lengths per second over 30 s from a straight body while holding a bend. They are rounded to three significant figures, which changes that speed only in the fifth: g_osc = 798 pS, τ_w = 1.53 s, θ_osc = −11.5 mV, g_sw = 258 pA, g_p = 16.7 pA, g_nmj = 2.45 per EM section and θ_nmj = 3.48 EM sections. The noise is off, as the go/no-go ran. They sit in `params.ts` as `provisional`, beside the calibrated values, which stay unset; `FIDELITY.md` lists them, and `calibratedParams()` still refuses. They are the same eight parameters, so the budget doesn't change.
+- **Starting postures.** PLAN §7.4's "random postures" are real ones. Each trial starts from one of the 6,655 postures in the OIST Physics of Behavior tutorials' `data/shapes.csv`, which the tutorial introduces as coming from Stephens et al.'s experiment. The file is pinned by digest at the commit the tutorials' Zenodo archive (v1.0, CC BY 4.0) holds, byte for byte the file in that archive. The trial's seed draws the posture and a heading uniform on the circle; the head is at the first angle, as for the eigenworms, and the brain, muscles and head switch start as in any World.
+- **Forward and backward.** Sampled every 0.1 s, the centroid's velocity is its displacement over the centred 1 s window, projected on the direction from the centroid to the head at the window's middle, as the go/no-go measured speed. Above +0.01 body lengths per second it is forward, below −0.01 backward, and between them a pause, which ends a bout or a reversal.
+
+**Considered.**
+
+- For the parameters:
+  - running §7.3's calibration on the planned model now, which would bring calibration forward from track R and make final a result for a model the go/no-go showed can't reach the targets;
+  - the parity runs' trial values, which were chosen to exercise the head switch, not to crawl;
+  - the same draw with the noise at the parity runs' 0.01 pA·√s. The go/no-go entry had said checkpoint 0 would run with noise, but draw 46 was chosen without it.
+- For the postures: random eigenworm amplitudes, whose scales we would have set ourselves, and a straight body, which isn't what PLAN says.
+- For the floor: none, under which a silenced worm drifting at any speed would count as crawling; and the partial band's 0.06, since selecting bouts by speed would meet the speed clause's partial automatically.
+
+**Measured as proposed to the maintainer with those questions, and filled in before any trial ran** (PLAN §7.1 and §7.4):
+
+- Every measure starts after each trial's first 10 s, as the eigenworm clause and the go/no-go do.
+- The kinematics are pooled over all forward bouts of 10 s or more:
+  - **Speed** is the mean forward velocity.
+  - **Frequency** is half the mid-body curvature's crossings of each bout's mean, over the bouts' total duration, as the go/no-go and long-run parity count it.
+  - **Wavelength** is 0.3125 body lengths, between the go/no-go's rods at 0.29 and 0.60 body lengths, over the frequency times the lag at which their curvatures correlate best. The lag is searched from 0.1 s to one period, with the correlations summed over bouts and the peak refined by a parabola through its neighbours. A forward wave runs from head to tail, so the rear rod lags.
+- A posture self-intersects when any two non-adjacent segments of its 101-point midline cross.
+- Trials use seeds 1 to 20, and checkpoint 0 the same seeds, so it silences the network on the same postures.
+- Each clause is graded pass, partial or fail by §7.4's bands. The checkpoint passes if every clause passes, is partial if every clause is at least partial, and otherwise fails; with no bout of 10 s, the kinematic clauses fail, unmeasured.
+
+**Status.** Settled before any trial ran; results follow.

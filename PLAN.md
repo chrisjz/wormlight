@@ -326,6 +326,8 @@ Values we set ourselves, all global or per class:
 
 That is fourteen values: eight calibrated and six fixed in advance. The budget is **at most 14**; anything beyond it needs your approval, and `FIDELITY.md` lists every one with its final value. Research track R (§9) will need more, by the amount its approved proposal sets.
 
+Until calibration, the eight calibrated parameters run on provisional values: the best of the planned model's 96 go/no-go draws, to three significant figures, with the noise off (2026-09-26, DECISIONS.md). `params.ts` holds them beside the calibrated values, which stay unset, so nothing can mistake them for calibrated.
+
 Values taken from a source aren't free, even when adapted. These include:
 
 - the neural constants (§3.2) and the adaptation constants K and τ (Levy & Bargmann 2020);
@@ -343,6 +345,7 @@ Every behavioural checkpoint runs on the CPU reference in the harness, with the 
 - **Head swing.** Half a cycle of head bending: successive zero crossings of the head angle (between the body tangents at 0.05 and 0.2 body lengths), counted when they are at least 0.5 s apart and the peak between them exceeds 10°.
 - **Reversal.** Backward centroid motion lasting at least 1 s. It is short with 1–2 head swings and long with 3 or more, matching how Gray, Hill & Bargmann 2005 scored reversals by eye.
 - **Forward bout.** Continuous forward centroid motion between reversals.
+- **Forward and backward** (set 2026-09-26, before any trial, DECISIONS.md). Sampled every 0.1 s, the centroid's velocity is its displacement over the centred 1 s window, projected on the direction from the centroid to the head at the window's middle. Above +0.01 body lengths/s it is forward, below −0.01 backward, and between them a pause, which ends a bout or a reversal. Every measure starts after each trial's first 10 s.
 - **Tests.** Rates are compared per trial with two-sided Mann–Whitney U tests, proportions with Fisher's exact test, and before-and-after speeds with the Wilcoxon signed-rank test, all at α = 0.05.
 
 ### 7.2 Correctness checks
@@ -384,13 +387,15 @@ The reversal rate is from Gray, Hill & Bargmann 2005, Fig. 1E, read from the fig
 | 5   | **Lesions**         | Each lesion against intact: 30 trials of 120 s for spontaneous behaviour, and 50 touches for the touch rows                                                                                                                         | All five primary lesions move in the reported direction, each by at least the stated amount                                                                                                                   | Three or four do                                                                                         | See below                                                                                                                                                                                                                         |
 | 6   | **Wiring test**     | 10 primary nulls (§3.5), each tuned by §7.3's procedure                                                                                                                                                                             | The verdict map below                                                                                                                                                                                         |                                                                                                          | Spec §4                                                                                                                                                                                                                           |
 
-**Checkpoint 1.** The kinematic clauses are calibration targets, so they are reported as calibrated; the eigenworm and bout clauses are predicted. Five details are fixed now, before any posture data exist:
+**Checkpoint 1.** The kinematic clauses are calibration targets, so they are reported as calibrated; the eigenworm and bout clauses are predicted. Five details were fixed before any posture data existed, and two more on 2026-09-26, before any trial ran (DECISIONS.md):
 
 - **Eigenworm basis.** The eigenworms of Stephens et al. 2008, as the authors' group distributes them with WormPose (`EigenWorms.csv`, pinned in `data/sources.json`): the first four of its 100 modes, read with the head at angle 1. The file names no source, so its identity with the 2008 basis is inferred (DECISIONS.md). A published set of real postures, which its tutorial introduces as coming from Stephens et al.'s experiment, is consistent with it: the first four modes capture 96.46% of their variance, against 96.48% for the best any four modes can do.
 - **Posture sampling.** Postures are 100 tangent angles sampled at 101 equally spaced midline points, with the mean angle removed, as in Stephens et al.
 - **Variance captured.** Σₖ₌₁..₄ eₖᵀ C eₖ / tr C, where the eₖ are the four modes and C is the covariance of the postures pooled over all 20 trials, sampled at 4 Hz as Stephens et al. did, leaving out each trial's first 10 s, which start from a random posture, and leaving out self-intersecting postures. That matches how Stephens et al. measured their 95%: all the behaviour of freely crawling worms, reversals and shallow turns included, as "Cases of self-intersection were excluded from processing". The simulated body has no self-contact, so it can form postures they never measured.
 - **Pass margin.** The pass level sits below Stephens's 95% because the model is simpler than a worm.
 - **Bout clause.** At the calibrated reversal rate, a simulation with exponentially distributed runs and 5–10 s reversals puts about 99% of trials above a 20 s bout. The clause therefore fails only a model that can't sustain forward crawling at all.
+- **Starting postures.** Each trial starts from a real posture: one of the 6,655 in the OIST Physics of Behavior tutorials' `shapes.csv` (pinned in `data/sources.json`), which the tutorial introduces as coming from Stephens et al.'s experiment, drawn by the trial's seed, head first and turned to a heading drawn uniformly. Trials use seeds 1 to 20, and checkpoint 0 the same seeds, so it silences the network on the same postures.
+- **Kinematics**, over forward bouts of 10 s or more, pooled over all trials. Speed is the mean forward velocity (§7.1). Frequency is half the mid-body curvature's crossings of each bout's mean, over the bouts' total duration. Wavelength is 0.3125 body lengths, the distance between the rods at 0.29 and 0.60 body lengths, over the frequency times the lag, from 0.1 s to one period, at which their curvatures correlate best, the correlations summed over bouts. The checkpoint passes if every clause passes and is partial if every clause is at least partial; with no bout of 10 s, the kinematic clauses fail.
 
 **Checkpoint 4 references.** Bargmann et al.'s Fig. 5 values come from single-animal assays scored positive or negative, so they aren't chemotaxis indices. They are cited as context only: 0.77 of intact animals and 0.16 with AWC killed scored positive, against a false-positive rate of 0.11. The spec's silenced-network control lives in checkpoint 0.
 
@@ -463,7 +468,7 @@ Trials are independent, so the harness runs them in parallel, one worker per cor
 
 Safari and Firefox run their own WebGPU engines, which CI can't cover, so milestones 3 and 6 each include a manual Safari check. Milestone 2's was postponed to milestone 3, since it couldn't be run then, and passed there with milestone 3's parity (2026-09-26, DECISIONS.md).
 
-**The behavioural harness.** `npm run harness -- --checkpoint <n>` runs trials in parallel on the CPU reference, writes JSON to `harness-out/`, and regenerates the results tables in `VALIDATION.md`.
+**The behavioural harness.** `npm run harness -- --checkpoint <n>` runs trials in parallel on the CPU reference, writes JSON to `harness-out/`, and regenerates the results tables in `VALIDATION.md`. It runs checkpoints 0 (its crawling clause, until milestone 4 brings touch and odour) and 1 from milestone 3, on the provisional parameters until calibration (§6.2).
 
 **CI jobs.**
 
