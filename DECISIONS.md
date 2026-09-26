@@ -868,3 +868,19 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 **Not yet.** Nothing senses the field yet: AWC comes next. Nor can the user drop sources, which comes later in milestone 4, whose row now lists it; until then the app's field doesn't change, so the GPU doesn't step it.
 
 **Status.** Built, and revised after review.
+
+## 2026-09-27 — AWC-ON senses butanone
+
+**Decision.** Milestone 4's second part is AWC sensing (PLAN §4.1), on the CPU and the GPU alike. PLAN fixes its form:
+
+- Levy & Bargmann's adaptive threshold, dT/dt = (K(1 − e^(−C/K)) − T)/τ, with K = 5.5 µM and τ = 17 s.
+- The bounded current g_AWC·(T − C)/(T + C), read at the nose tip.
+- Which AWC is ON, drawn from the worm's seed; AWC-OFF takes no butanone input.
+
+Three choices it left open were put to the maintainer and settled before any sensing ran:
+
+- **What g_AWC's 16 mV is measured in.** The connectome alone, at its rest thresholds, without the oscillators or the loop, at steady state. It depends only on the measured wiring and constants, so calibration never moves it. Considered: the whole world at rest, whose oscillating neurons have no steady state, and whose gain would change whenever calibration changed their parameters. Because the current is bounded, removing odour gives exactly I = g_AWC whatever the concentration it was adapted to, so no anchoring concentration is needed.
+- **One gain or two.** AWCL and AWCR are wired differently: on the connectome alone, AWCL rises 16 mV at 3.73 pA and AWCR at 5.52 pA, 48% more. Each gets its own gain when it is AWC-ON, so the rule holds for every worm. It is still one rule, with no new free parameter. Considered: one gain, their mean, 4.63 pA, which would give about 19 mV when AWCL is ON and about 13 mV when AWCR is.
+- **GPU parity for T,** a new state variable, set before any results: compared as the voltages are. One step, |ΔT| ≤ 10⁻⁴ × max(|T|, 0.01 µM); one second, an RMS relative error ≤ 10⁻² under the well-posed rule. The states sit in the assay's odour field, so AWC has something to sense.
+
+**Status.** Set before any sensing ran; built next.
