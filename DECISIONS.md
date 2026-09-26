@@ -863,6 +863,8 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 
   Results on the M5 Max: all 63 one-step copies pass, their centres' velocities within 0.117 of the tolerance, the light press the worst; all 15 one-second copies pass, 14 graded, their centroids within 0.002 of the threshold. Grading is unchanged.
 
+  **In Safari** (the maintainer's run of `/parity.html` on the same machine, 2026-09-27, the adapter "apple apple"), every check passes, the brain's and the loop's. The wall copies match Chrome's figures: all 63 one-step copies within 0.124 of the tolerance, the light press again the worst, and all 15 one-second copies pass, 14 graded, their centroids within 0.002 of the threshold.
+
 **Not yet.** Nothing senses the field yet: AWC comes next. Nor can the user drop sources, which comes later in milestone 4, whose row now lists it; until then the app's field doesn't change, so the GPU doesn't step it.
 
 **Status.** Built, and revised after review.
