@@ -1,10 +1,11 @@
 // A whole World on the GPU (PLAN §1): GpuWorld runs the brain and the loop outside it together, packed as
 // loopLayout.ts has it, and trades state with the CPU's as a WorldState.
 
-import type { World, WorldState } from '../sim/world.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
+import type { Odour } from '../sim/sensing.ts';
+import type { World, WorldState } from '../sim/world.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
-import { packLoop, type LoopLayout } from './loopLayout.ts';
+import { packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
 
 // A whole World on the GPU: its brain and its loop, stepped together at the neural step.
 export class GpuWorld {
@@ -16,8 +17,8 @@ export class GpuWorld {
     this.layout = layout;
   }
 
-  // Build it from a CPU World, taking that world's network, thresholds, oscillators, noise and state. External
-  // forces on the body (Body.force) aren't carried: nothing applies them yet.
+  // Build it from a CPU World, taking that world's network, thresholds, oscillators, noise, odour and state.
+  // External forces on the body (Body.force) aren't carried: nothing applies them yet.
   static async create(device: GPUDevice, world: World, options: GpuBrainOptions = {}): Promise<GpuWorld> {
     const layout = packLoop(world);
     const brain = await GpuBrain.create(device, world.brain.network, world.brain.threshold, {
@@ -42,6 +43,11 @@ export class GpuWorld {
     this.brain.checkLoopState(state);
     this.brain.restore(state.brain);
     this.brain.restoreLoop(state);
+  }
+
+  // The odour AWC-ON senses from the next step on, an OdourField or none, as a CPU World would sense it.
+  setOdour(odour: Odour | null): void {
+    this.brain.setOdour(packOdour(odour));
   }
 
   run(steps: number): void {

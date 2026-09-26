@@ -868,3 +868,42 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 **Not yet.** Nothing senses the field yet: AWC comes next. Nor can the user drop sources, which comes later in milestone 4, whose row now lists it; until then the app's field doesn't change, so the GPU doesn't step it.
 
 **Status.** Built, and revised after review.
+
+## 2026-09-27 — AWC-ON senses butanone
+
+**Decision.** Milestone 4's second part is AWC sensing (PLAN §4.1), on the CPU and the GPU alike. PLAN fixes its form:
+
+- Levy & Bargmann's adaptive threshold, dT/dt = (K(1 − e^(−C/K)) − T)/τ, with K = 5.5 µM and τ = 17 s.
+- The bounded current g_AWC·(T − C)/(T + C), read at the nose tip.
+- Which AWC is ON, drawn from the worm's seed; AWC-OFF takes no butanone input.
+
+Three choices it left open were put to the maintainer and settled before any sensing ran:
+
+- **What g_AWC's 16 mV is measured in.** The connectome alone, at its rest thresholds, without the oscillators or the loop, at steady state. It depends only on the measured wiring and constants, so calibration never moves it. Considered: the whole world at rest, whose oscillating neurons have no steady state, and whose gain would change whenever calibration changed their parameters. Because the current is bounded, removing odour gives exactly I = g_AWC whatever the concentration it was adapted to, so no anchoring concentration is needed.
+- **One gain or two.** AWCL and AWCR are wired differently: on the connectome alone, AWCL rises 16 mV at 3.73 pA and AWCR at 5.52 pA, 48% more. Each gets its own gain when it is AWC-ON, so the rule holds for every worm. It is still one rule, with no new free parameter. Considered: one gain, their mean, 4.63 pA, which would give about 19 mV when AWCL is ON and about 13 mV when AWCR is.
+- **GPU parity for T,** a new state variable, set before any results: compared as the voltages are. One step, |ΔT| ≤ 10⁻⁴ × max(|T|, 0.01 µM); one second, an RMS relative error ≤ 10⁻² under the well-posed rule. The states sit in the assay's odour field, so AWC has something to sense.
+
+**Built.**
+
+- **The sensor** (`src/sim/sensing.ts`). Each step advances T exactly with the concentration held, moving it (K(1 − e^(−C/K)) − T)(1 − e^(−dt/τ)) of the way, then gives the current from the new T. A concentration below zero, which only rounding could give, counts as none. With neither odour nor threshold there is no current.
+- **The gains.** Pinned at 3.73338 pA for AWCL and 5.51839 pA for AWCR; a test recomputes both by bisection and holds them within 10⁻⁵.
+- **The world.** AWC-ON's side is drawn from the seed on a hash lane of its own, 0xfffffffb. The odour is read at the body coordinate the data give AWC's dendrite tip, 0.0001, between rods 0 and 1, before the step moves the body. The current goes into AWC-ON alone, and a lesioned AWC-ON takes none. T joins the world's state. A world starts adapted to the odour at its nose, and the app adapts it again after centring the body.
+- **The GPU.**
+  - T is status word 12, and the odour an r32float texture holding −1 in cells beyond the wall, so no storage buffer is added.
+  - The invocation holding rod 0 reads the four cells around the nose and shares the concentration through workgroup memory, now 15,364 bytes. Every invocation then advances T alike, as with the head switch.
+  - The kernel takes 1 − e^(−x) from its series below 0.1: in f32, 1 − exp(−x) would put an error of about 4 × 10⁻⁴ on the rate, since dt/τ is 1.5 × 10⁻⁴.
+- **The app.** The lawn's field feeds the CPU's world and the GPU's texture.
+
+**Parity** (Chrome on an M5 Max; T's one-second comparison takes the same 0.01 µM floor as its one-step one, as the voltages take 1 mV in both). Every loop case now lies in the assay's field. Before the first run, two placements were changed for coverage. The copies moved 3 cm now go to (−3, −3) cm, away from the spot, rather than (3, −3) cm. There the odour, 0.41 µM, lies below the 0.81 µM threshold adapted at the centre, so AWC-ON's current is positive, +1.24 pA. The copy pressed into the wall at bearing 0 lies beside the spot, at 7.4 µM, where the current is −3.0 of AWCL's 3.73 pA. The gating variant takes seed 4, which draws AWCR, so each side is ON somewhere. In 7 s it flips once and gates 2,289 times, as seed 1 does (1 and 2,287). A run with the old placements, taken first, also passed.
+
+- **One step.** All 148 states pass; T's worst error is 7.0 × 10⁻⁴ of its tolerance.
+- **One second.** All 58 graded states of 63 pass, with 5 not graded, against 8 of 63 before sensing; T's worst error is 1.3 × 10⁻³ of its tolerance.
+- **The loop's API.** T comes back from the GPU exactly as f32, and a run split across dispatches is the same run.
+- **Speed.** The whole step runs at 25.0× real time at 67 steps a dispatch, against 25.2× before.
+- **Long runs**, now also in the assay's field: 265 seeds a side, 60 s each, in about 12 minutes. The mid-body curvature's SD is 0.2148 on the CPU and 0.2146 on the GPU (equivalent within ±5%, p = 3.7 × 10⁻¹⁵). Its frequency is 0.1662 Hz and 0.1653 Hz (p = 0.0029). No solve failed to converge on either side.
+
+**The harness.** Checkpoints 0 and 1 run without odour, so C is 0, T stays 0 and AWC-ON takes exactly no current. Eight trial worlds, seeds 1 to 4 intact and silenced, stepped 10 s from a posture, give states bit for bit the same as on `main`. VALIDATION.md's results therefore stand without a rerun.
+
+**A slip in the rules' commit.** `|ΔT|` went into PLAN §7.2's table unescaped, which split its row into an extra column. The next commit escapes it; the rule's words are unchanged.
+
+**Status.** Built; GPU parity passes in Chrome, the long runs included, and on CI's SwiftShader. Safari's run is to come.

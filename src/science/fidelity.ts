@@ -432,7 +432,14 @@ export const COMPONENTS: readonly Component[] = [
     caveats: 'Parameters are for butanone in microfluidic devices',
     upgrade: 'Threshold measurements on assay plates',
     sources: ['levy2020', 'troemel1999', 'wes2001'],
-    testedBy: [{ check: 'checkpoint4' }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          'it relaxes as e^(−t/τ) to K(1 − e^(−C/K)), starts adapted to the odour at the nose, and each side is ON for about half the seeds',
+      },
+      { check: 'checkpoint4' },
+    ],
   },
   {
     name: 'AWC odour-to-current form',
@@ -442,17 +449,27 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: 'Current-clamp recordings from AWC',
     sources: ['chalasani2007'],
-    testedBy: [{ check: 'checkpoint4' }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: 'bounded by g_AWC, the sign of T − C, exactly g_AWC when the odour is removed, into AWC-ON alone',
+      },
+      { check: 'checkpoint4' },
+    ],
   },
   {
     name: 'AWC gain',
     subsystem: 'sensing',
     levels: [0],
-    basis: 'Fixed in advance: removing odour depolarises AWC by 16 mV',
+    basis:
+      'Fixed in advance: removing odour depolarises AWC-ON by 16 mV on the connectome alone, so each side has its own gain',
     caveats: 'Aqueous-equivalent concentration at the agar is assumed',
     upgrade: 'Recordings that fix the gain',
     sources: [],
-    testedBy: [{ check: 'checkpoint4' }],
+    testedBy: [
+      { check: 'unit', detail: "each side's gain, recomputed from the connectome, is the one the simulation uses" },
+      { check: 'checkpoint4' },
+    ],
   },
   {
     name: 'Sensing locations and touch receptive fields',

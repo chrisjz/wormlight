@@ -143,28 +143,31 @@ function showLoop(report: LoopReport | { error: string }): void {
     el(
       'p',
       "One step: the brain as above, each rod's centre's velocity within 10⁻² of the largest (x, y and θ), each " +
-        "muscle within 10⁻⁴, the same head switch; the rods' end points are reported. One second: shares of the " +
-        'thresholds and the switch throughout, graded under the well-posed rule.',
+        "muscle within 10⁻⁴, AWC-ON's threshold T within 10⁻⁴ of itself (or of 0.01 µM), the same head switch; the " +
+        "rods' end points are reported. One second: shares of the thresholds and the switch throughout, graded " +
+        'under the well-posed rule.',
     ),
     table(
-      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'Switch', ''],
+      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'T', 'Switch', ''],
       report.oneStep.map((r) => [
         ...stepRow(r).slice(0, -1),
         ...r.centreShares.map((v) => fixed(v, 3)),
         r.endShares.map((v) => fixed(v, 2)).join(', '),
         fixed(r.muscleShare, 3),
+        fixed(r.thresholdShare, 3),
         r.switchSame ? 'same' : 'differs',
         verdict(r.pass),
       ]),
     ),
     table(
-      ['State', 'Voltage', 'Activation', 'Curvature', 'Centroid', 'Switch', 'Reference against itself', ''],
+      ['State', 'Voltage', 'Activation', 'Curvature', 'Centroid', 'T', 'Switch', 'Reference against itself', ''],
       report.oneSecond.map((r) => [
         r.label,
         fixed(r.shares.voltage, 3),
         fixed(r.shares.activation, 3),
         fixed(r.shares.curvature, 3),
         fixed(r.shares.centroid, 3),
+        fixed(r.shares.threshold, 3),
         r.switchSame ? 'same' : 'differs',
         `${fixed(r.referenceShare, 3)}${r.referenceSwitchSame ? '' : ', switch differs'}`,
         r.graded ? verdict(r.pass) : 'not graded',
