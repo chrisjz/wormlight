@@ -6,8 +6,10 @@
   /* GCaMP emits near 510 nm: the one accent colour the whole app uses for activity. */
   --glow: #5dfc8f;
   --warn: #f2c14e;
-  --panel: rgb(10 14 13 / 78%);
+  --panel: rgb(10 14 13 / 90%);
   --line: #2f3834;
+  /* Borders a control needs to be seen by: at least 3:1 against the panel. */
+  --rule: #5b6862;
   color-scheme: dark;
   font-family:
     system-ui,
@@ -128,7 +130,7 @@ a:hover {
   margin-top: 0.75rem;
   width: 14rem;
   padding: 0.4rem 0.7rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--rule);
   border-radius: 0.4rem;
   background: var(--panel);
   color: var(--fg);
@@ -149,6 +151,11 @@ a:hover {
   border-color: var(--warn);
 }
 
+.find-error {
+  margin: 0.35rem 0 0;
+  color: var(--warn);
+}
+
 .hover-label {
   position: absolute;
   top: 0;
@@ -166,11 +173,12 @@ a:hover {
   display: none;
 }
 
-/* The inspector: a panel at the right, or a sheet along the bottom on narrow screens. */
+/* The inspector: a panel at the right, or a sheet along the bottom on narrow or short screens. */
 .inspector {
   position: absolute;
   top: 1.25rem;
   right: 1.5rem;
+  box-sizing: border-box;
   width: min(24rem, 42vw);
   max-height: calc(100% - 2.5rem);
   overflow-y: auto;
@@ -247,38 +255,62 @@ a:hover {
 }
 
 .inspector-rows {
+  /* One grid for the whole list, so every row's columns line up: name, sign, bar, count and badge. */
+  display: grid;
+  grid-template-columns: 5.5rem 1rem minmax(1.5rem, 1fr) auto auto;
+  column-gap: 0.5rem;
+  /* A readable line on a wide sheet. */
+  max-width: 34rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.inspector-rows li,
 .inspector-row {
   display: grid;
-  grid-template-columns: 5.5rem 1rem 1fr auto;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.12rem 0;
 }
 
-.row-name {
-  justify-self: start;
-  padding: 0;
+.inspector-row {
+  min-height: 1.5rem;
+  padding: 0.1rem 0;
   border: 0;
+  border-radius: 0.25rem;
   background: none;
-  color: var(--fg);
+  color: inherit;
   font: inherit;
   text-align: left;
 }
 
-button.row-name {
+button.inspector-row {
   cursor: pointer;
+}
+
+button.inspector-row:hover {
+  background: rgb(255 255 255 / 5%);
+}
+
+button.inspector-row:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+.row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.inspector-row .row-name {
   text-decoration: underline;
-  text-decoration-color: var(--line);
+  text-decoration-color: var(--rule);
   text-underline-offset: 0.2em;
 }
 
-button.row-name:hover,
-button.row-name:focus-visible {
+button.inspector-row:hover .row-name,
+button.inspector-row:focus-visible .row-name {
   text-decoration-color: currentColor;
 }
 
@@ -295,35 +327,34 @@ button.row-name:focus-visible {
   color: #6e9ef4;
 }
 
-.row-sections {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
 .row-bar {
+  justify-self: start;
   height: 0.3rem;
   border-radius: 0.15rem;
-  background: var(--line);
+  background: var(--rule);
 }
 
 .row-count {
+  justify-self: end;
   color: var(--muted);
   font-size: 0.75rem;
 }
 
 .badge {
+  justify-self: start;
   display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
   padding: 0.05rem 0.4rem 0.05rem 0.15rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   font-size: 0.6875rem;
   white-space: nowrap;
   color: var(--muted);
+}
+
+.badge-face {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .badge-level {
@@ -365,6 +396,7 @@ button.row-name:focus-visible {
 }
 
 .inspector-key {
+  max-width: 34rem;
   margin-top: 0.9rem;
   color: var(--muted);
 }
@@ -530,20 +562,6 @@ button.row-name:focus-visible {
     box-sizing: border-box;
   }
 
-  .inspector {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: auto;
-    max-height: 55%;
-    border-radius: 0.8rem 0.8rem 0 0;
-  }
-
-  .graph.inspecting .footer {
-    display: none;
-  }
-
   .footer {
     left: 1rem;
     right: 1rem;
@@ -557,6 +575,41 @@ button.row-name:focus-visible {
 
   .footer-aside {
     text-align: left;
+  }
+}
+
+/* On narrow or short screens the inspector is a sheet along the bottom, over the footer; graphView.ts
+   matches this query. */
+@media (max-width: 56rem), (max-height: 30rem) {
+  .inspector {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 55%;
+    border-radius: 0.8rem 0.8rem 0 0;
+  }
+
+  .graph.inspecting .footer {
+    display: none;
+  }
+}
+
+/* Fingers need bigger targets, and a smaller font in a text field makes some phones zoom the page. */
+@media (pointer: coarse) {
+  .inspector-row {
+    min-height: 2.25rem;
+  }
+
+  .inspector-close,
+  .inspector-more {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+
+  .find {
+    font-size: 1rem;
   }
 }
 

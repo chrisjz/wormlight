@@ -21,17 +21,11 @@ import { graphLayout } from '../render/layout.ts';
 import { CLASS_COLOURS, LINK_COLOURS, rgb, type LinkKind } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
 import { linkKind, linkStyle, Wiring } from './connections.ts';
-import { inspect, musclesByNeuron } from './inspection.ts';
+import { CLASS_NAMES, inspect, musclesByNeuron } from './inspection.ts';
 import { Inspector } from './inspector.ts';
 import { applyTarget, readParams } from './params.ts';
 import { pick, type Projected } from './picking.ts';
 
-const CLASS_NAMES: Record<CellClass, string> = {
-  sensory: 'Sensory',
-  interneuron: 'Interneuron',
-  motor: 'Motor',
-  pharyngeal: 'Pharyngeal',
-};
 const LINK_NAMES: Record<LinkKind, string> = {
   excitatory: 'Excitatory',
   inhibitory: 'Inhibitory',
@@ -162,7 +156,8 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   canvas.setAttribute(
     'aria-label',
     'A 3D graph of the 302 neurons of C. elegans, placed where they sit in the body. With it focused, ' +
-      'the arrow keys turn it, plus and minus zoom, and the square brackets step through the neurons.',
+      'the arrow keys turn it, plus and minus zoom, and the square brackets step through the neurons; ' +
+      'slash finds a neuron by name.',
   );
   // Build the renderer before the page changes, so a failure leaves the message page to explain it.
   const renderer = await GraphRenderer.create(device, canvas);
@@ -176,16 +171,25 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   find.autocomplete = 'off';
   find.spellcheck = false;
   find.setAttribute('aria-label', 'Find a neuron by name');
+  find.setAttribute('aria-keyshortcuts', '/');
+  find.setAttribute('aria-describedby', 'find-error');
   find.setAttribute('list', 'neuron-names');
+  const findError = el('p', 'find-error');
+  findError.id = 'find-error';
+  findError.hidden = true;
   const names = el('datalist');
   names.id = 'neuron-names';
   for (const neuron of data.neurons) names.append(new Option(neuron.name));
   const brand = el('header', 'brand');
-  brand.append(el('h1', 'brand-title', 'Wormlight'), lede(), find, names);
+  brand.append(el('h1', 'brand-title', 'Wormlight'), lede(), find, findError, names);
   const label = el('div', 'hover-label');
   label.hidden = true;
+  label.setAttribute('aria-hidden', 'true');
   const inspector = new Inspector({
-    select: (i) => select(i),
+    select: (i) => {
+      select(i);
+      if (!inView(i)) fly(i);
+    },
     point: (i) => hover(i),
     close: () => {
       select(null);
@@ -224,7 +228,8 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   // The graph is framed in the space the overlays leave: above the footer, and left of the inspector on a
   // wide screen or above it on a narrow one, where it is a sheet along the bottom. The projection is
   // shifted to centre that space, and the frame shrinks to fit it.
-  const narrow = window.matchMedia('(max-width: 40rem)');
+  // Below this the inspector is a sheet along the bottom (style.css).
+  const narrow = window.matchMedia('(max-width: 56rem), (max-height: 30rem)');
   const clampShare = (v: number): number => Math.max(0, Math.min(0.6, v));
   const insets = (): { right: number; bottom: number } => {
     const box = canvas.getBoundingClientRect();
@@ -240,14 +245,17 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
       bottom: clampShare(Math.max(above(footer), open && narrow.matches ? above(inspector.element) : 0)),
     };
   };
+  // The share of the canvas the overlays take, as drawn and as it is heading when they change; the framing
+  // eases between the two so the graph never jumps.
   let shift = { right: 0, bottom: 0 };
+  let shiftGoal = { right: 0, bottom: 0 };
   // The nearest distance from which every neuron falls inside that space, less a margin.
-  const fit = (o: Omit<Orbit, 'distance'>, aspect: number): number => {
+  const fit = (o: Omit<Orbit, 'distance'>, aspect: number, share = shiftGoal): number => {
     const inside = (distance: number): boolean => {
       const vp = multiply(perspective(FIELD_OF_VIEW, aspect, 0.01, 1000), viewMatrix({ ...o, distance }));
       for (let i = 0; i < n; i++) {
         const p = project(vp, positions.subarray(3 * i, 3 * i + 3), 2, 2);
-        if (!p || Math.abs(p.x - 1) > FRAME * (1 - shift.right) || Math.abs(p.y - 1) > FRAME * (1 - shift.bottom)) {
+        if (!p || Math.abs(p.x - 1) > FRAME * (1 - share.right) || Math.abs(p.y - 1) > FRAME * (1 - share.bottom)) {
           return false;
         }
       }
@@ -363,25 +371,60 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
     const target: Orbit['target'] = [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]];
     move({ ...orbit, target, distance: Math.min(orbit.distance, FOCUS_DISTANCE) });
   };
+  // Announce in the live region, clearing it first so a repeated message is announced again.
+  const announce = (text: string): void => {
+    selection.textContent = '';
+    requestAnimationFrame(() => {
+      selection.textContent = text;
+    });
+  };
+  const clearFindError = (): void => {
+    find.removeAttribute('aria-invalid');
+    findError.hidden = true;
+    findError.textContent = '';
+  };
   const findNeuron = (): void => {
     const query = find.value.trim();
     if (!query) return;
     const i = wiring.names.findIndex((name) => name.toUpperCase() === query.toUpperCase());
     if (i < 0) {
       find.setAttribute('aria-invalid', 'true');
-      selection.textContent = `No neuron is named ${query}.`;
+      findError.textContent = `No neuron is named ${query}.`;
+      findError.hidden = false;
+      announce(findError.textContent);
       return;
     }
-    find.removeAttribute('aria-invalid');
+    clearFindError();
     find.value = '';
     select(i);
     fly(i);
   };
-  find.addEventListener('change', findNeuron);
   find.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') findNeuron();
-    if (e.key === 'Escape') canvas.focus();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      findNeuron();
+    }
+    if (e.key === 'Escape') {
+      clearFindError();
+      canvas.focus();
+    }
   });
+  find.addEventListener('input', (e) => {
+    clearFindError();
+    // A pick from the list arrives as a replacement, or in some browsers as a plain event; act on it when
+    // it names a neuron exactly. Typing acts only on Enter.
+    const picked = !(e instanceof InputEvent) || e.inputType === 'insertReplacementText';
+    const query = find.value.trim().toUpperCase();
+    if (picked && wiring.names.some((name) => name.toUpperCase() === query)) findNeuron();
+  });
+  // Slash finds a neuron from anywhere but a text field.
+  const onSlash = (e: KeyboardEvent): void => {
+    const target = e.target as HTMLElement | null;
+    if (e.key !== '/' || target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    find.focus();
+  };
+  document.addEventListener('keydown', onSlash);
   const hover = (next: number | null): void => {
     if (next === hovered) return;
     hovered = next;
@@ -395,6 +438,21 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
     };
     moved = true;
     dirty = true;
+    label.hidden = true;
+  };
+  // Whether a neuron is drawn inside the space the overlays leave.
+  const inView = (i: number): boolean => {
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const p = project(frameState().viewProjection, positions.subarray(3 * i, 3 * i + 3), w, h);
+    return (
+      p !== null &&
+      p.w > orbit.distance * NEAR &&
+      p.x > 0 &&
+      p.y > 0 &&
+      p.x < w * (1 - shiftGoal.right) &&
+      p.y < h * (1 - shiftGoal.bottom)
+    );
   };
 
   // The neuron under a point on the canvas (CSS pixels).
@@ -508,14 +566,17 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
     label.hidden = true;
   });
   // Selection on click, which fires for the primary button only; the second click of a double-click is left
-  // to dblclick.
+  // to dblclick, which acts on what the first click hit, since that click may have opened the inspector and
+  // moved the graph out from under the pointer.
+  let lastClick = { hit: null as number | null, at: -Infinity };
   canvas.addEventListener('click', (e) => {
     if (suppressClick || e.detail > 1) return;
     const hit = pickAt(e.offsetX, e.offsetY, e instanceof PointerEvent ? pointerKind(e) : 'mouse');
+    lastClick = { hit, at: performance.now() };
     select(hit === selected ? null : hit);
   });
   canvas.addEventListener('dblclick', (e) => {
-    const hit = pickAt(e.offsetX, e.offsetY, 'mouse');
+    const hit = performance.now() - lastClick.at < 800 ? lastClick.hit : pickAt(e.offsetX, e.offsetY, 'mouse');
     if (hit === null) {
       orbit = home();
       moved = params.distance !== null;
@@ -575,26 +636,44 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
         if (selected === null) return;
         select(null);
         break;
-      case '/':
-        find.focus();
-        break;
       default:
         return;
     }
     e.preventDefault();
   });
 
-  // Draw only when something changed. With ?norender=1 nothing reaches the screen, and snapshots are the
-  // only GPU work, as software stacks need (scripts/visual/capture.ts).
+  // Until the graph is first framed, framing changes take effect at once; after that they ease in.
+  let settled = false;
+  let easing = false;
   const refit = (): void => {
-    // On a wide screen the inspector ends above the footer.
+    // On a wide screen the inspector ends above the footer. Its top comes from its CSS, not its box, which is
+    // empty while it is hidden, and its height is set outside this ResizeObserver's callback.
     const footerTop = footer.getBoundingClientRect().top;
-    const panelTop = inspector.element.getBoundingClientRect().top;
-    inspector.element.style.maxHeight =
-      narrow.matches || footerTop <= panelTop ? '' : `${Math.max(160, footerTop - panelTop - 16)}px`;
-    shift = insets();
-    homeDistance = fit(homeBase(), aspect());
-    if (!moved) orbit = home();
+    const panelTop = canvas.getBoundingClientRect().top + parseFloat(getComputedStyle(inspector.element).top);
+    const maxHeight = narrow.matches || !(footerTop > panelTop) ? '' : `${Math.max(160, footerTop - panelTop - 16)}px`;
+    requestAnimationFrame(() => {
+      if (inspector.element.style.maxHeight !== maxHeight) inspector.element.style.maxHeight = maxHeight;
+    });
+    shiftGoal = insets();
+    homeDistance = fit(homeBase(), aspect(), shiftGoal);
+    if (settled) easing = true;
+    else {
+      shift = shiftGoal;
+      if (!moved) orbit = home();
+    }
+    dirty = true;
+  };
+  // One step of the framing towards its goal: the overlays' share and, until the camera is moved, the
+  // home distance.
+  let lastTick = performance.now();
+  const ease = (now: number): void => {
+    const k = 1 - Math.exp(-Math.max(0, now - lastTick) / 90);
+    const towards = (from: number, to: number): number => (Math.abs(to - from) < 1e-4 ? to : from + (to - from) * k);
+    shift = { right: towards(shift.right, shiftGoal.right), bottom: towards(shift.bottom, shiftGoal.bottom) };
+    const distance = moved ? orbit.distance : towards(orbit.distance, home().distance);
+    if (!moved) orbit = { ...home(), distance };
+    easing =
+      shift.right !== shiftGoal.right || shift.bottom !== shiftGoal.bottom || (!moved && distance !== home().distance);
     dirty = true;
   };
   const resize = (width: number, height: number): void => {
@@ -616,20 +695,25 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   footerObserver.observe(footer);
   footerObserver.observe(inspector.element);
   narrow.addEventListener('change', refit);
-  resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
   upload();
   if (selected !== null) {
     inspector.show(inspect(data, wiring, muscles, selected));
     root.classList.add('inspecting');
   }
+  resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
+  settled = true;
   selection.textContent = describe();
 
   let first: (() => void) | null = null;
   const ready = new Promise<void>((resolve) => {
     first = resolve;
   });
-  const tick = (): void => {
+  // Draw only when something changed. With ?norender=1 nothing reaches the screen, and snapshots are the
+  // only GPU work, as software stacks need (scripts/visual/capture.ts).
+  const tick = (now: number): void => {
     if (stopped) return;
+    if (easing) ease(now);
+    lastTick = now;
     if (dirty && !params.noRender) renderer.render(frameState());
     if (first) {
       const done = first;
@@ -663,6 +747,7 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
       observer.disconnect();
       footerObserver.disconnect();
       narrow.removeEventListener('change', refit);
+      document.removeEventListener('keydown', onSlash);
     },
   };
 }

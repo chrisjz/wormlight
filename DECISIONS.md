@@ -584,28 +584,30 @@ Every primary null gets the same procedure and budget. R's parameterisation come
 
 ## 2026-09-26 — The inspector: every connection's sign, with its source and level
 
-**Decision.** Milestone 1's second part adds the inspector (spec §6 "Inspect"). Selecting a neuron opens a panel, a sheet along the bottom on a phone, that shows:
+**Decision.** Milestone 1's second part adds the inspector (spec §6 "Inspect"). Selecting a neuron opens a panel, a sheet along the bottom on a narrow or short screen, that shows:
 
-- **Who it is.** Its name and class, its transmitters (Wang et al. 2024) or that none is identified, where its soma sits, what it senses, and its part in the model's rhythm, if any.
+- **Who it is.** Its name and class, its transmitters (Wang et al. 2024) or that no release is identified, where its soma sits, what it senses, and its part in the model's rhythm, if any.
 - **Its connections.** Synapses onto and from other neurons, gap junctions, and synapses onto muscle, strongest first, eight to a group until expanded. Each row gives the partner, the sign (+, − or 0), the EM sections as a number and a bar, and a badge with the sign's source and fidelity level:
   - **Physiology**, level 5 (measured), naming the paper, for the 7 connections signed from recordings;
-  - **Expression**, level 4 (derived), for Fenyves et al. 2020's predictions, where Wang et al. confirm the transmitter;
-  - **Transmitter**, level 0 (assumed), for the rule on the presynaptic transmitter alone;
-  - **No basis**, level 0, for connections nothing signs, which the model gives no fast effect;
-  - **Receptors**, level 4, or **No basis**, level 0, on muscle;
-  - **EM**, level 5, on a gap junction, which has no sign: the badge vouches for its existence.
-- **Its partners as links.** A partner's name selects it, and pointing at one marks it in the graph.
+  - **Expression**, level 4 (derived), for Fenyves et al. 2020's predictions, where Wang et al. confirm the primary transmitter they rest on;
+  - **Transmitter rule**, level 0 (assumed), for the rule on the presynaptic cell's primary transmitter alone;
+  - **No sign**, level 0, where that transmitter implies no fast sign and nothing else gives one, so the model gives the connection no fast effect;
+  - **Receptors**, level 4, or **No ACh or GABA**, level 0, on muscle;
+  - **EM**, level 5, on a gap junction, which has no sign: the badge vouches for its existence, from Cook et al. 2019 as corrected in Emmons 2024.
+- **Its partners as links.** A partner's row selects it, and pointing at one marks it in the graph.
 
 A key under the lists explains every badge shown, so the sources are readable without hovering, and it points to the fidelity ledger. The levels are the ledger's own (PLAN §2.4 and the ledger's sign components), and a test keeps the two the same and checks that each explanation opens with its level's name.
 
-Also: a "Find a neuron" box (the `/` key reaches it) selects a neuron by name and flies to it, answering the review's point that keyboard and screen-reader users need a way to reach a neuron; hovering the graph labels the neuron under the pointer; and the camera frames the graph beside the panel, or above the sheet, as it does above the legend.
+Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text field) selects a neuron by name and flies to it, answering the review's point that keyboard and screen-reader users need a way to reach a neuron; hovering the graph labels the neuron under the pointer; and the camera frames the graph beside the panel, or above the sheet, as it does above the legend.
 
 **Why.** The spec asks for provenance down to each connection's sign (§1.3), and the connectome's signs are mostly inferred: of 3,709 chemical connections, 7 are signed from physiology, 1,716 from expression, 1,453 from the transmitter alone and 533 not at all. A reader should see which kind each one is, where they look at it.
+
+**A level corrected.** PLAN §4.4 gave level 4 to a cell that releases neither acetylcholine nor GABA having no fast effect on muscle, while the ledger gives it 0. The ledger stands: Richmond & Jorgensen 1999 show which receptors muscle has, but no source shows that these 32 cells, glutamatergic, dopaminergic or unidentified, have no effect on it, so the "no effect" is our assumption. PLAN now says level 0; the model is unchanged.
 
 **Milestone 1 summary.**
 
 - **Works.** The graph renders in raw WebGPU on a local GPU and on CI's software GPU, where four fixed views match their baselines exactly; the inspector shows each connection's sign source and level. Both exit criteria in PLAN §9 are met. The site deploys from `main`.
-- **Doesn't yet.** Nothing moves: activity, the glow and the body come with milestones 2 and 3. The graph shows one reconstruction's somata, laid out as a display choice (the entry above).
+- **Doesn't yet.** Nothing moves: activity comes with milestone 2, the body with milestone 3 and the glow with milestone 6. The graph shows one reconstruction's somata, laid out as a display choice (the entry above).
 - **Checkpoints.** Unchanged since milestone 0c: checkpoint 0 not yet run formally, checkpoint 1 a fail, checkpoints 2 to 6 not reached.
 
 **Status.** Done.

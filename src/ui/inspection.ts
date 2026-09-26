@@ -5,6 +5,13 @@ import type { CellClass, Neuron, Neuromuscular, Sign, WormlightData } from '../d
 import { chemicalProvenance, GAP_PROVENANCE, muscleProvenance, type Provenance } from '../science/provenance.ts';
 import type { Wiring } from './connections.ts';
 
+export const CLASS_NAMES: Record<CellClass, string> = {
+  sensory: 'Sensory',
+  interneuron: 'Interneuron',
+  motor: 'Motor',
+  pharyngeal: 'Pharyngeal',
+};
+
 export interface Row {
   // The partner's name, and its index when it is a neuron (a muscle has none).
   name: string;
@@ -14,8 +21,10 @@ export interface Row {
   provenance: Provenance;
 }
 
+export type GroupKind = 'out' | 'in' | 'gap' | 'muscle';
+
 export interface Group {
-  kind: 'out' | 'in' | 'gap' | 'muscle';
+  kind: GroupKind;
   title: string;
   rows: Row[];
 }
@@ -28,6 +37,13 @@ export interface Inspection {
   groups: Group[];
 }
 
+export const GROUP_TITLES: Record<GroupKind, string> = {
+  out: 'Synapses onto',
+  in: 'Synapses from',
+  gap: 'Gap junctions with',
+  muscle: 'Synapses onto muscle',
+};
+
 const TRANSMITTERS: Record<string, string> = {
   ACh: 'acetylcholine',
   Glu: 'glutamate',
@@ -38,20 +54,28 @@ const TRANSMITTERS: Record<string, string> = {
 
 const percent = (f: number): string => `${Math.round(100 * f)}%`;
 
+// The cell's part in the model's rhythm, as the ledger describes it.
+const ROLES = {
+  A: 'an A-type intrinsic oscillator (Gao et al. 2018), which does not yet cycle on its own',
+  B: 'a B-type intrinsic oscillator, gated by drive (Fouad et al. 2018; Xu et al. 2018)',
+  headSwitch: "driven by the head's proprioceptive switch (Ji et al. 2021; Yeon et al. 2018)",
+} as const;
+
 function facts(n: Neuron): { label: string; value: string }[] {
   const out = [
     {
       label: n.transmitters.length > 1 ? 'Transmitters' : 'Transmitter',
       value:
         n.transmitters.length === 0
-          ? 'none identified (Wang et al. 2024)'
+          ? 'no release identified (Wang et al. 2024)'
           : `${n.transmitters.map((t) => TRANSMITTERS[t] ?? t).join(', ')} (Wang et al. 2024)`,
     },
     { label: 'Soma', value: `${percent(n.position.s)} of the way from nose to tail (WormBase Virtual Worm)` },
   ];
   if (n.sensing.kind === 'tip') {
+    // Only AWC senses at a tip, and only the AWC-ON side, drawn at random for each worm, takes butanone.
     const where = n.sensing.s < 0.02 ? 'at the nose' : `${percent(n.sensing.s)} of the way along`;
-    out.push({ label: 'Senses', value: `at its dendrite tip, ${where}` });
+    out.push({ label: 'Senses', value: `butanone at its dendrite tip, ${where}, when it is the worm's AWC-ON` });
   }
   if (n.sensing.kind === 'field') {
     out.push({
@@ -59,12 +83,7 @@ function facts(n: Neuron): { label: string; value: string }[] {
       value: `touch from ${percent(n.sensing.s0)} to ${percent(n.sensing.s1)} of the way along`,
     });
   }
-  const role = {
-    A: 'an A-type rhythm oscillator (Gao et al. 2018)',
-    B: 'a B-type rhythm oscillator (Fouad et al. 2018; Xu et al. 2018)',
-    headSwitch: "driven by the head's proprioceptive switch (Ji et al. 2021)",
-  } as const;
-  if (n.oscillator) out.push({ label: 'In the model', value: role[n.oscillator] });
+  if (n.oscillator) out.push({ label: 'In the model', value: ROLES[n.oscillator] });
   return out;
 }
 
@@ -85,7 +104,7 @@ export function inspect(
         sections: c.sections,
         sign: kind === 'gap' ? null : c.sign,
         provenance:
-          kind === 'gap' || c.signSource === null
+          c.signSource === null
             ? GAP_PROVENANCE
             : chemicalProvenance({ signSource: c.signSource, citation: c.citation }),
       }));
@@ -98,19 +117,28 @@ export function inspect(
       sign: j.sign,
       provenance: muscleProvenance(j),
     }));
-  const groups: Group[] = [
-    { kind: 'out', title: 'Synapses onto', rows: neuronRows('out') },
-    { kind: 'in', title: 'Synapses from', rows: neuronRows('in') },
-    { kind: 'gap', title: 'Gap junctions with', rows: neuronRows('gap') },
-    { kind: 'muscle', title: 'Synapses onto muscle', rows: muscleRows },
-  ];
+  const rows: Record<GroupKind, Row[]> = {
+    out: neuronRows('out'),
+    in: neuronRows('in'),
+    gap: neuronRows('gap'),
+    muscle: muscleRows,
+  };
   return {
     index,
     name: neuron.name,
     cellClass: neuron.class,
     facts: facts(neuron),
-    groups: groups.filter((g) => g.rows.length > 0),
+    groups: (Object.keys(GROUP_TITLES) as GroupKind[])
+      .filter((kind) => rows[kind].length > 0)
+      .map((kind) => ({ kind, title: GROUP_TITLES[kind], rows: rows[kind] })),
   };
+}
+
+// The badges among some rows, one per explanation, best evidence first: the inspector's key.
+export function badgeKey(rows: readonly Row[]): Provenance[] {
+  const seen = new Map<string, Provenance>();
+  for (const row of rows) seen.set(row.provenance.detail, row.provenance);
+  return [...seen.values()].sort((a, b) => b.level - a.level || a.label.localeCompare(b.label));
 }
 
 // Each neuron's junctions onto muscle, by the neuron's name.
