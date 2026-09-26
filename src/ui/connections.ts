@@ -8,8 +8,10 @@ export interface Connection {
   kind: 'out' | 'in' | 'gap';
   sections: number;
   sign: Sign;
-  // Where a chemical connection's sign comes from; gap junctions have none.
+  // Where a chemical connection's sign comes from, and the paper for a physiology sign; gap junctions
+  // have none.
   signSource: SignSource | null;
+  citation?: string;
 }
 
 export class Wiring {
@@ -34,14 +36,9 @@ export class Wiring {
       const pre = index(c.pre);
       const post = index(c.post);
       if (pre === post) continue;
-      this.lists[pre].push({
-        partner: post,
-        kind: 'out',
-        sections: c.sections,
-        sign: c.sign,
-        signSource: c.signSource,
-      });
-      this.lists[post].push({ partner: pre, kind: 'in', sections: c.sections, sign: c.sign, signSource: c.signSource });
+      const { sections, sign, signSource, citation } = c;
+      this.lists[pre].push({ partner: post, kind: 'out', sections, sign, signSource, citation });
+      this.lists[post].push({ partner: pre, kind: 'in', sections, sign, signSource, citation });
       this.degree[pre] += c.sections;
       this.degree[post] += c.sections;
       largest = Math.max(largest, c.sections);

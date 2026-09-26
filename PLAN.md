@@ -258,7 +258,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
 
 ### 4.4 Neuromuscular transfer and muscles
 
-- **Signs.** Body wall muscle responds through one GABA receptor and two acetylcholine receptors (Richmond & Jorgensen 1999). So a cholinergic cell excites, a GABAergic cell inhibits (DD and VD, and also RME and AVL), and a cell releasing neither has no fast effect on muscle (level 4). That last group is 32 of the 162 cells that synapse onto muscle, 366 of 5,515 sections: glutamatergic IL1 and RIM, dopaminergic cells, and cells with no identity. A harness toggle applies the transmitter rule to them instead.
+- **Signs.** Body wall muscle responds through one GABA receptor and two acetylcholine receptors (Richmond & Jorgensen 1999). So a cholinergic cell excites, a GABAergic cell inhibits (DD and VD, and also RME and AVL), and a cell releasing neither has no fast effect on muscle (level 0, assumed: corrected from 4 on 2026-09-26, DECISIONS.md). That last group is 32 of the 162 cells that synapse onto muscle, 366 of 5,515 sections: glutamatergic IL1 and RIM, dopaminergic cells, and cells with no identity. A harness toggle applies the transmitter rule to them instead.
 - **Drive.** The shared neuromuscular layer computes `u_m = Σⱼ w_jm · sign_j · s_j`, where `w_jm` is Cook's neuromuscular section count (level 5).
 - **Activation.** `τ_M dA_m/dt = σ(g_nmj (u_m − θ_nmj)) − A_m`, with `τ_M = 100 ms` (Boyle et al. 2012; Ji et al.'s muscle switching time is also 100 ms). The gain and threshold are calibrated (level 1).
 - **Placement.** Each quadrant's muscles sit on one grid of 24 slots from nose to tail, so muscle i of every quadrant covers the same stretch (level 0). The ventral-left quadrant has 23 cells, and its last covers the last two slots: Cook's innervation matches vBWMLi to vBWMRi for most i up to 21, and vBWML23 to vBWMR24. A body unit's dorsal activation is the mean of the dorsal-left and dorsal-right muscles covering it, and likewise ventrally.
@@ -490,6 +490,8 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 - **Checkpoint 1** is reported as a fail, and checkpoints 2 to 6, which need forward crawling, as not reached, until R brings checkpoint 1 to at least partial (§7.4's crawl gate).
 - **Checkpoint 0** runs formally with the harness, from milestone 3. While the intact model doesn't crawl, its crawling clause can't fail, so a pass says nothing about the wiring.
 - **GPU parity.** Milestone 2's long-run parity check compares crawling frequency and speed (§7.2). If the worm still doesn't crawl then, the statistic it compares is settled, and logged, when milestone 2 starts.
+
+**Milestone 1's outcome (2026-09-26): done.** The graph renders on a local GPU and on CI's software GPU, where the visual tests match their baselines exactly, and the inspector shows each connection's sign source and fidelity level (DECISIONS.md).
 
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 

@@ -4,7 +4,7 @@ A living _C. elegans_ in the browser. The worm's full connectome runs on the GPU
 
 **Live:** https://chrisjz.github.io/wormlight/ (needs a browser with WebGPU).
 
-**Status:** milestone 0c is done. The CPU reference simulates the connectome, the layers outside it and the body, but crawling does not yet emerge ([DECISIONS.md](DECISIONS.md), 2026-09-26). In the browser so far: the connectome as a rotatable 3D graph, with any neuron's connections lit. The build spec is [WORMLIGHT_SPEC.md](WORMLIGHT_SPEC.md).
+**Status:** milestone 1 is done. The CPU reference simulates the connectome, the layers outside it and the body, but crawling does not yet emerge ([DECISIONS.md](DECISIONS.md), 2026-09-26). In the browser so far: the connectome as a rotatable 3D graph, with any neuron's connections lit, and an inspector that gives every connection's sign with its source and fidelity level. Nothing moves yet: the neural model comes to the GPU in milestone 2. The build spec is [WORMLIGHT_SPEC.md](WORMLIGHT_SPEC.md).
 
 ## Run it
 
