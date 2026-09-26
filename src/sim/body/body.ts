@@ -104,9 +104,9 @@ export class Body {
   readonly force: Float64Array;
 
   // Per segment: the lateral and diagonal rest lengths, and the shortest a muscle can pull a lateral.
-  private readonly restLateral: Float64Array;
-  private readonly restDiagonal: Float64Array;
-  private readonly shortest: Float64Array;
+  readonly restLateral: Float64Array;
+  readonly restDiagonal: Float64Array;
+  readonly shortest: Float64Array;
   // The system, as symmetric block-tridiagonal 3 × 3 blocks: diagonal blocks, blocks above the diagonal
   // (rod i with rod i + 1), and the right-hand side; then elimination workspace.
   private readonly diag: Float64Array;
@@ -184,6 +184,16 @@ export class Body {
       this.y[i] += dt * v[3 * i + 1];
       this.theta[i] += dt * v[3 * i + 2];
     }
+  }
+
+  // The velocities the last step took, [ẋ, ẏ, θ̇] per rod, zero before the first; rates() replaces them.
+  lastRates(): Float64Array {
+    return Float64Array.from(this.velocity);
+  }
+
+  // Set the velocities lastRates() reports, as a restored state had them. The next step doesn't read them.
+  restoreRates(rates: ArrayLike<number>): void {
+    this.velocity.set(rates);
   }
 
   // The rods' velocities in the current state, [ẋ, ẏ, θ̇] per rod: the overdamped motion the next step

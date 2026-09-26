@@ -20,11 +20,11 @@ export class Muscles {
   readonly activation: Float64Array;
   readonly params: MuscleParams;
   // Each muscle's presynaptic neurons and signed section counts, as compressed rows.
-  private readonly start: Int32Array;
-  private readonly pre: Int32Array;
-  private readonly weight: Float64Array;
+  readonly start: Int32Array;
+  readonly pre: Int32Array;
+  readonly weight: Float64Array;
   // For each of the body's segments, the muscle covering its middle in each quadrant.
-  private readonly cover: { DL: Int32Array; DR: Int32Array; VL: Int32Array; VR: Int32Array };
+  readonly cover: { DL: Int32Array; DR: Int32Array; VL: Int32Array; VR: Int32Array };
 
   // Junctions from the `excluded` neurons (lesioned ones) are left out.
   constructor(data: WormlightData, params: MuscleParams, segments: number, excluded: ReadonlySet<string> = new Set()) {

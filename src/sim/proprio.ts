@@ -9,8 +9,12 @@ import type { Body } from './body/body.ts';
 
 // The scaled dorsal curvature at each interior rod; the two end rods have none and are left at 0.
 export function curvature(body: Body, out: Float64Array): void {
-  const { x, y, rods } = body;
-  const scale = body.params.segmentLength * body.params.segments;
+  curvatureOf(body.x, body.y, body.params.segmentLength * body.params.segments, out);
+}
+
+// The same from rod centres, scaled by the body's length.
+export function curvatureOf(x: ArrayLike<number>, y: ArrayLike<number>, scale: number, out: Float64Array): void {
+  const rods = x.length;
   out[0] = 0;
   out[rods - 1] = 0;
   for (let i = 1; i < rods - 1; i++) {
@@ -87,6 +91,17 @@ export class HeadSwitch {
     this.derivativeWeight = derivativeWeight;
     this.threshold = threshold;
     this.h = initial;
+  }
+
+  // The head's curvature at the last update, if there was one.
+  get lastCurvature(): number | null {
+    return this.previous;
+  }
+
+  // Set the state and the curvature the next update's derivative starts from.
+  restore(h: number, lastCurvature: number | null): void {
+    this.h = h;
+    this.previous = lastCurvature;
   }
 
   // Update from the head's curvature K after a step of dt; while it isn't gated on, it only tracks K.

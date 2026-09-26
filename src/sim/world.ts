@@ -6,7 +6,14 @@
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
 import { Body, boyleBody } from './body/body.ts';
-import { Brain, equilibrium, midpointActivation, type Oscillators } from './brain/brain.ts';
+import {
+  Brain,
+  equilibrium,
+  midpointActivation,
+  type BrainState,
+  type Oscillators,
+  type SolverOptions,
+} from './brain/brain.ts';
 import { cookNetwork, lesion, type Network } from './brain/network.ts';
 import { hash } from './brain/rng.ts';
 import { Muscles } from './muscles.ts';
@@ -83,6 +90,26 @@ export interface WorldOptions {
   silenced?: boolean;
   // The direction the head faces; the body starts straight with its head at the origin.
   heading?: number;
+  // The brain's solver settings, if not the reference's (PLAN §3.4).
+  solver?: SolverOptions;
+  // The head switch's threshold P_th, if not the registry's: GPU parity lowers it so the switch flips often.
+  switchThreshold?: number;
+}
+
+// Everything the next step reads, so another world, on the CPU or the GPU, can take the same step.
+export interface WorldState {
+  brain: BrainState;
+  // Rod centres and angles, and the velocities of the last step.
+  x: Float64Array;
+  y: Float64Array;
+  theta: Float64Array;
+  velocity: Float64Array;
+  // Each muscle's activation.
+  muscles: Float64Array;
+  // The head switch: its state, the head's curvature at its last update, and the current it drove.
+  h: number;
+  previousCurvature: number | null;
+  switchCurrent: number;
 }
 
 export class World {
@@ -95,11 +122,12 @@ export class World {
   readonly curvature: Float64Array;
   // The head-switch current into the dorsal SMDs, the opposite into the ventral ones.
   switchCurrent = 0;
-  private readonly dorsalSwitch: number[];
-  private readonly ventralSwitch: number[];
+  // The SMDs the switch drives, and the body coordinates whose curvature it reads.
+  readonly dorsalSwitch: readonly number[];
+  readonly ventralSwitch: readonly number[];
+  readonly headFrom: number;
+  readonly headTo: number;
   private readonly smd: Set<number>;
-  private readonly headFrom: number;
-  private readonly headTo: number;
 
   constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
     this.params = params;
@@ -109,7 +137,7 @@ export class World {
     const lesioned = new Set(options.lesions ?? []);
     const cut = options.silenced ? whole.names : [...lesioned];
     const network = cut.length > 0 ? lesion(whole, cut) : whole;
-    this.brain = new Brain(network, thresholds);
+    this.brain = new Brain(network, thresholds, options.solver);
     this.brain.noise = params.noise;
     this.brain.seed = seed;
     const alive = (name: string): boolean => !lesioned.has(name);
@@ -157,9 +185,37 @@ export class World {
     // Which side the switch drives first is drawn from the seed, so trials don't all start dorsal.
     this.headSwitch = new HeadSwitch(
       PARAMS.headSwitchDerivativeWeight.value / 1000,
-      PARAMS.headSwitchThreshold.value,
+      options.switchThreshold ?? PARAMS.headSwitchThreshold.value,
       hash(seed, 0, 0xffffffff) & 1,
     );
+  }
+
+  snapshot(): WorldState {
+    return {
+      brain: this.brain.snapshot(),
+      x: Float64Array.from(this.body.x),
+      y: Float64Array.from(this.body.y),
+      theta: Float64Array.from(this.body.theta),
+      velocity: this.body.lastRates(),
+      muscles: Float64Array.from(this.muscles.activation),
+      h: this.headSwitch.h,
+      previousCurvature: this.headSwitch.lastCurvature,
+      switchCurrent: this.switchCurrent,
+    };
+  }
+
+  // Restore a state, so snapshot() gives it back. What each step derives afresh, the curvature and the muscles'
+  // drive, waits for the next step.
+  restore(state: WorldState): void {
+    this.brain.restore(state.brain);
+    this.body.x.set(state.x);
+    this.body.y.set(state.y);
+    this.body.theta.set(state.theta);
+    this.body.restoreRates(state.velocity);
+    this.muscles.activation.set(state.muscles);
+    this.muscles.segments(this.body.dorsal, this.body.ventral);
+    this.headSwitch.restore(state.h, state.previousCurvature);
+    this.switchCurrent = state.switchCurrent;
   }
 
   get time(): number {
