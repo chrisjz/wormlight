@@ -46,6 +46,7 @@ try {
       (globalThis as unknown as { __drain: () => Promise<{ milliseconds: number; steps: number } | null> }).__drain(),
     );
     await page.close();
+    if (samples.length === 0) throw new Error(`the plate reported no rates at ${speed}×`);
     const mean = (f: (s: { fps: number; speed: number }) => number): number =>
       samples.reduce((a, s) => a + f(s), 0) / samples.length;
     const least = Math.min(...samples.map((s) => s.fps));

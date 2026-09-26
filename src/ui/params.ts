@@ -49,9 +49,9 @@ export function applyTarget(base: Vec3, target: ViewParams['target']): Vec3 {
 
 // The app's layout and the plate's start, as URL parameters: ?view=plate or ?view=graph shows one view alone
 // (split by default); ?seed= fixes the worm's seed (random per visit otherwise); ?t= runs the worm that
-// many seconds before the first frame; ?paused=1 starts it paused; ?speed= sets how many times real time it
-// runs (up to 100, for benchmarks); ?span= sets the plate's field of view across its shorter side, in
-// millimetres; ?stats=1 shows the frame rate and the simulation's speed.
+// many seconds before the first frame (up to 600); ?paused=1 starts it paused; ?speed= sets how many times
+// real time it runs (up to 100, for benchmarks); ?span= sets the plate's field of view across its shorter
+// side, in millimetres; ?stats=1 shows the frame rate and the simulation's speed.
 export type Layout = 'split' | 'plate' | 'graph';
 
 export interface PlateParams {
@@ -68,13 +68,14 @@ export function readPlateParams(search: string): PlateParams {
   const p = new URLSearchParams(search);
   const view = p.get('view');
   const seed = p.get('seed')?.trim() ?? '';
-  const time = Number(p.get('t') ?? '');
+  const t = p.get('t')?.trim() ?? '';
+  const time = /^\d+(\.\d+)?$/.test(t) ? Number(t) : 0;
   const span = Number(p.get('span') ?? '');
   const speed = Number(p.get('speed') ?? '');
   return {
     layout: view === 'plate' || view === 'graph' ? view : 'split',
     seed: /^\d+$/.test(seed) && Number(seed) <= 0xffffffff ? Number(seed) : null,
-    time: p.get('t') !== null && Number.isFinite(time) && time > 0 ? Math.min(time, 600) : 0,
+    time: Math.min(time, 600),
     paused: p.get('paused') === '1',
     speed: p.get('speed') !== null && Number.isFinite(speed) && speed > 0 ? Math.min(speed, 100) : 1,
     span: p.get('span') !== null && Number.isFinite(span) && span > 0 ? span / 1000 : null,

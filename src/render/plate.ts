@@ -29,8 +29,8 @@ export class PlateRenderer {
   private readonly frame: GPUBuffer;
   private readonly radius: GPUBuffer;
   private readonly rods: number;
-  private agarGroup: GPUBindGroup;
-  private wormGroup: GPUBindGroup;
+  private readonly agarGroup: GPUBindGroup;
+  private readonly wormGroup: GPUBindGroup;
   private colour: GPUTexture | null = null;
   private readonly uniforms = new Float32Array(FRAME_BYTES / 4);
 
@@ -119,11 +119,6 @@ export class PlateRenderer {
     });
   }
 
-  // Read the body from another buffer, as when the world is rebuilt.
-  setBody(body: GPUBuffer): void {
-    this.wormGroup = this.bodyGroup(body);
-  }
-
   // Match the drawing buffer to the canvas's displayed size, in device pixels, within the device's limit.
   resize(width: number, height: number): void {
     const limit = this.device.limits.maxTextureDimension2D;
@@ -177,7 +172,7 @@ export class PlateRenderer {
     pass.draw(3);
     pass.setPipeline(this.worm);
     pass.setBindGroup(0, this.wormGroup);
-    // Two instances, the darkening beneath the body and the body, each a strip of two vertices a section.
+    // Two instances, the halo around the body and the body, each a strip of two vertices a section.
     pass.draw(2 * ((this.rods - 1) * SUB + 1), 2);
     pass.end();
     this.device.queue.submit([encoder.finish()]);

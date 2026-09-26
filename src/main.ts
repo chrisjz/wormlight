@@ -50,12 +50,19 @@ async function start(root: HTMLElement): Promise<void> {
   let graph: GraphHandle | null = null;
   let plate: PlateHandle | null = null;
   let failed = false;
+  // Rejects when anything fails, so no wait outlasts a failure.
+  let reject: (err: Error) => void = () => undefined;
+  const failure = new Promise<never>((_, no) => {
+    reject = no;
+  });
+  failure.catch(() => undefined);
   const fail = (title: string, body: string): void => {
     if (failed) return;
     failed = true;
     graph?.stop();
     plate?.stop();
     message(root, 'failed', title, body);
+    reject(new Error(title));
   };
   void device.lost.then((info) => {
     if (info.reason === 'destroyed') return;
@@ -93,15 +100,24 @@ async function start(root: HTMLElement): Promise<void> {
   const graphPane = layout === 'plate' ? null : pane('graph', 'The connectome');
   root.className = `app ${layout}`;
   root.replaceChildren(...[platePane, graphPane].filter((p) => p !== null));
+  // A view that finishes starting after a failure is stopped at once.
+  const guard = <T extends { stop(): void }>(starting: Promise<T>): Promise<T> => {
+    starting.then(
+      (view) => {
+        if (failed) view.stop();
+      },
+      () => undefined,
+    );
+    return Promise.race([starting, failure]);
+  };
   try {
-    if (platePane) plate = await startPlate(platePane, device, data, { layout, ...start }, noRender);
-    if (graphPane) graph = await startGraph(graphPane, device, data, layout === 'graph');
-    await Promise.all([plate?.ready, graph?.ready]);
+    if (platePane) plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender));
+    if (graphPane) graph = await guard(startGraph(graphPane, device, data, layout === 'graph'));
+    await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;
   }
-  if (failed) throw new Error('the app failed while starting');
   // The visual tests read either view back as a PNG (scripts/visual/capture.ts), and the plate's benchmark reads
   // its rates (scripts/plate/bench.ts).
   const hooks = window as unknown as {

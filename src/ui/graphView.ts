@@ -3,7 +3,8 @@
 //   a neuron to fly to it or empty space to reset.
 // - Touch: drag to turn, pinch to zoom, drag two fingers to pan, tap to select, double-tap to fly or reset.
 // - Keyboard, with the canvas focused: arrows turn, shift and arrows pan, + and − zoom, [ and ] step through
-//   the neurons from nose to tail, Home resets and Escape clears the selection.
+//   the neurons from nose to tail, Home resets and Escape clears the selection. Keys held with Ctrl, Cmd or
+//   Alt are left to the browser.
 
 import type { CellClass, WormlightData } from '../data/schema.ts';
 import {
@@ -245,9 +246,14 @@ export async function startGraph(
   // Below this pane size the inspector is a sheet along the bottom (style.css's container query).
   const narrow = {
     get matches(): boolean {
+      // As the container query measures it: the pane's content box, without its border, and a max-width that
+      // includes the limit itself.
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
       const box = pane.getBoundingClientRect();
-      return box.width < 56 * rem || box.height < 30 * rem;
+      const style = getComputedStyle(pane);
+      const width = box.width - parseFloat(style.borderLeftWidth) - parseFloat(style.borderRightWidth);
+      const height = box.height - parseFloat(style.borderTopWidth) - parseFloat(style.borderBottomWidth);
+      return width <= 56 * rem || height <= 30 * rem;
     },
   };
   const clampShare = (v: number): number => Math.max(0, Math.min(0.6, v));
@@ -617,6 +623,7 @@ export async function startGraph(
     { passive: false },
   );
   canvas.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const turn = 0.08;
     const step = (by: number): void => {
       const at = selected === null ? (by > 0 ? -1 : n) : alongBody.indexOf(selected);

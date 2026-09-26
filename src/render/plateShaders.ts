@@ -69,10 +69,11 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
   let i = vec2<i32>(c);
   if (hash2(i + vec2<i32>(7, 3)) > chance) { return 0.0; }
   let r = radius * (0.5 + hash2b(i));
-  let margin = r / size;
+  let soft = max(frame.pixel, 0.35 * r);
+  // Kept far enough inside its cell that its soft edge isn't cut off.
+  let margin = min((r + soft) / size, 0.45);
   let at = vec2<f32>(hash2(i + vec2<i32>(11, 5)), hash2b(i + vec2<i32>(2, 13))) * (1.0 - 2.0 * margin) + margin;
   let d = length(g - c - at) * size;
-  let soft = max(frame.pixel, 0.35 * r);
   let visible = smoothstep(0.4, 1.5, r / frame.pixel);
   return (0.35 + 0.65 * hash2(i + vec2<i32>(5, 17))) * (1.0 - smoothstep(r - soft, r + soft, d)) * visible;
 }
@@ -103,8 +104,8 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
 `;
 
 // The worm, a strip along its midline through every rod, subdivided `sub` times between rods by a
-// Catmull–Rom spline, as wide as the body's rods; instance 0 is a soft darkening beneath it, instance 1
-// the body.
+// Catmull–Rom spline, as wide as the rods' diameters; instance 0 is a faint halo of scattered light around
+// it, instance 1 the body. Squares are written as products: WGSL's pow is undefined for a base below zero.
 export function wormShader(rods: number, sub: number, length: number): string {
   const sections = (rods - 1) * sub;
   return /* wgsl */ `
@@ -173,19 +174,22 @@ struct Out {
 // A soft blob in the body's own coordinates, along (body lengths) and across (−1 to 1), with a faint rim.
 fn bulb(along: f32, across: f32, at: f32, extent: f32, width: f32) -> f32 {
   let e = length(vec2<f32>((along - at) / extent, across / width));
-  return 0.6 * exp(-e * e * 1.6) + 0.4 * exp(-pow((e - 1.0) / 0.25, 2.0));
+  let edge = (e - 1.0) / 0.25;
+  return 0.6 * exp(-e * e * 1.6) + 0.4 * exp(-edge * edge);
 }
 
 @fragment fn fs(in: Out) -> @location(0) vec4<f32> {
   let a = abs(in.across);
   if (in.layer == 0u) {
     // Around the body, a faint halo of scattered light that fades to nothing at its edge.
-    let glow = 0.07 * pow(1.0 - smoothstep(0.3, 1.0, a), 2.0);
+    let fade = 1.0 - smoothstep(0.3, 1.0, a);
+    let glow = 0.07 * fade * fade;
     return vec4<f32>(vec3<f32>(0.62, 0.72, 0.68) * glow, glow);
   }
   // The body as a translucent tube: its edges scatter the most light, its core glows faintly.
   let z = sqrt(max(1.0 - a * a, 0.0));
-  let rim = pow(a, 4.0);
+  let a2 = a * a;
+  let rim = a2 * a2;
   var light = 0.20 + 0.10 * z + 0.75 * rim;
   // Detail fades in as the body grows wider on screen than a few pixels.
   let detail = smoothstep(3.0, 12.0, in.pixels);
@@ -193,7 +197,8 @@ fn bulb(along: f32, across: f32, at: f32, extent: f32, width: f32) -> f32 {
   let q = vec2<f32>(in.along, in.across * in.width);
   // The pharynx: a thin lumen down the middle, the metacorpus and the terminal bulb.
   let pharynx = 1.0 - smoothstep(0.10, 0.125, in.along);
-  let lumen = exp(-pow(in.across / 0.06, 2.0)) * pharynx;
+  let off = in.across / 0.06;
+  let lumen = exp(-off * off) * pharynx;
   let bulbs = bulb(in.along, in.across, 0.058, 0.013, 0.40) + bulb(in.along, in.across, 0.110, 0.015, 0.52);
   light += detail * (0.12 * lumen + 0.22 * bulbs);
   // The gut, from the pharynx back to near the tail, strongest in the core: a mottle at body scale, and its

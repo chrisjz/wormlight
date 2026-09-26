@@ -85,6 +85,7 @@ describe('readPlateParams', () => {
     expect(readPlateParams('?seed=4294967296').seed).toBeNull();
     expect(readPlateParams('?seed=1e3').seed).toBeNull();
     expect(readPlateParams('?t=100000').time).toBe(600);
+    for (const t of ['0x10', '1e2', '-5', ' ']) expect(readPlateParams(`?t=${t}`).time).toBe(0);
     expect(readPlateParams('?speed=1000').speed).toBe(100);
   });
 });

@@ -4,7 +4,7 @@
 // - Mouse: drag to pan, scroll to zoom, double-click to follow the worm again.
 // - Touch: drag to pan, pinch to zoom, double-tap to follow.
 // - Keyboard, with the plate focused: space pauses and resumes, arrows pan, + and − zoom, F follows the worm,
-//   Home resets the view.
+//   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser.
 
 import type { WormlightData } from '../data/schema.ts';
 import { ROD_WORDS } from '../gpu/brainShader.ts';
@@ -21,11 +21,12 @@ const DISH = PARAMS.dishDiameter.value / 200; // cm → m, radius
 const LENGTH = PARAMS.bodyLength.value / 1000; // mm → m
 const SPAN = 3 * LENGTH; // the default field of view across the shorter side
 const SPAN_LIMITS: [number, number] = [0.4 * LENGTH, 2.4 * DISH];
-const FOLLOW = 0.6; // s, the camera's lag behind the worm
+const FOLLOW = 0.6; // s of worm time, the camera's lag behind the worm
 const SPEEDS = [0.25, 1, 4, 10];
 const TRAIL_EVERY = 0.5; // s of worm time between the inset's trail points
 const TRAIL_MAX = 7200;
 const STAGING = 3; // readback buffers in flight
+const SLOP = { mouse: 4, touch: 10 }; // px a press may move and still not pan
 const VALIDATION = 'https://github.com/chrisjz/wormlight/blob/main/VALIDATION.md';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -91,7 +92,7 @@ export async function startPlate(
   canvas.setAttribute(
     'aria-label',
     'The worm on its agar dish, seen from above. With it focused, space pauses and resumes, the arrow keys ' +
-      'pan, plus and minus zoom, and F follows the worm.',
+      'pan, plus and minus zoom, F or a double-click follows the worm, and Home resets the view.',
   );
 
   let seed = params.seed ?? randomSeed();
@@ -109,14 +110,18 @@ export async function startPlate(
 
   // The overlays: the title and the notice, the time controls, the dish inset and the scale.
   const header = el('header', 'plate-head');
-  const lede = el('p', 'plate-lede', 'Its body on a 10 cm agar dish, moved by that network through its muscles.');
+  const lede = el(
+    'p',
+    'plate-lede',
+    'A C. elegans on a 10 cm agar dish, its body moved through its muscles by its connectome.',
+  );
   const notice = el('p', 'plate-notice');
   const why = el('a', undefined, 'Why');
   why.href = VALIDATION;
   why.rel = 'noopener';
   notice.append(
     el('strong', undefined, "Crawling doesn't emerge yet. "),
-    'With its parameters not yet calibrated, the worm bends and lurches but does not crawl. ',
+    'No parameter values tried so far make this model crawl: the worm bends and creeps, but does not crawl. ',
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
@@ -129,7 +134,8 @@ export async function startPlate(
   speeds.setAttribute('role', 'radiogroup');
   speeds.setAttribute('aria-label', 'Speed');
   const speedButtons = SPEEDS.map((s) => {
-    const b = button('plate-speed', s === 0.25 ? '¼×' : `${s}×`, `${s} times real time`);
+    const text = s === 0.25 ? '¼×' : `${s}×`;
+    const b = button('plate-speed', text, `${text} real time`);
     b.setAttribute('role', 'radio');
     speeds.append(b);
     return b;
@@ -137,7 +143,8 @@ export async function startPlate(
   const restart = button('plate-button', 'Restart', 'Restart this worm');
   const fresh = button('plate-button', 'New worm', 'Start a new worm with a new seed');
   const time = el('span', 'plate-time');
-  time.setAttribute('aria-label', 'Worm time');
+  const timeValue = el('span');
+  time.append(el('span', 'sr-only', 'Worm time '), timeValue);
   const seedText = el('span', 'plate-seed');
   controls.append(play, speeds, restart, fresh, time, seedText);
 
@@ -155,22 +162,31 @@ export async function startPlate(
   scale.append(bar, barLabel);
   const caption = el('figcaption', 'sr-only', 'The whole dish, with the worm near its centre.');
   map.append(scale, inset, caption);
-  const stats = el('p', 'plate-stats');
+  const stats = el('span', 'plate-stats');
   stats.hidden = !params.stats;
+  controls.append(stats);
+  // The controls and the inset share the bottom edge, the inset moving above the controls where both don't fit.
+  const bottom = el('div', 'plate-bottom');
+  bottom.append(controls, map);
   const live = el('p', 'sr-only');
   live.setAttribute('aria-live', 'polite');
-  pane.replaceChildren(canvas, header, follow, stats, controls, map, live);
+  pane.replaceChildren(canvas, header, follow, bottom, live);
 
   // State.
   let running = !params.paused;
   let speed = 1;
   let steps = 0;
   let stopped = false;
-  let camera: PlateCamera = { centre: [0, 0], span: params.span ?? SPAN };
+  const clampSpan = (s: number): number => Math.max(SPAN_LIMITS[0], Math.min(SPAN_LIMITS[1], s));
+  const homeSpan = clampSpan(params.span ?? SPAN);
+  let camera: PlateCamera = { centre: [0, 0], span: homeSpan };
   let following = true;
   let centroid: [number, number] = [0, 0];
   const points: [number, number][] = [];
   let lastTrail = -Infinity;
+  let trailChanged = true;
+  // Which run of the worm this is: a readback from an earlier run, landing after a restart, is dropped.
+  let run = 0;
   const pacer = new Pacer(NEURAL_STEP);
   const rates = new Rates();
   let pending = 0;
@@ -178,16 +194,18 @@ export async function startPlate(
 
   const setSpeed = (s: number): void => {
     speed = s;
+    // One radio is always reachable by Tab: the checked one, or the first if a URL asked for another speed.
+    const at = SPEEDS.indexOf(s);
     speedButtons.forEach((b, k) => {
-      b.setAttribute('aria-checked', String(SPEEDS[k] === s));
-      b.tabIndex = SPEEDS[k] === s ? 0 : -1;
+      b.setAttribute('aria-checked', String(k === at));
+      b.tabIndex = k === Math.max(at, 0) ? 0 : -1;
     });
   };
-  const setRunning = (on: boolean): void => {
+  const setRunning = (on: boolean, announce = true): void => {
     running = on;
     play.textContent = on ? 'Pause' : 'Play';
-    play.setAttribute('aria-label', on ? 'Pause the worm' : 'Resume the worm');
     pacer.reset();
+    if (announce) live.textContent = on ? 'Running.' : 'Paused.';
     dirty = true;
   };
   const showSeed = (): void => {
@@ -200,8 +218,10 @@ export async function startPlate(
     gpu.brain.seed = world.brain.seed;
     gpu.brain.noise = world.brain.noise;
     steps = 0;
+    run++;
     points.length = 0;
     lastTrail = -Infinity;
+    trailChanged = true;
     centroid = [0, 0];
     if (following) camera = { ...camera, centre: [0, 0] };
     pacer.reset();
@@ -210,20 +230,27 @@ export async function startPlate(
     dirty = true;
   };
   setSpeed(params.speed);
-  setRunning(running);
+  setRunning(running, false);
   showSeed();
 
   play.addEventListener('click', () => setRunning(!running));
   speedButtons.forEach((b, k) => b.addEventListener('click', () => setSpeed(SPEEDS[k])));
+  // A radio group's keys: right and down go to the next speed, left and up to the one before, wrapping; Home
+  // and End go to the slowest and fastest.
   speeds.addEventListener('keydown', (e) => {
-    const at = SPEEDS.indexOf(speed);
+    const at = Math.max(SPEEDS.indexOf(speed), 0);
+    const last = SPEEDS.length - 1;
     const next =
-      e.key === 'ArrowRight' || e.key === 'ArrowUp'
-        ? at + 1
-        : e.key === 'ArrowLeft' || e.key === 'ArrowDown'
-          ? at - 1
-          : at;
-    if (next === at || next < 0 || next >= SPEEDS.length) return;
+      e.key === 'ArrowRight' || e.key === 'ArrowDown'
+        ? (at + 1) % SPEEDS.length
+        : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+          ? (at + last) % SPEEDS.length
+          : e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? last
+              : null;
+    if (next === null) return;
     e.preventDefault();
     setSpeed(SPEEDS[next]);
     speedButtons[next].focus();
@@ -242,7 +269,6 @@ export async function startPlate(
 
   // The camera, in CSS pixels for the pointer and device pixels for the renderer.
   const size = (): [number, number] => [Math.max(canvas.clientWidth, 1), Math.max(canvas.clientHeight, 1)];
-  const clampSpan = (s: number): number => Math.max(SPAN_LIMITS[0], Math.min(SPAN_LIMITS[1], s));
   const zoom = (factor: number, x?: number, y?: number): void => {
     const [w, h] = size();
     const next = zoomAbout(camera, clampSpan(camera.span * factor) / camera.span, x ?? w / 2, y ?? h / 2, w, h);
@@ -257,19 +283,34 @@ export async function startPlate(
     setFollowing(false);
   };
 
-  const pointers = new Map<number, { x: number; y: number }>();
+  // Pointers: one pans once it has moved past the slop, so a click or a tap only focuses; two pinch to zoom.
+  const pointers = new Map<number, { x: number; y: number; startX: number; startY: number; slop: number }>();
+  let dragging = false;
   let pinch: { span: number } | null = null;
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
-    pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
+    const slop = e.pointerType === 'mouse' ? SLOP.mouse : SLOP.touch;
+    pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY, startX: e.offsetX, startY: e.offsetY, slop });
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = { span: Math.hypot(a.x - b.x, a.y - b.y) };
     }
   });
+  const release = (e: PointerEvent): void => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 0) dragging = false;
+    canvas.style.cursor = '';
+  };
   canvas.addEventListener('pointermove', (e) => {
     const last = pointers.get(e.pointerId);
     if (!last) return;
+    // A mouse whose buttons are all up has lost its release, as behind a context menu.
+    if (e.pointerType === 'mouse' && e.buttons === 0) {
+      release(e);
+      return;
+    }
     const dx = e.offsetX - last.x;
     const dy = e.offsetY - last.y;
     last.x = e.offsetX;
@@ -281,18 +322,19 @@ export async function startPlate(
       pinch = { span };
       return;
     }
-    if (pointers.size === 1 && (dx !== 0 || dy !== 0)) {
-      canvas.style.cursor = 'grabbing';
-      pan(dx, dy);
-    }
+    if (pointers.size !== 1) return;
+    if (!dragging && Math.hypot(e.offsetX - last.startX, e.offsetY - last.startY) <= last.slop) return;
+    // Past the slop, the pan catches up with the pointer from where it was pressed.
+    const [fx, fy] = dragging ? [dx, dy] : [e.offsetX - last.startX, e.offsetY - last.startY];
+    dragging = true;
+    canvas.style.cursor = 'grabbing';
+    pan(fx, fy);
   });
-  const release = (e: PointerEvent): void => {
-    pointers.delete(e.pointerId);
-    if (pointers.size < 2) pinch = null;
-    canvas.style.cursor = '';
-  };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('lostpointercapture', (e) => {
+    if (pointers.has(e.pointerId)) release(e);
+  });
   canvas.addEventListener('dblclick', () => setFollowing(true));
   canvas.addEventListener(
     'wheel',
@@ -304,6 +346,7 @@ export async function startPlate(
     { passive: false },
   );
   canvas.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key) {
       case ' ':
         setRunning(!running);
@@ -330,7 +373,7 @@ export async function startPlate(
         setFollowing(true);
         break;
       case 'Home':
-        camera = { centre: centroid, span: params.span ?? SPAN };
+        camera = { centre: centroid, span: homeSpan };
         setFollowing(true);
         break;
       default:
@@ -376,27 +419,33 @@ export async function startPlate(
     if (!slot) return;
     slot.busy = true;
     const at = steps;
+    const from = run;
     const encoder = device.createCommandEncoder();
     encoder.copyBufferToBuffer(gpu.brain.bodyBuffer, 0, slot.buffer, 0, bytes);
     device.queue.submit([encoder.finish()]);
     slot.buffer.mapAsync(GPUMapMode.READ).then(
       () => {
-        const words = new Float32Array(slot.buffer.getMappedRange());
+        // Stopped, the buffer is gone; from an earlier run, the reading is stale.
+        if (stopped) return;
         let x = 0;
         let y = 0;
-        for (let i = 0; i < rods; i++) {
-          x += words[ROD_WORDS * i] + words[ROD_WORDS * i + 1];
-          y += words[ROD_WORDS * i + 2] + words[ROD_WORDS * i + 3];
+        if (from === run) {
+          const words = new Float32Array(slot.buffer.getMappedRange());
+          for (let i = 0; i < rods; i++) {
+            x += words[ROD_WORDS * i] + words[ROD_WORDS * i + 1];
+            y += words[ROD_WORDS * i + 2] + words[ROD_WORDS * i + 3];
+          }
         }
         slot.buffer.unmap();
         slot.busy = false;
-        if (!Number.isFinite(x + y)) return;
+        if (from !== run || !Number.isFinite(x + y)) return;
         centroid = [x / rods, y / rods];
         const t = at * NEURAL_STEP;
         if (t - lastTrail >= TRAIL_EVERY) {
           lastTrail = t;
           points.push(centroid);
           if (points.length > TRAIL_MAX) points.splice(0, points.length - TRAIL_MAX);
+          trailChanged = true;
         }
       },
       () => {
@@ -408,7 +457,10 @@ export async function startPlate(
   // The inset: the dish, the worm's path and where it is, and the field of view.
   const drawInset = (): void => {
     const s = (v: number): number => v / DISH;
-    trail.setAttribute('points', points.map(([x, y]) => `${s(x).toFixed(4)},${(-s(y)).toFixed(4)}`).join(' '));
+    if (trailChanged) {
+      trail.setAttribute('points', points.map(([x, y]) => `${s(x).toFixed(4)},${(-s(y)).toFixed(4)}`).join(' '));
+      trailChanged = false;
+    }
     dot.setAttribute('cx', s(centroid[0]).toFixed(4));
     dot.setAttribute('cy', (-s(centroid[1])).toFixed(4));
     const [w, h] = size();
@@ -420,7 +472,7 @@ export async function startPlate(
     const { pixels, label } = scaleBar(metresPerPixel(camera, w, h), 120);
     bar.style.width = `${pixels.toFixed(1)}px`;
     barLabel.textContent = label;
-    time.textContent = clock(steps * NEURAL_STEP);
+    timeValue.textContent = clock(steps * NEURAL_STEP);
     if (params.stats) {
       const r = rates.get();
       stats.textContent = `${r.fps.toFixed(0)} fps · ${r.speed.toFixed(2)}× real time · ${speed}× asked`;
@@ -445,6 +497,8 @@ export async function startPlate(
     if (stopped) return;
     const wall = (now - last) / 1000;
     last = now;
+    // Busy while two frames' work is still on the GPU. The rates count steps as they are submitted, which
+    // this bounds to at most two frames ahead of the steps done.
     const n = pacer.advance(wall, speed, running, pending >= 2);
     if (n > 0) {
       gpu.run(n);
@@ -454,7 +508,8 @@ export async function startPlate(
     if (n > 0 || first) readBody();
     rates.record(now, n * NEURAL_STEP);
     if (following) {
-      const k = 1 - Math.exp(-Math.min(wall, 0.1) / FOLLOW);
+      // The lag is in worm time, so a fast-forwarded worm doesn't leave the view.
+      const k = 1 - Math.exp(-(Math.min(wall, 0.1) * Math.max(1, running ? speed : 1)) / FOLLOW);
       const next: [number, number] = [
         camera.centre[0] + (centroid[0] - camera.centre[0]) * k,
         camera.centre[1] + (centroid[1] - camera.centre[1]) * k,
@@ -462,8 +517,10 @@ export async function startPlate(
       if (next[0] !== camera.centre[0] || next[1] !== camera.centre[1]) dirty = true;
       camera = { ...camera, centre: next };
     }
-    if (dirty && !noRender) {
-      renderer.render(frame());
+    const draw = dirty && !noRender;
+    if (draw) renderer.render(frame());
+    // Every frame that gave the GPU work counts until that work is done, drawn or not.
+    if (n > 0 || draw) {
       pending++;
       void device.queue.onSubmittedWorkDone().then(() => {
         pending--;
