@@ -699,3 +699,19 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 **Results on CI's SwiftShader** (Chrome 154), the brain's and the loop's short checks in 259 s: every check passes. The loop's 85 one-step states have their centres within 0.51 of the tolerance in x, 0.04 in y and 0.15 in θ, the muscles within 6 × 10⁻⁴, and the switch agreeing; the 41 graded one-second states pass, curvature's worst at 0.003 of its threshold, with the switch agreeing at every sample; the same seven states are ill posed. Long runs aren't run on CI.
 
 **Status.** Milestone 3's first part is done: the loop runs on the GPU and matches the CPU reference anywhere in the dish, the step alone clears the 10× target, and long-run parity passes at the seed count changed after results. The behavioural harness with checkpoints 0 and 1, and the plate view, come next; milestone 3's Safari check, which now includes milestone 2's, comes with them.
+
+## 2026-09-26 — The Safari check: GPU parity passes in Safari
+
+**Decision.** None to take: this records milestone 2's Safari check, postponed to milestone 3, and milestone 3's "the parity page passes in Safari", run together by the maintainer on `main` after milestone 3's first part merged, on the same M5 Max (Safari's adapter names itself "apple apple").
+
+**The short checks.** Every check passes, brain and loop, and the figures match Chrome's on Metal almost exactly:
+
+- **Noise.** The hashes and uniforms are identical; the largest Gaussian error is 5 × 10⁻⁷.
+- **The brain.** The API checks, the 21 one-step states (worst 0.011 of the tolerance), the one-second states (t = 10.5 s again not graded) and the lesioned case all pass.
+- **The loop.** The API checks pass; the 85 one-step states have their centres within 0.87 of the tolerance in x, 0.03 in y and 0.15 in θ, the muscles within 6 × 10⁻⁴, and the switch agrees in every state; the 41 graded one-second states pass, the voltage's worst at 0.40 of its threshold, with the switch agreeing at every sample, and the same seven are ill posed.
+
+**The long runs** (265 seeds a side, 60 s each) pass. The SD of κL is 0.2147 on the CPU and 0.2148 on the GPU (p = 2 × 10⁻¹⁵); the frequency 0.1667 and 0.1656 Hz, 0.7% apart (p = 0.002). The spreads are alike (variance ratios 1.05 and 0.97, F test p = 0.68 and 0.78), and no solve failed to converge. The CPU side's frequency differs from its value in Chrome (0.1652 Hz) though the code, seeds and data are the same, most likely because JavaScript lets each engine compute `Math.exp`, `Math.log` and `Math.cos` to its own last bits, and 60 s of these dynamics amplify the difference. So the CPU reference is likely reproducible exactly only within one engine, one more reason long runs are compared by statistics.
+
+**Speed.** The brain step runs at about 16× real time in Safari and the whole step at about 11×, for the step alone: under half Chrome's (29× and 24×), and still above PLAN's 10× target, which PLAN sets in Chrome. The spec's Safari target, 60 fps in real time, is checked with the plate view.
+
+**Status.** Done: milestone 2 is complete, and milestone 3's Safari parity criterion is met. Its other Safari criterion, 60 fps real time, waits for the plate view.
