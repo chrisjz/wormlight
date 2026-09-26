@@ -55,3 +55,21 @@ export function checkEigenworms(rows: number[][], angles: number, used = 4): Eig
   }
   return { angles, modes: angles, orthonormalError, rotationMode: constant[0] + 1 };
 }
+
+export interface PostureCheck {
+  count: number;
+  angles: number;
+  // The largest mean angle of any posture, which should be 0 but for rounding.
+  largestMean: number;
+}
+
+// Check the real postures the harness starts trials from: rows of `angles` tangent angles, each with its mean
+// removed, as the posture analysis produces them.
+export function checkPostures(rows: number[][], angles: number): PostureCheck {
+  if (rows.length === 0 || rows.some((row) => row.length !== angles)) {
+    throw new Error(`postures: expected rows of ${angles} angles`);
+  }
+  const largestMean = Math.max(...rows.map((row) => Math.abs(row.reduce((a, b) => a + b, 0) / angles)));
+  if (largestMean > 1e-4) throw new Error(`postures: a posture's mean angle is ${largestMean}, not 0`);
+  return { count: rows.length, angles, largestMean };
+}

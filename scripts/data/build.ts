@@ -10,7 +10,8 @@ import { bodyFrame, checkAxes, muscles, oscillator, position, sensing } from './
 import { dataSourcesPage, noticePage } from './docs.ts';
 import { parseMorphology, type Morphology } from './nml.ts';
 import { formatMarkdown, renderJson } from './render.ts';
-import { checkEigenworms, parseMatrix } from './eigenworms.ts';
+import { addPosture, covariance, emptySums, varianceCaptured } from '../../src/validation/posture.ts';
+import { checkEigenworms, checkPostures, parseMatrix } from './eigenworms.ts';
 import { checkExport, type NematodeExport } from './export.ts';
 import { buildReport, crossCheckReport, parseCreamer } from './reports.ts';
 import { edgeKey, parseOverrides, readFenyves, signChemical, signNeuromuscular } from './signs.ts';
@@ -122,10 +123,12 @@ async function build(): Promise<Map<string, string>> {
     (await readFile(firstFile(pinById(sources, 'creamer-lds')))).toString('utf8'),
     neuronNames,
   );
-  const eigenworms = checkEigenworms(
-    parseMatrix((await readFile(firstFile(pinById(sources, 'eigenworms')))).toString('utf8')),
-    100,
-  );
+  const basis = parseMatrix((await readFile(firstFile(pinById(sources, 'eigenworms')))).toString('utf8'));
+  const eigenworms = checkEigenworms(basis, 100);
+  const postureRows = parseMatrix((await readFile(firstFile(pinById(sources, 'oist-postures')))).toString('utf8'));
+  const sums = emptySums();
+  for (const row of postureRows) addPosture(sums, row);
+  const postures = { ...checkPostures(postureRows, 100), captured: varianceCaptured(covariance(sums), basis) };
   const report = buildReport({
     data,
     fenyves: [fenyvesS1, fenyvesS5],
@@ -135,6 +138,7 @@ async function build(): Promise<Map<string, string>> {
     axes,
     exportCommit: exported.provenance.nematodeCommit,
     eigenworms,
+    postures,
   });
 
   const outputs = new Map<string, string>();

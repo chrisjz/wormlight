@@ -1,12 +1,13 @@
 // The go/no-go harness recomposes the World's loop; with no switch set it must be that loop, and its
-// removals and silencing must be the World's lesions and silenced network.
+// removals and silencing must be the World's lesions and silenced network. The provisional parameters are
+// one of its draws.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../../src/sim/numerics.ts';
-import { World, type WorldOptions } from '../../../src/sim/world.ts';
+import { provisionalParams, World, type WorldOptions } from '../../../src/sim/world.ts';
 import { ROOT } from '../../data/sources.ts';
 import { Recorder, runVariant, type Draw, type Metrics, type Variant } from './loop.ts';
 import { draw } from './variants.ts';
@@ -57,5 +58,22 @@ describe('the go/no-go harness', () => {
 
   it('compares runs that move', () => {
     expect(runWorld(p, {}).sdMid).toBeGreaterThan(0.1);
+  });
+});
+
+describe('the provisional parameters', () => {
+  it("are the planned model's best go/no-go draw, 46, to three significant figures, with the noise off", () => {
+    const d = draw(46, false);
+    const round = (x: number): number => Number(x.toPrecision(3));
+    expect(provisionalParams()).toEqual({
+      oscillatorGain: round(d.gOsc),
+      recoveryTime: round(d.tauW),
+      driveThreshold: round(d.theta),
+      switchGain: round(d.gSw),
+      proprioceptiveGain: round(d.gP),
+      neuromuscularGain: round(d.gNmj),
+      neuromuscularThreshold: round(d.tNmj),
+      noise: 0,
+    });
   });
 });

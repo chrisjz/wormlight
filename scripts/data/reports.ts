@@ -3,7 +3,7 @@
 
 import type { Chemical, WormlightData } from '../../src/data/schema.ts';
 import { countBySource, edgeKey, type FenyvesSheet, type Override, type SetAside } from './signs.ts';
-import type { EigenwormCheck } from './eigenworms.ts';
+import type { EigenwormCheck, PostureCheck } from './eigenworms.ts';
 import type { Sources } from './sources.ts';
 import { table } from './render.ts';
 
@@ -79,6 +79,8 @@ export interface BuildFacts {
   axes: { leftLarger: number; pairs: number; nosePairs: number };
   exportCommit: string;
   eigenworms: EigenwormCheck;
+  // The real postures, and the share of their variance the first four modes capture.
+  postures: PostureCheck & { captured: number };
 }
 
 export function buildReport({
@@ -90,6 +92,7 @@ export function buildReport({
   axes,
   exportCommit,
   eigenworms,
+  postures,
 }: BuildFacts): string {
   const chemical = data.chemical;
   const connections = chemical.length;
@@ -230,5 +233,7 @@ export function buildReport({
     `Muscles sit on one grid of 24 slots per quadrant, so the quadrants line up; the ventral-left quadrant's 23rd and last cell covers the last two slots, because Cook's innervation matches it to vBWMR24 (PLAN §4.4, level 0).`,
     '## Eigenworm basis',
     `The pinned basis for checkpoint 1 has ${eigenworms.modes} modes over ${eigenworms.angles} tangent angles, which checkpoint 1 reads head first (an inferred orientation; see \`DATA_SOURCES.md\`). Its columns are orthonormal to within ${eigenworms.orthonormalError.toExponential(1)}, column ${eigenworms.rotationMode} is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.`,
+    '## Starting postures',
+    `The pinned real postures, which checkpoints 0 and 1 start their trials from, are ${postures.count.toLocaleString('en-GB')} rows of ${postures.angles} tangent angles, each with its mean removed to within ${postures.largestMean.toExponential(1)} rad. The first four eigenworms capture ${(100 * postures.captured).toFixed(2)}% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.`,
   ].join('\n\n');
 }
