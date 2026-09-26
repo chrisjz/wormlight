@@ -1,7 +1,7 @@
 // The neural model on the GPU (PLAN §1, §3.4): a network's wiring and constants in buffers, and one compute
 // pass that takes any number of steps. It mirrors the CPU reference's Brain, which it is checked against
-// (parity.ts), and trades state with it as a BrainState. A lesion or a brain swap is a new network in the
-// same buffers' places (setNetwork); the thresholds stay what the caller gave (PLAN §3.3).
+// (parity.ts), and trades state with it as a BrainState. It runs whatever network it is given, a lesioned or
+// rewired one included, with the thresholds the caller gives (PLAN §3.3).
 
 import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
 import { midpointActivation } from '../sim/brain/brain.ts';
@@ -71,15 +71,15 @@ export class GpuBrain {
   readonly device: GPUDevice;
   readonly n: number;
   readonly threshold: Float64Array;
-  network: Network;
+  readonly network: Network;
   // White current noise intensity, σ_n in current·√s, and the seed of its hash, as the CPU's Brain has them.
   noise = 0;
   seed = 0;
 
   private oscillators: Oscillators | null = null;
-  private wiring: PackedNetwork;
+  private readonly wiring: PackedNetwork;
   private wiringBuffers: GPUBuffer[] = [];
-  private bindGroup: GPUBindGroup;
+  private readonly bindGroup: GPUBindGroup;
   private readonly pipeline: GPUComputePipeline;
   private readonly params: GPUBuffer;
   private readonly neurons: GPUBuffer;
@@ -138,14 +138,6 @@ export class GpuBrain {
     const error = await device.popErrorScope();
     if (error) throw new Error(`the GPU brain could not be set up: ${error.message}`);
     return brain;
-  }
-
-  // Swap in another network on the same neurons, such as a lesioned or rewired one; the state carries over.
-  setNetwork(network: Network): void {
-    if (network.names.length !== this.n) throw new Error(`expected a network of ${this.n} neurons`);
-    this.network = network;
-    this.wiring = packNetwork(network);
-    this.bindGroup = this.bind();
   }
 
   // Attach oscillators, or none. Their recovery comes with the next restored state, or rest().
@@ -305,7 +297,6 @@ export class GpuBrain {
   }
 
   private bind(): GPUBindGroup {
-    for (const b of this.wiringBuffers) b.destroy();
     const upload = (data: Uint32Array | Float32Array): GPUBuffer => {
       const b = this.device.createBuffer({ size: data.byteLength, usage: storage() });
       this.device.queue.writeBuffer(b, 0, data);

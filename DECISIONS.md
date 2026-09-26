@@ -617,7 +617,7 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 **Decision.** Milestone 2 puts the neural model on the GPU and checks it against the CPU reference.
 
 - **The kernel** (`src/gpu/brainShader.ts`) mirrors `Brain.step` line for line: BDF2 voltages (implicit Euler without a history) solved by Jacobi-preconditioned conjugate gradients from the last step, the oscillators linearised as on the CPU, then activation and recovery by BDF2, with the noise drawn from the same hash. The network runs in one workgroup of 256 invocations, each keeping the state of one or two neurons in registers, so a dispatch takes any number of steps with only barriers between them. It binds 7 storage buffers and uses 8 KB of workgroup memory, within WebGPU's default limits.
-- **`GpuBrain`** (`src/gpu/brain.ts`) holds the buffers and trades state with the CPU's `Brain` as a `BrainState`, which the CPU reference now exports and restores whole, history included. A lesion or a brain swap is a new network in the same places, with the thresholds the caller gives.
+- **`GpuBrain`** (`src/gpu/brain.ts`) holds the buffers and trades state with the CPU's `Brain` as a `BrainState`, which the CPU reference now exports and restores whole, history included. It runs whatever network it is given, lesioned or rewired, with the thresholds the caller gives.
 - **Parity** (`npm run gpu:parity`, and the `gpu` CI job on SwiftShader) runs `parity.html`, a page the dev server serves and the build leaves out. The CPU reference in the page runs the closed loop with trial values (g_osc = 2 nS, θ_osc = −16 mV, σ_n = 0.01 pA·√s, the rest as the loop tests have them; seed 1), and takes 20 states every 0.5 s after 2 s, plus the rest state. From each, both brains take one step and then one second, the state's input held and the noise on. The random numbers are checked first: the hashes and uniforms must match exactly, and each Gaussian must lie within the error WGSL allows `log`, `sqrt` and `cos`, which the one-step check adds to its tolerance, since the implicit solve moves no voltage by more than dt/C times the current's error.
 - **The Safari check** is the same page opened in Safari: `npm run dev`, then `/parity.html`.
 
@@ -639,5 +639,13 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 - **One step.** All 21 states pass; the worst voltage error is 0.72 of its tolerance, at rest, and the worst activation error 10⁻³ of its. The GPU's solves take 7 to 13 iterations, the CPU's 11 to 15.
 - **One second.** All 20 graded states pass, the worst at 0.0024; t = 10.5 s is not graded.
 - **Speed.** The brain step runs at 29.6× real time at 2.5 ms in dispatches of 67 steps (5.7 ms each) and 25.5× in dispatches of 7 (0.7 ms), about 10 solver iterations a step: well past the 10× target for the brain. The CPU reference's brain runs about as fast in the same page, which bears out the spec's point that at this scale the GPU is a showcase choice.
+
+**Results on CI's SwiftShader** (Chrome 154, the fallback adapter): the same verdicts. The hashes and uniforms are identical; the largest Gaussian error is 6.7 × 10⁻⁴, 39% of WGSL's bound against 5 × 10⁻⁷ on Metal, so SwiftShader's transcendental functions use much of the latitude WGSL allows, and the one-step allowance does real work there. The worst one-step voltage error is 0.71 of its tolerance, the graded one-second states pass with the worst at 0.0048, and t = 10.5 s is again the one not graded (0.035 on the GPU, 0.020 for the reference against itself). The whole check takes a minute; the speed there, 0.4× real time, says nothing about a real GPU.
+
+**Milestone 2 summary.**
+
+- **Works.** The neural model runs on the GPU and matches the CPU reference by PLAN's one-step and one-second checks, on the Mac's GPU and on CI's software GPU, where the `gpu` job now gates merging and deploying. The brain steps at about 30× real time on the M5 Max.
+- **Doesn't yet.** The app doesn't run the GPU brain: nothing on screen moves until the body and the plate view arrive with milestone 3, which also brings long-run parity and the full step's speed. The glow comes with milestone 6.
+- **Checkpoints.** Unchanged: checkpoint 0 not yet run formally, checkpoint 1 a fail, checkpoints 2 to 6 not reached.
 
 **Status.** Done, but for the Safari check.

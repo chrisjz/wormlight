@@ -101,6 +101,13 @@ function showBench(report: BenchReport): void {
   );
 }
 
+// A failure is shown on the page and reported to the harness as a console error.
+function fail(e: unknown): void {
+  const message = e instanceof Error ? e.message : String(e);
+  root.append(el('p', `The checks stopped: ${message}`, 'status-body'));
+  console.error(message);
+}
+
 async function start(): Promise<{ parity: Promise<ParityReport>; bench: Promise<BenchReport> }> {
   const support = await probeWebGpu(navigator.gpu);
   if (support.kind !== 'ready') throw new Error(`no WebGPU: ${support.kind}`);
@@ -111,16 +118,13 @@ async function start(): Promise<{ parity: Promise<ParityReport>; bench: Promise<
   const data: WormlightData = validateWormlightData(await response.json());
   const parity = runParity(device, adapter, data);
   const bench = parity.then(() => runBench(device, adapter, data));
-  void parity.then(showParity);
-  void bench.then(showBench).then(() => status.remove());
+  parity.then(showParity, fail);
+  bench.then(showBench, fail).finally(() => status.remove());
   return { parity, bench };
 }
 
 const started = start();
-started.catch((e: unknown) => {
-  status.textContent = e instanceof Error ? e.message : String(e);
-  console.error(status.textContent);
-});
+started.catch(fail);
 const hooks = window as unknown as { __parity: () => Promise<ParityReport>; __bench: () => Promise<BenchReport> };
 hooks.__parity = () => started.then((s) => s.parity);
 hooks.__bench = () => started.then((s) => s.bench);
