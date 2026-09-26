@@ -7,6 +7,7 @@
 // statistics by Welch's two one-sided tests while the worm doesn't crawl.
 
 import type { WormlightData } from '../data/schema.ts';
+import { boyleBody } from '../sim/body/body.ts';
 import { WAVE_ROD, WAVE_SAMPLE, WAVE_WARM_UP, bodyWave, type BodyWave } from '../sim/bodyWave.ts';
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { curvatureOf } from '../sim/proprio.ts';
@@ -16,6 +17,7 @@ import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
   centroidFloor,
   COPIES,
+  againstWall,
   cpuWorld,
   endVelocities,
   FLOOR,
@@ -263,17 +265,27 @@ export interface LoopReport {
 
 // The copies a check runs: the trial values' states as they are and, for one step, moved and turned; for one
 // second, every fifth moved and turned at once; each variant's as they are.
-function withCopies(cases: LoopCase[], setup: LoopSetup, second: boolean): LoopCase[] {
+function withCopies(
+  cases: LoopCase[],
+  setup: LoopSetup,
+  second: boolean,
+  radii: ArrayLike<number>,
+  wall: number,
+): LoopCase[] {
   if (setup.name !== LOOP_SETUPS[0].name) return cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
+  const pressed = (c: LoopCase): LoopCase => ({
+    ...c,
+    label: `${c.label}, against the wall`,
+    state: againstWall(c.state, radii, wall),
+  });
   if (second) {
-    const both = cases
-      .filter((_, k) => k % 5 === 0)
-      .map((c) => ({
-        ...c,
-        label: `${c.label}, moved and turned`,
-        state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
-      }));
-    return [...cases, ...both];
+    const some = cases.filter((_, k) => k % 5 === 0);
+    const both = some.map((c) => ({
+      ...c,
+      label: `${c.label}, moved and turned`,
+      state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
+    }));
+    return [...cases, ...both, ...some.map(pressed)];
   }
   return [
     ...cases,
@@ -284,6 +296,7 @@ function withCopies(cases: LoopCase[], setup: LoopSetup, second: boolean): LoopC
         state: movedAndTurned(c.state, copy.dx, copy.dy, copy.turns),
       })),
     ),
+    ...cases.map(pressed),
   ];
 }
 
@@ -297,8 +310,9 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
       if (setup === LOOP_SETUPS[0]) api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
-      for (const c of withCopies(cases, setup, false)) oneStep.push(await checkLoopStep(gpu, data, c));
-      for (const c of withCopies(cases, setup, true)) oneSecond.push(await checkLoopSecond(gpu, data, c));
+      const { radii, wall } = boyleBody();
+      for (const c of withCopies(cases, setup, false, radii, wall)) oneStep.push(await checkLoopStep(gpu, data, c));
+      for (const c of withCopies(cases, setup, true, radii, wall)) oneSecond.push(await checkLoopSecond(gpu, data, c));
     } finally {
       gpu.destroy();
     }

@@ -5,16 +5,20 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { hash, uniform } from '../src/sim/brain/rng.ts';
 import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
 import {
+  againstWall,
+  cpuWorld,
   endVelocities,
   gaussianBound,
   LOOP_SETUPS,
   loopCases,
   movedAndTurned,
   paritySetup,
+  WALL_DEPTH,
   seededWorld,
   variantSetup,
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
+import { boyleBody } from '../src/sim/body/body.ts';
 import { readJson } from './checks.ts';
 
 // The shader's Box–Muller as f32 arithmetic with correctly rounded log, sqrt and cos: the best a GPU can do.
@@ -126,6 +130,31 @@ describe("the loop's parity", () => {
     expect(copy.theta[7]).toBeCloseTo(c.state.theta[7] + 100 * Math.PI, 12);
     expect(copy.brain).toBe(c.state.brain);
     expect(copy.muscles).toBe(c.state.muscles);
+  });
+
+  it("presses copies against the dish's wall, which the reference pushes back from", () => {
+    const { radii, wall } = boyleBody();
+    const state = loopCases(data)[5].state;
+    const pressed = againstWall(state, radii, wall);
+    const depths = Array.from(pressed.x, (x, i) => Math.hypot(x, pressed.y[i]) - (wall - radii[i]));
+    expect(Math.max(...depths)).toBeCloseTo(WALL_DEPTH, 12);
+    // Only the place changes, by one shift for the whole body.
+    const dx = pressed.x[0] - state.x[0];
+    const dy = pressed.y[0] - state.y[0];
+    for (let i = 0; i < state.x.length; i++) {
+      expect(pressed.x[i] - state.x[i]).toBeCloseTo(dx, 12);
+      expect(pressed.y[i] - state.y[i]).toBeCloseTo(dy, 12);
+    }
+    expect(pressed.theta).toEqual(state.theta);
+    expect(pressed.brain).toBe(state.brain);
+    // The reference pushes the deepest rods back out along the wall's normal.
+    const world = cpuWorld(data, pressed);
+    const deepest = depths.indexOf(Math.max(...depths));
+    const v = world.body.rates();
+    const [nx, ny] = [pressed.x[deepest], pressed.y[deepest]].map(
+      (c) => c / Math.hypot(pressed.x[deepest], pressed.y[deepest]),
+    );
+    expect(v[3 * deepest] * nx + v[3 * deepest + 1] * ny).toBeLessThan(0);
   });
 
   it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {

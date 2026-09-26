@@ -17,6 +17,7 @@
 // elimination.
 
 import { PARAMS } from '../../science/params.ts';
+import { WALL_SOFTENING } from '../numerics.ts';
 
 export interface BodyParams {
   // M segments between M + 1 rods, each L_seg long.
@@ -38,6 +39,9 @@ export interface BodyParams {
   dragNormal: number;
   dragTangential: number;
   dragRotation: Float64Array;
+  // The dish's radius (m), whose wall stops the rods (PLAN §5.2); a radius beyond the body's reach for none,
+  // never Infinity, which the GPU may not hold.
+  wall: number;
 }
 
 // Radii on a prolate ellipse whose major radius is a little over half the body, so the tips keep a width
@@ -84,6 +88,7 @@ export function boyleBody(radii?: Float64Array): BodyParams {
     dragNormal: p.dragPerpendicular.value / (2 * rods),
     dragTangential,
     dragRotation: Float64Array.from(r, (ri) => 4 * Math.PI * ri * ri * dragTangential),
+    wall: p.dishDiameter.value / 200, // cm → m, radius
   };
 }
 
@@ -253,6 +258,7 @@ export class Body {
       diag[o + 8] = p.dragRotation[i];
       rhs[3 * i] = this.force[2 * i];
       rhs[3 * i + 1] = this.force[2 * i + 1];
+      this.wallContact(i);
     }
     for (let m = 0; m < p.segments; m++) {
       const lateral = p.lateralStiffness;
@@ -275,6 +281,28 @@ export class Body {
       this.element(m, 1, -1, p.diagonalStiffness, this.restDiagonal[m], p.diagonalDamping);
       this.element(m, -1, 1, p.diagonalStiffness, this.restDiagonal[m], p.diagonalDamping);
     }
+  }
+
+  // The dish's wall (PLAN §5.2, DECISIONS.md 2026-09-26): a rod whose centre passes the wall, less the rod's
+  // radius, is pushed back along the wall's normal by a spring and a damper like a diagonal element's. The
+  // damper engages over the first WALL_SOFTENING of penetration, so the contact grows continuously from
+  // zero. The wall has no friction.
+  private wallContact(i: number): void {
+    const p = this.params;
+    const rho = Math.hypot(this.x[i], this.y[i]);
+    const depth = rho - (p.wall - p.radii[i]);
+    if (!(depth > 0)) return;
+    const nx = this.x[i] / rho;
+    const ny = this.y[i] / rho;
+    const f = -p.diagonalStiffness * depth;
+    const beta = p.diagonalDamping * Math.min(depth / WALL_SOFTENING, 1);
+    const o = 9 * i;
+    this.rhs[3 * i] += f * nx;
+    this.rhs[3 * i + 1] += f * ny;
+    this.diag[o] += beta * nx * nx;
+    this.diag[o + 1] += beta * nx * ny;
+    this.diag[o + 3] += beta * nx * ny;
+    this.diag[o + 4] += beta * ny * ny;
   }
 
   // Add one element joining side `sa` of rod m to side `sb` of rod m + 1: a spring of stiffness k and rest

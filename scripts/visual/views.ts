@@ -19,6 +19,9 @@ export const VIEWS: readonly { name: string; pane: 'graph' | 'plate'; query: str
   { name: 'plate', pane: 'plate', query: 'view=plate&seed=1&paused=1' },
   // The worm close up, showing the pharynx and the gut.
   { name: 'plate-close', pane: 'plate', query: 'view=plate&seed=1&paused=1&span=0.6' },
-  // The whole dish, its wall and meniscus, with the worm at its centre.
+  // The whole dish, its wall and meniscus, the lawn near its edge and the odour's isolines, with the worm at
+  // its centre.
   { name: 'dish', pane: 'plate', query: 'view=plate&seed=1&paused=1&span=110' },
+  // The lawn close up: its rim, the isolines around it, and the wall and meniscus beside it.
+  { name: 'lawn', pane: 'plate', query: 'view=plate&seed=1&paused=1&span=14&cx=43&cy=0' },
 ];

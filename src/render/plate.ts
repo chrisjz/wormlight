@@ -2,11 +2,12 @@
 // from the simulation's body buffer, into a 4× multisampled target resolved to the canvas. Like the graph's
 // renderer, it can render one frame into a texture of its own and read it back for the visual tests.
 
+import { toHalves } from './half.ts';
 import { AGAR_SHADER, wormShader } from './plateShaders.ts';
 import { snapshot } from './snapshot.ts';
 
 const SAMPLES = 4;
-const FRAME_BYTES = 32;
+const FRAME_BYTES = 48;
 // Spline sections between neighbouring rods.
 const SUB = 8;
 
@@ -19,6 +20,13 @@ export interface PlateFrame {
   dish: number;
 }
 
+// What the dish holds: the odour field as log₂(C/K), row by row from the grid's lower left, on a square grid
+// `extent` metres wide centred on the dish; and the lawn.
+export interface PlateScene {
+  odour: { level: Float32Array; cells: number; extent: number };
+  lawn: { x: number; y: number; radius: number };
+}
+
 export class PlateRenderer {
   readonly device: GPUDevice;
   readonly format: GPUTextureFormat;
@@ -29,6 +37,8 @@ export class PlateRenderer {
   private readonly frame: GPUBuffer;
   private readonly radius: GPUBuffer;
   private readonly rods: number;
+  private readonly scene: PlateScene;
+  private readonly odour: GPUTexture;
   private readonly agarGroup: GPUBindGroup;
   private readonly wormGroup: GPUBindGroup;
   private colour: GPUTexture | null = null;
@@ -42,6 +52,7 @@ export class PlateRenderer {
     pipelines: [GPURenderPipeline, GPURenderPipeline],
     body: GPUBuffer,
     radii: Float32Array,
+    scene: PlateScene,
   ) {
     this.device = device;
     this.canvas = canvas;
@@ -49,6 +60,14 @@ export class PlateRenderer {
     this.format = format;
     [this.agar, this.worm] = pipelines;
     this.rods = radii.length;
+    this.scene = scene;
+    const { cells, level } = scene.odour;
+    this.odour = device.createTexture({
+      size: [cells, cells],
+      format: 'r16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    device.queue.writeTexture({ texture: this.odour }, toHalves(level), { bytesPerRow: 2 * cells }, [cells, cells]);
     this.frame = device.createBuffer({ size: FRAME_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.radius = device.createBuffer({
       size: radii.byteLength,
@@ -57,12 +76,17 @@ export class PlateRenderer {
     device.queue.writeBuffer(this.radius, 0, radii);
     this.agarGroup = device.createBindGroup({
       layout: this.agar.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: this.frame } }],
+      entries: [
+        { binding: 0, resource: { buffer: this.frame } },
+        { binding: 1, resource: this.odour.createView() },
+        { binding: 2, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
+      ],
     });
     this.wormGroup = this.bodyGroup(body);
   }
 
-  // Build the renderer for a body of these rods' radii and this length (m), read from `body`. The pipelines are created
+  // Build the renderer for a body of these rods' radii and this length (m), read from `body`, on a dish that
+  // holds `scene`. The pipelines are created
   // asynchronously, so one that fails validation rejects here, where the page can explain it.
   static async create(
     device: GPUDevice,
@@ -70,6 +94,7 @@ export class PlateRenderer {
     body: GPUBuffer,
     radii: Float32Array,
     length: number,
+    scene: PlateScene,
   ): Promise<PlateRenderer> {
     const format = navigator.gpu.getPreferredCanvasFormat();
     const context = canvas.getContext('webgpu');
@@ -105,7 +130,7 @@ export class PlateRenderer {
         multisample,
       }),
     ]);
-    return new PlateRenderer(device, canvas, context, format, pipelines, body, radii);
+    return new PlateRenderer(device, canvas, context, format, pipelines, body, radii, scene);
   }
 
   private bodyGroup(body: GPUBuffer): GPUBindGroup {
@@ -153,6 +178,10 @@ export class PlateRenderer {
       ...frame.half,
       frame.pixel,
       frame.dish,
+      this.scene.lawn.x,
+      this.scene.lawn.y,
+      this.scene.lawn.radius,
+      this.scene.odour.extent,
     ]);
     this.device.queue.writeBuffer(this.frame, 0, u);
     const encoder = this.device.createCommandEncoder();
@@ -186,6 +215,7 @@ export class PlateRenderer {
   destroy(): void {
     this.frame.destroy();
     this.radius.destroy();
+    this.odour.destroy();
     this.colour?.destroy();
   }
 }

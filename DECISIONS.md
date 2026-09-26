@@ -819,3 +819,36 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 - This entry's claims are corrected: an earlier draft put the step's speed-up down to the parity bench running "the most demanding" state, which it doesn't.
 
 **Status.** Done: milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, is met on the maintainer's check, with Safari's few dips to 50 noted, as the maintainer accepted.
+
+## 2026-09-26 — The environment: the odour field, the lawn and the dish's wall
+
+**Decision.** Milestone 4's first part is the environment (PLAN §5.2): the butanone field, the food lawn and the wall that stops the worm. The maintainer settled four choices PLAN left open, before it was built:
+
+- **The wall's contact.** A rod whose centre passes the wall, less the rod's radius, is pushed back along the wall's normal by a spring and a damper in parallel, at the body's own 10 ms spring-to-damper ratio, without friction. Considered: moving rods back onto the wall after each step, which bypasses the physics and can kink the body.
+- **The release rate's anchor.** PLAN sets the rate so the steady concentration at the 0.5 cm capture radius equals K. The spot sits 0.5 cm from the wall, so that circle touches the wall and the concentration varies around it. It is taken where the circle faces the dish's centre, where a worm coming from the centre enters it, on the real walled grid. Considered: the circle's mean, which counts the wall's side, where reflection raises the concentration; and the free-space formula, 2πDK/K₀(r/λ), which ignores the wall.
+- **The field's start.** Trials and the app start from the steady field, as if the sources had long been releasing, so the harness reads one precomputed field per layout. Considered: releasing from zero at the start, which is truer to the assay's first minutes but would need every trial to step its own field. With a loss time of about 100 s, the field is near steady within minutes of a 60-minute assay.
+- **The app's dish.** A 1 cm lawn where checkpoint 4's butanone spot sits, releasing the same total rate spread over its disc. Considered: the assay's two spots, and both spots and a lawn.
+
+**How it works.**
+
+- **The wall** reuses the body's diagonal elements' stiffness and damping, 7 N/m and 0.07 N·s/m, so it adds no free parameter. The budget of 14 is full. It runs in the CPU's `Body` and in the kernel's row assembly alike.
+  - The damper engages over the first 0.1 µm of penetration (`WALL_SOFTENING`), so the contact force and its damping both grow continuously from zero. The CPU and the GPU then can't disagree about a rod that only grazes the wall: in f32 the GPU knows a rod's distance from the dish's centre to a few nanometres.
+  - A rod pressed lightly, under about 0.7 µN, settles inside that first 0.1 µm. There the damper is only partly engaged, and the rod can rock at the wall by tens of nanometres; a harder push settles past it without rocking.
+  - Tests: a body pressed against the wall stops where its spring holds the push, and slides along it exactly as it would in open agar.
+- **The field** (`src/sim/env/`) is PLAN's grid, 256 × 256 cells 0.4 mm wide, with D = 0.091 cm²/s and a loss that sets √(D/k) to 3 cm.
+  - Cells outside the dish exchange nothing with those inside, so no odour crosses the wall.
+  - Its steady state is solved by conjugate gradients, about 1,000 iterations and 240 ms on the CPU. An explicit stepper, in sub-steps of at most 4 ms, serves the tests and the harness.
+  - Tests:
+    - a point release spreads as the analytic 2D Gaussian with the loss, within 1%;
+    - the steady state of a point source matches Q/(2πD)·K₀(r/λ) within 0.4% out to a centimetre, beyond which a reflecting wall 10 cm away adds 1.5% by 3 cm;
+    - a step changes the total by exactly what the sources release and the loss takes;
+    - the steady state holds when stepped.
+- **The release rate** comes out at 0.953 µM·cm²/s. That is 42% below the free-space formula's 1.631, because the wall's reflection nearly doubles the field near the spot. The registry keeps it as a rule, and a test holds the value.
+- **Drawing.** The plate draws the lawn as bacteria look in dark field, brighter at its thicker rim. It draws the field faintly in amber: a glow that grows towards K, and an isoline at every halving from K down to K/256.
+  - The app solves the lawn's field at startup while the GPU compiles its pipelines.
+  - A new visual view, `lawn`, centres the camera on the lawn, through two new URL parameters, `?cx=` and `?cy=`. The whole-dish view's change was too faint for the comparison's threshold, 0.05% of its pixels, so it couldn't have caught the field's loss.
+- **GPU parity** adds a copy of every state pressed 2 µm into the wall, about as far as a worm's own micronewton muscle forces would press it, and deep enough that f32's few nanometres don't count. All 21 pass one step, their centres' velocities within 0.098 of the tolerance. All 5 pass one second, their centroids within 0.19 of the threshold. The rest of parity is unchanged.
+
+**Not yet.** Nothing senses the field yet: AWC comes next. Nor can the user drop sources, which come with touch; until then the app's field doesn't change, so the GPU doesn't step it.
+
+**Status.** Built.

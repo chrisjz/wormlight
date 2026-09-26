@@ -486,3 +486,70 @@ function symmetricEigenvalues(matrix: Float64Array, n: number): number[] {
   }
   return Array.from({ length: n }, (_, i) => a[i * n + i]).sort((x, y) => x - y);
 }
+
+describe("the dish's wall", () => {
+  it("stands at the dish's radius", () => {
+    expect(boyleBody().wall).toBe(PARAMS.dishDiameter.value / 200);
+  });
+
+  // A wall of 1 m, so it barely curves under a 1 mm body, and a straight body along its tangent at +x,
+  // centred on the x axis, head up, its mid-body rod `gap` inside the wall less its radius. The rods thin
+  // towards the body's ends, so those near the middle meet the wall first.
+  const WALL = 1;
+  function nearWall(gap: number): Body {
+    const body = new Body({ ...boyleBody(), wall: WALL });
+    body.straighten(WALL - body.params.radii[24] - gap, LENGTH / 2, Math.PI / 2);
+    return body;
+  }
+  // A push on each rod straight out from the dish's centre.
+  const outwards = (body: Body, newtons: number): void => {
+    for (let i = 0; i < body.rods; i++) {
+      const rho = Math.hypot(body.x[i], body.y[i]);
+      body.force[2 * i] = (newtons * body.x[i]) / rho;
+      body.force[2 * i + 1] = (newtons * body.y[i]) / rho;
+    }
+  };
+  const depth = (body: Body, i: number): number => Math.hypot(body.x[i], body.y[i]) - (WALL - body.params.radii[i]);
+
+  it('stops a body pressed against it, at the depth its spring holds', () => {
+    const body = nearWall(20e-6);
+    // 100 nN a rod outwards: free, the body would cross 20 µm in under half a second, and keep going.
+    const force = 1e-7;
+    expect((20e-6 * DRAG_NORMAL) / force).toBeLessThan(0.5);
+    outwards(body, force);
+    // No rod ever gets far in: the thinner rods towards the ends, pushed as hard, rock at the wall by a few
+    // tens of nanometres, where the damper is only partly engaged.
+    let deepest = 0;
+    for (let k = 0; k < 1200; k++) {
+      body.step(0.0025);
+      for (let i = 0; i < body.rods; i++) deepest = Math.max(deepest, depth(body, i));
+    }
+    expect(deepest).toBeLessThan(100e-9);
+    // The mid-body rod, the first to touch, rests where the wall's spring holds its push: 100 nN over 7 N/m.
+    expect(depth(body, 24) / (force / body.params.diagonalStiffness)).toBeCloseTo(1, 2);
+    const v = body.rates();
+    expect(Math.abs(v[3 * 24])).toBeLessThan(1e-8);
+  });
+
+  it('adds nothing along it: no friction', () => {
+    // The mid-body rod, on the x axis where the wall's normal is x, 1 nm in; pushed along the wall.
+    const body = nearWall(-1e-9);
+    for (let i = 0; i < body.rods; i++) body.force[2 * i + 1] = 1e-9;
+    const free = new Body({ ...boyleBody(), wall: 1e3 });
+    free.x.set(body.x);
+    free.y.set(body.y);
+    free.theta.set(body.theta);
+    free.force.set(body.force);
+    const [v, w] = [body.rates(), free.rates()];
+    for (let i = 0; i < body.rods; i++) expect(v[3 * i + 1]).toBeCloseTo(w[3 * i + 1], 15);
+    // The wall did act, on the one rod it touches, across itself.
+    expect(Math.abs(v[3 * 24] - w[3 * 24])).toBeGreaterThan(0);
+  });
+
+  it('pushes back continuously from nothing at first touch', () => {
+    const body = nearWall(-1e-12);
+    // A picometre in, the wall's force is 7 pN at most, and the body barely moves.
+    const v = body.rates();
+    for (let i = 0; i < body.rods; i++) expect(Math.abs(v[3 * i])).toBeLessThan(10e-12 / DRAG_NORMAL);
+  });
+});

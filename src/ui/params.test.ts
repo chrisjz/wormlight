@@ -55,20 +55,23 @@ describe('readPlateParams', () => {
       paused: false,
       speed: 1,
       span: null,
+      centre: null,
       stats: false,
     });
   });
 
   it('reads a layout, a seed, a start time, a pause, a field of view in millimetres and the stats', () => {
-    expect(readPlateParams('?view=plate&seed=42&t=12.5&paused=1&speed=10&span=110&stats=1')).toEqual({
+    expect(readPlateParams('?view=plate&seed=42&t=12.5&paused=1&speed=10&span=110&cx=45&cy=-2&stats=1')).toEqual({
       layout: 'plate',
       seed: 42,
       time: 12.5,
       paused: true,
       speed: 10,
       span: 0.11,
+      centre: [0.045, -0.002],
       stats: true,
     });
+    expect(readPlateParams('?cx=45').centre).toEqual([0.045, 0]);
     expect(readPlateParams('?view=graph').layout).toBe('graph');
   });
 
@@ -80,6 +83,7 @@ describe('readPlateParams', () => {
       paused: false,
       speed: 1,
       span: null,
+      centre: null,
       stats: false,
     });
     expect(readPlateParams('?seed=4294967296').seed).toBeNull();

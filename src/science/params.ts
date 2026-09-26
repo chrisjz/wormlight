@@ -602,7 +602,7 @@ export const PARAMS = {
     subsystem: 'environment',
     sources: [],
     note: '',
-    rule: "Set so that the steady concentration at the 0.5 cm capture radius equals K, the top of the adaptation model's working range.",
+    rule: "Set so that the steady concentration equals K, the top of the adaptation model's working range, where the 0.5 cm capture circle faces the dish's centre, on the walled grid: about 0.953 µM cm² s⁻¹. A lawn releases the same total, spread over its disc.",
     upgrade: 'Measured butanone fields on assay plates',
   },
   lawnDiameter: {

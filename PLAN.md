@@ -278,7 +278,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
 
 ### 5.2 Dish, lawn and odour field
 
-- **Dish.** A 10 cm dish with the standard chemotaxis layout (Bargmann, Hartwieg & Horvitz 1993). The odour spot sits 0.5 cm from the edge, a control spot sits opposite, and the worm starts at the centre, about 4.5 cm from each.
+- **Dish.** A 10 cm dish with the standard chemotaxis layout (Bargmann, Hartwieg & Horvitz 1993). The odour spot sits 0.5 cm from the edge, a control spot sits opposite, and the worm starts at the centre, about 4.5 cm from each. The app puts a lawn where the odour spot sits (2026-09-26, DECISIONS.md).
 - **Odour.** 2-butanone, at the standard dose of 1 µl of a 10⁻³ dilution. It is the best-supported choice for an AWC-only model:
   - killing AWC almost abolishes butanone chemotaxis;
   - its diffusion coefficient in air is measured;
@@ -286,13 +286,13 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
 - **Field.** 2D diffusion on a 256 × 256 grid (0.4 mm cells), made of:
   - a diffusion coefficient of 0.091 cm² s⁻¹ in air at 298 K, a measured value (Lugg 1968, via Tang et al. 2015; level 3);
   - a first-order loss set so the steady decay length √(D/k) is 3 cm (level 0, fixed in advance);
-  - a release rate set so the steady concentration at the 0.5 cm capture radius equals K, the top of the adaptation model's working range (level 0).
+  - a release rate set so the steady concentration at the 0.5 cm capture radius equals K, the top of the adaptation model's working range (level 0). Since 2026-09-26 (DECISIONS.md), before any odour trial: taken on the walled grid, where the capture circle faces the dish's centre and a worm from the centre enters it, which gives about 0.953 µM cm² s⁻¹.
 
   Tanimoto et al. 2017 measured a closed plate approaching a quasi-steady 2-nonanone field over minutes. Their rates come from a phenomenological fit, not a loss rate, so they are context only. Treating the air layer as 2D over uniform agar is an assumption (level 0).
 
-- **Stepping.** The explicit scheme's stability limit on this grid is 4.4 ms. The app therefore advances the field on the GPU in explicit sub-steps of at most 4 ms, about 16 million cell updates per simulated second. The field doesn't depend on the worm, so the harness computes it once per layout at high accuracy and every trial reads the same copy.
-- **Lawn.** A 1 cm disc that releases butanone. Real lawns release many odours (level 0), and slowing on food and dwelling versus roaming need neuromodulation, so they won't emerge (spec §5).
-- **Walls.** The dish wall reflects odour and stops the worm, from milestone 4; until then nothing stops it (2026-09-26, DECISIONS.md).
+- **Stepping.** The explicit scheme's stability limit on this grid is 4.4 ms. The app therefore advances the field on the GPU in explicit sub-steps of at most 4 ms, about 16 million cell updates per simulated second. The field doesn't depend on the worm, so the harness computes it once per layout at high accuracy and every trial reads the same copy. Trials and the app start from the field's steady state, as if the sources had long been releasing (2026-09-26, DECISIONS.md). Until the user can drop sources, which comes with touch, the app's field doesn't change, and the GPU steps it from then.
+- **Lawn.** A 1 cm disc that releases butanone, at the spot's total rate spread evenly over it. Real lawns release many odours (level 0), and slowing on food and dwelling versus roaming need neuromodulation, so they won't emerge (spec §5).
+- **Walls.** The dish wall reflects odour and stops the worm. A rod whose centre passes it, less the rod's radius, is pushed back along its normal by a spring and a damper like the body's diagonal elements, without friction; the damper engages over the first 0.1 µm, so the contact grows continuously (2026-09-26, DECISIONS.md).
 
 ## 6. Parameters and the fidelity registry
 

@@ -262,6 +262,28 @@ export const COPIES: readonly { label: string; dx: number; dy: number; turns: nu
   { label: 'turned 50 times', dx: 0, dy: 0, turns: 50 },
 ];
 
+// How far a copy pressed against the dish's wall has its deepest rod in: as deep as a worm's own muscles, a
+// micronewton or so a rod, press it, and deep enough that f32's few nanometres at 5 cm don't count.
+export const WALL_DEPTH = 2e-6; // m
+
+// A copy of a state moved against the dish's wall, which the kernel and the CPU must both push back: its
+// centroid out along +x, and its deepest rod `depth` past the wall less that rod's radius.
+export function againstWall(state: WorldState, radii: ArrayLike<number>, wall: number, depth = WALL_DEPTH): WorldState {
+  const n = state.x.length;
+  const cx = state.x.reduce((a, b) => a + b, 0) / n;
+  const cy = state.y.reduce((a, b) => a + b, 0) / n;
+  let dx = wall - 6e-4 - cx;
+  const dy = -cy;
+  // The wall curves, so the deepest rod's depth is found and corrected a few times.
+  for (let k = 0; k < 4; k++) {
+    let deepest = -Infinity;
+    for (let i = 0; i < n; i++)
+      deepest = Math.max(deepest, Math.hypot(state.x[i] + dx, state.y[i] + dy) - (wall - radii[i]));
+    dx += depth - deepest;
+  }
+  return { ...state, x: state.x.map((x) => x + dx), y: state.y.map((y) => y + dy) };
+}
+
 // Each rod's two end points' velocities, the points its springs act on: its centre's, plus or minus R θ̇
 // turned a quarter from its axis, at the step's starting angles.
 export function endVelocities(world: World, theta: ArrayLike<number>, v: ArrayLike<number>): Float64Array {

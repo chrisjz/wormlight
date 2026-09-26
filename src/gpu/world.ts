@@ -116,6 +116,7 @@ export function packLoop(world: World): LoopLayout {
       muscle_b: p.muscleDamping,
       drag_normal: p.dragNormal,
       drag_tangential: p.dragTangential,
+      wall: p.wall,
     },
   };
 }

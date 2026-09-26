@@ -566,7 +566,7 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'environment',
     levels: [0],
     basis:
-      'A 2D air layer over uniform agar; a 3 cm decay length; the release rate set so the concentration at the capture radius is K',
+      "A 2D air layer over uniform agar; a 3 cm decay length; the release rate set so the steady concentration is K where the 0.5 cm capture circle faces the dish's centre, on the walled grid; the field steady from the start",
     caveats: "Tanimoto et al. 2017's plate measurements (2-nonanone) are context only",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['tanimoto2017'],
@@ -576,11 +576,29 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Food lawn',
     subsystem: 'environment',
     levels: [0],
-    basis: 'A 1 cm disc that releases butanone',
+    basis:
+      "A 1 cm disc that releases butanone at the spot's total rate, spread evenly; the app puts it where checkpoint 4's spot sits",
     caveats: 'Real lawns release many odours; no mechanosensation, feeding or slowing',
     upgrade: '',
     sources: [],
     testedBy: [],
+  },
+  {
+    name: 'Dish wall',
+    subsystem: 'environment',
+    levels: [0],
+    basis:
+      "It stops the worm: a rod whose centre passes the wall, less the rod's radius, is pushed back along the wall's normal by a spring and a damper like the body's diagonal elements, without friction. It reflects odour: no flux crosses it",
+    caveats:
+      'The damper engages over the first 0.1 µm of penetration, so a rod pressed lightly, under about 0.7 µN, can rock at the wall by tens of nanometres',
+    upgrade: 'Measured contact between worms and dish walls',
+    sources: [],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: "a pressed body stops at its spring's depth, and slides along the wall without friction",
+      },
+    ],
   },
   {
     name: 'Dish geometry',

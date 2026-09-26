@@ -17,6 +17,7 @@
 // None of this changes the model. Compilers that reassociate floating-point arithmetic, as Metal's does, give
 // back some of the precision; parity measures what is left (DECISIONS.md, 2026-09-26).
 
+import { WALL_SOFTENING } from '../sim/numerics.ts';
 import { RNG_WGSL } from './rngShader.ts';
 
 const WORKGROUP = 256;
@@ -30,7 +31,7 @@ export const MAX_RODS = BCR_ROWS;
 export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
-// loop's twelve u32 and twenty-four f32, of which the first eighteen are LOOP_SCALARS.
+// loop's twelve u32 and twenty-four f32, of which the first nineteen are LOOP_SCALARS.
 export const PARAM_WORDS = 56;
 export const LOOP_SCALARS_AT = 32;
 export const LOOP_SCALARS = [
@@ -52,6 +53,7 @@ export const LOOP_SCALARS = [
   'muscle_b',
   'drag_normal',
   'drag_tangential',
+  'wall',
 ] as const;
 export type LoopScalar = (typeof LOOP_SCALARS)[number];
 // Per neuron: v, v₋₁, s, s₋₁, w, w₋₁ and two words of padding.
@@ -156,7 +158,7 @@ struct Params {
   muscle_b: f32,
   drag_normal: f32,
   drag_tangential: f32,
-  _pad3: f32,
+  wall: f32,
   _pad4: f32,
   _pad5: f32,
   _pad6: f32,
@@ -445,7 +447,8 @@ struct Row {
   r: vec3<f32>,
 }
 
-fn assemble_row(i: u32, rods: u32) -> Row {
+// Rod i's row, its centre at (xh + xl, yh + yl).
+fn assemble_row(i: u32, rods: u32, xh: f32, xl: f32, yh: f32, yl: f32) -> Row {
   var row = Row();
   row.d = mat3x3<f32>(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), vec3<f32>(0.0, 0.0, 1.0));
   if (i >= rods) {
@@ -460,6 +463,21 @@ fn assemble_row(i: u32, rods: u32) -> Row {
     vec3<f32>(cross_drag, params.drag_normal * sn * sn + params.drag_tangential * cs * cs, 0.0),
     vec3<f32>(0.0, 0.0, weights[params.rod_const_at + 2u * i + 1u] / (params.radius * params.radius)),
   );
+  // The dish's wall, as Body.wallContact has it: a spring and a damper like a diagonal element's along the
+  // wall's normal, the damper engaging over the first WALL_SOFTENING of penetration.
+  let centre = vec2<f32>(xh + xl, yh + yl);
+  let rho = length(centre);
+  let depth = rho - (params.wall - weights[params.rod_const_at + 2u * i]);
+  if (depth > 0.0) {
+    let n = centre / rho;
+    let beta = params.diagonal_b * min(depth / ${WALL_SOFTENING}, 1.0);
+    row.r += vec3<f32>(n * (-params.diagonal_k * depth), 0.0);
+    row.d += mat3x3<f32>(
+      vec3<f32>(beta * n.x * n.x, beta * n.x * n.y, 0.0),
+      vec3<f32>(beta * n.x * n.y, beta * n.y * n.y, 0.0),
+      vec3<f32>(0.0),
+    );
+  }
   if (i < segments) {
     for (var which = 0u; which < 4u; which++) {
       let e = segment_element(i, which);
@@ -857,7 +875,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       // The body (Body.step): the symmetric block-tridiagonal system (Ξ − B) q̇ = G, solved by block cyclic
       // reduction.
       if (lid < ${BCR_ROWS}u) {
-        put_row(lid, assemble_row(lid, rods));
+        put_row(lid, assemble_row(lid, rods, xh, xl, yh, yl));
       }
       workgroupBarrier();
       cyclic_reduction(lid);

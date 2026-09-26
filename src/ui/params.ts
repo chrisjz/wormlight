@@ -51,7 +51,8 @@ export function applyTarget(base: Vec3, target: ViewParams['target']): Vec3 {
 // (split by default); ?seed= fixes the worm's seed (random per visit otherwise); ?t= runs the worm that
 // many seconds before the first frame (up to 600); ?paused=1 starts it paused; ?speed= sets how many times
 // real time it runs (up to 100, for benchmarks); ?span= sets the plate's field of view across its shorter
-// side, in millimetres; ?stats=1 shows the frame rate and the simulation's speed.
+// side, in millimetres; ?cx= and ?cy= centre the plate's camera there, in millimetres from the dish's centre,
+// instead of on the worm; ?stats=1 shows the frame rate and the simulation's speed.
 export type Layout = 'split' | 'plate' | 'graph';
 
 export interface PlateParams {
@@ -61,6 +62,7 @@ export interface PlateParams {
   paused: boolean;
   speed: number;
   span: number | null;
+  centre: [number, number] | null;
   stats: boolean;
 }
 
@@ -72,6 +74,11 @@ export function readPlateParams(search: string): PlateParams {
   const time = /^\d+(\.\d+)?$/.test(t) ? Number(t) : 0;
   const span = Number(p.get('span') ?? '');
   const speed = Number(p.get('speed') ?? '');
+  const cx = p.get('cx');
+  const cy = p.get('cy');
+  const mm = (v: string | null): number =>
+    v !== null && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) / 1000 : NaN;
+  const centre: [number, number] = [mm(cx), mm(cy)];
   return {
     layout: view === 'plate' || view === 'graph' ? view : 'split',
     seed: /^\d+$/.test(seed) && Number(seed) <= 0xffffffff ? Number(seed) : null,
@@ -79,6 +86,10 @@ export function readPlateParams(search: string): PlateParams {
     paused: p.get('paused') === '1',
     speed: p.get('speed') !== null && Number.isFinite(speed) && speed > 0 ? Math.min(speed, 100) : 1,
     span: p.get('span') !== null && Number.isFinite(span) && span > 0 ? span / 1000 : null,
+    centre:
+      Number.isFinite(centre[0]) || Number.isFinite(centre[1])
+        ? [Number.isFinite(centre[0]) ? centre[0] : 0, Number.isFinite(centre[1]) ? centre[1] : 0]
+        : null,
     stats: p.get('stats') === '1',
   };
 }
