@@ -1,7 +1,8 @@
 // GPU parity for the whole loop (PLAN §7.2): the body, the muscles and the head switch join the brain. Both
 // sides take one step, then one second, running every layer, from whole-world states: the rest world and
-// twenty from the trial values' closed loop, copies of them moved across the dish and turned, which the CPU
-// doesn't notice and the GPU must not, and states from two variants that make the head switch flip and gate.
+// twenty from the trial values' closed loop; copies of them moved across the dish and turned, which the CPU
+// doesn't notice and the GPU must not; copies pressed against the dish's wall, which both push back; and states
+// from two variants that make the head switch flip and gate.
 // The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
 // 2026-09-26); the brain's are as before. Long runs, LONG_SEEDS a side for 60 s, compare the body wave's
 // statistics by Welch's two one-sided tests while the worm doesn't crawl.
@@ -18,6 +19,7 @@ import {
   centroidFloor,
   COPIES,
   againstWall,
+  WALL_COPIES,
   cpuWorld,
   endVelocities,
   FLOOR,
@@ -265,6 +267,9 @@ export interface LoopReport {
 
 // The copies a check runs: the trial values' states as they are and, for one step, moved and turned; for one
 // second, every fifth moved and turned at once; each variant's as they are.
+// The trial values' states and their copies: moved across the dish and turned, which the CPU's arithmetic
+// doesn't notice; and pressed against the dish's wall, which it pushes back. One step takes every state's
+// copies; one second, every fifth state's. The variants take their states alone.
 function withCopies(
   cases: LoopCase[],
   setup: LoopSetup,
@@ -273,11 +278,12 @@ function withCopies(
   wall: number,
 ): LoopCase[] {
   if (setup.name !== LOOP_SETUPS[0].name) return cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
-  const pressed = (c: LoopCase): LoopCase => ({
-    ...c,
-    label: `${c.label}, against the wall`,
-    state: againstWall(c.state, radii, wall),
-  });
+  const pressed = (c: LoopCase): LoopCase[] =>
+    WALL_COPIES.map((copy) => ({
+      ...c,
+      label: `${c.label}, ${copy.label}`,
+      state: againstWall(c.state, radii, wall, copy),
+    }));
   if (second) {
     const some = cases.filter((_, k) => k % 5 === 0);
     const both = some.map((c) => ({
@@ -285,7 +291,7 @@ function withCopies(
       label: `${c.label}, moved and turned`,
       state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
     }));
-    return [...cases, ...both, ...some.map(pressed)];
+    return [...cases, ...both, ...some.flatMap(pressed)];
   }
   return [
     ...cases,
@@ -296,7 +302,7 @@ function withCopies(
         state: movedAndTurned(c.state, copy.dx, copy.dy, copy.turns),
       })),
     ),
-    ...cases.map(pressed),
+    ...cases.flatMap(pressed),
   ];
 }
 

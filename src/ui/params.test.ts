@@ -72,6 +72,10 @@ describe('readPlateParams', () => {
       stats: true,
     });
     expect(readPlateParams('?cx=45').centre).toEqual([0.045, 0]);
+    expect(readPlateParams('?cy=-2.5').centre).toEqual([0, -0.0025]);
+    expect(readPlateParams('?cx=1e3&cy=0x10').centre).toBeNull();
+    expect(readPlateParams('?cx=&cy=').centre).toBeNull();
+    expect(readPlateParams('?cx=5000&cy=-5000').centre).toEqual([0.12, -0.12]);
     expect(readPlateParams('?view=graph').layout).toBe('graph');
   });
 

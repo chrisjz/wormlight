@@ -262,26 +262,50 @@ export const COPIES: readonly { label: string; dx: number; dy: number; turns: nu
   { label: 'turned 50 times', dx: 0, dy: 0, turns: 50 },
 ];
 
-// How far a copy pressed against the dish's wall has its deepest rod in: as deep as a worm's own muscles, a
-// micronewton or so a rod, press it, and deep enough that f32's few nanometres at 5 cm don't count.
-export const WALL_DEPTH = 2e-6; // m
+// Copies pressed against the dish's wall, which the kernel and the CPU must both push back. Each is moved out
+// to the wall at a bearing, and perhaps turned first so its head-to-tail line lies along the wall there, until
+// its deepest rod is `depth` past the wall less that rod's radius. A 2 µm press is held by about 14 µN, well
+// past the contact's 0.1 µm easing and deep enough that f32's few nanometres at 5 cm don't count; a 50 nm
+// press sits inside the easing.
+export interface WallCopy {
+  label: string;
+  depth: number; // m
+  bearing: number; // rad, round the dish from +x
+  along: boolean;
+}
+export const WALL_COPIES: readonly WallCopy[] = [
+  { label: 'pressed 2 µm into the wall', depth: 2e-6, bearing: 0, along: false },
+  { label: 'along the wall, pressed 2 µm', depth: 2e-6, bearing: Math.PI / 3, along: true },
+  { label: 'along the wall, pressed 50 nm', depth: 5e-8, bearing: Math.PI / 3, along: true },
+];
 
-// A copy of a state moved against the dish's wall, which the kernel and the CPU must both push back: its
-// centroid out along +x, and its deepest rod `depth` past the wall less that rod's radius.
-export function againstWall(state: WorldState, radii: ArrayLike<number>, wall: number, depth = WALL_DEPTH): WorldState {
+export function againstWall(state: WorldState, radii: ArrayLike<number>, wall: number, copy: WallCopy): WorldState {
   const n = state.x.length;
   const cx = state.x.reduce((a, b) => a + b, 0) / n;
   const cy = state.y.reduce((a, b) => a + b, 0) / n;
-  let dx = wall - 6e-4 - cx;
-  const dy = -cy;
+  // Turned about its centroid, the whole body at once, which the CPU's arithmetic barely notices.
+  const turn = copy.along
+    ? Math.atan2(Math.cos(copy.bearing), -Math.sin(copy.bearing)) -
+      Math.atan2(state.y[0] - state.y[n - 1], state.x[0] - state.x[n - 1])
+    : 0;
+  const [c, s] = [Math.cos(turn), Math.sin(turn)];
+  const x = Array.from(state.x, (xi, i) => (xi - cx) * c - (state.y[i] - cy) * s);
+  const y = Array.from(state.y, (yi, i) => (state.x[i] - cx) * s + (yi - cy) * c);
+  const [ux, uy] = [Math.cos(copy.bearing), Math.sin(copy.bearing)];
+  let out = wall - 6e-4;
   // The wall curves, so the deepest rod's depth is found and corrected a few times.
-  for (let k = 0; k < 4; k++) {
+  for (let k = 0; k < 6; k++) {
     let deepest = -Infinity;
     for (let i = 0; i < n; i++)
-      deepest = Math.max(deepest, Math.hypot(state.x[i] + dx, state.y[i] + dy) - (wall - radii[i]));
-    dx += depth - deepest;
+      deepest = Math.max(deepest, Math.hypot(x[i] + out * ux, y[i] + out * uy) - (wall - radii[i]));
+    out += copy.depth - deepest;
   }
-  return { ...state, x: state.x.map((x) => x + dx), y: state.y.map((y) => y + dy) };
+  return {
+    ...state,
+    x: Float64Array.from(x, (xi) => xi + out * ux),
+    y: Float64Array.from(y, (yi) => yi + out * uy),
+    theta: state.theta.map((t) => t + turn),
+  };
 }
 
 // Each rod's two end points' velocities, the points its springs act on: its centre's, plus or minus R θ̇

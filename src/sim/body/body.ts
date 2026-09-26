@@ -284,9 +284,9 @@ export class Body {
   }
 
   // The dish's wall (PLAN §5.2, DECISIONS.md 2026-09-26): a rod whose centre passes the wall, less the rod's
-  // radius, is pushed back along the wall's normal by a spring and a damper like a diagonal element's. The
-  // damper engages over the first WALL_SOFTENING of penetration, so the contact grows continuously from
-  // zero. The wall has no friction.
+  // radius, is pushed back along the wall's normal by a spring and a damper like a diagonal element's. Both
+  // ease in together over the first WALL_SOFTENING of penetration, so the contact grows smoothly from zero
+  // and the step can't overshoot a rod that only grazes the wall. The wall has no friction.
   private wallContact(i: number): void {
     const p = this.params;
     const rho = Math.hypot(this.x[i], this.y[i]);
@@ -294,8 +294,9 @@ export class Body {
     if (!(depth > 0)) return;
     const nx = this.x[i] / rho;
     const ny = this.y[i] / rho;
-    const f = -p.diagonalStiffness * depth;
-    const beta = p.diagonalDamping * Math.min(depth / WALL_SOFTENING, 1);
+    const ease = Math.min(depth / WALL_SOFTENING, 1);
+    const f = -p.diagonalStiffness * depth * ease;
+    const beta = p.diagonalDamping * ease;
     const o = 9 * i;
     this.rhs[3 * i] += f * nx;
     this.rhs[3 * i + 1] += f * ny;

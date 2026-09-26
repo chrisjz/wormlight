@@ -143,7 +143,8 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
   environment: {
     name: 'Environment',
     solid: "Diffusion with butanone's measured coefficient; the standard assay layout",
-    notSolid: 'A 2D air layer over uniform agar; the loss and release rates are ours; a lawn that only emits odour',
+    notSolid:
+      "A 2D air layer over uniform agar; the loss and release rates are ours; a lawn that only emits odour; the wall's contact is ours",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['lugg1968', 'bargmann1993'],
   },
@@ -570,7 +571,13 @@ export const COMPONENTS: readonly Component[] = [
     caveats: "Tanimoto et al. 2017's plate measurements (2-nonanone) are context only",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['tanimoto2017'],
-    testedBy: [{ check: 'checkpoint4' }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: 'the steady field of a point source matches the exact solution for a reflecting circular dish',
+      },
+      { check: 'checkpoint4' },
+    ],
   },
   {
     name: 'Food lawn',
@@ -590,13 +597,14 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "It stops the worm: a rod whose centre passes the wall, less the rod's radius, is pushed back along the wall's normal by a spring and a damper like the body's diagonal elements, without friction. It reflects odour: no flux crosses it",
     caveats:
-      'The damper engages over the first 0.1 µm of penetration, so a rod pressed lightly, under about 0.7 µN, can rock at the wall by tens of nanometres',
+      "Spring and damper ease in together over the first 0.1 µm, a numerical setting; the wall's test uses each rod's centre less its radius, so a rod edge-on to the wall stops up to its radius short, 40 µm at mid-body",
     upgrade: 'Measured contact between worms and dish walls',
     sources: [],
     testedBy: [
       {
         check: 'unit',
-        detail: "a pressed body stops at its spring's depth, and slides along the wall without friction",
+        detail:
+          'a pressed body stops still where its eased spring holds the push, slides along the wall without friction, and feels a force that grows smoothly from zero',
       },
     ],
   },

@@ -24,7 +24,7 @@ import {
   STATE_WORDS,
   STATUS_WORDS,
 } from './brainShader.ts';
-import type { LoopLayout } from './world.ts';
+import type { LoopLayout } from './loopLayout.ts';
 
 // FitzHugh's constants, as brain.ts has them: a neuron's recovery starts on its w-nullcline.
 const FHN_A = 0.7;

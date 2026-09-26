@@ -9,6 +9,9 @@ import { ODOUR_CELL, ODOUR_CELLS, ODOUR_SUBSTEP, ODOUR_TOLERANCE } from '../nume
 export const DIFFUSION = PARAMS.butanoneDiffusion.value * 1e-4; // cm² s⁻¹ → m² s⁻¹
 export const DECAY_LENGTH = PARAMS.odourDecayLength.value * 1e-2; // cm → m
 export const LOSS = DIFFUSION / (DECAY_LENGTH * DECAY_LENGTH); // s⁻¹, so that √(D/k) is the decay length
+// Conjugate gradients take about 1,000 iterations on the dish's grid; failing to settle in ten times that is
+// an error, not a field.
+const MAX_ITERATIONS = 10000;
 
 export interface Source {
   x: number;
@@ -138,7 +141,9 @@ export class OdourField {
     if (bb === 0) return { iterations: 0, residual: 0 };
     let rr = bb;
     let iterations = 0;
-    while (rr > tolerance * tolerance * bb && iterations < 10000) {
+    while (rr > tolerance * tolerance * bb) {
+      if (iterations === MAX_ITERATIONS)
+        throw new Error(`the odour field did not settle in ${MAX_ITERATIONS} iterations`);
       this.apply(p, q);
       let pq = 0;
       for (let n = 0; n < list.length; n++) pq += p[list[n]] * q[list[n]];
@@ -161,9 +166,12 @@ export class OdourField {
     return { iterations, residual: Math.sqrt(rr / bb) };
   }
 
-  // Advance the field by `seconds`, in explicit sub-steps of at most ODOUR_SUBSTEP.
+  // Advance the field by `seconds`, in explicit sub-steps of at most ODOUR_SUBSTEP, and within the scheme's
+  // stability limit on this grid, 2h²/(kh² + 8D).
   step(seconds: number): void {
-    const n = Math.max(1, Math.ceil(seconds / ODOUR_SUBSTEP - 1e-9));
+    const h = this.geometry.cell;
+    const most = Math.min(ODOUR_SUBSTEP, (0.95 * 2 * h * h) / (LOSS * h * h + 8 * DIFFUSION));
+    const n = Math.max(1, Math.ceil(seconds / most - 1e-9));
     const dt = seconds / n;
     const c = this.concentration;
     const change = this.scratch;
@@ -177,8 +185,8 @@ export class OdourField {
     }
   }
 
-  // The concentration at a point (m), bilinear between cell centres; cells outside the dish count as their
-  // nearest inside neighbour would, so the value doesn't dip at the wall.
+  // The concentration at a point (m), bilinear between cell centres; cells outside the dish are left out and
+  // the others' weights renormalised, so the value doesn't dip at the wall.
   sample(x: number, y: number): number {
     const { cells, cell } = this.geometry;
     const gx = Math.min(Math.max(x / cell + cells / 2 - 0.5, 0), cells - 1.000001);

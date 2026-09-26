@@ -55,6 +55,9 @@ export function applyTarget(base: Vec3, target: ViewParams['target']): Vec3 {
 // instead of on the worm; ?stats=1 shows the frame rate and the simulation's speed.
 export type Layout = 'split' | 'plate' | 'graph';
 
+// How far from the dish's centre a URL may centre the camera: as far as the plate's widest view reaches.
+export const REACH = 0.12; // m
+
 export interface PlateParams {
   layout: Layout;
   seed: number | null;
@@ -76,8 +79,12 @@ export function readPlateParams(search: string): PlateParams {
   const speed = Number(p.get('speed') ?? '');
   const cx = p.get('cx');
   const cy = p.get('cy');
-  const mm = (v: string | null): number =>
-    v !== null && v.trim() !== '' && Number.isFinite(Number(v)) ? Number(v) / 1000 : NaN;
+  // Millimetres, as plain decimals, clamped to within REACH of the dish's centre.
+  const mm = (v: string | null): number => {
+    const text = v?.trim() ?? '';
+    if (!/^-?\d+(\.\d+)?$/.test(text)) return NaN;
+    return Math.max(-REACH, Math.min(REACH, Number(text) / 1000));
+  };
   const centre: [number, number] = [mm(cx), mm(cy)];
   return {
     layout: view === 'plate' || view === 'graph' ? view : 'split',

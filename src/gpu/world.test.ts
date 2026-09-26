@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { regionMean } from '../sim/proprio.ts';
-import { rodRange } from './world.ts';
+import { rodRange } from './loopLayout.ts';
 
 describe("the GPU loop's rod ranges", () => {
   it('pick the rods regionMean averages, or the nearest one', () => {

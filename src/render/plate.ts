@@ -2,7 +2,6 @@
 // from the simulation's body buffer, into a 4× multisampled target resolved to the canvas. Like the graph's
 // renderer, it can render one frame into a texture of its own and read it back for the visual tests.
 
-import { toHalves } from './half.ts';
 import { AGAR_SHADER, wormShader } from './plateShaders.ts';
 import { snapshot } from './snapshot.ts';
 
@@ -64,10 +63,10 @@ export class PlateRenderer {
     const { cells, level } = scene.odour;
     this.odour = device.createTexture({
       size: [cells, cells],
-      format: 'r16float',
+      format: 'r32float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    device.queue.writeTexture({ texture: this.odour }, toHalves(level), { bytesPerRow: 2 * cells }, [cells, cells]);
+    device.queue.writeTexture({ texture: this.odour }, level, { bytesPerRow: 4 * cells }, [cells, cells]);
     this.frame = device.createBuffer({ size: FRAME_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
     this.radius = device.createBuffer({
       size: radii.byteLength,
@@ -79,7 +78,6 @@ export class PlateRenderer {
       entries: [
         { binding: 0, resource: { buffer: this.frame } },
         { binding: 1, resource: this.odour.createView() },
-        { binding: 2, resource: device.createSampler({ magFilter: 'linear', minFilter: 'linear' }) },
       ],
     });
     this.wormGroup = this.bodyGroup(body);

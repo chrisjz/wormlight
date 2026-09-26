@@ -1,5 +1,6 @@
 // Numerical settings (PLAN §3.4). They set accuracy, not biology, so they are not parameters in the
-// registry; the port check, the production check and the convergence tests are what justify them.
+// registry; the port check, the production check, the convergence tests and, for the wall's softening, the
+// agreement of the CPU and the GPU (GPU parity) are what justify them.
 
 // The neural step, in seconds: PLAN's target. Both checks pass at it with room to spare, and at 3.33 ms
 // with less; the port check fails at 5 ms (DECISIONS.md).
@@ -23,6 +24,7 @@ export const ODOUR_CELL = 4e-4; // m
 export const ODOUR_SUBSTEP = 0.004; // s
 export const ODOUR_TOLERANCE = 1e-10;
 
-// The dish wall's damper engages over this much penetration, so the contact force and its damping both grow
-// continuously from zero and the CPU and the GPU can't disagree about a rod that only grazes the wall.
+// The dish wall's spring and damper ease in together over this much penetration, so the contact grows smoothly
+// from zero: the explicit step can't overshoot a rod that only grazes the wall, and the CPU and the GPU can't
+// disagree much about one. It shapes contact only within its first 0.1 µm.
 export const WALL_SOFTENING = 1e-7; // m

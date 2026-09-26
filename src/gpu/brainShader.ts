@@ -78,6 +78,12 @@ export const TURN_GRID = Math.round((2 * Math.PI) / ANGLE_GRID) * ANGLE_GRID;
 // Per segment: the lateral and diagonal rest lengths, the shortest muscle, the efficacy and the diagonal rest
 // length squared.
 export const SEGMENT_WORDS = 5;
+// Per rod: its radius, its rotational drag, and W² in units of 2⁻⁴⁰ m², where W is the dish's radius less
+// the rod's: its whole part as two 16-bit halves, each exact in f32, and its fraction. The wall's depth is
+// found from these exactly enough to agree with the CPU's to far below a nanometre.
+export const ROD_CONSTANTS = 5;
+// The dish's radius the kernel can hold: the squares of the coarse parts, in grid units, must fit a u32.
+export const MAX_WALL = 0.06; // m
 
 // The pool of workgroup memory: the brain's two vectors while it steps, the body's blocks while it steps.
 const POOL = {
@@ -388,8 +394,8 @@ struct Element {
 
 // The stretch rest − L is taken as (rest² − L²)/(rest + L), from the rest length and its square.
 fn element(m: u32, sa: f32, sb: f32, k: f32, rest: f32, rest2: f32) -> Element {
-  let ra = sa * weights[params.rod_const_at + 2u * m];
-  let rb = sb * weights[params.rod_const_at + 2u * (m + 1u)];
+  let ra = sa * weights[params.rod_const_at + ${ROD_CONSTANTS}u * m];
+  let rb = sb * weights[params.rod_const_at + ${ROD_CONSTANTS}u * (m + 1u)];
   let ca = rod_c[m];
   let sna = rod_s[m];
   let cb = rod_c[m + 1u];
@@ -461,22 +467,35 @@ fn assemble_row(i: u32, rods: u32, xh: f32, xl: f32, yh: f32, yl: f32) -> Row {
   row.d = mat3x3<f32>(
     vec3<f32>(params.drag_normal * cs * cs + params.drag_tangential * sn * sn, cross_drag, 0.0),
     vec3<f32>(cross_drag, params.drag_normal * sn * sn + params.drag_tangential * cs * cs, 0.0),
-    vec3<f32>(0.0, 0.0, weights[params.rod_const_at + 2u * i + 1u] / (params.radius * params.radius)),
+    vec3<f32>(0.0, 0.0, weights[params.rod_const_at + ${ROD_CONSTANTS}u * i + 1u] / (params.radius * params.radius)),
   );
   // The dish's wall, as Body.wallContact has it: a spring and a damper like a diagonal element's along the
-  // wall's normal, the damper engaging over the first WALL_SOFTENING of penetration.
+  // wall's normal, both easing in over the first WALL_SOFTENING of penetration. Near the wall, the depth
+  // ρ − W is found as (ρ² − W²)/(ρ + W), with ρ² − W² taken exactly: the coarse parts' squares and W²'s
+  // whole part differenced as integers, in units of 2⁻⁴⁰ m², then its fraction and the small cross terms
+  // added in f32. f32 alone knows ρ at 5 cm only to a few nanometres, as deep as a light press.
+  let at = params.rod_const_at + ${ROD_CONSTANTS}u * i;
   let centre = vec2<f32>(xh + xl, yh + yl);
   let rho = length(centre);
-  let depth = rho - (params.wall - weights[params.rod_const_at + 2u * i]);
-  if (depth > 0.0) {
+  let reach = params.wall - weights[at];
+  if (rho - reach > -1e-6) {
+    let gx = u32(abs(round(xh * ${2 ** 20}.0)));
+    let gy = u32(abs(round(yh * ${2 ** 20}.0)));
+    let whole = u32(weights[at + 2u]) * 65536u + u32(weights[at + 3u]);
+    let coarse = f32(bitcast<i32>(gx * gx + gy * gy - whole));
+    let fine = (2.0 * (xh * xl + yh * yl) + xl * xl + yl * yl) * ${2 ** 40}.0;
+    let depth = (coarse - weights[at + 4u] + fine) / ${2 ** 40}.0 / (rho + reach);
+    if (depth > 0.0) {
     let n = centre / rho;
-    let beta = params.diagonal_b * min(depth / ${WALL_SOFTENING}, 1.0);
-    row.r += vec3<f32>(n * (-params.diagonal_k * depth), 0.0);
+    let ease = min(depth / ${WALL_SOFTENING}, 1.0);
+    let beta = params.diagonal_b * ease;
+    row.r += vec3<f32>(n * (-params.diagonal_k * depth * ease), 0.0);
     row.d += mat3x3<f32>(
       vec3<f32>(beta * n.x * n.x, beta * n.x * n.y, 0.0),
       vec3<f32>(beta * n.x * n.y, beta * n.y * n.y, 0.0),
       vec3<f32>(0.0),
     );
+    }
   }
   if (i < segments) {
     for (var which = 0u; which < 4u; which++) {

@@ -7,19 +7,19 @@
 //   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser.
 
 import type { WormlightData } from '../data/schema.ts';
-import { ROD_WORDS } from '../gpu/brainShader.ts';
+import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
 import { GpuWorld } from '../gpu/world.ts';
 import { PlateRenderer, type PlateFrame, type PlateScene } from '../render/plate.ts';
 import { halfExtent, metresPerPixel, scaleBar, zoomAbout, type PlateCamera } from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
-import { LAWN_RADIUS, SPOT, steadyField } from '../sim/env/dish.ts';
+import { LAWN_RADIUS, SPOT } from '../sim/env/dish.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { Pacer, Rates } from './pacing.ts';
 import type { PlateParams } from './params.ts';
+import { plateScene } from './scene.ts';
 import { appWorld } from './start.ts';
 
 const DISH = PARAMS.dishDiameter.value / 200; // cm → m, radius
-const K = PARAMS.awcAdaptationScale.value; // µM, the top of AWC's working range (PLAN §4.1)
 const LENGTH = PARAMS.bodyLength.value / 1000; // mm → m
 const SPAN = 3 * LENGTH; // the default field of view across the shorter side
 const SPAN_LIMITS: [number, number] = [0.4 * LENGTH, 2.4 * DISH];
@@ -57,42 +57,6 @@ function svg<K extends keyof SVGElementTagNameMap>(
   const node = document.createElementNS(SVG, tag);
   for (const [k, v] of Object.entries(attributes)) node.setAttribute(k, String(v));
   return node;
-}
-
-// The app's dish: the lawn where checkpoint 4's spot sits, and its steady odour field as log₂(C/K) for drawing.
-// Cells outside the dish take their inside neighbours' values, a few rings deep, so the texture's filtering
-// doesn't pull the field down at the wall and crowd isolines there.
-function plateScene(): PlateScene {
-  const field = steadyField('lawn');
-  const { cells, cell } = field.geometry;
-  const level = new Float32Array(cells * cells).fill(NaN);
-  for (let k = 0; k < level.length; k++) {
-    if (field.inside[k] && field.concentration[k] > 0) level[k] = Math.log2(field.concentration[k] / K);
-  }
-  for (let ring = 0; ring < 4; ring++) {
-    const next = Float32Array.from(level);
-    for (let j = 1; j < cells - 1; j++) {
-      for (let i = 1; i < cells - 1; i++) {
-        const k = j * cells + i;
-        if (!Number.isNaN(level[k])) continue;
-        let sum = 0;
-        let n = 0;
-        for (const m of [k - 1, k + 1, k - cells, k + cells]) {
-          if (!Number.isNaN(level[m])) {
-            sum += level[m];
-            n++;
-          }
-        }
-        if (n > 0) next[k] = sum / n;
-      }
-    }
-    level.set(next);
-  }
-  for (let k = 0; k < level.length; k++) if (Number.isNaN(level[k])) level[k] = -30;
-  return {
-    odour: { level, cells, extent: cells * cell },
-    lawn: { x: SPOT[0], y: SPOT[1], radius: LAWN_RADIUS },
-  };
 }
 
 // A seed for a visit that doesn't name one.
@@ -135,12 +99,23 @@ export async function startPlate(
 
   let seed = params.seed ?? randomSeed();
   let world = appWorld(data, seed);
-  // The GPU compiles the world's pipeline while the CPU solves the lawn's steady odour field.
+  // The GPU compiles the world's pipeline while the CPU solves the lawn's steady odour field: the page yields
+  // first, so the browser sends the GPU its work before the solve holds the thread.
   const creating = GpuWorld.create(device, world);
-  const scene = plateScene();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  let scene: PlateScene;
+  try {
+    scene = plateScene();
+  } catch (e) {
+    creating.then(
+      (made) => made.destroy(),
+      () => undefined,
+    );
+    throw e;
+  }
   const gpu = await creating;
   const rods = gpu.layout.rods;
-  const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[2 * i]);
+  const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[ROD_CONSTANTS * i]);
   let renderer: PlateRenderer;
   try {
     renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH, scene);
@@ -421,6 +396,7 @@ export async function startPlate(
       case 'F':
         setFollowing(true);
         break;
+      // Home: back to following the worm, at the view the page opened with.
       case 'Home':
         camera = { centre: centroid, span: homeSpan };
         setFollowing(true);

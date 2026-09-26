@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PARAMS } from '../../science/params.ts';
+import { WALL_SOFTENING } from '../numerics.ts';
 import { Body, boyleBody, ellipseRadii } from './body.ts';
 
 const LENGTH = PARAMS.bodyLength.value * 1e-3;
@@ -511,24 +512,29 @@ describe("the dish's wall", () => {
   };
   const depth = (body: Body, i: number): number => Math.hypot(body.x[i], body.y[i]) - (WALL - body.params.radii[i]);
 
-  it('stops a body pressed against it, at the depth its spring holds', () => {
+  it('stops a body pressed against it, and holds it still where its eased spring balances the push', () => {
     const body = nearWall(20e-6);
     // 100 nN a rod outwards: free, the body would cross 20 µm in under half a second, and keep going.
     const force = 1e-7;
     expect((20e-6 * DRAG_NORMAL) / force).toBeLessThan(0.5);
     outwards(body, force);
-    // No rod ever gets far in: the thinner rods towards the ends, pushed as hard, rock at the wall by a few
-    // tens of nanometres, where the damper is only partly engaged.
+    // Striking the wall, a rod goes no deeper than one step's free travel past where it settles.
+    const k = body.params.diagonalStiffness;
+    const settled = Math.sqrt((force * WALL_SOFTENING) / k); // k·d²/δ = F, below δ
     let deepest = 0;
-    for (let k = 0; k < 1200; k++) {
+    for (let s = 0; s < 1200; s++) {
       body.step(0.0025);
       for (let i = 0; i < body.rods; i++) deepest = Math.max(deepest, depth(body, i));
     }
-    expect(deepest).toBeLessThan(100e-9);
-    // The mid-body rod, the first to touch, rests where the wall's spring holds its push: 100 nN over 7 N/m.
-    expect(depth(body, 24) / (force / body.params.diagonalStiffness)).toBeCloseTo(1, 2);
-    const v = body.rates();
-    expect(Math.abs(v[3 * 24])).toBeLessThan(1e-8);
+    expect(deepest).toBeLessThan(settled + (force * 0.0025) / DRAG_NORMAL);
+    // The mid-body rod, the first to touch, rests where the eased spring holds its push: 38 nm.
+    expect(depth(body, 24) / settled).toBeCloseTo(1, 2);
+    // And nothing rocks: over another half second, no touching rod moves by a nanometre.
+    const before = Array.from({ length: body.rods }, (_, i) => depth(body, i));
+    for (let s = 0; s < 200; s++) body.step(0.0025);
+    for (let i = 0; i < body.rods; i++) {
+      if (before[i] > 0) expect(Math.abs(depth(body, i) - before[i])).toBeLessThan(1e-9);
+    }
   });
 
   it('adds nothing along it: no friction', () => {
@@ -546,10 +552,27 @@ describe("the dish's wall", () => {
     expect(Math.abs(v[3 * 24] - w[3 * 24])).toBeGreaterThan(0);
   });
 
-  it('pushes back continuously from nothing at first touch', () => {
-    const body = nearWall(-1e-12);
-    // A picometre in, the wall's force is 7 pN at most, and the body barely moves.
-    const v = body.rates();
-    for (let i = 0; i < body.rods; i++) expect(Math.abs(v[3 * i])).toBeLessThan(10e-12 / DRAG_NORMAL);
+  it('pushes back from nothing at first touch, growing smoothly, with no jump where the easing ends', () => {
+    // The mid-body rod alone in contact, at a given depth, unforced: how fast the wall pushes it back.
+    const pushBack = (d: number): number => {
+      const body = nearWall(-d);
+      return -body.rates()[3 * 24];
+    };
+    const [tiny, small, eased, full] = [1e-12, 1e-9, 5e-8, 1e-6].map(pushBack);
+    expect(tiny).toBeGreaterThan(0);
+    expect(tiny).toBeLessThan(1e-9 * full);
+    expect(small).toBeGreaterThan(tiny);
+    expect(eased).toBeGreaterThan(small);
+    expect(full).toBeGreaterThan(eased);
+    // Continuous where the easing ends, at WALL_SOFTENING.
+    const [below, above] = [WALL_SOFTENING * (1 - 1e-6), WALL_SOFTENING * (1 + 1e-6)].map(pushBack);
+    expect(Math.abs(above - below) / above).toBeLessThan(1e-5);
+    // With no wall, nothing pushes back.
+    const free = new Body({ ...boyleBody(), wall: 1e3 });
+    const body = nearWall(-1e-6);
+    free.x.set(body.x);
+    free.y.set(body.y);
+    free.theta.set(body.theta);
+    expect(Math.abs(free.rates()[3 * 24])).toBeLessThan(1e-6 * full);
   });
 });

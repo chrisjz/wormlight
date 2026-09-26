@@ -13,11 +13,13 @@ import {
   loopCases,
   movedAndTurned,
   paritySetup,
-  WALL_DEPTH,
+  WALL_COPIES,
   seededWorld,
   variantSetup,
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
+import { ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
+import { packLoop } from '../src/gpu/loopLayout.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
 import { readJson } from './checks.ts';
 
@@ -132,29 +134,49 @@ describe("the loop's parity", () => {
     expect(copy.muscles).toBe(c.state.muscles);
   });
 
-  it("presses copies against the dish's wall, which the reference pushes back from", () => {
+  it("presses copies against the dish's wall, head on and lying along it, which the reference pushes back", () => {
     const { radii, wall } = boyleBody();
     const state = loopCases(data)[5].state;
-    const pressed = againstWall(state, radii, wall);
-    const depths = Array.from(pressed.x, (x, i) => Math.hypot(x, pressed.y[i]) - (wall - radii[i]));
-    expect(Math.max(...depths)).toBeCloseTo(WALL_DEPTH, 12);
-    // Only the place changes, by one shift for the whole body.
-    const dx = pressed.x[0] - state.x[0];
-    const dy = pressed.y[0] - state.y[0];
-    for (let i = 0; i < state.x.length; i++) {
-      expect(pressed.x[i] - state.x[i]).toBeCloseTo(dx, 12);
-      expect(pressed.y[i] - state.y[i]).toBeCloseTo(dy, 12);
+    for (const copy of WALL_COPIES) {
+      const pressed = againstWall(state, radii, wall, copy);
+      const depths = Array.from(pressed.x, (x, i) => Math.hypot(x, pressed.y[i]) - (wall - radii[i]));
+      expect(Math.max(...depths), copy.label).toBeCloseTo(copy.depth, 12);
+      // Only its place and heading change, the body moved and turned as one: its shape is the same.
+      const shape = (x: ArrayLike<number>, y: ArrayLike<number>): number[] =>
+        Array.from({ length: x.length - 1 }, (_, i) => Math.hypot(x[i + 1] - x[i], y[i + 1] - y[i]));
+      shape(pressed.x, pressed.y).forEach((d, i) => expect(d).toBeCloseTo(shape(state.x, state.y)[i], 12));
+      expect(pressed.brain).toBe(state.brain);
+      expect(pressed.muscles).toBe(state.muscles);
+      // The reference pushes the deepest rod back out along the wall's normal.
+      const world = cpuWorld(data, pressed);
+      const deepest = depths.indexOf(Math.max(...depths));
+      const v = world.body.rates();
+      const rho = Math.hypot(pressed.x[deepest], pressed.y[deepest]);
+      expect((v[3 * deepest] * pressed.x[deepest] + v[3 * deepest + 1] * pressed.y[deepest]) / rho).toBeLessThan(0);
     }
-    expect(pressed.theta).toEqual(state.theta);
-    expect(pressed.brain).toBe(state.brain);
-    // The reference pushes the deepest rods back out along the wall's normal.
-    const world = cpuWorld(data, pressed);
-    const deepest = depths.indexOf(Math.max(...depths));
-    const v = world.body.rates();
-    const [nx, ny] = [pressed.x[deepest], pressed.y[deepest]].map(
-      (c) => c / Math.hypot(pressed.x[deepest], pressed.y[deepest]),
+    // Lying along the wall, several rods meet it, where its normal isn't along an axis.
+    const along = againstWall(state, radii, wall, WALL_COPIES[1]);
+    const touching = Array.from(along.x, (x, i) => Math.hypot(x, along.y[i]) - (wall - radii[i])).filter(
+      (d) => d > -1e-6,
     );
-    expect(v[3 * deepest] * nx + v[3 * deepest + 1] * ny).toBeLessThan(0);
+    expect(touching.length).toBeGreaterThan(3);
+  });
+
+  it("packs the dish's wall for the kernel, W² exact in its parts, and refuses a dish it can't hold", () => {
+    const world = cpuWorld(data, loopCases(data)[0].state);
+    const layout = packLoop(world);
+    const { radii, wall } = world.body.params;
+    expect(layout.scalars.wall).toBe(wall);
+    for (let i = 0; i < radii.length; i++) {
+      const [hi, lo, fraction] = [2, 3, 4].map((k) => layout.rodConstants[ROD_CONSTANTS * i + k]);
+      expect(hi * 65536 + lo + fraction).toBeCloseTo((wall - radii[i]) ** 2 * 2 ** 40, 3);
+      expect(layout.rodConstants[ROD_CONSTANTS * i]).toBe(Math.fround(radii[i]));
+    }
+    const params = world.body.params as { wall: number };
+    for (const bad of [0.1, Infinity, 0]) {
+      params.wall = bad;
+      expect(() => packLoop(world)).toThrow(/dish of radius/);
+    }
   });
 
   it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {

@@ -11,6 +11,7 @@
     "../src/ui/inspection.ts",
     "../src/science/provenance.ts",
     "../src/gpu/parityCases.ts",
-    "../src/gpu/brainShader.ts"
+    "../src/gpu/brainShader.ts",
+    "../src/gpu/loopLayout.ts"
   ]
 }

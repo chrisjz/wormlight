@@ -51,9 +51,22 @@ fn noise(p: vec2<f32>) -> f32 {
 export const AGAR_SHADER = /* wgsl */ `
 ${FRAME}
 ${HASH}
-// The odour field as log₂(C/K), on a grid centred on the dish.
+// The odour field as log₂(C/K), on a grid centred on the dish, interpolated here in f32 between its four
+// nearest cells, so it stays smooth, and its isolines narrow, at any zoom.
 @group(0) @binding(1) var odour_map: texture_2d<f32>;
-@group(0) @binding(2) var odour_sampler: sampler;
+
+fn odour_level(q: vec2<f32>) -> f32 {
+  let n = f32(textureDimensions(odour_map).x);
+  let g = clamp((q / frame.field_extent + 0.5) * n - 0.5, vec2<f32>(0.0), vec2<f32>(n - 1.001));
+  let c = floor(g);
+  let f = g - c;
+  let i = vec2<i32>(c);
+  let a = textureLoad(odour_map, i, 0).r;
+  let b = textureLoad(odour_map, i + vec2<i32>(1, 0), 0).r;
+  let d = textureLoad(odour_map, i + vec2<i32>(0, 1), 0).r;
+  let e = textureLoad(odour_map, i + vec2<i32>(1, 1), 0).r;
+  return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+}
 
 struct Out {
   @builtin(position) position: vec4<f32>,
@@ -93,8 +106,8 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
   let r = length(q);
   let px = frame.pixel;
   // The odour: log₂ of the concentration over K, and how fast it changes across a pixel, for its isolines.
-  let level = textureSampleLevel(odour_map, odour_sampler, q / frame.field_extent + 0.5, 0.0).r;
-  let slope = max(fwidth(level), 1e-4);
+  let level = odour_level(q);
+  let slope = max(fwidth(level), 1e-6);
   // Agar: dark, faintly mottled at two scales, with specks that scatter light.
   let mottle = noise(q / 1.1e-3) * 0.5 + noise(q / 3e-4) * 0.3 + noise(q / 9e-5) * 0.2;
   var light = 0.026 + 0.018 * mottle;

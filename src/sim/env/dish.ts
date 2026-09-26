@@ -27,17 +27,21 @@ export function releaseRate(): number {
   return K / field.sample(SPOT[0] - CAPTURE_RADIUS, SPOT[1]);
 }
 
+// The rate the rule gives, 0.953 µM·cm²/s, fixed here so the app needn't solve for it at startup; a test
+// recomputes it from the rule.
+export const RELEASE_RATE = 9.53199e-5; // µM·m²/s
+
 export type Layout = 'assay' | 'lawn';
 
 // The sources of a layout: checkpoint 4's butanone spot (the control releases nothing), or the app's lawn.
-export function sources(layout: Layout, rate = releaseRate()): Source[] {
+export function sources(layout: Layout, rate = RELEASE_RATE): Source[] {
   return layout === 'assay'
     ? [{ x: SPOT[0], y: SPOT[1], rate }]
     : [{ x: SPOT[0], y: SPOT[1], rate, radius: LAWN_RADIUS }];
 }
 
 // A layout's field at its steady state, as trials and the app start from it.
-export function steadyField(layout: Layout, rate = releaseRate()): OdourField {
+export function steadyField(layout: Layout, rate = RELEASE_RATE): OdourField {
   const field = new OdourField();
   for (const s of sources(layout, rate)) field.addSource(s);
   field.steady();
