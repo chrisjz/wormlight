@@ -1,7 +1,7 @@
 // One simulated worm (PLAN §1): the brain, the layers outside it (spec §1.1) and the body, stepped in the
-// plan's order. Milestone 0c has no odour or touch yet, so a step reads the body's curvature, sets the
-// proprioceptive and head-switch currents, advances the brain, turns its activation into muscle activation
-// and advances the body.
+// plan's order. There is no touch yet, so a step reads the body's curvature and the odour at the nose, sets the
+// proprioceptive, AWC and head-switch currents, advances the brain, turns its activation into muscle
+// activation and advances the body.
 
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
@@ -19,6 +19,7 @@ import { hash } from './brain/rng.ts';
 import { Muscles } from './muscles.ts';
 import { NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
+import { AWC_GAIN, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 
 // The calibrated parameters (PLAN §6.2), in the units the simulation uses.
 export interface LoopParams {
@@ -105,6 +106,8 @@ export interface WorldOptions {
   solver?: SolverOptions;
   // The head switch's threshold P_th, if not the registry's: GPU parity lowers it so the switch flips often.
   switchThreshold?: number;
+  // The butanone AWC-ON senses (PLAN §4.1); with none, the concentration is 0 everywhere.
+  odour?: Odour;
 }
 
 // Everything the next step reads, so another world, on the CPU or the GPU, can take the same step.
@@ -121,6 +124,8 @@ export interface WorldState {
   h: number;
   previousCurvature: number | null;
   switchCurrent: number;
+  // AWC-ON's adaptive threshold T (µM).
+  awcThreshold: number;
 }
 
 export class World {
@@ -138,6 +143,14 @@ export class World {
   readonly ventralSwitch: readonly number[];
   readonly headFrom: number;
   readonly headTo: number;
+  // Which AWC is ON, drawn from the seed; its neuron, or −1 if lesioned; where along the body it senses; its
+  // sensor; and the current it took on the last step. AWC-OFF takes no odour.
+  readonly awcSide: AwcSide;
+  readonly awcOn: number;
+  readonly nose: number;
+  readonly awc: AwcSensor;
+  readonly odour: Odour | null;
+  awcCurrent = 0;
   private readonly smd: Set<number>;
 
   constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
@@ -202,6 +215,31 @@ export class World {
       options.switchThreshold ?? PARAMS.headSwitchThreshold.value,
       hash(seed, 0, 0xffffffff) & 1,
     );
+
+    // Which AWC is ON is decided at random in each animal (Troemel, Sagasti & Bargmann 1999), so it is drawn
+    // from the seed too, on a lane of its own.
+    this.awcSide = hash(seed, 0, 0xfffffffb) & 1 ? 'AWCR' : 'AWCL';
+    const on = data.neurons.findIndex((n) => n.name === this.awcSide);
+    const sensing = data.neurons[on]?.sensing;
+    if (sensing?.kind !== 'tip') throw new Error(`${this.awcSide} should sense at its dendrite's tip`);
+    this.awcOn = alive(this.awcSide) ? on : -1;
+    this.nose = sensing.s;
+    this.awc = new AwcSensor(AWC_GAIN[this.awcSide]);
+    this.odour = options.odour ?? null;
+    this.adapt();
+  }
+
+  // The concentration (µM) where AWC senses.
+  smell(): number {
+    if (!this.odour) return 0;
+    const [x, y] = this.body.at(this.nose);
+    return this.odour.sample(x, y);
+  }
+
+  // Adapt AWC-ON's threshold to the concentration where it is now, as a worm that has sat there a while: the
+  // world does on its creation, and whoever moves the body afterwards does again.
+  adapt(): void {
+    this.awc.adapt(this.smell());
   }
 
   snapshot(): WorldState {
@@ -215,6 +253,7 @@ export class World {
       h: this.headSwitch.h,
       previousCurvature: this.headSwitch.lastCurvature,
       switchCurrent: this.switchCurrent,
+      awcThreshold: this.awc.threshold,
     };
   }
 
@@ -230,6 +269,7 @@ export class World {
     this.muscles.segments(this.body.dorsal, this.body.ventral);
     this.headSwitch.restore(state.h, state.previousCurvature);
     this.switchCurrent = state.switchCurrent;
+    this.awc.threshold = state.awcThreshold;
   }
 
   get time(): number {
@@ -273,6 +313,9 @@ export class World {
       brain.input[field.neuron] +=
         params.proprioceptiveGain * field.side * regionMean(this.curvature, field.from, field.to);
     }
+    // AWC-ON's threshold follows the odour at the nose, and the difference drives it (PLAN §4.1).
+    this.awcCurrent = this.awc.step(this.smell(), dt);
+    if (this.awcOn >= 0) brain.input[this.awcOn] += this.awcCurrent;
     const gated = this.headDrive() > params.driveThreshold;
     this.headSwitch.update(regionMean(this.curvature, this.headFrom, this.headTo), dt, gated);
     const current = gated ? params.switchGain * (this.headSwitch.h - 0.5) : 0;

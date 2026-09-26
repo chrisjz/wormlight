@@ -6,6 +6,8 @@ import { hash, uniform } from '../src/sim/brain/rng.ts';
 import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
 import {
   againstWall,
+  assayField,
+  COPIES,
   cpuWorld,
   endVelocities,
   gaussianBound,
@@ -18,8 +20,9 @@ import {
   variantSetup,
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
-import { ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
-import { packLoop } from '../src/gpu/loopLayout.ts';
+import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
+import { packLoop, packOdour } from '../src/gpu/loopLayout.ts';
+import { World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
 import { readJson } from './checks.ts';
 
@@ -124,6 +127,26 @@ describe("the loop's parity", () => {
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
+  it("puts every world in the assay's odour field, with each AWC ON in some, and T above and below the odour", () => {
+    const sides = new Set<string>();
+    for (const setup of LOOP_SETUPS) {
+      const c = loopCases(data, setup)[1];
+      const world = cpuWorld(data, c.state, undefined, setup);
+      sides.add(world.awcSide);
+      expect(world.odour).toBe(assayField());
+      expect(world.smell()).toBeGreaterThan(0.5);
+    }
+    expect([...sides].sort()).toEqual(['AWCL', 'AWCR']);
+    // Moved away from the spot, the odour falls below the threshold adapted at the centre; pressed against the
+    // wall beside the spot, it rises far above.
+    const { radii, wall } = boyleBody();
+    const state = loopCases(data)[5].state;
+    const moved = cpuWorld(data, movedAndTurned(state, COPIES[0].dx, COPIES[0].dy, 0));
+    expect(moved.smell()).toBeLessThan(moved.awc.threshold);
+    const pressed = cpuWorld(data, againstWall(state, radii, wall, WALL_COPIES[0]));
+    expect(pressed.smell()).toBeGreaterThan(4 * pressed.awc.threshold);
+  });
+
   it('moves and turns copies of a state without touching anything else', () => {
     const c = loopCases(data)[3];
     const copy = movedAndTurned(c.state, 0.03, -0.03, 50);
@@ -177,6 +200,33 @@ describe("the loop's parity", () => {
       params.wall = bad;
       expect(() => packLoop(world)).toThrow(/dish of radius/);
     }
+  });
+
+  it('packs AWC-ON, where it senses and the odour for the kernel', () => {
+    const world = cpuWorld(data, loopCases(data)[0].state);
+    const layout = packLoop(world);
+    expect(layout.awcOn).toBe(world.awcOn);
+    // The nose lies between rods 0 and 1, s·M of the way.
+    expect(layout.awcRod).toBe(0);
+    expect(layout.scalars.awc_along).toBeCloseTo(world.nose * world.body.params.segments, 15);
+    expect([layout.scalars.awc_gain, layout.scalars.awc_scale, layout.scalars.awc_time]).toEqual([
+      world.awc.gain,
+      world.awc.scale,
+      world.awc.time,
+    ]);
+    const field = assayField();
+    const { cells, cell } = field.geometry;
+    expect([layout.odour.cells, layout.odour.cell, layout.scalars.odour_cell]).toEqual([cells, cell, cell]);
+    layout.odour.values.forEach((v, k) => {
+      if (field.inside[k]) expect(v).toBe(Math.fround(field.concentration[k]));
+      else expect(v).toBe(OUTSIDE);
+    });
+    // With no odour, a grid all outside; a lesioned AWC-ON, no neuron.
+    const bare = new World(data, LOOP_SETUPS[0].params, { seed: world.brain.seed, lesions: [world.awcSide] });
+    const blank = packLoop(bare);
+    expect(blank.awcOn).toBe(NO_NEURON);
+    expect(Array.from(blank.odour.values)).toEqual([OUTSIDE, OUTSIDE, OUTSIDE, OUTSIDE]);
+    expect(() => packOdour({ sample: () => 1 })).toThrow(/OdourField/);
   });
 
   it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {

@@ -2,7 +2,7 @@
 // that takes any number of steps. It mirrors the CPU reference's Brain, which it is checked against
 // (parity.ts), and trades state with it as a BrainState. It runs whatever network it is given, a lesioned or
 // rewired one included, with the thresholds the caller gives, which stay fixed (PLAN §3.3). Given a loop
-// layout (world.ts), each step is a whole World's instead: the brain, and the loop outside it.
+// layout (loopLayout.ts), each step is a whole World's instead: the brain, and the loop outside it.
 
 import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
 import { midpointActivation } from '../sim/brain/brain.ts';
@@ -24,7 +24,7 @@ import {
   STATE_WORDS,
   STATUS_WORDS,
 } from './brainShader.ts';
-import type { LoopLayout } from './loopLayout.ts';
+import { packOdour, type LoopLayout, type OdourGrid } from './loopLayout.ts';
 
 // FitzHugh's constants, as brain.ts has them: a neuron's recovery starts on its w-nullcline.
 const FHN_A = 0.7;
@@ -113,7 +113,8 @@ export class GpuBrain {
   private readonly threshold: Float64Array;
   private readonly wiring: PackedNetwork;
   private readonly wiringBuffers: GPUBuffer[];
-  private readonly bindGroup: GPUBindGroup;
+  private bindGroup: GPUBindGroup;
+  private odour: GPUTexture;
   private readonly pipeline: GPUComputePipeline;
   private readonly params: GPUBuffer;
   private readonly neurons: GPUBuffer;
@@ -189,19 +190,8 @@ export class GpuBrain {
       return b;
     };
     this.wiringBuffers = [upload(topology), upload(weights), upload(this.wiring.chemical)];
-    const resources = [
-      this.params,
-      ...this.wiringBuffers,
-      this.neurons,
-      this.input,
-      this.state,
-      this.status,
-      this.body,
-    ];
-    this.bindGroup = device.createBindGroup({
-      layout: pipeline.getBindGroupLayout(0),
-      entries: resources.map((b, binding) => ({ binding, resource: { buffer: b } })),
-    });
+    this.odour = this.odourTexture(loop?.odour ?? packOdour(null));
+    this.bindGroup = this.bind();
     void device.lost.then((info) => {
       this.lost = info.message || info.reason;
     });
@@ -349,14 +339,29 @@ export class GpuBrain {
     }
     words.set(state.muscles, ROD_WORDS * rods);
     this.device.queue.writeBuffer(this.body, 0, words);
-    const bytes = new ArrayBuffer(4 * 4);
+    const bytes = new ArrayBuffer(4 * 5);
     const f = new Float32Array(bytes);
     const u = new Uint32Array(bytes);
     f[0] = state.h;
     f[1] = state.previousCurvature ?? 0;
     u[2] = state.previousCurvature === null ? 0 : 1;
     f[3] = state.switchCurrent;
+    f[4] = state.awcThreshold;
     this.device.queue.writeBuffer(this.status, 4 * 8, bytes);
+  }
+
+  // The odour AWC-ON senses from the next step on.
+  setOdour(grid: OdourGrid): void {
+    this.alive();
+    const loop = this.loop;
+    if (!loop) throw new Error('this GPU brain has no loop');
+    const texture = this.odourTexture(grid);
+    // Work already queued keeps the old texture until it is done.
+    this.odour.destroy();
+    this.odour = texture;
+    this.bindGroup = this.bind();
+    loop.odour = grid;
+    loop.scalars.odour_cell = grid.cell;
   }
 
   // Make the next step implicit Euler, as after a jump in the input.
@@ -406,6 +411,8 @@ export class GpuBrain {
             at.nmWeight,
             at.rodConstants,
             at.segmentConstants,
+            loop.awcOn,
+            loop.awcRod,
           ],
           20,
         );
@@ -508,7 +515,8 @@ export class GpuBrain {
     };
   }
 
-  // The loop's state from a read's bytes: the body's coordinates rejoined, the muscles and the switch.
+  // The loop's state from a read's bytes: the body's coordinates rejoined, the muscles, the switch and AWC-ON's
+  // threshold.
   private readLoop(bytes: ArrayBuffer, stateBytes: number): LoopState {
     const loop = this.loop as LoopLayout;
     const { rods, muscles } = loop;
@@ -529,6 +537,7 @@ export class GpuBrain {
       h: status[8],
       previousCurvature: flags[10] === 1 ? status[9] : null,
       switchCurrent: status[11],
+      awcThreshold: status[12],
     };
   }
 
@@ -546,10 +555,38 @@ export class GpuBrain {
     ]) {
       b.destroy();
     }
+    this.odour.destroy();
   }
 
   private alive(): void {
     if (this.destroyed) throw new Error('the GPU brain has been destroyed');
+  }
+
+  // An odour grid as an r32float texture, row j at texture row j.
+  private odourTexture(grid: OdourGrid): GPUTexture {
+    const { cells, values } = grid;
+    if (values.length !== cells * cells) {
+      throw new Error(`an odour grid of ${cells} × ${cells} cells has ${cells * cells} values, not ${values.length}`);
+    }
+    const texture = this.device.createTexture({
+      size: [cells, cells],
+      format: 'r32float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.device.queue.writeTexture({ texture }, values, { bytesPerRow: 4 * cells }, [cells, cells]);
+    return texture;
+  }
+
+  // The kernel's bindings: the buffers in the order it declares them, then the odour.
+  private bind(): GPUBindGroup {
+    const buffers = [this.params, ...this.wiringBuffers, this.neurons, this.input, this.state, this.status, this.body];
+    return this.device.createBindGroup({
+      layout: this.pipeline.getBindGroupLayout(0),
+      entries: [
+        ...buffers.map((b, binding) => ({ binding, resource: { buffer: b } })),
+        { binding: buffers.length, resource: this.odour.createView() },
+      ],
+    });
   }
 
   private writeNeurons(): void {

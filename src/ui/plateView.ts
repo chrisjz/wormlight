@@ -12,7 +12,8 @@ import { GpuWorld } from '../gpu/world.ts';
 import { PlateRenderer, type PlateFrame, type PlateScene } from '../render/plate.ts';
 import { halfExtent, metresPerPixel, scaleBar, zoomAbout, type PlateCamera } from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
-import { LAWN_RADIUS, SPOT } from '../sim/env/dish.ts';
+import { LAWN_RADIUS, SPOT, steadyField } from '../sim/env/dish.ts';
+import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { Pacer, Rates } from './pacing.ts';
 import type { PlateParams } from './params.ts';
@@ -98,14 +99,16 @@ export async function startPlate(
   );
 
   let seed = params.seed ?? randomSeed();
-  let world = appWorld(data, seed);
   // The GPU compiles the world's pipeline while the CPU solves the lawn's steady odour field: the page yields
-  // first, so the browser sends the GPU its work before the solve holds the thread.
-  const creating = GpuWorld.create(device, world);
+  // first, so the browser sends the GPU its work before the solve holds the thread. Its world smells nothing
+  // until the field is ready.
+  const creating = GpuWorld.create(device, appWorld(data, seed));
   await new Promise((resolve) => setTimeout(resolve, 0));
+  let field: OdourField;
   let scene: PlateScene;
   try {
-    scene = plateScene();
+    field = steadyField('lawn');
+    scene = plateScene(field);
   } catch (e) {
     creating.then(
       (made) => made.destroy(),
@@ -116,8 +119,12 @@ export async function startPlate(
   const gpu = await creating;
   const rods = gpu.layout.rods;
   const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[ROD_CONSTANTS * i]);
+  // The worm smells the lawn's odour, adapted to it where it starts.
+  let world = appWorld(data, seed, field);
   let renderer: PlateRenderer;
   try {
+    gpu.setOdour(field);
+    gpu.restore(world.snapshot());
     renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH, scene);
   } catch (e) {
     gpu.destroy();
@@ -236,7 +243,7 @@ export async function startPlate(
   };
   const restartWith = (next: number): void => {
     seed = next;
-    world = appWorld(data, seed);
+    world = appWorld(data, seed, field);
     gpu.restore(world.snapshot());
     gpu.brain.seed = world.brain.seed;
     gpu.brain.noise = world.brain.noise;

@@ -22,19 +22,35 @@ describe("the kernel's layout", () => {
     expect(params).toHaveLength(PARAM_WORDS);
     expect(params[8]).toBe('dt');
     expect(params[20]).toBe('rods');
+    expect(params.slice(30, 32)).toEqual(['awc_on', 'awc_rod']);
     expect(params.slice(LOOP_SCALARS_AT, LOOP_SCALARS_AT + LOOP_SCALARS.length)).toEqual([...LOOP_SCALARS]);
     expect(fields('State')).toHaveLength(STATE_WORDS);
     expect(fields('NeuronConstants')).toHaveLength(NEURON_WORDS);
     expect(fields('Status')).toHaveLength(STATUS_WORDS);
+    // GpuBrain writes the head switch and AWC-ON's threshold from word 8, and reads them back there.
+    expect(fields('Status').slice(8, 13)).toEqual([
+      'h',
+      'previous_k',
+      'has_previous',
+      'switch_current',
+      'awc_threshold',
+    ]);
   });
 
   it("stays within WebGPU's default limits: 8 storage buffers and 16,384 bytes of workgroup memory", () => {
     expect(BRAIN_SHADER.match(/var<storage/g)).toHaveLength(8);
-    const bytes = [...BRAIN_SHADER.matchAll(/var<workgroup> \w+: array<(f32|vec4<f32>), (\d+)>/g)].reduce(
+    // The odour is a texture, which has limits of its own.
+    expect(BRAIN_SHADER.match(/: texture_/g)).toHaveLength(1);
+    const arrays = [...BRAIN_SHADER.matchAll(/var<workgroup> \w+: array<(f32|vec4<f32>), (\d+)>/g)].reduce(
       (sum, m) => sum + (m[1] === 'f32' ? 4 : 16) * Number(m[2]),
       0,
     );
-    expect(bytes).toBe(15360);
+    const scalars = 4 * (BRAIN_SHADER.match(/var<workgroup> \w+: f32;/g)?.length ?? 0);
+    expect(BRAIN_SHADER.match(/var<workgroup>/g)).toHaveLength(
+      [...BRAIN_SHADER.matchAll(/var<workgroup> \w+: (array<(f32|vec4<f32>), \d+>|f32);/g)].length,
+    );
+    const bytes = arrays + scalars;
+    expect(bytes).toBe(15364);
     expect(bytes).toBeLessThanOrEqual(16384);
   });
 });

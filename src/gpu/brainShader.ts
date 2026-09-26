@@ -2,9 +2,9 @@
 // order. The brain (PLAN §3.4) is Brain.step in src/sim/brain/brain.ts: the voltages by BDF2 (implicit Euler
 // without a history), solved by Jacobi-preconditioned conjugate gradients warm-started from the last step;
 // then activation and the oscillators' recovery by BDF2 at the new voltages. With `looping` on, each step is
-// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents and the head switch, the
-// brain, the neuromuscular layer, and the body under resistive force theory, whose block-tridiagonal system
-// is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one workgroup, each
+// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents, AWC-ON's sensing and the
+// head switch, the brain, the neuromuscular layer, and the body under resistive force theory, whose
+// block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one workgroup, each
 // invocation holding its neurons' and its rod's state in registers, so a dispatch can take many steps with
 // nothing but barriers between them.
 //
@@ -31,7 +31,7 @@ export const MAX_RODS = BCR_ROWS;
 export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
-// loop's twelve u32 and twenty-four f32, of which the first nineteen are LOOP_SCALARS.
+// loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS.
 export const PARAM_WORDS = 56;
 export const LOOP_SCALARS_AT = 32;
 export const LOOP_SCALARS = [
@@ -54,6 +54,11 @@ export const LOOP_SCALARS = [
   'drag_normal',
   'drag_tangential',
   'wall',
+  'awc_gain',
+  'awc_scale',
+  'awc_time',
+  'awc_along',
+  'odour_cell',
 ] as const;
 export type LoopScalar = (typeof LOOP_SCALARS)[number];
 // Per neuron: v, v₋₁, s, s₋₁, w, w₋₁ and two words of padding.
@@ -64,7 +69,7 @@ export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
 // iterations in one solve and the iterations in all; then the head switch (its state, the head's last
-// curvature, whether there is one, and its current).
+// curvature, whether there is one, and its current), and AWC-ON's adaptive threshold.
 export const STATUS_WORDS = 16;
 // Per rod in the body buffer: x, y and θ, each as a coarse part on its grid and a remainder, then ẋ, ẏ, θ̇,
 // the whole turns taken out of θ, and two words of padding; the muscles' activations follow.
@@ -84,6 +89,9 @@ export const SEGMENT_WORDS = 5;
 export const ROD_CONSTANTS = 5;
 // The dish's radius the kernel can hold: the squares of the coarse parts, in grid units, must fit a u32.
 export const MAX_WALL = 0.06; // m
+// AWC-ON's neuron when it has none, and what the odour texture holds in cells outside the dish.
+export const NO_NEURON = 0xffffffff;
+export const OUTSIDE = -1;
 
 // The pool of workgroup memory: the brain's two vectors while it steps, the body's blocks while it steps.
 const POOL = {
@@ -144,8 +152,8 @@ struct Params {
   nm_weight_at: u32,
   rod_const_at: u32,
   segment_const_at: u32,
-  _pad1: u32,
-  _pad2: u32,
+  awc_on: u32,
+  awc_rod: u32,
   proprio_gain: f32,
   switch_gain: f32,
   drive_threshold: f32,
@@ -165,11 +173,11 @@ struct Params {
   drag_normal: f32,
   drag_tangential: f32,
   wall: f32,
-  _pad4: f32,
-  _pad5: f32,
-  _pad6: f32,
-  _pad7: f32,
-  _pad8: f32,
+  awc_gain: f32,
+  awc_scale: f32,
+  awc_time: f32,
+  awc_along: f32,
+  odour_cell: f32,
 }
 
 struct NeuronConstants {
@@ -207,7 +215,7 @@ struct Status {
   previous_k: f32,
   has_previous: u32,
   switch_current: f32,
-  _pad2: f32,
+  awc_threshold: f32,
   _pad3: f32,
   _pad4: f32,
   _pad5: f32,
@@ -228,11 +236,13 @@ struct Status {
 @group(0) @binding(6) var<storage, read_write> state: array<State>;
 @group(0) @binding(7) var<storage, read_write> status: Status;
 @group(0) @binding(8) var<storage, read_write> body: array<f32>;
+// The odour AWC-ON senses, per cell of a square grid centred on the dish, OUTSIDE in cells beyond its wall.
+@group(0) @binding(9) var odour: texture_2d<f32>;
 
 const FHN_A: f32 = 0.7;
 const FHN_B: f32 = 0.8;
 
-// Workgroup memory comes to 15,360 bytes of the 16,384 WebGPU guarantees, and the bindings above are the 8
+// Workgroup memory comes to 15,364 bytes of the 16,384 WebGPU guarantees, and the bindings above hold the 8
 // storage buffers a stage may have by default; the tests hold both to those limits.
 var<workgroup> pool: array<f32, ${POOL.size}>;
 var<workgroup> partial: array<vec4<f32>, ${WORKGROUP}>;
@@ -249,6 +259,8 @@ var<workgroup> seg_hy: array<f32, 64>;
 var<workgroup> seg_ly: array<f32, 64>;
 var<workgroup> rod_c: array<f32, 64>;
 var<workgroup> rod_s: array<f32, 64>;
+// The odour where AWC-ON senses, which one invocation reads for all.
+var<workgroup> smelt: f32;
 
 ${RNG_WGSL}
 
@@ -329,6 +341,40 @@ fn carry(hi: ptr<function, f32>, lo: ptr<function, f32>, grid: f32, inverse: f32
   let q = round(*lo * inverse) * grid;
   *hi += q;
   *lo -= q;
+}
+
+// 1 − e^(−x) for x ≥ 0: its series where 1 − exp(−x) would cancel, to 10⁻⁸ of the result.
+fn one_less_exp(x: f32) -> f32 {
+  if (x < 0.1) {
+    return x * (1.0 - x * (1.0 / 2.0 - x * (1.0 / 6.0 - x * (1.0 / 24.0 - x * (1.0 / 120.0)))));
+  }
+  return 1.0 - exp(-x);
+}
+
+// The odour at a point (OdourField.sample): bilinear between cell centres, cells outside the dish left out and
+// the others' weights renormalised.
+fn concentration(x: f32, y: f32) -> f32 {
+  let cells = i32(textureDimensions(odour).x);
+  let middle = f32(cells) / 2.0 - 0.5;
+  let gx = clamp(x / params.odour_cell + middle, 0.0, f32(cells - 1));
+  let gy = clamp(y / params.odour_cell + middle, 0.0, f32(cells - 1));
+  let i = min(i32(floor(gx)), cells - 2);
+  let j = min(i32(floor(gy)), cells - 2);
+  let fx = gx - f32(i);
+  let fy = gy - f32(j);
+  var sum = 0.0;
+  var weight = 0.0;
+  for (var corner = 0; corner < 4; corner++) {
+    let a = corner & 1;
+    let b = corner >> 1u;
+    let value = textureLoad(odour, vec2<i32>(i + a, j + b), 0).r;
+    let w = select(1.0 - fx, fx, a == 1) * select(1.0 - fy, fy, b == 1);
+    if (value != ${OUTSIDE.toFixed(1)}) {
+      sum += w * value;
+      weight += w;
+    }
+  }
+  return select(0.0, sum / weight, weight > 0.0);
 }
 
 fn logistic(x: f32) -> f32 {
@@ -645,6 +691,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var previous_k = status.previous_k;
   var has_previous = status.has_previous;
   var switch_current = status.switch_current;
+  var awc_threshold = status.awc_threshold;
   var last = 0u;
   var peak = 0u;
   var iterations_sum = 0u;
@@ -699,6 +746,12 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         kappa[lid] = curvature;
       }
 
+      // The odour where AWC-ON senses (World.smell), read by the invocation holding the rod before that point.
+      if (lid == params.awc_rod) {
+        let f = params.awc_along;
+        smelt = concentration(xh + (xl + f * (run.x + run.y)), yh + (yl + f * (run.z + run.w)));
+      }
+
       // The network's drive on the SMDs (World.headDrive): for each, the voltage its partners and leak would
       // hold it at, less its threshold, with links among the SMDs at their rest values.
       let rest = params.rise / (params.rise + 2.0 * params.decay);
@@ -745,11 +798,22 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       restart = current != switch_current;
       switch_current = current;
 
-      // Each neuron's input: its proprioceptive field's curvature and the switch's current.
+      // AWC-ON's threshold follows the odour (AwcSensor.step), alike in every invocation; the smell was read
+      // before total()'s barriers.
+      let held = max(smelt, 0.0);
+      let settled = params.awc_scale * one_less_exp(held / params.awc_scale);
+      awc_threshold += (settled - awc_threshold) * one_less_exp(dt / params.awc_time);
+      let awc_sum = awc_threshold + held;
+      let awc_current = select(0.0, params.awc_gain * (awc_threshold - held) / awc_sum, awc_sum > 0.0);
+
+      // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current and the switch's.
       ${own(`
         let constants = neurons[i];
         if (constants.field_side != 0.0) {
           drive_in[k] += params.proprio_gain * constants.field_side * region_mean(constants.field_from, constants.field_to);
+        }
+        if (i == params.awc_on) {
+          drive_in[k] += awc_current;
         }
         drive_in[k] += constants.switch_side * current;`)}
     }
@@ -955,6 +1019,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       status.previous_k = previous_k;
       status.has_previous = has_previous;
       status.switch_current = switch_current;
+      status.awc_threshold = awc_threshold;
     }
     status.steps = steps;
     status.history = bitcast<u32>(history);

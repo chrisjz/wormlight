@@ -37,11 +37,12 @@ interface LoopStep extends Step {
   endShares: [number, number];
   centreShares: [number, number, number];
   muscleShare: number;
+  thresholdShare: number;
   switchSame: boolean;
 }
 interface LoopSecond {
   label: string;
-  shares: { voltage: number; activation: number; curvature: number; centroid: number };
+  shares: { voltage: number; activation: number; curvature: number; centroid: number; threshold: number };
   switchSame: boolean;
   referenceShare: number;
   referenceSwitchSame: boolean;
@@ -169,12 +170,12 @@ try {
     for (const r of loop.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
     console.log(
       "\none step: the brain as above, then the rods' centres' velocities ẋ, ẏ, θ̇ (each within 10⁻² of the " +
-        "largest), muscles (10⁻⁴) and the head switch; the rods' end points reported",
+        "largest), muscles (10⁻⁴), AWC-ON's threshold T (10⁻⁴) and the head switch; the rods' end points reported",
     );
     for (const r of loop.oneStep) {
       console.log(
         `${stepLine(r)}   centres ${r.centreShares.map((v) => g(v)).join(' ')} (ends ${r.endShares.map((v) => g(v)).join(' ')})` +
-          `   A ${g(r.muscleShare)}   switch ${r.switchSame ? 'same' : 'DIFFERS'}`,
+          `   A ${g(r.muscleShare)}   T ${g(r.thresholdShare)}   switch ${r.switchSame ? 'same' : 'DIFFERS'}`,
       );
     }
     console.log('\none second: shares of the thresholds and the switch throughout, and the reference against itself');
@@ -183,6 +184,7 @@ try {
       console.log(
         `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(32)} V ${g(s.voltage).padStart(7)}  s ` +
           `${g(s.activation).padStart(9)}  κL ${g(s.curvature).padStart(7)}  centroid ${g(s.centroid).padStart(7)}` +
+          `  T ${g(s.threshold).padStart(7)}` +
           `  switch ${r.switchSame ? 'same' : 'DIFFERS'}   reference ${g(r.referenceShare).padStart(7)}` +
           `${r.referenceSwitchSame ? '' : ' (its switch differs)'}${r.graded ? '' : '   not graded'}`,
       );

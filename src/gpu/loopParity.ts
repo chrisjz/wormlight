@@ -1,11 +1,12 @@
-// GPU parity for the whole loop (PLAN §7.2): the body, the muscles and the head switch join the brain. Both
-// sides take one step, then one second, running every layer, from whole-world states: the rest world and
-// twenty from the trial values' closed loop; copies of them moved across the dish and turned, which the CPU
-// doesn't notice and the GPU must not; copies pressed against the dish's wall, which both push back; and states
-// from two variants that make the head switch flip and gate.
+// GPU parity for the whole loop (PLAN §7.2): the body, the muscles, the head switch and AWC-ON's sensing join
+// the brain. Both sides take one step, then one second, running every layer, from whole-world states in the
+// assay's odour field: the rest world and twenty from the trial values' closed loop; copies of them moved
+// across the dish and turned, which the CPU doesn't notice and the GPU must not; copies pressed against the
+// dish's wall, which both push back; and states from two variants that make the head switch flip and gate.
 // The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
-// 2026-09-26); the brain's are as before. Long runs, LONG_SEEDS a side for 60 s, compare the body wave's
-// statistics by Welch's two one-sided tests while the worm doesn't crawl.
+// 2026-09-26), and AWC-ON's threshold's, set before any results (2026-09-27); the brain's are as before. Long
+// runs, LONG_SEEDS a side for 60 s, compare the body wave's statistics by Welch's two one-sided tests while the
+// worm doesn't crawl.
 
 import type { WormlightData } from '../data/schema.ts';
 import { boyleBody } from '../sim/body/body.ts';
@@ -16,6 +17,7 @@ import { equivalence, spreadRatio, type Equivalence, type SpreadRatio } from '..
 import type { World, WorldState } from '../sim/world.ts';
 import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
+  AWC_FLOOR,
   centroidFloor,
   COPIES,
   againstWall,
@@ -46,6 +48,8 @@ export interface LoopStepResult extends StepResult {
   centreShares: [number, number, number];
   endShares: [number, number];
   muscleShare: number;
+  // AWC-ON's threshold's error as a share of its tolerance.
+  thresholdShare: number;
   switchSame: boolean;
 }
 
@@ -92,23 +96,27 @@ async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): P
   cpu.muscles.activation.forEach((a, m) => {
     muscle = Math.max(muscle, Math.abs(a - state.muscles[m]) / LOOP_STEP.muscle);
   });
+  const threshold = cpu.awc.threshold;
+  const thresholdShare =
+    Math.abs(threshold - state.awcThreshold) / (LOOP_STEP.awcThreshold * Math.max(Math.abs(threshold), AWC_FLOOR));
   const switchSame = sameSwitch(cpu, state);
   return {
     ...brain,
     centreShares,
     endShares,
     muscleShare: muscle,
+    thresholdShare,
     switchSame,
-    pass: brain.pass && centreShares.every((v) => v <= 1) && muscle <= 1 && switchSame,
+    pass: brain.pass && centreShares.every((v) => v <= 1) && muscle <= 1 && thresholdShare <= 1 && switchSame,
   };
 }
 
 export interface LoopSecondResult {
   label: string;
   // The worst sample's shares of the thresholds: the voltage's and activation's RMS relative errors (their
-  // threshold is 10⁻²), the curvature profile's and the centroid's travel's; and whether the head switch
-  // agreed at every sample.
-  shares: { voltage: number; activation: number; curvature: number; centroid: number };
+  // threshold is 10⁻²), the curvature profile's, the centroid's travel's and AWC-ON's threshold's relative
+  // error (10⁻²); and whether the head switch agreed at every sample.
+  shares: { voltage: number; activation: number; curvature: number; centroid: number; threshold: number };
   switchSame: boolean;
   // The same for the CPU reference rerun at the GPU's solver tolerance, against itself: the state is graded
   // only if every share is at most 1 and its switch agreed throughout.
@@ -152,11 +160,13 @@ function secondShares(
   const [ox, oy] = centroid(other.x, other.y);
   const travelled = Math.hypot(rx - start[0], ry - start[1]);
   const centroidError = Math.hypot(ox - rx, oy - ry) / Math.max(travelled, centroidFloor(world));
+  const t = reference.awcThreshold;
   return {
     voltage: rms(reference.brain.voltage, other.brain.voltage, FLOOR) / ONE_SECOND.rms,
     activation: rms(reference.brain.activation, other.brain.activation, 1) / ONE_SECOND.rms,
     curvature: curvature / LOOP_SECOND.curvature,
     centroid: centroidError / LOOP_SECOND.centroid,
+    threshold: Math.abs(other.awcThreshold - t) / Math.max(Math.abs(t), AWC_FLOOR) / ONE_SECOND.rms,
   };
 }
 
@@ -165,6 +175,7 @@ const worse = (a: LoopSecondResult['shares'], b: LoopSecondResult['shares']): Lo
   activation: Math.max(a.activation, b.activation),
   curvature: Math.max(a.curvature, b.curvature),
   centroid: Math.max(a.centroid, b.centroid),
+  threshold: Math.max(a.threshold, b.threshold),
 });
 
 async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase): Promise<LoopSecondResult> {
@@ -172,7 +183,7 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
   const loose = cpuWorld(data, c.state, CG_TOLERANCE_GPU, c.setup);
   gpu.restore(c.state);
   const start = centroid(c.state.x, c.state.y);
-  const none = { voltage: 0, activation: 0, curvature: 0, centroid: 0 };
+  const none = { voltage: 0, activation: 0, curvature: 0, centroid: 0, threshold: 0 };
   let shares = none;
   let reference = none;
   let switchSame = true;
@@ -221,7 +232,9 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
     a.length === b.length && Array.from(a).every((x, i) => Math.abs(x - b[i]) <= within);
   results.push({
     name: 'a world goes in and comes back',
-    detail: 'the brain, velocities, muscles and switch as f32; places within 10⁻¹³ m and angles within 10⁻¹⁰ rad',
+    detail:
+      "the brain, velocities, muscles, switch and AWC-ON's threshold as f32; places within 10⁻¹³ m and angles " +
+      'within 10⁻¹⁰ rad',
     pass:
       f32(c.state.brain.voltage, back.brain.voltage) &&
       f32(c.state.velocity, back.velocity) &&
@@ -231,6 +244,7 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
       near(c.state.theta, back.theta, 1e-10) &&
       c.state.h === back.h &&
       Math.fround(c.state.switchCurrent) === back.switchCurrent &&
+      Math.fround(c.state.awcThreshold) === back.awcThreshold &&
       (c.state.previousCurvature === null
         ? back.previousCurvature === null
         : Math.fround(c.state.previousCurvature) === back.previousCurvature),
@@ -245,14 +259,15 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const same = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => Array.from(a).every((x, i) => x === b[i]);
   results.push({
     name: `${steps} whole-loop steps split into two dispatches equal ${steps} dispatches of one`,
-    detail: 'identical brain, body, muscles and switch',
+    detail: "identical brain, body, muscles, switch and AWC-ON's threshold",
     pass:
       same(together.brain.voltage, apart.brain.voltage) &&
       same(together.x, apart.x) &&
       same(together.theta, apart.theta) &&
       same(together.muscles, apart.muscles) &&
       together.h === apart.h &&
-      together.switchCurrent === apart.switchCurrent,
+      together.switchCurrent === apart.switchCurrent &&
+      together.awcThreshold === apart.awcThreshold,
   });
   return results;
 }
