@@ -22,6 +22,7 @@
     "docs:check": "node scripts/docs/fidelity.ts --check",
     "visual:capture": "node scripts/visual/capture.ts",
     "visual:compare": "node scripts/visual/compare.ts",
+    "gpu:parity": "node scripts/gpu/parity.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

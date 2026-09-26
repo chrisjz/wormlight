@@ -611,3 +611,56 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 - **Checkpoints.** Unchanged since milestone 0c: checkpoint 0 not yet run formally, checkpoint 1 a fail, checkpoints 2 to 6 not reached.
 
 **Status.** Done.
+
+## 2026-09-26 — The neural model on the GPU, and what parity compares
+
+**Decision.** Milestone 2 puts the neural model on the GPU and checks it against the CPU reference.
+
+- **The kernel** (`src/gpu/brainShader.ts`) mirrors `Brain.step` step for step, the same equations in the same order: BDF2 voltages (implicit Euler without a history) solved by Jacobi-preconditioned conjugate gradients from the last step, the oscillators linearised as on the CPU, then activation and recovery by BDF2, with the noise drawn from the same hash. The network runs in one workgroup of 256 invocations, each keeping the state of one or two neurons in registers, so a dispatch takes any number of steps with only barriers between them; a long run is split into dispatches of at most 128 steps, so none trips a GPU watchdog. It binds 7 storage buffers and uses 8 KB of workgroup memory, within WebGPU's default limits.
+- **`GpuBrain`** (`src/gpu/brain.ts`) holds the buffers and trades state with the CPU's `Brain` as a `BrainState`, which the CPU reference now exports and restores whole, history included. It takes any network, lesioned or rewired, with the thresholds the caller gives; parity runs it on the intact network and on one lesioned one.
+- **Parity** (`npm run gpu:parity`, and the `gpu` CI job on SwiftShader) runs `parity.html`, a page the dev server serves and the build leaves out.
+  - **The states.** The CPU reference in the page runs the closed loop with trial values (g_osc = 2 nS, θ_osc = −16 mV, σ_n = 0.01 pA·√s, the rest as the loop tests have them; seed 1), and takes 20 states every 0.5 s from 2 s to 11.5 s, plus the rest state. From each, both brains take one step and then one second, the state's input held and the noise on.
+  - **The noise.** The hashes and uniforms must match exactly, and each Gaussian must lie within the error WGSL allows `log`, `sqrt` and `cos`. The one-step check adds that error's worst effect to its voltage tolerance, since the implicit solve moves no voltage by more than dt/C times the current's error. At these states the allowance is 0.75 to 0.97 µV, about the base tolerance of the median neuron. WGSL lets `log` return 0 or more for the four uniforms within 2⁻²¹ of 1, so the shader holds −2 ln u at 0 or above rather than take the square root of a negative number, which a review found could otherwise happen about once in 17 simulated seconds.
+  - **The API.** Five checks cover what the states don't: a new brain's rest state, a state's round trip, a run split across dispatches against one dispatch a step, a restart, and the CPU carrying on from a state the GPU read. One lesioned case (AVA and AVB), without oscillators or noise, restarts its integrator halfway through its second.
+- **The Safari check** is the same page opened in Safari: `npm run dev`, then `/parity.html`. The maintainer couldn't run it at milestone 2, so it moves to milestone 3 (PLAN §9). Until it runs, the GPU brain is checked only in Chrome.
+- **Merging.** `main`'s ruleset now requires the `gpu` job, as it requires `checks`, `data` and `visual`, and deploying needs it too.
+
+**Decided with the maintainer before any parity results.**
+
+- Milestone 2 comes before research track R, which runs on the CPU reference and can be scheduled between any later milestones.
+- Long-run parity needs the body on the GPU, so it moves to milestone 3, with the full step's speed. Milestone 2 measures the brain's step, and its one-second runs hold each state's input, since the body that would change it isn't on the GPU yet.
+- While the worm doesn't crawl, long-run parity compares the mid-body curvature's frequency and its standard deviation of κL, as the go/no-go script measures them (`scripts/experiments/go-no-go/loop.ts`), by the same ±5% two one-sided tests. It returns to crawling frequency and speed once checkpoint 1 reaches partial. PLAN §7.2 and §9 now say so.
+
+**Changed after results: what the one-step check compares (PLAN §7.2, marked changed).** As first built, the check compared the GPU with the CPU reference at the reference's own solver tolerance, 10⁻⁶, while the GPU solves to 10⁻⁵ (PLAN §3.4). A review found that it passed only because of the noise's allowance, which was covering something else:
+
+- **What the difference was.** Almost all of it was the gap between the two stopping rules, not f32 or the port. The f64 reference, rerun at 10⁻⁵, gives the same per-state shares as the GPU to three figures, and the same solver iteration counts. Against PLAN's tolerance without the allowance, 7 of the 21 states fail, the worst at 2.4 times it (SIBDL, at −1.8 mV, in the state at t = 6.5 s), and they fail the same way for the f64 reference at 10⁻⁵. PLAN's two settings, fixed in advance, can't both hold.
+- **The rule, the maintainer's choice.** The GPU is compared with the CPU reference solved at the GPU's own tolerance, so the check sees the port's arithmetic, and the allowance covers only the noise's rounding. The comparison with the reference at its own tolerance is reported, not graded. The recovery variable is now graded too, at the voltage's relative tolerance with a floor of 1, since a fault in it can't reach the voltage within one step.
+- **The other way.** Tightening the GPU's tolerance to 10⁻⁶ would have kept the check as written, at about 15% of the speed and at the f32 floor the review measured, and would have made the one-second rule below grade the state it sets aside, which then fails.
+
+**Changed after results: which one-second states are graded (PLAN §7.2, marked changed).** By the check as first fixed, the one-second check fails: on the M5 Max, 20 of the 21 states passed with room to spare (worst RMS relative error 0.0024 against 0.01), but the state at t = 10.5 s reached 0.033.
+
+- **Ill posed, not a GPU fault.** The f64 CPU reference fails the same state against itself, at 0.020, when its only change is its solver tolerance set to the GPU's 10⁻⁵; an f32-rounded starting state alone costs 8 × 10⁻⁵. Against a 10⁻¹⁰ solve, the reference at its own 10⁻⁶ is 0.0088 away, and the error is not monotonic in the tolerance (0.0003 at 5 × 10⁻⁶, 0.023 at 3 × 10⁻⁶). The GPU at 10⁻⁶ still gives 0.027.
+- **The cause.** VA1, an A-type oscillator, starts its fast FitzHugh–Nagumo upstroke in the last 60 ms of that second, and the sample at 1 s catches it near the top of the jump, still rising, near 0 mV. A sub-step difference in when the jump starts is a few tenths of a millivolt there, which the check's 1 mV floor counts as a 35% error. Any two solves differ so: the sensitivity for which spec §8 compares long runs by behaviour.
+- **The rule, the maintainer's choice.** A state is graded only if it is well posed: if the CPU reference, rerun at the GPU's solver tolerance, stays within the threshold of itself. The others are reported with that figure, not graded. The check also fails if more than a quarter of the states are not graded, since it would then test little; that guard was added in implementation, unasked, and only makes the rule stricter. Today the rule sets aside t = 10.5 s alone.
+
+**Results on the M5 Max** (Chrome 153, Metal):
+
+- **Noise.** All 100 hashes and 4,841 uniforms identical; the largest Gaussian error 5 × 10⁻⁷, a negligible share of WGSL's bound.
+- **The API and the lesioned case.** All five API checks pass; the lesioned case passes one step at 0.007 of its tolerance and one second at 7 × 10⁻⁵.
+- **One step.** All 21 states pass. The worst voltage error is 0.011 of its tolerance, noise allowance included, and 0.015 without it; the worst activation error is 3 × 10⁻⁴ of its tolerance and the worst recovery error 0.002. The GPU's solver takes the same number of iterations as the CPU's at the same tolerance in every state. Against the reference at its own tolerance, reported, 7 states exceed the tolerance, as above.
+- **One second.** All 20 graded states pass, the worst at 0.0024; t = 10.5 s is not graded (0.033 on the GPU, 0.020 for the reference against itself).
+- **Speed.** The brain step runs at about 29× real time at 2.5 ms in dispatches of 67 steps (5.7 to 5.8 ms each) and about 25× in dispatches of 7 (0.7 ms), about 10 solver iterations a step: three times the 10× target, which applies to the full step (milestone 3). The CPU reference's brain runs about as fast in the same page, which agrees with the spec's point that at this scale the GPU is a showcase choice.
+
+**Results on CI's SwiftShader** (Chrome 154, the fallback adapter): the same verdicts, in about a minute.
+
+- **Noise.** The hashes and uniforms are identical. The largest Gaussian error is 6.7 × 10⁻⁴, 39% of WGSL's bound, against 5 × 10⁻⁷ on Metal: SwiftShader's transcendental functions use much of the latitude WGSL allows.
+- **One step.** All 21 states pass, the worst at 0.106 of the tolerance with the noise's allowance and 0.48 without it. Here the allowance does the job it was built for: the difference is the noise's rounding. The solver iteration counts again match the CPU's in every state.
+- **The rest.** The API checks and the lesioned case pass. The graded one-second states pass, the worst at 0.0048, and t = 10.5 s is again the one not graded (0.035 on the GPU, 0.020 for the reference against itself). The speed there, 0.4× real time, says nothing about a real GPU.
+
+**Milestone 2 summary.**
+
+- **Works.** The neural model runs on the GPU and matches the CPU reference by PLAN's one-step and one-second checks, as changed after results, on the Mac's GPU and on CI's software GPU, where the `gpu` job gates merging and deploying. The brain steps at about 29× real time on the M5 Max.
+- **Doesn't yet.** The app doesn't run the GPU brain: nothing on screen moves until the body and the plate view arrive with milestone 3, which also brings long-run parity and the full step's speed. The glow comes with milestone 6. Safari is unchecked: its check moves to milestone 3.
+- **Checkpoints.** Unchanged: checkpoint 0 not yet run formally, checkpoint 1 a fail, checkpoints 2 to 6 not reached.
+
+**Status.** Done, but for the Safari check, which the maintainer postponed to milestone 3 on 2026-09-26, since it couldn't be run then.

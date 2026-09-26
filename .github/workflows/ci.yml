@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# The Chrome the visual and gpu jobs run: the version the installed puppeteer-core targets
+# (node_modules/puppeteer-core/lib/puppeteer/revisions.js). Bump the two together and refresh the visual
+# baselines in the same PR.
+env:
+  CHROME_VERSION: 154.0.8037.57
+
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -71,10 +77,8 @@ jobs:
   # Chrome and the runner image are pinned, since either changes the pixels and this job gates merging and
   # deploying: an unpinned stable Chrome broke Universe's identical job. WebGPU here is SwiftShader, the
   # software Vulkan that ships with Chrome, offered as the fallback adapter, so pinning Chrome pins it too.
-  # Chrome offers no adapter at all without Mesa's Vulkan drivers, so they are installed. Chrome's version
-  # is the one the installed puppeteer-core targets (node_modules/puppeteer-core/lib/puppeteer/revisions.js);
-  # bump the two together and refresh the baselines in the same PR. The capture log names the Chrome version
-  # and the adapter that drew the frames.
+  # Chrome offers no adapter at all without Mesa's Vulkan drivers, so they are installed. Chrome's version is
+  # CHROME_VERSION above. The capture log names the Chrome version and the adapter that drew the frames.
   visual:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -91,7 +95,7 @@ jobs:
       - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
         id: chrome
         with:
-          chrome-version: 154.0.8037.57
+          chrome-version: ${{ env.CHROME_VERSION }}
       - name: Install Mesa's Vulkan drivers
         run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
       - name: Capture views (WebGPU on SwiftShader)
@@ -112,13 +116,48 @@ jobs:
           path: visual-out/
           retention-days: 14
 
+  # The neural model on the GPU against the CPU reference (PLAN §7.2): the parity page, served by the dev
+  # server, in headless Chrome on the visual job's runner, Chrome and SwiftShader. It fails if any check
+  # fails. The results are uploaded with the speed benchmark, which on a software GPU says nothing about a
+  # real one.
+  gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
+        id: chrome
+        with:
+          chrome-version: ${{ env.CHROME_VERSION }}
+      - name: Install Mesa's Vulkan drivers
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq mesa-vulkan-drivers libvulkan1
+      - name: GPU parity (WebGPU on SwiftShader)
+        run: npm run gpu:parity
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          WEBGPU_CI: 1
+      - name: Upload the results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gpu
+          path: gpu-out/
+          retention-days: 14
+
   # Publishes main to GitHub Pages, https://chrisjz.github.io/wormlight/, once every other job has passed.
   # Pages takes its source from GitHub Actions, and the repository variable DEPLOY_PAGES=true turns this job
   # on; set it to anything else to stop deploying. BASE_PATH defaults to the project-site path; set the
   # variable BASE_PATH=/ if a custom domain is added. Deploys queue rather than overlap.
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true'
-    needs: [checks, data, visual]
+    needs: [checks, data, visual, gpu]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:

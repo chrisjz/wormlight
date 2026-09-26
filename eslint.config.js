@@ -3,7 +3,7 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  { ignores: ['dist/', 'coverage/', 'node_modules/', 'data/cache/', 'visual-out*/', 'harness-out/'] },
+  { ignores: ['dist/', 'coverage/', 'node_modules/', 'data/cache/', 'visual-out*/', 'gpu-out/', 'harness-out/'] },
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   {

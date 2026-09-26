@@ -10,3 +10,7 @@ export const CG_TOLERANCE = 1e-6;
 
 // A solve that reaches this many iterations stops and sets a flag, so it can never spin.
 export const CG_MAX_ITERATIONS = 64;
+
+// The GPU's conjugate gradients stop at this fraction of ‖b‖ instead: f32, safely above the ~10⁻⁶ floor the
+// review measured for f32 on this system (PLAN §3.4).
+export const CG_TOLERANCE_GPU = 1e-5;

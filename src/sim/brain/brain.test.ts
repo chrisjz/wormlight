@@ -142,6 +142,27 @@ describe('the step', () => {
     expect(run.brain.voltage).not.toEqual(fresh(run.voltage, run.activation, 0.0025));
   });
 
+  it('continues exactly from a snapshot: history, oscillators and noise included', () => {
+    const make = (): Brain => {
+      const brain = new Brain(three, restThreshold);
+      brain.setOscillators({ neurons: Int32Array.of(0, 2), shift: Float64Array.of(-5, 0), gain: 2, recovery: 0.5 });
+      brain.noise = 0.01;
+      brain.seed = 4;
+      brain.input.set([30, -20, 10]);
+      return brain;
+    };
+    const original = make();
+    for (let k = 0; k < 20; k++) original.step(0.0025);
+    const copy = make();
+    copy.restore(original.snapshot());
+    for (let k = 0; k < 5; k++) {
+      original.step(0.0025);
+      copy.step(0.0025);
+    }
+    expect(copy.snapshot()).toEqual(original.snapshot());
+    expect(() => new Brain(three, restThreshold).restore(original.snapshot())).toThrow(/other oscillators/);
+  });
+
   it('reports a solve that meets a NaN instead of passing it off as converged', () => {
     const brain = new Brain(three, restThreshold);
     brain.input[1] = NaN;

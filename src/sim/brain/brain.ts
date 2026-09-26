@@ -26,6 +26,19 @@ export interface Oscillators {
 const FHN_A = 0.7;
 const FHN_B = 0.8;
 
+// Everything a step reads: the state, the previous step's (BDF2's history) and the step size that history
+// was taken at, 0 when there is none and the next step is implicit Euler.
+export interface BrainState {
+  voltage: Float64Array;
+  activation: Float64Array;
+  recovery: Float64Array;
+  previousVoltage: Float64Array;
+  previousActivation: Float64Array;
+  previousRecovery: Float64Array;
+  history: number;
+  steps: number;
+}
+
 export interface SolverOptions {
   tolerance?: number;
   maxIterations?: number;
@@ -171,6 +184,32 @@ export class Brain {
     if (recovery) this.recovery.set(recovery);
     this.steps = steps;
     this.historyStep = 0;
+  }
+
+  // A copy of everything the next step reads, so another brain, on the CPU or the GPU, can take the same step.
+  snapshot(): BrainState {
+    return {
+      voltage: Float64Array.from(this.voltage),
+      activation: Float64Array.from(this.activation),
+      recovery: Float64Array.from(this.recovery),
+      previousVoltage: Float64Array.from(this.previousVoltage),
+      previousActivation: Float64Array.from(this.previousActivation),
+      previousRecovery: Float64Array.from(this.previousRecovery),
+      history: this.historyStep,
+      steps: this.steps,
+    };
+  }
+
+  restore(state: BrainState): void {
+    if (state.recovery.length !== this.recovery.length) throw new Error('the state has other oscillators');
+    this.voltage.set(state.voltage);
+    this.activation.set(state.activation);
+    this.recovery.set(state.recovery);
+    this.previousVoltage.set(state.previousVoltage);
+    this.previousActivation.set(state.previousActivation);
+    this.previousRecovery.set(state.previousRecovery);
+    this.historyStep = state.history;
+    this.steps = state.steps;
   }
 
   // Make the next step implicit Euler. Call it whenever the input jumps, such as a stimulus switching on or

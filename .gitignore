@@ -4,6 +4,7 @@ coverage/
 *.local
 .DS_Store
 visual-out*/
+gpu-out/
 harness-out/
 data/cache/
 .venv/

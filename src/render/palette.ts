@@ -1,5 +1,5 @@
 // The graph's colours, shared by the renderer and the legend. The GCaMP green of style.css is kept for
-// activity, which milestone 2 brings, so nothing here uses it.
+// activity, which the glow brings (milestone 6), so nothing here uses it.
 
 import type { CellClass } from '../data/schema.ts';
 

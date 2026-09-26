@@ -4,24 +4,23 @@
 //
 //   npm run build && npm run visual:capture [-- outDir]      (default visual-out)
 //   CHROME_PATH=...   the Chrome binary (default: the macOS app)
-//   WEBGPU_CI=1       adds the flags for WebGPU on a GPU-less runner (Chrome's SwiftShader), and runs the app
-//                     with ?norender=1
+//   WEBGPU_CI=1       adds the flags for WebGPU on a GPU-less runner (Chrome's SwiftShader; scripts/browser.ts),
+//                     and runs the app with ?norender=1
 //   ONLY=<name>       captures one view
 //
 // A capture fails if the page reports an error, the app never becomes ready, or the frame is one colour:
 // a dead render pass reads back as a uniform frame, the failure this net exists to catch. The log names the
 // Chrome version and the GPU adapter that drew the frames, since both change the pixels.
 
-import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { PNG } from 'pngjs';
-import puppeteer, { type Browser } from 'puppeteer-core';
+import type { Browser } from 'puppeteer-core';
+import { ci, closeChrome, collectErrors, describeAdapter, launchChrome, serve, withTimeout } from '../browser.ts';
 import { ROOT } from '../data/sources.ts';
 import { HEIGHT, VIEWS, WIDTH } from './views.ts';
 
 const PORT = Number(process.env.PREVIEW_PORT ?? 5219);
-const ci = process.env.WEBGPU_CI === '1';
 const outDir = resolve(ROOT, process.argv[2] ?? 'visual-out');
 const views = process.env.ONLY ? VIEWS.filter((v) => v.name === process.env.ONLY) : VIEWS;
 if (views.length === 0) {
@@ -30,56 +29,13 @@ if (views.length === 0) {
 }
 mkdirSync(outDir, { recursive: true });
 
-const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): Promise<T> =>
-  Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${what} timed out`)), ms))]);
-
-// Serve dist/. vite runs detached, so killing its process group stops it for certain, and it is killed on
-// any exit, so a failure before the captures can't leave it holding the step open.
-const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
-  cwd: ROOT,
-  stdio: ['ignore', 'pipe', 'inherit'],
-  detached: true,
-});
-const stopServer = (): void => {
-  try {
-    if (server.pid) process.kill(-server.pid, 'SIGKILL');
-  } catch {
-    server.kill('SIGKILL');
-  }
-};
-process.on('exit', stopServer);
-
 let failed = 0;
 let browser: Browser | null = null;
+let stopServer = (): void => {};
 try {
-  await withTimeout(
-    new Promise<void>((resolve, reject) => {
-      server.stdout.on('data', (d: Buffer) => {
-        if (String(d).includes(String(PORT))) resolve();
-      });
-      server.on('exit', () => reject(new Error('vite preview exited: is dist/ built and the port free?')));
-    }),
-    20000,
-    'vite preview',
-  );
-  browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: true,
-    args: [
-      '--enable-unsafe-webgpu',
-      '--hide-scrollbars',
-      `--window-size=${WIDTH},${HEIGHT}`,
-      ...(ci
-        ? [
-            '--no-sandbox',
-            '--use-angle=vulkan',
-            '--enable-features=Vulkan,DefaultANGLEVulkan,VulkanFromANGLE',
-            '--disable-vulkan-surface',
-          ]
-        : []),
-    ],
-    defaultViewport: { width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 },
-  });
+  // Serve dist/.
+  stopServer = await serve(['preview'], PORT);
+  browser = await launchChrome(WIDTH, HEIGHT);
   console.log(`Chrome ${await browser.version()}`);
   let adapterLogged = false;
   for (const view of views) {
@@ -87,11 +43,7 @@ try {
     rmSync(file, { force: true });
     rmSync(join(outDir, `diff-${view.name}.png`), { force: true });
     const page = await browser.newPage();
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e instanceof Error ? e.message : String(e)));
-    page.on('console', (m) => {
-      if (m.type() === 'error' || m.type() === 'warn') errors.push(`console.${m.type()}: ${m.text()}`);
-    });
+    const errors = collectErrors(page);
     // The overlays are hidden from the start: the tests see only GPU pixels, and the graph isn't lifted
     // above a footer whose height would depend on the runner's fonts.
     await page.evaluateOnNewDocument(`
@@ -112,16 +64,7 @@ try {
         'the app becoming ready',
       );
       if (!adapterLogged) {
-        // Everything the adapter says about itself, since a software GPU's name alone can mislead.
-        const adapter = await page.evaluate(`(async () => {
-          const a = await navigator.gpu.requestAdapter();
-          const i = a && a.info;
-          if (!i) return 'none';
-          return ['vendor', 'architecture', 'device', 'description', 'isFallbackAdapter']
-            .map((k) => k + '=' + JSON.stringify(i[k]))
-            .join(' ');
-        })()`);
-        console.log(`GPU adapter: ${String(adapter)}`);
+        console.log(`GPU adapter: ${await describeAdapter(page)}`);
         adapterLogged = true;
       }
       const dataUrl = await withTimeout(
@@ -150,10 +93,7 @@ try {
   failed = Math.max(failed, 1);
   console.error(`✗ ${e instanceof Error ? e.message : String(e)}`);
 } finally {
-  if (browser) {
-    await Promise.race([browser.close(), new Promise((r) => setTimeout(r, 10000))]);
-    browser.process()?.kill('SIGKILL');
-  }
+  await closeChrome(browser);
   stopServer();
 }
 

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Wormlight · GPU parity</title>
+    <style>
+      #app {
+        max-width: 48rem;
+      }
+      .parity-table {
+        margin: 0.5rem 0 1.5rem;
+        border-collapse: collapse;
+        font-variant-numeric: tabular-nums;
+      }
+      .parity-table th,
+      .parity-table td {
+        padding: 0.2rem 1rem 0.2rem 0;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      .parity-table td:first-child {
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module" src="/src/gpu/parityPage.ts"></script>
+  </body>
+</html>
