@@ -900,9 +900,10 @@ Three choices it left open were put to the maintainer and settled before any sen
 - **One second.** All 58 graded states of 63 pass, with 5 not graded, against 8 of 63 before sensing; T's worst error is 1.3 × 10⁻³ of its tolerance.
 - **The loop's API.** T comes back from the GPU exactly as f32, and a run split across dispatches is the same run.
 - **Speed.** The whole step runs at 25.0× real time at 67 steps a dispatch, against 25.2× before.
+- **Long runs**, now also in the assay's field: 265 seeds a side, 60 s each, in about 12 minutes. The mid-body curvature's SD is 0.2148 on the CPU and 0.2146 on the GPU (equivalent within ±5%, p = 3.7 × 10⁻¹⁵). Its frequency is 0.1662 Hz and 0.1653 Hz (p = 0.0029). No solve failed to converge on either side.
 
 **The harness.** Checkpoints 0 and 1 run without odour, so C is 0, T stays 0 and AWC-ON takes exactly no current. Eight trial worlds, seeds 1 to 4 intact and silenced, stepped 10 s from a posture, give states bit for bit the same as on `main`. VALIDATION.md's results therefore stand without a rerun.
 
 **A slip in the rules' commit.** `|ΔT|` went into PLAN §7.2's table unescaped, which split its row into an extra column. The next commit escapes it; the rule's words are unchanged.
 
-**Status.** Built; GPU parity passes in Chrome. Safari's run and the long runs are to come.
+**Status.** Built; GPU parity passes in Chrome, the long runs included, and on CI's SwiftShader. Safari's run is to come.
