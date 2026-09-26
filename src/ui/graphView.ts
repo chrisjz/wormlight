@@ -75,7 +75,7 @@ function signNote(data: WormlightData): string {
   );
 }
 
-function legend(data: WormlightData): HTMLElement {
+function legend(data: WormlightData, pane: HTMLElement): HTMLElement {
   const box = el('section', 'legend');
   box.setAttribute('aria-label', 'Legend');
   const neurons = el('ul', 'legend-row');
@@ -96,7 +96,9 @@ function legend(data: WormlightData): HTMLElement {
   }
   const about = el('details', 'legend-about');
   // Open where there is room for it beside the graph.
-  about.open = window.matchMedia('(min-width: 72rem) and (min-height: 48rem)').matches;
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const room = pane.getBoundingClientRect();
+  about.open = room.width >= 72 * rem && room.height >= 48 * rem;
   about.append(
     el('summary', undefined, 'About this view'),
     el(
@@ -144,10 +146,17 @@ function lede(): HTMLElement {
 export interface GraphHandle {
   // Resolves once the first frame has been drawn, or, with ?norender=1, once the graph is ready to snapshot.
   ready: Promise<void>;
+  snapshot(): Promise<ImageData>;
   stop(): void;
 }
 
-export async function startGraph(root: HTMLElement, device: GPUDevice, data: WormlightData): Promise<GraphHandle> {
+// The graph in its pane. With `title`, it is the page's only view and carries the page's title.
+export async function startGraph(
+  pane: HTMLElement,
+  device: GPUDevice,
+  data: WormlightData,
+  title: boolean,
+): Promise<GraphHandle> {
   const params = readParams(location.search);
   const canvas = el('canvas');
   canvas.id = 'gpu';
@@ -181,7 +190,13 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   names.id = 'neuron-names';
   for (const neuron of data.neurons) names.append(new Option(neuron.name));
   const brand = el('header', 'brand');
-  brand.append(el('h1', 'brand-title', 'Wormlight'), lede(), find, findError, names);
+  brand.append(
+    title ? el('h1', 'brand-title', 'Wormlight') : el('h2', 'sr-only', 'The connectome'),
+    lede(),
+    find,
+    findError,
+    names,
+  );
   const label = el('div', 'hover-label');
   label.hidden = true;
   label.setAttribute('aria-hidden', 'true');
@@ -204,9 +219,8 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   const footer = el('footer', 'footer');
   const aside = el('div', 'footer-aside');
   aside.append(hint, credit());
-  footer.append(legend(data), aside);
-  root.replaceChildren(canvas, brand, inspector.element, selection, label, footer);
-  root.classList.add('graph');
+  footer.append(legend(data, pane), aside);
+  pane.replaceChildren(canvas, brand, inspector.element, selection, label, footer);
 
   const wiring = new Wiring(data);
   const muscles = musclesByNeuron(data);
@@ -228,8 +242,14 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   // The graph is framed in the space the overlays leave: above the footer, and left of the inspector on a
   // wide screen or above it on a narrow one, where it is a sheet along the bottom. The projection is
   // shifted to centre that space, and the frame shrinks to fit it.
-  // Below this the inspector is a sheet along the bottom (style.css).
-  const narrow = window.matchMedia('(max-width: 56rem), (max-height: 30rem)');
+  // Below this pane size the inspector is a sheet along the bottom (style.css's container query).
+  const narrow = {
+    get matches(): boolean {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const box = pane.getBoundingClientRect();
+      return box.width < 56 * rem || box.height < 30 * rem;
+    },
+  };
   const clampShare = (v: number): number => Math.max(0, Math.min(0.6, v));
   const insets = (): { right: number; bottom: number } => {
     const box = canvas.getBoundingClientRect();
@@ -362,7 +382,7 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
     selected = next;
     upload();
     inspector.show(selected === null ? null : inspect(data, wiring, muscles, selected));
-    root.classList.toggle('inspecting', selected !== null);
+    pane.classList.toggle('inspecting', selected !== null);
     // The live region changes only with the selection, not with hovering.
     selection.textContent = describe();
   };
@@ -694,11 +714,10 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   const footerObserver = new ResizeObserver(refit);
   footerObserver.observe(footer);
   footerObserver.observe(inspector.element);
-  narrow.addEventListener('change', refit);
   upload();
   if (selected !== null) {
     inspector.show(inspect(data, wiring, muscles, selected));
-    root.classList.add('inspecting');
+    pane.classList.add('inspecting');
   }
   resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
   settled = true;
@@ -725,28 +744,13 @@ export async function startGraph(root: HTMLElement, device: GPUDevice, data: Wor
   };
   requestAnimationFrame(tick);
 
-  const hooks = window as unknown as { __snap?: () => Promise<string> };
-  hooks.__snap = async () => {
-    const image = await renderer.snapshot(frameState());
-    const out = new OffscreenCanvas(image.width, image.height);
-    const context = out.getContext('2d');
-    if (!context) throw new Error('no 2D context for the snapshot');
-    context.putImageData(image, 0, 0);
-    const blob = await out.convertToBlob({ type: 'image/png' });
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => reject(new Error('the snapshot could not be encoded'));
-      reader.readAsDataURL(blob);
-    });
-  };
   return {
     ready,
+    snapshot: () => renderer.snapshot(frameState()),
     stop: () => {
       stopped = true;
       observer.disconnect();
       footerObserver.disconnect();
-      narrow.removeEventListener('change', refit);
       document.removeEventListener('keydown', onSlash);
     },
   };

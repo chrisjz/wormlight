@@ -24,6 +24,7 @@
     "visual:compare": "node scripts/visual/compare.ts",
     "gpu:parity": "node scripts/gpu/parity.ts",
     "harness": "node scripts/harness/run.ts",
+    "plate:bench": "node scripts/plate/bench.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

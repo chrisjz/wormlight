@@ -39,9 +39,9 @@ a:hover {
   text-decoration-color: currentColor;
 }
 
-/* The message page: while loading, and when the graph can't run. */
+/* The message page: while loading, and when the app can't run. */
 
-#app:not(.graph) {
+#app:not(.app) {
   max-width: 40rem;
   padding: 3rem 1.25rem;
 }
@@ -87,16 +87,53 @@ a:hover {
   color: var(--muted);
 }
 
-/* The graph: a full-window canvas with quiet overlays at its edges. */
+/* The app: the plate and the graph side by side, or stacked on a tall screen, or one alone. Each view is a
+   pane with a canvas and quiet overlays at its edges, sized by the pane rather than the window. */
 
-#app.graph {
+#app.app {
   position: fixed;
   inset: 0;
+  display: grid;
+  grid-template: 1fr / 1fr;
   overflow: hidden;
+}
+
+#app.split {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #app.split {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+}
+
+.pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  container-type: size;
   font-size: 0.8125rem;
 }
 
-#gpu {
+.pane-graph {
+  container-name: graph;
+}
+
+#app.split .pane + .pane {
+  border-left: 1px solid var(--line);
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #app.split .pane + .pane {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.pane > canvas {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -106,7 +143,7 @@ a:hover {
   touch-action: none;
 }
 
-#gpu:focus-visible {
+.pane > canvas:focus-visible {
   outline: 2px solid var(--muted);
   outline-offset: -4px;
 }
@@ -546,7 +583,7 @@ button.inspector-row:focus-visible .row-name {
   }
 }
 
-@media (max-width: 40rem) {
+@container (max-width: 40rem) {
   .brand-lede {
     display: none;
   }
@@ -578,9 +615,9 @@ button.inspector-row:focus-visible .row-name {
   }
 }
 
-/* On narrow or short screens the inspector is a sheet along the bottom, over the footer; graphView.ts
+/* In a narrow or short pane the inspector is a sheet along the bottom, over the footer; graphView.ts
    matches this query. */
-@media (max-width: 56rem), (max-height: 30rem) {
+@container graph (max-width: 56rem) or (max-height: 30rem) {
   .inspector {
     top: auto;
     left: 0;
@@ -591,7 +628,7 @@ button.inspector-row:focus-visible .row-name {
     border-radius: 0.8rem 0.8rem 0 0;
   }
 
-  .graph.inspecting .footer {
+  .pane-graph.inspecting .footer {
     display: none;
   }
 }
@@ -613,11 +650,253 @@ button.inspector-row:focus-visible .row-name {
   }
 }
 
-/* Short screens, such as a phone on its side, keep the legend to its swatches. */
-@media (max-height: 30rem) {
+/* A short graph pane, such as a phone's half, keeps the legend to its neuron classes and the credit small; the
+   inspector, a sheet there, covers the footer while a neuron is selected. */
+@container graph (max-height: 30rem) {
+  .legend-row + .legend-row {
+    display: none;
+  }
+
+  .credit {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+}
+
+/* Short panes, such as a phone on its side, keep the legend to its swatches. */
+@container (max-height: 30rem) {
   .brand-lede,
   .legend-about,
   .hint {
     display: none;
+  }
+}
+
+/* The plate: the title and the notice at the top, the time controls at the bottom left, the dish inset and
+   the scale at the bottom right. */
+
+.plate-head {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.5rem;
+  max-width: 24rem;
+  pointer-events: none;
+}
+
+.plate-lede {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.plate-notice {
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--warn);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  line-height: 1.45;
+  pointer-events: auto;
+}
+
+.plate-notice strong {
+  font-weight: 600;
+}
+
+.plate-controls {
+  position: absolute;
+  left: 1.5rem;
+  bottom: 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  max-width: calc(100% - 13rem);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  font-variant-numeric: tabular-nums;
+}
+
+.plate-controls button,
+.plate-follow {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.plate-controls button:hover,
+.plate-follow:hover {
+  background: rgb(255 255 255 / 6%);
+}
+
+.plate-controls button:focus-visible,
+.plate-follow:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+.plate-play {
+  min-width: 4.5rem;
+}
+
+.plate-speeds {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.plate-controls .plate-speed {
+  padding: 0.25rem 0.5rem;
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.plate-controls .plate-speed[aria-checked='true'] {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.plate-time {
+  min-width: 3rem;
+  color: var(--fg);
+}
+
+.plate-seed {
+  color: var(--faint);
+  font-size: 0.75rem;
+}
+
+.plate-follow {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+}
+
+.plate-follow[hidden] {
+  display: none;
+}
+
+.plate-stats {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  margin: 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.plate-follow:not([hidden]) ~ .plate-stats {
+  top: 3.5rem;
+}
+
+.plate-stats[hidden] {
+  display: none;
+}
+
+.plate-map {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  margin: 0;
+  width: 7.5rem;
+  pointer-events: none;
+}
+
+.plate-map svg {
+  display: block;
+  width: 7.5rem;
+  height: 7.5rem;
+}
+
+.plate-dish {
+  fill: rgb(12 20 17 / 85%);
+  stroke: var(--rule);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.plate-trail {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.plate-view {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
+.plate-dot {
+  fill: var(--fg);
+}
+
+.plate-scale {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.plate-bar {
+  height: 0.3rem;
+  border: 1px solid var(--fg);
+  border-top: 0;
+}
+
+@container (max-width: 40rem) {
+  .plate-lede,
+  .plate-seed {
+    display: none;
+  }
+
+  .plate-head {
+    left: 1rem;
+    right: 1rem;
+    top: 1rem;
+  }
+
+  .plate-controls {
+    left: 1rem;
+    bottom: 1rem;
+    max-width: calc(100% - 2rem);
+  }
+
+  .plate-map {
+    right: 1rem;
+    bottom: 5.5rem;
+    width: 5rem;
+  }
+
+  .plate-map svg {
+    width: 5rem;
+    height: 5rem;
+  }
+}
+
+@container (max-height: 30rem) {
+  .plate-lede,
+  .plate-map {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .plate-controls button,
+  .plate-follow {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
   }
 }

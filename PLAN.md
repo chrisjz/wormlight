@@ -70,7 +70,7 @@ On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes,
 
 **Time.** The neural and body step targets 2.5 ms. Milestone 0b confirmed it for the neural model: both checks pass at 2.5 ms, and the port check fails at 5 ms. Milestone 0c confirmed it for the body with a prescribed wave, whose speed agrees within 0.08% at 2.5 and 1.25 ms; the closed loop's comparison at dt and dt/2 waits until checkpoint 1 reaches partial, since without a wave it would compare where bouts start and end, not the integrator (2026-09-26, DECISIONS.md). Pause, slow motion and fast forward only change how many steps a frame runs.
 
-**Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms. Milestone 2's GPU brain runs at about 29× real time at 2.5 ms on the same machine in Chrome, and milestone 3's whole step, the brain with the layers outside it and the body, at about 24× in dispatches of 67 steps, for the step alone: rendering and readback come with the plate view (DECISIONS.md, 2026-09-26). In Safari on the same machine the whole step runs at about 11×. A shortfall would be logged rather than paid for with accuracy.
+**Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms. Milestone 2's GPU brain runs at about 29× real time at 2.5 ms on the same machine in Chrome, and milestone 3's whole step, the brain with the layers outside it and the body, at about 24× in dispatches of 67 steps, for the step alone: rendering and readback come with the plate view (DECISIONS.md, 2026-09-26). In Safari on the same machine the whole step runs at about 11×. With the plate view, rendering and readback included, the app in headless Chrome holds 60 frames a second at 10× on the same machine, and its step saturates at about 63× in the app's states, which solve faster than the parity states milestone 3 first timed (2026-09-26, DECISIONS.md). A shortfall would be logged rather than paid for with accuracy.
 
 ## 2. Data
 
@@ -477,7 +477,7 @@ Safari and Firefox run their own WebGPU engines, which CI can't cover, so milest
 - `checks`: lint, format, unit tests including the port and production checks, typecheck, build, and the freshness of `FIDELITY.md`.
 - `data`: rebuilds the runtime data, `DATA_SOURCES.md` and the reports from their pins, and fails if any committed output differs.
 - `gpu`: parity on SwiftShader, since milestone 2.
-- `visual`: fixed views pixel-compared against baselines, as Universe does, from milestone 1.
+- `visual`: fixed views pixel-compared against baselines, as Universe does: the graph's from milestone 1, and the plate's from milestone 3.
 - `deploy`: Pages, gated on `DEPLOY_PAGES`, after `checks`, `data`, `visual` and `gpu` pass. Live since 2026-09-26 at https://chrisjz.github.io/wormlight/.
 
 ## 9. Milestones
@@ -517,14 +517,14 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
 
 ## 10. Risks and the fallback menu
 
-| Risk                                                      | Likelihood               | Mitigation                                                                                                                                                                               |
-| --------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The rhythm generators and coupling don't produce crawling | Happened at milestone 0c | Fallbacks 1 and 2 tested without effect; fallback 4 taken, with fallback 3 as research track R (§9)                                                                                      |
-| Reversals don't travel backward along the body            | Medium to high           | A-type oscillators and their mirrored coupling are the default, but the A-types don't yet cycle on their own (DECISIONS.md, 2026-09-25); checkpoint 2 waits for track R                  |
-| The model saturates or falls silent on Cook's weights     | Medium                   | Per-type rescaling (§3.2), with shared-connection scales and the sign-sensitivity runs reported                                                                                          |
-| Chemotaxis needs head steering the model can't produce    | Medium to high           | Accept a partial and report it; weathervaning depends on head motor neurons (SMD, RMD) that the data wire to head muscles                                                                |
-| One GPU workgroup misses the fast-forward target          | Low since milestone 3    | The whole step runs at about 24× real time on an M5 Max, for the step alone (§1); rendering and readback come with the plate view, and a shortfall is logged, not paid for with accuracy |
-| Safari's WebGPU behaves differently                       | Low to medium            | Safari checks at milestones 3 and 6 (milestone 2's postponed to 3)                                                                                                                       |
+| Risk                                                      | Likelihood               | Mitigation                                                                                                                                                                         |
+| --------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The rhythm generators and coupling don't produce crawling | Happened at milestone 0c | Fallbacks 1 and 2 tested without effect; fallback 4 taken, with fallback 3 as research track R (§9)                                                                                |
+| Reversals don't travel backward along the body            | Medium to high           | A-type oscillators and their mirrored coupling are the default, but the A-types don't yet cycle on their own (DECISIONS.md, 2026-09-25); checkpoint 2 waits for track R            |
+| The model saturates or falls silent on Cook's weights     | Medium                   | Per-type rescaling (§3.2), with shared-connection scales and the sign-sensitivity runs reported                                                                                    |
+| Chemotaxis needs head steering the model can't produce    | Medium to high           | Accept a partial and report it; weathervaning depends on head motor neurons (SMD, RMD) that the data wire to head muscles                                                          |
+| One GPU workgroup misses the fast-forward target          | Low since milestone 3    | On an M5 Max the app holds 60 frames a second at 10×, rendering and readback included, and its step saturates at about 63× (§1); a shortfall is logged, not paid for with accuracy |
+| Safari's WebGPU behaves differently                       | Low to medium            | Safari checks at milestones 3 and 6 (milestone 2's postponed to 3)                                                                                                                 |
 
 **If milestone 0 can't make the worm crawl**, these are the options, in order. Each is logged, levelled in the ledger, and applied only with your go-ahead:
 

@@ -628,7 +628,7 @@ export const PRESENTATION: readonly { text: string; sources: readonly CitationId
     sources: ['gleeson2018'],
   },
   {
-    text: 'The camera follows the worm at body scale.',
+    text: "The plate view looks down on the dish as a dark-field microscope would: the worm's outline is the body model's, rod for rod, but its shading, the pharynx's bulbs and the gut's granules drawn inside it, and the agar's specks are texture, not simulated anatomy. The camera follows the worm at body scale, with the whole dish in an inset.",
     sources: [],
   },
 ];

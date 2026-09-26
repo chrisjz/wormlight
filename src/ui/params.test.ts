@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PITCH_LIMIT } from '../render/camera';
-import { applyTarget, readParams } from './params';
+import { applyTarget, readParams, readPlateParams } from './params';
 
 describe('readParams', () => {
   it('reads nothing from an empty query', () => {
@@ -43,5 +43,48 @@ describe('applyTarget', () => {
   it('replaces only the axes given', () => {
     expect(applyTarget([1, 2, 3], { 1: 9 })).toEqual([1, 9, 3]);
     expect(applyTarget([1, 2, 3], {})).toEqual([1, 2, 3]);
+  });
+});
+
+describe('readPlateParams', () => {
+  it('starts split, running, with a random seed and the default field of view', () => {
+    expect(readPlateParams('')).toEqual({
+      layout: 'split',
+      seed: null,
+      time: 0,
+      paused: false,
+      speed: 1,
+      span: null,
+      stats: false,
+    });
+  });
+
+  it('reads a layout, a seed, a start time, a pause, a field of view in millimetres and the stats', () => {
+    expect(readPlateParams('?view=plate&seed=42&t=12.5&paused=1&speed=10&span=110&stats=1')).toEqual({
+      layout: 'plate',
+      seed: 42,
+      time: 12.5,
+      paused: true,
+      speed: 10,
+      span: 0.11,
+      stats: true,
+    });
+    expect(readPlateParams('?view=graph').layout).toBe('graph');
+  });
+
+  it('ignores what it cannot use', () => {
+    expect(readPlateParams('?view=both&seed=-3&t=abc&speed=0&span=0')).toEqual({
+      layout: 'split',
+      seed: null,
+      time: 0,
+      paused: false,
+      speed: 1,
+      span: null,
+      stats: false,
+    });
+    expect(readPlateParams('?seed=4294967296').seed).toBeNull();
+    expect(readPlateParams('?seed=1e3').seed).toBeNull();
+    expect(readPlateParams('?t=100000').time).toBe(600);
+    expect(readPlateParams('?speed=1000').speed).toBe(100);
   });
 });

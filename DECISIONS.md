@@ -769,3 +769,37 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 **Deferred: the convergence comparison at dt and dt/2** (PLAN §1 and §7.2, marked). PLAN §1 said it waited for checkpoint 1. With the maintainer's agreement it now waits until checkpoint 1 reaches partial: with one mean-crossing a bout, a 2% comparison of the frequency would measure where bouts start and end, not the integrator.
 
 **Status.** Milestone 3's second part is done: checkpoint 1 runs in the harness, a fail until track R, and checkpoint 0's crawling clause passes. The plate view comes next, with milestone 3's 60 fps criterion.
+
+## 2026-09-26 — The plate view: the worm on its dish, drawn from the GPU's own buffers
+
+**Decision.** Milestone 3's last part is the plate view (spec §5–§7): the worm on a 10 cm dish, its whole loop stepped on the GPU, beside the connectome's graph. The maintainer chose, before it was built:
+
+- **A split layout.** The plate and the graph side by side, stacked when the window is taller than it is wide; `?view=plate` or `?view=graph` shows one alone. Considered: the plate with the graph as an inset, and tabs, neither of which shows body and brain together.
+- **A dark-field look, from above.** Dark agar with faint texture and specks, the worm a translucent tube lit at its edges, as a dark-field microscope shows one. It suits the app's dark palette and will keep the glow readable (milestone 6). The camera follows the worm at three body lengths across the pane's shorter side, with the whole dish in an inset. Considered: bright-field, the look of most worm videos, which clashes with the app and would wash out a green glow; and a tilted 3D camera, which a 2D body gains little from.
+- **A straight start, seeded.** The worm starts straight at the dish's centre, heading where a seed says: random on each visit, shown on the page, and fixed by `?seed=`. Considered: a real posture, which would mean shipping a subset of the OIST postures and their attribution; the harness keeps those.
+
+**How it works.**
+
+- **Drawing from the simulation's buffer.** `GpuWorld` steps the loop, and the renderer reads the rods' coordinates straight from the kernel's body buffer in a vertex shader, so drawing the worm needs no readback. Only the camera, which follows the worm, reads back the rods' centres, a few kilobytes a frame, one or two frames behind, as PLAN §1 allows.
+- **Pacing.** Each frame runs the whole steps that the wall time since the last frame owes at the chosen speed (¼×, 1×, 4× or 10×), a gap counting for at most a tenth of a second. While the GPU is still busy with earlier frames, a frame runs no steps, so a GPU that can't keep up runs slower than asked instead of queueing work.
+- **What's drawn.** The worm's outline is the body model's: a strip through the rods' centres, as wide as their radii, smoothed between them by a spline. Its shading, the pharynx's bulbs and the gut's granules inside it, and the agar's specks are texture, not simulated anatomy, and the registry's presentation notes say so.
+- **What it says.** The app runs on the provisional parameters, and a notice says crawling doesn't emerge yet, linking to `VALIDATION.md`, as PLAN §9 promised it would from the app's first view of the body.
+- **A gap.** The dish's wall doesn't stop the worm yet, as PLAN §5.2 has it; it comes with the environment in milestone 4. At the provisional parameters the worm makes about 0.03 body lengths per second when it moves at all.
+
+**Speed** (the default split view at 1440 × 900, in headless Chrome 153 on the M5 Max, `npm run plate:bench`):
+
+| Asked | Frames a second | Worm time a wall second | Queued work at the end (ms) |
+| ----- | --------------- | ----------------------- | --------------------------- |
+| 1×    | 60.0            | 1.00×                   | 0.2                         |
+| 10×   | 60.0            | 10.00×                  | 4.0                         |
+| 30×   | 60.0            | 30.00×                  | 0.0                         |
+| 50×   | 60.0            | 50.00×                  | 0.4                         |
+| 100×  | 31.8            | 63.10×                  | 171                         |
+
+- **Rendering and readback included,** the app clears PLAN's 10× target with room to spare. Its step saturates at about 63× real time, against the 24× milestone 3's first part measured for the step alone.
+- **Why the step is faster here.** That benchmark ran the most demanding parity state, whose solves take the most iterations; the app's worm, near rest, takes fewer. A calibrated, more active brain may take more.
+- **Headless Chrome paces its own frames,** so these say what the GPU and the page sustain, not what a display shows.
+
+**Visual tests.** The graph's four views now load `?view=graph` and match their baselines unchanged: locally within 0.03%, as before. Three plate views join them, each paused at the start with seed 1: the default field of view, a close-up and the whole dish. Their baselines come from CI's first run of them.
+
+**Status.** Built. Milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, needs a window: the maintainer's check with `/?stats=1` at 1× and 10×.

@@ -125,7 +125,7 @@ A level describes the kind of evidence, not how much a part matters, and not cer
 
 - Calcium-style glow: model activity filtered through published GCaMP kinetics (Chen et al. 2013). The colour and normalisation are display choices.
 - The 3D graph places each soma where one reconstruction has it (the WormBase Virtual Worm, via c302; Gleeson et al. 2018), unbent along the ventral cord, with the body axis stretched where neurons crowd and the cross-section enlarged. Order along the unbent body is kept.
-- The camera follows the worm at body scale.
+- The plate view looks down on the dish as a dark-field microscope would: the worm's outline is the body model's, rod for rod, but its shading, the pharynx's bulbs and the gut's granules drawn inside it, and the agar's specks are texture, not simulated anatomy. The camera follows the worm at body scale, with the whole dish in an inset.
 
 ## Reference data for validation
 
