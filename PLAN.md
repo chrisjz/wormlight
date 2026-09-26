@@ -70,7 +70,7 @@ On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes,
 
 **Time.** The neural and body step targets 2.5 ms. Milestone 0b confirmed it for the neural model: both checks pass at 2.5 ms, and the port check fails at 5 ms. Milestone 0c confirmed it for the body with a prescribed wave, whose speed agrees within 0.08% at 2.5 and 1.25 ms; the closed loop's comparison at dt and dt/2 waits for checkpoint 1 (§9). Pause, slow motion and fast forward only change how many steps a frame runs.
 
-**Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms. Milestone 2's GPU brain runs at about 29× real time at 2.5 ms on the same machine in Chrome, and milestone 3's whole step, the brain with the layers outside it and the body, at about 24× in dispatches of 67 steps, for the step alone: rendering and readback come with the plate view (DECISIONS.md, 2026-09-26). A shortfall would be logged rather than paid for with accuracy.
+**Fast forward (spec §3).** The target is 10× real time, sustained on an M-series laptop in Chrome. That plays a 20-minute chemotaxis run in 2 minutes and the full 60-minute assay in 6. The review benchmarked the neural step alone on an M5 Max at 6.3× real time at a 1 ms step and 18× at 5 ms. Milestone 2's GPU brain runs at about 29× real time at 2.5 ms on the same machine in Chrome, and milestone 3's whole step, the brain with the layers outside it and the body, at about 24× in dispatches of 67 steps, for the step alone: rendering and readback come with the plate view (DECISIONS.md, 2026-09-26). In Safari on the same machine the whole step runs at about 11×. A shortfall would be logged rather than paid for with accuracy.
 
 ## 2. Data
 
@@ -461,7 +461,7 @@ Trials are independent, so the harness runs them in parallel, one worker per cor
 - long runs (`npm run gpu:parity -- --long`, or `/parity.html?long`) take 11 to 18 minutes on an M5 Max and would take hours on SwiftShader, so they run locally, not in CI;
 - the `webgpu` npm package (Dawn's Node bindings) is an optional local fast loop, not a second CI stack.
 
-Safari and Firefox run their own WebGPU engines, which CI can't cover, so milestones 3 and 6 each include a manual Safari check. Milestone 2's was postponed to milestone 3, since it couldn't be run then (2026-09-26).
+Safari and Firefox run their own WebGPU engines, which CI can't cover, so milestones 3 and 6 each include a manual Safari check. Milestone 2's was postponed to milestone 3, since it couldn't be run then, and passed there with milestone 3's parity (2026-09-26, DECISIONS.md).
 
 **The behavioural harness.** `npm run harness -- --checkpoint <n>` runs trials in parallel on the CPU reference, writes JSON to `harness-out/`, and regenerates the results tables in `VALIDATION.md`.
 
@@ -498,7 +498,7 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 1's outcome (2026-09-26): done.** The graph renders on a local GPU and on CI's software GPU, where the visual tests match their baselines exactly, and the inspector shows each connection's sign source and fidelity level (DECISIONS.md).
 
-**Milestone 2's outcome (2026-09-26): done, but for the Safari check, which moves to milestone 3.** The GPU brain matches the CPU reference on the Mac's GPU and on CI's software GPU, by the one-step and one-second checks as changed after results (§7.2), and steps at about 29× real time on an M5 Max. Long-run parity and the full step's speed moved to milestone 3 before any parity results (DECISIONS.md).
+**Milestone 2's outcome (2026-09-26): done, but for the Safari check, which moves to milestone 3; it passed there the same day (DECISIONS.md).** The GPU brain matches the CPU reference on the Mac's GPU and on CI's software GPU, by the one-step and one-second checks as changed after results (§7.2), and steps at about 29× real time on an M5 Max. Long-run parity and the full step's speed moved to milestone 3 before any parity results (DECISIONS.md).
 
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 
