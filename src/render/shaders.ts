@@ -75,7 +75,9 @@ struct Out {
   let normal = vec3f(in.uv, sqrt(max(1.0 - r * r, 0.0)));
   let light = normalize(vec3f(-0.45, 0.65, 0.62));
   let diffuse = max(dot(normal, light), 0.0);
-  let rim = pow(1.0 - normal.z, 2.5);
+  // (1 − n.z)^2.5, written without pow, which WGSL leaves undefined for a base of 0, as at the centre.
+  let e = 1.0 - normal.z;
+  let rim = e * e * sqrt(e);
   let shade = in.colour.rgb * (0.42 + 0.58 * diffuse) + vec3f(0.10) * rim;
   let edge = 1.0 - smoothstep(1.0 - aa, 1.0, r);
   return vec4f(mix(shade, BACKGROUND, in.fog), edge * in.colour.a);
