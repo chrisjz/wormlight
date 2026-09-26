@@ -144,7 +144,7 @@ export class World {
   readonly headFrom: number;
   readonly headTo: number;
   // Which AWC is ON, drawn from the seed; its neuron, or −1 if lesioned; where along the body it senses; its
-  // sensor; and the current it took on the last step. AWC-OFF takes no odour.
+  // sensor; the odour it senses; and the current it took on the last step. AWC-OFF takes no odour.
   readonly awcSide: AwcSide;
   readonly awcOn: number;
   readonly nose: number;
@@ -236,8 +236,8 @@ export class World {
     return this.odour.sample(x, y);
   }
 
-  // Adapt AWC-ON's threshold to the concentration where it is now, as a worm that has sat there a while: the
-  // world does on its creation, and whoever moves the body afterwards does again.
+  // Adapt AWC-ON's threshold to the concentration where it is now, as in a worm that has sat there a while.
+  // The world adapts when it is made; whoever moves the body afterwards adapts it again.
   adapt(): void {
     this.awc.adapt(this.smell());
   }

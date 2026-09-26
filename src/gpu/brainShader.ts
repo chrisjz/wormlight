@@ -4,9 +4,9 @@
 // then activation and the oscillators' recovery by BDF2 at the new voltages. With `looping` on, each step is
 // World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents, AWC-ON's sensing and the
 // head switch, the brain, the neuromuscular layer, and the body under resistive force theory, whose
-// block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one workgroup, each
-// invocation holding its neurons' and its rod's state in registers, so a dispatch can take many steps with
-// nothing but barriers between them.
+// block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one
+// workgroup, each invocation holding its neurons' and its rod's state in registers, so a dispatch can take many
+// steps with nothing but barriers between them.
 //
 // f32 alone can't hold the body finely enough: its stiffest springs stretch by nanometres or less, far below
 // f32's resolution at dish-wide coordinates. So each rod's position and angle are kept as a coarse part on a
@@ -343,7 +343,8 @@ fn carry(hi: ptr<function, f32>, lo: ptr<function, f32>, grid: f32, inverse: f32
   *lo -= q;
 }
 
-// 1 − e^(−x) for x ≥ 0: its series where 1 − exp(−x) would cancel, to 10⁻⁸ of the result.
+// 1 − e^(−x) for x ≥ 0: below 0.1, where 1 − exp(−x) would cancel, its series, truncated at 2 × 10⁻⁸ of the
+// result, under f32's rounding.
 fn one_less_exp(x: f32) -> f32 {
   if (x < 0.1) {
     return x * (1.0 - x * (1.0 / 2.0 - x * (1.0 / 6.0 - x * (1.0 / 24.0 - x * (1.0 / 120.0)))));
