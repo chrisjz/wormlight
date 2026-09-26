@@ -9,8 +9,12 @@ import type { Body } from './body/body.ts';
 
 // The scaled dorsal curvature at each interior rod; the two end rods have none and are left at 0.
 export function curvature(body: Body, out: Float64Array): void {
-  const { x, y, rods } = body;
-  const scale = body.params.segmentLength * body.params.segments;
+  curvatureOf(body.x, body.y, body.params.segmentLength * body.params.segments, out);
+}
+
+// The same from rod centres, scaled by the body's length.
+export function curvatureOf(x: ArrayLike<number>, y: ArrayLike<number>, scale: number, out: Float64Array): void {
+  const rods = x.length;
   out[0] = 0;
   out[rods - 1] = 0;
   for (let i = 1; i < rods - 1; i++) {
@@ -80,7 +84,8 @@ export class HeadSwitch {
   readonly derivativeWeight: number;
   readonly threshold: number;
   h: number;
-  private previous: number | null = null;
+  // The head's curvature at the last update, if there was one.
+  previous: number | null = null;
 
   // b in seconds and P_th, dimensionless.
   constructor(derivativeWeight: number, threshold: number, initial = 1) {

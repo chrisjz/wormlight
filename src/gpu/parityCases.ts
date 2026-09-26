@@ -9,7 +9,7 @@ import { Brain, type BrainState, type Oscillators } from '../sim/brain/brain.ts'
 import { lesion, type Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
-import { World, type LoopParams } from '../sim/world.ts';
+import { World, type LoopParams, type WorldState } from '../sim/world.ts';
 
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
 // B-types' drive threshold is in the range where they cycle (DECISIONS.md, 2026-09-26), and the noise, about
@@ -141,7 +141,7 @@ export function gaussianBound(h1: number, h2: number): number {
 
 // The most the noise's rounding can move any voltage in one step: the implicit system's inverse is bounded by
 // dt/C in the ∞-norm, since each row's diagonal exceeds its off-diagonal sum by at least C/dt.
-export function noiseAllowance(setup: ParitySetup, steps: number): number {
+export function noiseAllowance(setup: Pick<ParitySetup, 'noise' | 'seed' | 'network'>, steps: number): number {
   if (setup.noise === 0) return 0;
   let worst = 0;
   for (let i = 0; i < setup.network.names.length; i++) {
@@ -172,3 +172,66 @@ export const rms = (a: Float64Array, b: Float64Array, floor: number): number => 
   for (let i = 0; i < a.length; i++) sum += ((a[i] - b[i]) / Math.max(Math.abs(a[i]), floor)) ** 2;
   return Math.sqrt(sum / a.length);
 };
+
+// The loop's parity (PLAN §7.2, the body's row, set 2026-09-26 before any loop results): the same states, now
+// whole worlds, the body, muscles and head switch included, and both sides run the whole loop. The velocities'
+// rule was changed after results (DECISIONS.md, 2026-09-26): 10⁻², not 10⁻⁴, which f32 can't reach on this
+// system, and graded at each rod's end points, where rotation counts by the rod's radius.
+export const LOOP_STEP = { velocity: 1e-2, muscle: 1e-4 };
+export const LOOP_SECOND = { curvature: 1e-2, centroid: 1e-2 };
+// The floors, absolute tolerances for a body at rest: 10⁻⁴ segment lengths per second and 10⁻⁴ rad/s; and for
+// the centroid's travel, 0.01 body lengths.
+export const velocityFloors = (world: World): [number, number, number] => {
+  const floor = 1e-4 * world.body.params.segmentLength;
+  return [floor, floor, 1e-4];
+};
+export const centroidFloor = (world: World): number =>
+  0.01 * world.body.params.segmentLength * world.body.params.segments;
+
+export interface LoopCase {
+  label: string;
+  state: WorldState;
+}
+
+// The rest world and twenty from its closed loop, taken as paritySetup takes the brain's.
+export function loopCases(data: WormlightData): LoopCase[] {
+  const world = new World(data, PARITY_LOOP, { seed: SEED });
+  const cases: LoopCase[] = [{ label: 'rest', state: world.snapshot() }];
+  const every = Math.round(INTERVAL / NEURAL_STEP);
+  const first = Math.round(WARMUP / NEURAL_STEP);
+  for (let k = 1; cases.length <= STATES; k++) {
+    world.step();
+    if (k >= first && (k - first) % every === 0) {
+      cases.push({ label: `t = ${world.time.toFixed(1)} s`, state: world.snapshot() });
+    }
+  }
+  return cases;
+}
+
+// A CPU world at a state, its brain solved to the given tolerance (the reference's by default).
+export function cpuWorld(data: WormlightData, state: WorldState, tolerance?: number, seed = SEED): World {
+  const world = new World(data, PARITY_LOOP, { seed, solver: { tolerance } });
+  world.restore(state);
+  return world;
+}
+
+// A world for long-run parity: the same trial values, from its seed's start.
+export function seededWorld(data: WormlightData, seed: number): World {
+  return new World(data, PARITY_LOOP, { seed });
+}
+
+// Each rod's two end points' velocities, the points its springs act on: its centre's, plus or minus R θ̇
+// turned a quarter from its axis, at the step's starting angles.
+export function endVelocities(world: World, theta: ArrayLike<number>, v: ArrayLike<number>): Float64Array {
+  const { radii } = world.body.params;
+  const out = new Float64Array(4 * radii.length);
+  for (let i = 0; i < radii.length; i++) {
+    const spin = radii[i] * v[3 * i + 2];
+    for (let side = 0; side < 2; side++) {
+      const sign = side === 0 ? 1 : -1;
+      out[4 * i + 2 * side] = v[3 * i] - sign * spin * Math.sin(theta[i]);
+      out[4 * i + 2 * side + 1] = v[3 * i + 1] + sign * spin * Math.cos(theta[i]);
+    }
+  }
+  return out;
+}

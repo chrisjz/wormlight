@@ -188,9 +188,9 @@ const voltageTolerance =
   (i: number): number =>
     ONE_STEP.voltage * Math.max(Math.abs(v[i]), FLOOR) + allowance;
 
-function compareStep(
+export function compareStep(
   label: string,
-  setup: ParitySetup,
+  setup: Pick<ParitySetup, 'noise' | 'seed' | 'network'>,
   steps: number,
   cpu: Brain,
   reference: Brain,

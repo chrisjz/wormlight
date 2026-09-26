@@ -18,10 +18,12 @@ export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): P
 // exit or interruption, so a failure can't leave it holding the port or a CI step open.
 export async function serve(args: string[], port: number): Promise<() => void> {
   const name = ['vite', ...args].join(' ');
+  // Hot reload is off, so an edit made while a harness runs can't reload its page.
   const server = spawn('npx', ['vite', ...args, '--port', String(port), '--strictPort'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'inherit'],
     detached: true,
+    env: { ...process.env, WORMLIGHT_HMR: 'off' },
   });
   const stop = (): void => {
     try {

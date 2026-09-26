@@ -440,4 +440,17 @@ describe('the world', () => {
     expect(run(3)).toEqual(run(3));
     expect(run(3)).not.toEqual(run(4));
   });
+
+  it('continues exactly from a snapshot, the head switch and the muscles included', () => {
+    const params = { ...TRIAL, noise: 0.05, oscillatorGain: 2, driveThreshold: -16 };
+    const original = new World(data, params, { seed: 5 });
+    for (let k = 0; k < 800; k++) original.step();
+    const copy = new World(data, params, { seed: 5 });
+    copy.restore(original.snapshot());
+    for (let k = 0; k < 200; k++) {
+      original.step();
+      copy.step();
+    }
+    expect(copy.snapshot()).toEqual(original.snapshot());
+  });
 });

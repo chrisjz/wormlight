@@ -4,7 +4,15 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { hash, uniform } from '../src/sim/brain/rng.ts';
 import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
-import { gaussianBound, paritySetup, variantSetup, VARIANT_LESIONS } from '../src/gpu/parityCases.ts';
+import {
+  endVelocities,
+  gaussianBound,
+  loopCases,
+  paritySetup,
+  seededWorld,
+  variantSetup,
+  VARIANT_LESIONS,
+} from '../src/gpu/parityCases.ts';
 import { readJson } from './checks.ts';
 
 // The shader's Box–Muller as f32 arithmetic with correctly rounded log, sqrt and cos: the best a GPU can do.
@@ -80,5 +88,36 @@ describe('the GPU brain', () => {
   it('holds the whole connectome in one workgroup', () => {
     const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
     expect(MAX_NEURONS).toBeGreaterThanOrEqual(data.neurons.length);
+  });
+});
+
+describe("the loop's parity", () => {
+  const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
+
+  it('takes whole worlds: the rest world and twenty from its closed loop', () => {
+    const cases = loopCases(data);
+    expect(cases).toHaveLength(21);
+    expect(cases[0].state.previousCurvature).toBeNull();
+    for (const c of cases.slice(1)) {
+      expect(c.state.previousCurvature).not.toBeNull();
+      expect(c.state.x).toHaveLength(49);
+      expect(c.state.muscles.some((a) => a > 0)).toBe(true);
+    }
+  });
+
+  it("grades each rod's end points: its centre's velocity, plus or minus its radius times its spin", () => {
+    const world = seededWorld(data, 1);
+    const rods = world.body.rods;
+    const theta = new Float64Array(rods).fill(0.3);
+    const v = new Float64Array(3 * rods);
+    v[3 * 5] = 2e-4;
+    v[3 * 5 + 2] = 0.5;
+    const ends = endVelocities(world, theta, v);
+    const r = world.body.params.radii[5];
+    expect(ends[4 * 5]).toBeCloseTo(2e-4 - r * 0.5 * Math.sin(0.3), 15);
+    expect(ends[4 * 5 + 1]).toBeCloseTo(r * 0.5 * Math.cos(0.3), 15);
+    expect(ends[4 * 5 + 2]).toBeCloseTo(2e-4 + r * 0.5 * Math.sin(0.3), 15);
+    expect(ends[4 * 5 + 3]).toBeCloseTo(-r * 0.5 * Math.cos(0.3), 15);
+    expect(ends[0]).toBe(0);
   });
 });
