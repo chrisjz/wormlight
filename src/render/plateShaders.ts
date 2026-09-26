@@ -5,7 +5,8 @@
 import { ROD_WORDS } from '../gpu/brainShader.ts';
 
 // The frame: the camera's centre, split into a coarse part and a remainder as the body's coordinates are,
-// the half extent shown (m), metres per device pixel, and the dish's radius (m).
+// the half extent shown (m), metres per device pixel, the dish's radius (m), the lawn's centre and radius
+// (m), and the width of the odour field's grid (m).
 const FRAME = /* wgsl */ `
 struct Frame {
   centre_high: vec2<f32>,
@@ -13,6 +14,9 @@ struct Frame {
   half: vec2<f32>,
   pixel: f32,
   dish: f32,
+  lawn: vec2<f32>,
+  lawn_radius: f32,
+  field_extent: f32,
 }
 @group(0) @binding(0) var<uniform> frame: Frame;
 `;
@@ -47,6 +51,23 @@ fn noise(p: vec2<f32>) -> f32 {
 export const AGAR_SHADER = /* wgsl */ `
 ${FRAME}
 ${HASH}
+// The odour field as log₂(C/K), on a grid centred on the dish, interpolated here in f32 between its four
+// nearest cells, so it stays smooth, and its isolines narrow, at any zoom.
+@group(0) @binding(1) var odour_map: texture_2d<f32>;
+
+fn odour_level(q: vec2<f32>) -> f32 {
+  let n = f32(textureDimensions(odour_map).x);
+  let g = clamp((q / frame.field_extent + 0.5) * n - 0.5, vec2<f32>(0.0), vec2<f32>(n - 1.001));
+  let c = floor(g);
+  let f = g - c;
+  let i = vec2<i32>(c);
+  let a = textureLoad(odour_map, i, 0).r;
+  let b = textureLoad(odour_map, i + vec2<i32>(1, 0), 0).r;
+  let d = textureLoad(odour_map, i + vec2<i32>(0, 1), 0).r;
+  let e = textureLoad(odour_map, i + vec2<i32>(1, 1), 0).r;
+  return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+}
+
 struct Out {
   @builtin(position) position: vec4<f32>,
   @location(0) ndc: vec2<f32>,
@@ -84,6 +105,9 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
   let q = (frame.centre_high + local) + frame.centre_low;
   let r = length(q);
   let px = frame.pixel;
+  // The odour: log₂ of the concentration over K, and how fast it changes across a pixel, for its isolines.
+  let level = odour_level(q);
+  let slope = max(fwidth(level), 1e-6);
   // Agar: dark, faintly mottled at two scales, with specks that scatter light.
   let mottle = noise(q / 1.1e-3) * 0.5 + noise(q / 3e-4) * 0.3 + noise(q / 9e-5) * 0.2;
   var light = 0.026 + 0.018 * mottle;
@@ -96,10 +120,23 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
   let rim = exp(-abs(r - frame.dish - 4e-4) / max(1.5e-4, 1.5 * px));
   let outside = smoothstep(-px, px, -inside);
   light = mix(light, 0.012 + 0.18 * rim, outside);
+  // The lawn: bacteria scatter light, most at its thicker rim.
+  let from_lawn = length(q - frame.lawn);
+  let on_lawn = (1.0 - smoothstep(frame.lawn_radius - px, frame.lawn_radius + px, from_lawn)) * (1.0 - outside);
+  let rim_lawn = exp(-max(frame.lawn_radius - from_lawn, 0.0) / max(2.5e-4, 2.0 * px));
+  let lawn_light = 0.075 + 0.035 * noise(q / 7e-5) + 0.02 * noise(q / 6e-4) + 0.16 * rim_lawn;
+  light = mix(light, lawn_light, on_lawn);
   // Dark-field illumination falls off towards the frame's corners.
-  light *= 1.0 - 0.28 * dot(in.ndc, in.ndc) * 0.5;
-  let tint = vec3<f32>(0.86, 1.0, 0.96);
-  return vec4<f32>(light * tint, 1.0);
+  let shade = 1.0 - 0.28 * dot(in.ndc, in.ndc) * 0.5;
+  var colour = light * shade * mix(vec3<f32>(0.86, 1.0, 0.96), vec3<f32>(1.0, 0.94, 0.82), on_lawn);
+  // The odour, drawn faintly in amber: a glow that grows towards K, and an isoline at every halving from K
+  // down to 1/256 of it, each about a pixel wide.
+  let amber = vec3<f32>(1.0, 0.72, 0.36);
+  let band = abs(fract(level + 0.5) - 0.5) / slope;
+  let shown = smoothstep(-8.5, -7.5, level) * (1.0 - smoothstep(0.25, 0.75, level)) * (1.0 - outside);
+  let isoline = (1.0 - smoothstep(0.6, 1.4, band)) * shown;
+  colour += amber * (0.05 * isoline + 0.035 * exp2(min(level, 0.0)) * (1.0 - outside)) * (1.0 - 0.7 * on_lawn);
+  return vec4<f32>(colour, 1.0);
 }
 `;
 

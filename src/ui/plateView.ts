@@ -7,14 +7,16 @@
 //   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser.
 
 import type { WormlightData } from '../data/schema.ts';
-import { ROD_WORDS } from '../gpu/brainShader.ts';
+import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
 import { GpuWorld } from '../gpu/world.ts';
-import { PlateRenderer, type PlateFrame } from '../render/plate.ts';
+import { PlateRenderer, type PlateFrame, type PlateScene } from '../render/plate.ts';
 import { halfExtent, metresPerPixel, scaleBar, zoomAbout, type PlateCamera } from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
+import { LAWN_RADIUS, SPOT } from '../sim/env/dish.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { Pacer, Rates } from './pacing.ts';
 import type { PlateParams } from './params.ts';
+import { plateScene } from './scene.ts';
 import { appWorld } from './start.ts';
 
 const DISH = PARAMS.dishDiameter.value / 200; // cm → m, radius
@@ -97,12 +99,26 @@ export async function startPlate(
 
   let seed = params.seed ?? randomSeed();
   let world = appWorld(data, seed);
-  const gpu = await GpuWorld.create(device, world);
+  // The GPU compiles the world's pipeline while the CPU solves the lawn's steady odour field: the page yields
+  // first, so the browser sends the GPU its work before the solve holds the thread.
+  const creating = GpuWorld.create(device, world);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  let scene: PlateScene;
+  try {
+    scene = plateScene();
+  } catch (e) {
+    creating.then(
+      (made) => made.destroy(),
+      () => undefined,
+    );
+    throw e;
+  }
+  const gpu = await creating;
   const rods = gpu.layout.rods;
-  const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[2 * i]);
+  const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[ROD_CONSTANTS * i]);
   let renderer: PlateRenderer;
   try {
-    renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH);
+    renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH, scene);
   } catch (e) {
     gpu.destroy();
     throw e;
@@ -155,12 +171,18 @@ export async function startPlate(
   const trail = svg('polyline', { class: 'plate-trail', points: '' });
   const view = svg('rect', { class: 'plate-view' });
   const dot = svg('circle', { class: 'plate-dot', r: 0.035 });
-  inset.append(svg('circle', { class: 'plate-dish', r: 1 }), trail, view, dot);
+  const lawn = svg('circle', {
+    class: 'plate-lawn',
+    cx: (SPOT[0] / DISH).toFixed(4),
+    cy: (-SPOT[1] / DISH).toFixed(4),
+    r: (LAWN_RADIUS / DISH).toFixed(4),
+  });
+  inset.append(svg('circle', { class: 'plate-dish', r: 1 }), lawn, trail, view, dot);
   const scale = el('div', 'plate-scale');
   const bar = el('span', 'plate-bar');
   const barLabel = el('span', 'plate-bar-label');
   scale.append(bar, barLabel);
-  const caption = el('figcaption', 'sr-only', 'The whole dish, with the worm near its centre.');
+  const caption = el('figcaption', 'sr-only', 'The whole dish: the worm near its centre, the food lawn near its edge.');
   map.append(scale, inset, caption);
   const stats = el('span', 'plate-stats');
   stats.hidden = !params.stats;
@@ -179,8 +201,9 @@ export async function startPlate(
   let stopped = false;
   const clampSpan = (s: number): number => Math.max(SPAN_LIMITS[0], Math.min(SPAN_LIMITS[1], s));
   const homeSpan = clampSpan(params.span ?? SPAN);
-  let camera: PlateCamera = { centre: [0, 0], span: homeSpan };
-  let following = true;
+  // A URL may centre the camera elsewhere, and then it doesn't follow the worm until asked.
+  let camera: PlateCamera = { centre: params.centre ?? [0, 0], span: homeSpan };
+  let following = params.centre === null;
   let centroid: [number, number] = [0, 0];
   const points: [number, number][] = [];
   let lastTrail = -Infinity;
@@ -232,6 +255,7 @@ export async function startPlate(
   setSpeed(params.speed);
   setRunning(running, false);
   showSeed();
+  follow.hidden = following;
 
   play.addEventListener('click', () => setRunning(!running));
   speedButtons.forEach((b, k) => b.addEventListener('click', () => setSpeed(SPEEDS[k])));
@@ -372,6 +396,7 @@ export async function startPlate(
       case 'F':
         setFollowing(true);
         break;
+      // Home: back to following the worm, at the view the page opened with.
       case 'Home':
         camera = { centre: centroid, span: homeSpan };
         setFollowing(true);

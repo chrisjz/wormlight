@@ -817,6 +817,13 @@ button.inspector-row:focus-visible .row-name {
   vector-effect: non-scaling-stroke;
 }
 
+.plate-lawn {
+  fill: rgb(242 222 190 / 30%);
+  stroke: rgb(242 222 190 / 60%);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+
 .plate-trail {
   fill: none;
   stroke: var(--muted);

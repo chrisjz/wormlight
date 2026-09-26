@@ -143,7 +143,8 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
   environment: {
     name: 'Environment',
     solid: "Diffusion with butanone's measured coefficient; the standard assay layout",
-    notSolid: 'A 2D air layer over uniform agar; the loss and release rates are ours; a lawn that only emits odour',
+    notSolid:
+      "A 2D air layer over uniform agar; the loss and release rates are ours; a lawn that only emits odour; the wall's contact is ours",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['lugg1968', 'bargmann1993'],
   },
@@ -566,21 +567,46 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'environment',
     levels: [0],
     basis:
-      'A 2D air layer over uniform agar; a 3 cm decay length; the release rate set so the concentration at the capture radius is K',
+      "A 2D air layer over uniform agar; a 3 cm decay length; the release rate set so the steady concentration is K where the 0.5 cm capture circle faces the dish's centre, on the walled grid; the field steady from the start",
     caveats: "Tanimoto et al. 2017's plate measurements (2-nonanone) are context only",
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['tanimoto2017'],
-    testedBy: [{ check: 'checkpoint4' }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: 'the steady field of a point source matches the exact solution for a reflecting circular dish',
+      },
+      { check: 'checkpoint4' },
+    ],
   },
   {
     name: 'Food lawn',
     subsystem: 'environment',
     levels: [0],
-    basis: 'A 1 cm disc that releases butanone',
+    basis:
+      "A 1 cm disc that releases butanone at the spot's total rate, spread evenly; the app puts it where checkpoint 4's spot sits",
     caveats: 'Real lawns release many odours; no mechanosensation, feeding or slowing',
     upgrade: '',
     sources: [],
     testedBy: [],
+  },
+  {
+    name: 'Dish wall',
+    subsystem: 'environment',
+    levels: [0],
+    basis:
+      "It stops the worm: a rod whose centre passes the wall, less the rod's radius, is pushed back along the wall's normal by a spring and a damper like the body's diagonal elements, without friction. It reflects odour: no flux crosses it",
+    caveats:
+      "Spring and damper ease in together over the first 0.1 µm, a numerical setting; the wall's test uses each rod's centre less its radius, so a rod edge-on to the wall stops up to its radius short, 40 µm at mid-body",
+    upgrade: 'Measured contact between worms and dish walls',
+    sources: [],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          'a pressed body stops still where its eased spring holds the push, slides along the wall without friction, and feels a force that grows smoothly from zero',
+      },
+    ],
   },
   {
     name: 'Dish geometry',

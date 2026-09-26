@@ -1,8 +1,9 @@
 // Compare captured views (capture.ts) with the baselines in tests/visual/baseline/, after Universe Atlas's
 // scripts/compare-views.mjs. A view fails when more than 0.1% of its pixels (400 of 400,000) differ beyond
 // pixelmatch's perceptual threshold. The frames are sparse, so a looser limit misses real regressions: at
-// 0.5%, losing every link or swapping the signs in the VB6 view passed. CI reproduces its own baselines
-// exactly, and a local GPU comes within 0.03% of them.
+// 0.5%, losing every link or swapping the signs in the VB6 view passed. The threshold is 0.12, or a view's
+// own: the plate's views use 0.05, since at 0.12 losing the faint odour field went unnoticed. CI reproduces
+// its own baselines exactly, and a local GPU comes within 0.03% of them.
 //
 //   npm run visual:compare [-- candidateDir]      (default visual-out)
 //   ONLY=<name>                 compares one view
@@ -32,7 +33,7 @@ if (views.length === 0) {
 }
 let failed = 0;
 let missing = 0;
-for (const { name } of views) {
+for (const { name, threshold } of views) {
   const file = `${name}.png`;
   const capture = join(candidates, file);
   const base = join(baselines, file);
@@ -59,7 +60,9 @@ for (const { name } of views) {
     continue;
   }
   const diff = new PNG({ width: a.width, height: a.height });
-  const differing = pixelmatch(a.data, b.data, diff.data, a.width, a.height, { threshold: THRESHOLD });
+  const differing = pixelmatch(a.data, b.data, diff.data, a.width, a.height, {
+    threshold: threshold ?? THRESHOLD,
+  });
   const ratio = differing / (a.width * a.height);
   if (ratio > RATIO_MAX) {
     failed++;

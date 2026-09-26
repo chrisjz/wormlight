@@ -1,12 +1,14 @@
 // GPU parity for the whole loop (PLAN §7.2): the body, the muscles and the head switch join the brain. Both
 // sides take one step, then one second, running every layer, from whole-world states: the rest world and
-// twenty from the trial values' closed loop, copies of them moved across the dish and turned, which the CPU
-// doesn't notice and the GPU must not, and states from two variants that make the head switch flip and gate.
+// twenty from the trial values' closed loop; copies of them moved across the dish and turned, which the CPU
+// doesn't notice and the GPU must not; copies pressed against the dish's wall, which both push back; and states
+// from two variants that make the head switch flip and gate.
 // The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
 // 2026-09-26); the brain's are as before. Long runs, LONG_SEEDS a side for 60 s, compare the body wave's
 // statistics by Welch's two one-sided tests while the worm doesn't crawl.
 
 import type { WormlightData } from '../data/schema.ts';
+import { boyleBody } from '../sim/body/body.ts';
 import { WAVE_ROD, WAVE_SAMPLE, WAVE_WARM_UP, bodyWave, type BodyWave } from '../sim/bodyWave.ts';
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { curvatureOf } from '../sim/proprio.ts';
@@ -16,6 +18,8 @@ import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
   centroidFloor,
   COPIES,
+  againstWall,
+  WALL_COPIES,
   cpuWorld,
   endVelocities,
   FLOOR,
@@ -263,17 +267,31 @@ export interface LoopReport {
 
 // The copies a check runs: the trial values' states as they are and, for one step, moved and turned; for one
 // second, every fifth moved and turned at once; each variant's as they are.
-function withCopies(cases: LoopCase[], setup: LoopSetup, second: boolean): LoopCase[] {
+// The trial values' states and their copies: moved across the dish and turned, which the CPU's arithmetic
+// doesn't notice; and pressed against the dish's wall, which it pushes back. One step takes every state's
+// copies; one second, every fifth state's. The variants take their states alone.
+function withCopies(
+  cases: LoopCase[],
+  setup: LoopSetup,
+  second: boolean,
+  radii: ArrayLike<number>,
+  wall: number,
+): LoopCase[] {
   if (setup.name !== LOOP_SETUPS[0].name) return cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
+  const pressed = (c: LoopCase): LoopCase[] =>
+    WALL_COPIES.map((copy) => ({
+      ...c,
+      label: `${c.label}, ${copy.label}`,
+      state: againstWall(c.state, radii, wall, copy),
+    }));
   if (second) {
-    const both = cases
-      .filter((_, k) => k % 5 === 0)
-      .map((c) => ({
-        ...c,
-        label: `${c.label}, moved and turned`,
-        state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
-      }));
-    return [...cases, ...both];
+    const some = cases.filter((_, k) => k % 5 === 0);
+    const both = some.map((c) => ({
+      ...c,
+      label: `${c.label}, moved and turned`,
+      state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
+    }));
+    return [...cases, ...both, ...some.flatMap(pressed)];
   }
   return [
     ...cases,
@@ -284,6 +302,7 @@ function withCopies(cases: LoopCase[], setup: LoopSetup, second: boolean): LoopC
         state: movedAndTurned(c.state, copy.dx, copy.dy, copy.turns),
       })),
     ),
+    ...cases.flatMap(pressed),
   ];
 }
 
@@ -297,8 +316,9 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
       if (setup === LOOP_SETUPS[0]) api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
-      for (const c of withCopies(cases, setup, false)) oneStep.push(await checkLoopStep(gpu, data, c));
-      for (const c of withCopies(cases, setup, true)) oneSecond.push(await checkLoopSecond(gpu, data, c));
+      const { radii, wall } = boyleBody();
+      for (const c of withCopies(cases, setup, false, radii, wall)) oneStep.push(await checkLoopStep(gpu, data, c));
+      for (const c of withCopies(cases, setup, true, radii, wall)) oneSecond.push(await checkLoopSecond(gpu, data, c));
     } finally {
       gpu.destroy();
     }

@@ -5,16 +5,22 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { hash, uniform } from '../src/sim/brain/rng.ts';
 import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
 import {
+  againstWall,
+  cpuWorld,
   endVelocities,
   gaussianBound,
   LOOP_SETUPS,
   loopCases,
   movedAndTurned,
   paritySetup,
+  WALL_COPIES,
   seededWorld,
   variantSetup,
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
+import { ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
+import { packLoop } from '../src/gpu/loopLayout.ts';
+import { boyleBody } from '../src/sim/body/body.ts';
 import { readJson } from './checks.ts';
 
 // The shader's Box–Muller as f32 arithmetic with correctly rounded log, sqrt and cos: the best a GPU can do.
@@ -126,6 +132,51 @@ describe("the loop's parity", () => {
     expect(copy.theta[7]).toBeCloseTo(c.state.theta[7] + 100 * Math.PI, 12);
     expect(copy.brain).toBe(c.state.brain);
     expect(copy.muscles).toBe(c.state.muscles);
+  });
+
+  it("presses copies against the dish's wall, head on and lying along it, which the reference pushes back", () => {
+    const { radii, wall } = boyleBody();
+    const state = loopCases(data)[5].state;
+    for (const copy of WALL_COPIES) {
+      const pressed = againstWall(state, radii, wall, copy);
+      const depths = Array.from(pressed.x, (x, i) => Math.hypot(x, pressed.y[i]) - (wall - radii[i]));
+      expect(Math.max(...depths), copy.label).toBeCloseTo(copy.depth, 12);
+      // Only its place and heading change, the body moved and turned as one: its shape is the same.
+      const shape = (x: ArrayLike<number>, y: ArrayLike<number>): number[] =>
+        Array.from({ length: x.length - 1 }, (_, i) => Math.hypot(x[i + 1] - x[i], y[i + 1] - y[i]));
+      shape(pressed.x, pressed.y).forEach((d, i) => expect(d).toBeCloseTo(shape(state.x, state.y)[i], 12));
+      expect(pressed.brain).toBe(state.brain);
+      expect(pressed.muscles).toBe(state.muscles);
+      // The reference pushes the deepest rod back out along the wall's normal.
+      const world = cpuWorld(data, pressed);
+      const deepest = depths.indexOf(Math.max(...depths));
+      const v = world.body.rates();
+      const rho = Math.hypot(pressed.x[deepest], pressed.y[deepest]);
+      expect((v[3 * deepest] * pressed.x[deepest] + v[3 * deepest + 1] * pressed.y[deepest]) / rho).toBeLessThan(0);
+    }
+    // Lying along the wall, several rods meet it, where its normal isn't along an axis.
+    const along = againstWall(state, radii, wall, WALL_COPIES[1]);
+    const touching = Array.from(along.x, (x, i) => Math.hypot(x, along.y[i]) - (wall - radii[i])).filter(
+      (d) => d > -1e-6,
+    );
+    expect(touching.length).toBeGreaterThan(3);
+  });
+
+  it("packs the dish's wall for the kernel, W² exact in its parts, and refuses a dish it can't hold", () => {
+    const world = cpuWorld(data, loopCases(data)[0].state);
+    const layout = packLoop(world);
+    const { radii, wall } = world.body.params;
+    expect(layout.scalars.wall).toBe(wall);
+    for (let i = 0; i < radii.length; i++) {
+      const [hi, lo, fraction] = [2, 3, 4].map((k) => layout.rodConstants[ROD_CONSTANTS * i + k]);
+      expect(hi * 65536 + lo + fraction).toBeCloseTo((wall - radii[i]) ** 2 * 2 ** 40, 3);
+      expect(layout.rodConstants[ROD_CONSTANTS * i]).toBe(Math.fround(radii[i]));
+    }
+    const params = world.body.params as { wall: number };
+    for (const bad of [0.1, Infinity, 0]) {
+      params.wall = bad;
+      expect(() => packLoop(world)).toThrow(/dish of radius/);
+    }
   });
 
   it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {

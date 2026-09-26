@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PARAMS } from '../../science/params.ts';
+import { WALL_SOFTENING } from '../numerics.ts';
 import { Body, boyleBody, ellipseRadii } from './body.ts';
 
 const LENGTH = PARAMS.bodyLength.value * 1e-3;
@@ -486,3 +487,92 @@ function symmetricEigenvalues(matrix: Float64Array, n: number): number[] {
   }
   return Array.from({ length: n }, (_, i) => a[i * n + i]).sort((x, y) => x - y);
 }
+
+describe("the dish's wall", () => {
+  it("stands at the dish's radius", () => {
+    expect(boyleBody().wall).toBe(PARAMS.dishDiameter.value / 200);
+  });
+
+  // A wall of 1 m, so it barely curves under a 1 mm body, and a straight body along its tangent at +x,
+  // centred on the x axis, head up, its mid-body rod `gap` inside the wall less its radius. The rods thin
+  // towards the body's ends, so those near the middle meet the wall first.
+  const WALL = 1;
+  function nearWall(gap: number): Body {
+    const body = new Body({ ...boyleBody(), wall: WALL });
+    body.straighten(WALL - body.params.radii[24] - gap, LENGTH / 2, Math.PI / 2);
+    return body;
+  }
+  // A push on each rod straight out from the dish's centre.
+  const outwards = (body: Body, newtons: number): void => {
+    for (let i = 0; i < body.rods; i++) {
+      const rho = Math.hypot(body.x[i], body.y[i]);
+      body.force[2 * i] = (newtons * body.x[i]) / rho;
+      body.force[2 * i + 1] = (newtons * body.y[i]) / rho;
+    }
+  };
+  const depth = (body: Body, i: number): number => Math.hypot(body.x[i], body.y[i]) - (WALL - body.params.radii[i]);
+
+  it('stops a body pressed against it, and holds it still where its eased spring balances the push', () => {
+    const body = nearWall(20e-6);
+    // 100 nN a rod outwards: free, the body would cross 20 µm in under half a second, and keep going.
+    const force = 1e-7;
+    expect((20e-6 * DRAG_NORMAL) / force).toBeLessThan(0.5);
+    outwards(body, force);
+    // Striking the wall, a rod goes no deeper than one step's free travel past where it settles.
+    const k = body.params.diagonalStiffness;
+    const settled = Math.sqrt((force * WALL_SOFTENING) / k); // k·d²/δ = F, below δ
+    let deepest = 0;
+    for (let s = 0; s < 1200; s++) {
+      body.step(0.0025);
+      for (let i = 0; i < body.rods; i++) deepest = Math.max(deepest, depth(body, i));
+    }
+    expect(deepest).toBeLessThan(settled + (force * 0.0025) / DRAG_NORMAL);
+    // The mid-body rod, the first to touch, rests where the eased spring holds its push: 38 nm.
+    expect(depth(body, 24) / settled).toBeCloseTo(1, 2);
+    // And nothing rocks: over another half second, no touching rod moves by a nanometre.
+    const before = Array.from({ length: body.rods }, (_, i) => depth(body, i));
+    for (let s = 0; s < 200; s++) body.step(0.0025);
+    for (let i = 0; i < body.rods; i++) {
+      if (before[i] > 0) expect(Math.abs(depth(body, i) - before[i])).toBeLessThan(1e-9);
+    }
+  });
+
+  it('adds nothing along it: no friction', () => {
+    // The mid-body rod, on the x axis where the wall's normal is x, 1 nm in; pushed along the wall.
+    const body = nearWall(-1e-9);
+    for (let i = 0; i < body.rods; i++) body.force[2 * i + 1] = 1e-9;
+    const free = new Body({ ...boyleBody(), wall: 1e3 });
+    free.x.set(body.x);
+    free.y.set(body.y);
+    free.theta.set(body.theta);
+    free.force.set(body.force);
+    const [v, w] = [body.rates(), free.rates()];
+    for (let i = 0; i < body.rods; i++) expect(v[3 * i + 1]).toBeCloseTo(w[3 * i + 1], 15);
+    // The wall did act, on the one rod it touches, across itself.
+    expect(Math.abs(v[3 * 24] - w[3 * 24])).toBeGreaterThan(0);
+  });
+
+  it('pushes back from nothing at first touch, growing smoothly, with no jump where the easing ends', () => {
+    // The mid-body rod alone in contact, at a given depth, unforced: how fast the wall pushes it back.
+    const pushBack = (d: number): number => {
+      const body = nearWall(-d);
+      return -body.rates()[3 * 24];
+    };
+    const [tiny, small, eased, full] = [1e-12, 1e-9, 5e-8, 1e-6].map(pushBack);
+    expect(tiny).toBeGreaterThan(0);
+    expect(tiny).toBeLessThan(1e-9 * full);
+    expect(small).toBeGreaterThan(tiny);
+    expect(eased).toBeGreaterThan(small);
+    expect(full).toBeGreaterThan(eased);
+    // Continuous where the easing ends, at WALL_SOFTENING.
+    const [below, above] = [WALL_SOFTENING * (1 - 1e-6), WALL_SOFTENING * (1 + 1e-6)].map(pushBack);
+    expect(Math.abs(above - below) / above).toBeLessThan(1e-5);
+    // With no wall, nothing pushes back.
+    const free = new Body({ ...boyleBody(), wall: 1e3 });
+    const body = nearWall(-1e-6);
+    free.x.set(body.x);
+    free.y.set(body.y);
+    free.theta.set(body.theta);
+    expect(Math.abs(free.rates()[3 * 24])).toBeLessThan(1e-6 * full);
+  });
+});
