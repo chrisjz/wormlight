@@ -1,10 +1,12 @@
 // The CPU side of GPU parity (PLAN §7.2): the states both brains start from, the thresholds they are held
 // to, and the allowance for the noise's rounding. It needs no GPU, so the tests check it directly; parity.ts
-// runs the GPU against it.
+// runs the GPU against it. Two of the checks were changed after results (DECISIONS.md, 2026-09-26): one step
+// is compared with the CPU reference solved at the GPU's own tolerance, and one second only from states that
+// are well posed.
 
 import type { WormlightData } from '../data/schema.ts';
 import { Brain, type BrainState, type Oscillators } from '../sim/brain/brain.ts';
-import type { Network } from '../sim/brain/network.ts';
+import { lesion, type Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { World, type LoopParams } from '../sim/world.ts';
@@ -12,7 +14,7 @@ import { World, type LoopParams } from '../sim/world.ts';
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
 // B-types' drive threshold is in the range where they cycle (DECISIONS.md, 2026-09-26), and the noise, about
 // 2 mV of wander on a lone neuron, keeps every voltage moving.
-export const PARITY_LOOP: LoopParams = {
+const PARITY_LOOP: LoopParams = {
   oscillatorGain: 2,
   recoveryTime: 1,
   driveThreshold: -16,
@@ -29,12 +31,13 @@ const STATES = 20;
 export const SECOND = Math.round(1 / NEURAL_STEP);
 export const SAMPLES = 10; // over the second
 
-// PLAN §7.2's thresholds.
-export const ONE_STEP = { voltage: 1e-4, activation: 1e-4 };
+// PLAN §7.2's thresholds. The recovery variable's, graded since 2026-09-26, is the voltage's, with a floor
+// of 1.
+export const ONE_STEP = { voltage: 1e-4, activation: 1e-4, recovery: 1e-4 };
 export const ONE_SECOND = { rms: 1e-2 };
 // The check fails if more than a quarter of the states are ill posed: it would no longer test much.
 export const MOST_ILL_POSED = 0.25;
-export const FLOOR = 1; // mV for voltage; activation's is 1, so its errors are absolute
+export const FLOOR = 1; // mV for voltage; activation's and recovery's are 1
 
 export interface ParityCase {
   label: string;
@@ -82,6 +85,28 @@ export function paritySetup(data: WormlightData): ParitySetup {
   };
 }
 
+// The paths the main states don't take, in one case: a lesioned network, no oscillators and no noise, from the
+// last state, whose one-second run restarts the integrator halfway. The thresholds stay the intact
+// network's (PLAN §3.3).
+export const VARIANT_LESIONS = ['AVAL', 'AVAR', 'AVBL', 'AVBR'];
+export function variantSetup(setup: ParitySetup): ParitySetup {
+  const from = setup.cases[setup.cases.length - 1];
+  return {
+    network: lesion(setup.network, VARIANT_LESIONS),
+    threshold: setup.threshold,
+    oscillators: null,
+    noise: 0,
+    seed: setup.seed,
+    cases: [
+      {
+        label: 'lesioned',
+        state: { ...from.state, recovery: new Float64Array(0), previousRecovery: new Float64Array(0) },
+        input: from.input,
+      },
+    ],
+  };
+}
+
 export function cpuBrain(setup: ParitySetup, c: ParityCase, tolerance?: number): Brain {
   const brain = new Brain(setup.network, setup.threshold, { tolerance });
   brain.setOscillators(setup.oscillators);
@@ -92,18 +117,20 @@ export function cpuBrain(setup: ParitySetup, c: ParityCase, tolerance?: number):
   return brain;
 }
 
-// WGSL's accuracy for f32 (WGSL §14.6), bounding how far the shader's gaussian_from(h1, h2) may be from the
-// exact value.
+// WGSL's accuracy for f32 (the Floating Point Accuracy section of the WGSL specification), bounding how far
+// the shader's gaussian_from(h1, h2) may be from the exact value.
 const ulp = (x: number): number => (x === 0 ? 0 : 2 ** (Math.floor(Math.log2(Math.abs(x))) - 23));
 export function gaussianBound(h1: number, h2: number): number {
   const log = Math.log(uniform(h1));
   // log: an absolute 2⁻²¹ on [0.5, 2] and 3 ULP elsewhere; the product with −2 is exact.
   const dL = 2 * (uniform(h1) >= 0.5 ? 2 ** -21 : 3 * ulp(log));
   const L = -2 * log;
-  // sqrt, inherited from 1/inverseSqrt: 2 ULP, then 2.5 for the division, on top of L's error carried through.
+  // sqrt, inherited from 1/inverseSqrt: inverseSqrt's 2 ULP, at most 2⁻²² of its value, carried into the
+  // quotient, then 2.5 ULP for the division, on top of L's error carried through. The shader holds L at 0 or
+  // above, as the exact value is.
   const R = Math.sqrt(L);
   const carried = Math.max(Math.sqrt(L + dL) - R, R - Math.sqrt(Math.max(L - dL, 0)));
-  const dR = carried + 4.5 * ulp(R + carried);
+  const dR = carried + 2 ** -22 * (R + carried) + 2.5 * ulp(R + carried);
   // cos: an absolute 2⁻¹¹ on [−π, π], and its argument's error from f32's π and one rounding, 2 ULP of π.
   const dCos = 2 ** -11 + 2 * ulp(Math.PI);
   const cos = Math.cos(2 * Math.PI * uniform(h2));

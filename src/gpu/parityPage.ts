@@ -5,9 +5,8 @@
 
 import '../style.css';
 import { validateWormlightData, type WormlightData } from '../data/schema.ts';
-import { runBench, runParity, type BenchReport, type ParityReport } from './parity.ts';
-import { ONE_SECOND, ONE_STEP } from './parityCases.ts';
-import { probeWebGpu } from './support.ts';
+import { runBench, runParity, type BenchReport, type ParityReport, type StepResult } from './parity.ts';
+import { describeGpuSupport, probeWebGpu } from './support.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -24,7 +23,9 @@ const root = document.getElementById('app') as HTMLElement;
 const status = el('p', 'Checking for WebGPU…', 'status-body');
 root.replaceChildren(el('h1', 'GPU parity', 'title'), status);
 
-const fixed = (x: number, digits = 2): string => (x === 0 ? '0' : x < 1e-3 ? x.toExponential(1) : x.toFixed(digits));
+const fixed = (x: number, digits = 2): string =>
+  x === 0 ? '0' : Math.abs(x) < 1e-3 ? x.toExponential(1) : x.toFixed(digits);
+const verdict = (pass: boolean): string => (pass ? 'pass' : 'FAIL');
 
 function table(head: string[], rows: string[][]): HTMLTableElement {
   const t = el('table', undefined, 'parity-table');
@@ -39,9 +40,20 @@ function table(head: string[], rows: string[][]): HTMLTableElement {
   return t;
 }
 
+const stepRow = (r: StepResult): string[] => [
+  r.label,
+  fixed(r.voltageShare, 3),
+  fixed(r.bareShare, 3),
+  fixed(r.activationShare, 3),
+  fixed(r.recoveryShare, 3),
+  fixed(r.referenceShare, 3),
+  `${r.iterations.cpu} / ${r.iterations.gpu}`,
+  verdict(r.pass),
+];
+const STEP_HEAD = ['State', 'ΔV', 'ΔV, no allowance', 'Δs', 'Δw', 'ΔV, reference', 'Iterations', ''];
+
 function showParity(report: ParityReport): void {
-  const verdict = (pass: boolean): string => (pass ? 'pass' : 'FAIL');
-  const { noise } = report;
+  const { noise, thresholds, variant } = report;
   root.append(
     el('h2', `Parity: ${verdict(report.pass)}`, 'status-title'),
     el(
@@ -56,22 +68,27 @@ function showParity(report: ParityReport): void {
         `uniforms different, the largest Gaussian error ${fixed(noise.worstError)} (${fixed(100 * noise.worstShare, 1)}% ` +
         "of WGSL's bound).",
     ),
-    el('h3', `One step: |ΔV| ≤ ${ONE_STEP.voltage} × max(|V|, 1 mV), |Δs| ≤ ${ONE_STEP.activation}`),
+    el('h3', 'The API'),
     table(
-      ['State', 'Worst ΔV / tolerance', 'Worst Δs / tolerance', 'Iterations CPU / GPU', ''],
-      report.oneStep.map((r) => [
-        r.label,
-        fixed(r.voltageShare, 3),
-        fixed(r.activationShare, 3),
-        `${r.cpuIterations} / ${r.gpu.iterations}`,
-        verdict(r.pass),
-      ]),
+      ['Check', 'What', ''],
+      report.api.map((r) => [r.name, r.detail, verdict(r.pass)]),
     ),
-    el('h3', `One second: RMS relative error ≤ ${ONE_SECOND.rms}`),
+    el(
+      'h3',
+      `One step: |ΔV| ≤ ${thresholds.oneStep.voltage} × max(|V|, 1 mV) plus the noise's allowance, ` +
+        `|Δs| ≤ ${thresholds.oneStep.activation}, |Δw| ≤ ${thresholds.oneStep.recovery} × max(|w|, 1)`,
+    ),
+    el(
+      'p',
+      "Each worst error as a share of its tolerance, against the CPU reference solved at the GPU's tolerance. " +
+        'The column against the reference at its own tolerance is reported, not graded.',
+    ),
+    table(STEP_HEAD, report.oneStep.map(stepRow)),
+    el('h3', `One second: RMS relative error ≤ ${thresholds.oneSecond.rms}`),
     el(
       'p',
       "A state is graded only if the CPU reference, rerun at the GPU's solver tolerance, stays within the " +
-        'threshold of itself.',
+        `threshold of itself; the check fails if more than ${100 * thresholds.mostIllPosed}% of states are not graded.`,
     ),
     table(
       ['State', 'Voltage RMS', 'Activation RMS', 'Reference against itself', ''],
@@ -83,12 +100,26 @@ function showParity(report: ParityReport): void {
         r.graded ? verdict(r.pass) : 'not graded',
       ]),
     ),
+    el('h3', `Lesioned (${variant.lesions.join(', ')}), no oscillators, no noise, restarting halfway`),
+    table(STEP_HEAD, [stepRow(variant.oneStep)]),
+    table(
+      ['One second', 'Voltage RMS', 'Activation RMS', 'Reference against itself', ''],
+      [
+        [
+          variant.oneSecond.label,
+          fixed(variant.oneSecond.voltageRms, 4),
+          fixed(variant.oneSecond.activationRms, 4),
+          fixed(variant.oneSecond.referenceRms, 4),
+          variant.oneSecond.graded ? verdict(variant.oneSecond.pass) : 'not graded: FAIL',
+        ],
+      ],
+    ),
   );
 }
 
 function showBench(report: BenchReport): void {
   root.append(
-    el('h2', 'Speed', 'status-title'),
+    el('h2', `Speed at ${1000 * report.dt} ms steps`, 'status-title'),
     table(
       ['Steps per dispatch', 'ms per dispatch', '× real time'],
       report.gpu.map((r) => [String(r.stepsPerDispatch), fixed(r.milliseconds), fixed(r.realTime, 1)]),
@@ -101,8 +132,12 @@ function showBench(report: BenchReport): void {
   );
 }
 
-// A failure is shown on the page and reported to the harness as a console error.
+// A failure is shown on the page once and reported to the harness as a console error.
+let failed = false;
 function fail(e: unknown): void {
+  status.remove();
+  if (failed) return;
+  failed = true;
   const message = e instanceof Error ? e.message : String(e);
   root.append(el('p', `The checks stopped: ${message}`, 'status-body'));
   console.error(message);
@@ -110,11 +145,18 @@ function fail(e: unknown): void {
 
 async function start(): Promise<{ parity: Promise<ParityReport>; bench: Promise<BenchReport> }> {
   const support = await probeWebGpu(navigator.gpu);
-  if (support.kind !== 'ready') throw new Error(`no WebGPU: ${support.kind}`);
+  if (support.kind !== 'ready') {
+    const { title, body } = describeGpuSupport(support);
+    throw new Error(`${title}. ${body}`);
+  }
   const { device, adapter } = support;
   device.addEventListener('uncapturederror', (e) => console.error(e.error.message));
+  void device.lost.then((info) => {
+    if (info.reason !== 'destroyed') fail(new Error(`the GPU was lost: ${info.message || info.reason}`));
+  });
   status.textContent = 'Running the checks…';
   const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
+  if (!response.ok) throw new Error(`the connectome could not be loaded: the server answered ${response.status}`);
   const data: WormlightData = validateWormlightData(await response.json());
   const parity = runParity(device, adapter, data);
   const bench = parity.then(() => runBench(device, adapter, data));

@@ -1,14 +1,14 @@
-// The neural step in WGSL (PLAN §3.4), mirroring Brain.step in src/sim/brain/brain.ts line for line: the
-// voltages by BDF2 (implicit Euler without a history), solved by Jacobi-preconditioned conjugate gradients
+// The neural step in WGSL (PLAN §3.4), mirroring Brain.step in src/sim/brain/brain.ts step for step, the same
+// equations in the same order: the voltages by BDF2 (implicit Euler without a history), solved by Jacobi-preconditioned conjugate gradients
 // warm-started from the last step; then activation and the oscillators' recovery by BDF2 at the new
 // voltages. The whole network runs in one workgroup, each invocation holding its neurons' state in
 // registers, so a dispatch can take many steps with nothing but barriers between them.
 
 import { RNG_WGSL } from './rngShader.ts';
 
-export const WORKGROUP = 256;
+const WORKGROUP = 256;
 // Neurons per invocation: the network may have up to WORKGROUP × PER neurons.
-export const PER_INVOCATION = 2;
+const PER_INVOCATION = 2;
 export const MAX_NEURONS = WORKGROUP * PER_INVOCATION;
 
 // The uniform block, in the order the shader declares it: eight u32 then twelve f32.
@@ -18,8 +18,8 @@ export const STATE_WORDS = 8;
 // Per neuron: threshold, oscillator shift θ, whether it oscillates, and padding.
 export const NEURON_WORDS = 4;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
-// none), the last solve's iterations, unconverged solves, the most iterations in the last dispatch, and the
-// iterations over it.
+// none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
+// iterations in one solve and the iterations in all.
 export const STATUS_WORDS = 8;
 
 const body = (per: number): string => {
@@ -278,13 +278,15 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
 
   ${own(`
         state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], 0.0, 0.0);`)}
+  // Every invocation read the status at the start; it is rewritten only after all of them have.
+  storageBarrier();
   if (lid == 0u) {
     status.steps = steps;
     status.history = bitcast<u32>(history);
     status.iterations = last;
     status.unconverged += failures;
-    status.peak_iterations = peak;
-    status.total_iterations = iterations_sum;
+    status.peak_iterations = max(status.peak_iterations, peak);
+    status.total_iterations += iterations_sum;
   }
 }
 `;

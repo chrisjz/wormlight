@@ -15,8 +15,9 @@ export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): P
 
 // Run vite with these arguments (`preview` serves dist/, none the dev server) on a port, resolving once it
 // listens. vite runs detached, so killing its process group stops it for certain, and it is killed on any
-// exit, so a failure can't leave it holding a CI step open.
+// exit or interruption, so a failure can't leave it holding the port or a CI step open.
 export async function serve(args: string[], port: number): Promise<() => void> {
+  const name = ['vite', ...args].join(' ');
   const server = spawn('npx', ['vite', ...args, '--port', String(port), '--strictPort'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -30,15 +31,21 @@ export async function serve(args: string[], port: number): Promise<() => void> {
     }
   };
   process.on('exit', stop);
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      stop();
+      process.exit(130);
+    });
+  }
   await withTimeout(
     new Promise<void>((resolve, reject) => {
       server.stdout.on('data', (d: Buffer) => {
         if (String(d).includes(String(port))) resolve();
       });
-      server.on('exit', () => reject(new Error(`vite ${args.join(' ')} exited: is the port free?`)));
+      server.on('exit', () => reject(new Error(`${name} exited: is the port free?`)));
     }),
     20000,
-    `vite ${args.join(' ')}`,
+    name,
   ).catch((e: unknown) => {
     stop();
     throw e;
@@ -47,9 +54,11 @@ export async function serve(args: string[], port: number): Promise<() => void> {
 }
 
 // On CI, WebGPU is SwiftShader, the software Vulkan that ships with Chrome, reached through ANGLE's Vulkan
-// backend with Universe's flags; locally it is the machine's own GPU.
+// backend with Universe's flags; locally it is the machine's own GPU. Puppeteer's own time limit on a call
+// into the page is lifted, so each harness's withTimeout is the one that applies.
 export async function launchChrome(width: number, height: number): Promise<Browser> {
   return puppeteer.launch({
+    protocolTimeout: 0,
     executablePath: process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     headless: true,
     args: [
@@ -78,6 +87,7 @@ export async function closeChrome(browser: Browser | null): Promise<void> {
 // Everything the page's WebGPU adapter says about itself, since a software GPU's name alone can mislead.
 export async function describeAdapter(page: Page): Promise<string> {
   const adapter = await page.evaluate(`(async () => {
+    if (!navigator.gpu) return 'none: this browser has no WebGPU';
     const a = await navigator.gpu.requestAdapter();
     const i = a && a.info;
     if (!i) return 'none';

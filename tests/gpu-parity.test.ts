@@ -3,7 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { hash, uniform } from '../src/sim/brain/rng.ts';
-import { gaussianBound, paritySetup } from '../src/gpu/parityCases.ts';
+import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
+import { gaussianBound, paritySetup, variantSetup, VARIANT_LESIONS } from '../src/gpu/parityCases.ts';
 import { readJson } from './checks.ts';
 
 // The shader's Box–Muller as f32 arithmetic with correctly rounded log, sqrt and cos: the best a GPU can do.
@@ -57,5 +58,27 @@ describe('the parity states', () => {
       const b = setup.cases[k].state.voltage;
       expect(Math.max(...a.map((v, i) => Math.abs(v - b[i])))).toBeGreaterThan(1);
     }
+  });
+
+  it('include a lesioned case without oscillators or noise, on the intact thresholds', () => {
+    const variant = variantSetup(setup);
+    const count = (n: typeof setup.network): number => n.gap.index.length + n.chemical.index.length;
+    expect(count(variant.network)).toBeLessThan(count(setup.network));
+    for (const name of VARIANT_LESIONS) {
+      const i = setup.network.names.indexOf(name);
+      expect(variant.network.gap.start[i + 1] - variant.network.gap.start[i]).toBe(0);
+      expect(variant.network.chemical.start[i + 1] - variant.network.chemical.start[i]).toBe(0);
+    }
+    expect(variant.threshold).toBe(setup.threshold);
+    expect(variant.oscillators).toBeNull();
+    expect(variant.noise).toBe(0);
+    expect(variant.cases[0].state.recovery).toHaveLength(0);
+  });
+});
+
+describe('the GPU brain', () => {
+  it('holds the whole connectome in one workgroup', () => {
+    const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
+    expect(MAX_NEURONS).toBeGreaterThanOrEqual(data.neurons.length);
   });
 });

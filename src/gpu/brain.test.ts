@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chemicalRows, gapRows, type Network } from '../sim/brain/network.ts';
-import { packNetwork } from './brain.ts';
-import { MAX_NEURONS } from './brainShader.ts';
+import { dispatches, MAX_STEPS_PER_DISPATCH, packNetwork } from './brain.ts';
 
 function network(n: number, gap: [number, number, number][], chemical: [number, number, number, number][]): Network {
   return {
@@ -55,8 +54,16 @@ describe('the GPU brain’s buffers', () => {
     expect(packed.chemical.length).toBeGreaterThan(1);
     expect(Array.from(packed.topology.subarray(0, 6))).toEqual([0, 0, 0, 0, 0, 0]);
   });
+});
 
-  it('holds the whole connectome in one workgroup', () => {
-    expect(MAX_NEURONS).toBeGreaterThanOrEqual(302);
+describe("the GPU brain's dispatches", () => {
+  it('split a long run so none is longer than the most a dispatch takes', () => {
+    expect(dispatches(0)).toEqual([]);
+    expect(dispatches(67)).toEqual([67]);
+    expect(dispatches(2 * MAX_STEPS_PER_DISPATCH + 5)).toEqual([MAX_STEPS_PER_DISPATCH, MAX_STEPS_PER_DISPATCH, 5]);
+  });
+
+  it('refuse a step count that is not a whole number of steps', () => {
+    for (const bad of [-1, 2.7, NaN, Infinity]) expect(() => dispatches(bad)).toThrow(/whole number/);
   });
 });
