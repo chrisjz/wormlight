@@ -1,6 +1,7 @@
 // The harness's results as VALIDATION.md shows them: each checkpoint's section, written between its markers
 // so the prose around it stays hand-written.
 
+import { grouped } from '../../src/science/facts.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import {
@@ -35,6 +36,16 @@ const fixed = (x: number, digits: number): string => {
   return /^-0\.0*$/.test(text) ? text.slice(1) : text.replace(/^-/, '−');
 };
 const percent = (x: number): string => `${(100 * x).toFixed(0)}%`;
+// Shares as whole percentages that add up to 100, by largest remainder.
+export function shares(parts: readonly number[]): string[] {
+  const total = parts.reduce((a, b) => a + b, 0);
+  if (total <= 0) return parts.map(() => '0%');
+  const exact = parts.map((p) => (100 * p) / total);
+  const whole = exact.map(Math.floor);
+  const order = exact.map((e, i) => [e - whole[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+  for (let k = 0; k < 100 - whole.reduce((a, b) => a + b, 0); k++) whole[order[k][1]]++;
+  return whole.map((w) => `${w}%`);
+}
 const band = ([lo, hi]: readonly [number, number]): string => `${lo.toFixed(2)}–${hi.toFixed(2)}`;
 
 function trialTable(trials: readonly TrialSummary[]): string {
@@ -51,7 +62,7 @@ function trialTable(trials: readonly TrialSummary[]): string {
     trials.map((t) => [
       String(t.seed),
       String(t.posture + 1),
-      `${percent(t.forward)} / ${percent(t.paused)} / ${percent(t.backward)}`,
+      shares([t.forward, t.paused, t.backward]).join(' / '),
       t.longestBout.toFixed(1),
       String(t.reversals),
       fixed(t.meanVelocity, 4),
@@ -78,7 +89,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   return [
     `### Checkpoint 0: the silenced network, crawling clause — ${GRADE[result.grade]}`,
     runLine(info, result.trials),
-    `No forward bout of 10 s or more in any trial is the pass. There ${result.bouts === 1 ? 'was 1' : `were ${result.bouts}`}; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${count(reversals, 'reversal')} of 1 s or more, ${(reversals / minutes).toFixed(2)} a minute.`,
+    `No forward bout of 10 s or more in any trial is the pass; the clause is predicted, since nothing is calibrated to it. There ${result.bouts === 1 ? 'was 1' : `were ${result.bouts}`}; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${count(reversals, 'reversal')} of 1 s or more${minutes > 0 ? `, ${(reversals / minutes).toFixed(2)} a minute` : ''}.`,
     trialTable(result.trials),
   ].join('\n\n');
 }
@@ -128,7 +139,7 @@ const clauseRow = (c: Clause): string[] => {
   const d = CLAUSES[c.name];
   return [
     d.label,
-    c.value === null ? 'unmeasured: no bout of 10 s' : d.show(c.value),
+    c.value === null ? `unmeasured: ${c.reason ?? 'no value'}` : d.show(c.value),
     d.pass,
     d.partial,
     GRADE[c.grade],
@@ -139,15 +150,27 @@ const clauseRow = (c: Clause): string[] => {
 export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
   const k = result.kinematics;
   const selfIntersecting = result.trials.reduce((n, t) => n + t.selfIntersecting, 0);
-  const wave =
-    k.lag === null
-      ? ''
-      : ` The rear rod's curvature followed the front's best at a lag of ${k.lag.toFixed(2)} s, correlation ${k.correlation?.toFixed(2)}.`;
+  const kinematics =
+    k.bouts === 0
+      ? 'No trial had a forward bout of 10 s or more, so the kinematics are unmeasured.'
+      : [
+          `The kinematics come from ${count(k.bouts, 'forward bout')} of 10 s or more, ${k.duration.toFixed(1)} s in all.`,
+          `Over them the mid-body curvature crossed its mean ${count(k.crossings, 'time')}, ${(k.crossings / k.bouts).toFixed(1)} a bout; a full undulation crosses twice.`,
+          k.lag === null
+            ? ''
+            : `The rear rod's curvature correlated best with the front's at a lag of ${fixed(k.lag, 2)} s (correlation ${fixed(k.correlation ?? 0, 2)})${k.wavelength === null ? `: ${k.unmeasured}` : ''}.`,
+        ]
+          .filter(Boolean)
+          .join(' ');
+  const left =
+    selfIntersecting === 1
+      ? '1 self-intersecting posture was'
+      : `${grouped(selfIntersecting)} self-intersecting postures were`;
   return [
     `### Checkpoint 1: crawling — ${GRADE[result.grade]}`,
     runLine(info, result.trials),
     table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], result.clauses.map(clauseRow)),
-    `The kinematics come from ${count(k.bouts, 'forward bout')} of 10 s or more, ${k.duration.toFixed(1)} s in all.${wave} The eigenworm clause pools ${result.postures.toLocaleString('en-GB')} postures sampled at 4 Hz; ${selfIntersecting} self-intersecting ones were left out. The kinematic clauses are calibration targets, but the parameters are provisional, not calibrated.`,
+    `${kinematics} The eigenworm clause pools ${grouped(result.postures)} postures sampled at 4 Hz; ${left} left out. The kinematic clauses are calibration targets, but the parameters are provisional, not calibrated.`,
     trialTable(result.trials),
   ].join('\n\n');
 }
@@ -159,5 +182,8 @@ export function replaceSection(page: string, checkpoint: number, section: string
   const a = page.indexOf(start);
   const b = page.indexOf(end);
   if (a < 0 || b < a) throw new Error(`VALIDATION.md has no markers for checkpoint ${checkpoint}`);
+  if (page.indexOf(start, a + 1) >= 0 || page.indexOf(end, b + 1) >= 0) {
+    throw new Error(`VALIDATION.md has checkpoint ${checkpoint}'s markers more than once`);
+  }
   return `${page.slice(0, a + start.length)}\n\n${section}\n\n${page.slice(b)}`;
 }

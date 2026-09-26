@@ -50,14 +50,20 @@ export interface TrialRecord {
   unconverged: number;
 }
 
-export function runTrial(data: WormlightData, options: TrialOptions): TrialRecord {
-  const { seed, seconds, params, postures } = options;
+// The trial's world at its start: the real posture its seed draws, turned.
+export function startingWorld(
+  data: WormlightData,
+  options: TrialOptions,
+): { world: World; start: { index: number; turn: number } } {
+  const { seed, params, postures } = options;
   const start = startingPosture(seed, postures.length);
-  const world = new World(data, params, {
-    seed,
-    silenced: options.silenced,
-    posture: postures[start.index].map((a) => a + start.turn),
-  });
+  const posture = postures[start.index].map((a) => a + start.turn);
+  return { world: new World(data, params, { seed, silenced: options.silenced, posture }), start };
+}
+
+export function runTrial(data: WormlightData, options: TrialOptions): TrialRecord {
+  const { seed, seconds } = options;
+  const { world, start } = startingWorld(data, options);
   const { body } = world;
   const length = body.params.segmentLength * body.params.segments;
   const every = Math.round(MOTION_SAMPLE / NEURAL_STEP);

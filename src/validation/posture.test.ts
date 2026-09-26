@@ -42,11 +42,15 @@ describe('postures', () => {
     expect(angles.reduce((a, b) => a + b, 0)).toBeCloseTo(0, 12);
   });
 
-  it('finds a midline that crosses itself, and not one that only bends', () => {
+  it('finds a midline that crosses, touches or runs along itself, and not one that only bends', () => {
     expect(selfIntersects([0, 0, 2, 0, 2, 1, 1, 1, 1, -1])).toBe(true);
     expect(selfIntersects([0, 0, 2, 0, 2, 1, 0, 1])).toBe(false);
-    // Adjacent pieces share a point without crossing.
-    expect(selfIntersects([0, 0, 1, 0, 0, 0.001])).toBe(false);
+    // A hairpin: neighbouring pieces share a point, and the pieces either side of the fold pass close by.
+    expect(selfIntersects([0, 0, 2, 0, 2, 0.001, 0, 0.001])).toBe(false);
+    // The last piece ends on the first.
+    expect(selfIntersects([0, 0, 2, 0, 2, 1, 1, 1, 1, 0])).toBe(true);
+    // The last piece runs back along the first.
+    expect(selfIntersects([0, 0, 4, 0, 4, 2, -2, 2, -2, 0, 1, 0])).toBe(true);
   });
 
   it('pools trials exactly, and measures the variance the first modes capture', () => {

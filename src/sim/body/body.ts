@@ -169,6 +169,7 @@ export class Body {
   // tail (radians anticlockwise from x), the whole body long. The rods keep their rest spacing along it, each
   // across the midline, square to the line through its neighbours.
   pose(angles: ArrayLike<number>, x = 0, y = 0): void {
+    if (angles.length === 0) throw new Error('a posture needs at least one angle');
     const ls = this.params.segmentLength;
     const piece = (ls * this.params.segments) / angles.length;
     let px = x;

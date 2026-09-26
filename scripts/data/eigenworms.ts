@@ -13,13 +13,13 @@ export interface EigenwormCheck {
 // A plain decimal, optionally signed and in exponent form; blanks, hex and padding are refused.
 const DECIMAL = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
 
-export function parseMatrix(csv: string): number[][] {
+export function parseMatrix(csv: string, what = 'eigenworm basis'): number[][] {
   return csv
     .trim()
     .split(/\r?\n/)
     .map((line, i) =>
       line.split(',').map((cell) => {
-        if (!DECIMAL.test(cell)) throw new Error(`eigenworm basis row ${i + 1}: "${cell}" is not a number`);
+        if (!DECIMAL.test(cell)) throw new Error(`${what} row ${i + 1}: "${cell}" is not a number`);
         return Number(cell);
       }),
     );

@@ -42,11 +42,15 @@ export function tangentAngles(points: ArrayLike<number>): Float64Array {
   return angles;
 }
 
-// Whether a polyline crosses itself: whether any two of its segments that share no point intersect.
+// Whether a polyline crosses itself: whether any two of its segments that aren't neighbours cross, touch or
+// overlap.
 export function selfIntersects(points: ArrayLike<number>): boolean {
   const n = points.length / 2 - 1;
   const cross = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number =>
     (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+  // Whether c, on the line through a and b, lies between them.
+  const within = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number): boolean =>
+    Math.min(ax, bx) <= cx && cx <= Math.max(ax, bx) && Math.min(ay, by) <= cy && cy <= Math.max(ay, by);
   for (let i = 0; i < n; i++) {
     const [ax, ay, bx, by] = [points[2 * i], points[2 * i + 1], points[2 * i + 2], points[2 * i + 3]];
     for (let j = i + 2; j < n; j++) {
@@ -55,7 +59,11 @@ export function selfIntersects(points: ArrayLike<number>): boolean {
       const d2 = cross(ax, ay, bx, by, dx, dy);
       const d3 = cross(cx, cy, dx, dy, ax, ay);
       const d4 = cross(cx, cy, dx, dy, bx, by);
-      if (d1 * d2 <= 0 && d3 * d4 <= 0 && (d1 !== 0 || d2 !== 0)) return true;
+      if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) return true;
+      if (d1 === 0 && within(ax, ay, bx, by, cx, cy)) return true;
+      if (d2 === 0 && within(ax, ay, bx, by, dx, dy)) return true;
+      if (d3 === 0 && within(cx, cy, dx, dy, ax, ay)) return true;
+      if (d4 === 0 && within(cx, cy, dx, dy, bx, by)) return true;
     }
   }
   return false;

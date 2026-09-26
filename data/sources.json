@@ -90,7 +90,7 @@
     },
     {
       "id": "oist-postures",
-      "description": "6,655 real postures, 100 tangent angles each with the mean removed: `data/shapes.csv` in the OIST Physics of Behavior tutorials, at the commit their Zenodo archive (v1.0) holds",
+      "description": "6,655 real postures, 100 tangent angles each with the mean removed: `data/shapes.csv` in the OIST Physics of Behavior tutorials, v1.0 (the commit their Zenodo archive holds)",
       "files": [
         {
           "url": "https://raw.githubusercontent.com/oist/Physics-of-Behavior-Tutorials/9ce75a49356dbe718b42b92f85495b2cba4bddd8/data/shapes.csv",

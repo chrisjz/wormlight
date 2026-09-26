@@ -125,7 +125,10 @@ async function build(): Promise<Map<string, string>> {
   );
   const basis = parseMatrix((await readFile(firstFile(pinById(sources, 'eigenworms')))).toString('utf8'));
   const eigenworms = checkEigenworms(basis, 100);
-  const postureRows = parseMatrix((await readFile(firstFile(pinById(sources, 'oist-postures')))).toString('utf8'));
+  const postureRows = parseMatrix(
+    (await readFile(firstFile(pinById(sources, 'oist-postures')))).toString('utf8'),
+    'real postures',
+  );
   const sums = emptySums();
   for (const row of postureRows) addPosture(sums, row);
   const postures = { ...checkPostures(postureRows, 100), captured: varianceCaptured(covariance(sums), basis) };

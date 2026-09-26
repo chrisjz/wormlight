@@ -4,9 +4,9 @@
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
 // bounds set here before it runs (PLAN.md §7.3), which waits for research track R (PLAN.md §9); until
-// then their value and bounds are null, and the simulation runs on their provisional values (§6.2). A
-// parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every parameter says
-// what new data or research would raise it (spec §1.3).
+// then their value and bounds are null, and the simulation runs on their provisional values (PLAN.md
+// §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
+// parameter says what new data or research would raise it (spec §1.3).
 
 import type { CitationId } from './citations.ts';
 import { isFree, type Level } from './levels.ts';

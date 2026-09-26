@@ -87,6 +87,8 @@ export interface Clause {
   name: string;
   value: number | null;
   grade: Grade;
+  // Why the value wasn't measured, if it wasn't.
+  reason: string | null;
 }
 
 export interface Checkpoint1 {
@@ -97,7 +99,6 @@ export interface Checkpoint1 {
   trials: TrialSummary[];
 }
 
-// If any trial leaves the finite numbers, every clause fails.
 export function checkpoint1(records: readonly TrialRecord[], basis: readonly (readonly number[])[]): Checkpoint1 {
   const trials = records.map(summariseTrial);
   const separation = (REAR_ROD - FRONT_ROD) / PARAMS.bodyUnits.value;
@@ -108,19 +109,24 @@ export function checkpoint1(records: readonly TrialRecord[], basis: readonly (re
   const pooled = poolSums(records.map((r) => r.postures));
   const captured = pooled.count > 1 ? varianceCaptured(covariance(pooled), basis) : null;
   const boutShare =
-    records.filter((r) => r.finite && bouts(r.velocity, CHECKPOINT_1.bout.seconds).length > 0).length / records.length;
-  const allFinite = records.every((r) => r.finite);
-  const clause = (name: string, value: number | null, grade: Grade): Clause => ({
+    records.length > 0
+      ? records.filter((r) => r.finite && bouts(r.velocity, CHECKPOINT_1.bout.seconds).length > 0).length /
+        records.length
+      : null;
+  // With no trials, or any that left the finite numbers, every clause fails.
+  const sound = records.length > 0 && records.every((r) => r.finite);
+  const clause = (name: string, value: number | null, grade: Grade, reason: string | null): Clause => ({
     name,
     value,
-    grade: allFinite ? grade : 'fail',
+    grade: sound ? grade : 'fail',
+    reason: value === null ? reason : null,
   });
   const clauses = [
-    clause('frequency', k.frequency, gradeRange(k.frequency, CHECKPOINT_1.frequency)),
-    clause('wavelength', k.wavelength, gradeRange(k.wavelength, CHECKPOINT_1.wavelength)),
-    clause('speed', k.speed, gradeRange(k.speed, CHECKPOINT_1.speed)),
-    clause('eigenworms', captured, gradeAtLeast(captured, CHECKPOINT_1.eigenworms)),
-    clause('bout', boutShare, gradeAtLeast(boutShare, CHECKPOINT_1.bout)),
+    clause('frequency', k.frequency, gradeRange(k.frequency, CHECKPOINT_1.frequency), 'no bout of 10 s'),
+    clause('wavelength', k.wavelength, gradeRange(k.wavelength, CHECKPOINT_1.wavelength), k.unmeasured),
+    clause('speed', k.speed, gradeRange(k.speed, CHECKPOINT_1.speed), 'no bout of 10 s'),
+    clause('eigenworms', captured, gradeAtLeast(captured, CHECKPOINT_1.eigenworms), 'too few postures'),
+    clause('bout', boutShare, gradeAtLeast(boutShare, CHECKPOINT_1.bout), 'no trials'),
   ];
   return { grade: overall(clauses.map((c) => c.grade)), clauses, kinematics: k, postures: pooled.count, trials };
 }
@@ -137,5 +143,7 @@ export interface Checkpoint0 {
 export function checkpoint0(records: readonly TrialRecord[]): Checkpoint0 {
   const trials = records.map(summariseTrial);
   const count = records.reduce((n, r) => n + bouts(r.velocity).length, 0);
-  return { grade: count === 0 && records.every((r) => r.finite) ? 'pass' : 'fail', bouts: count, trials };
+  // With no trials, or any that left the finite numbers, the clause fails.
+  const sound = records.length > 0 && records.every((r) => r.finite);
+  return { grade: count === 0 && sound ? 'pass' : 'fail', bouts: count, trials };
 }

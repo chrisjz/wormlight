@@ -2,6 +2,7 @@
 // what the build read, kept, ignored and assigned.
 
 import type { Chemical, WormlightData } from '../../src/data/schema.ts';
+import { grouped } from '../../src/science/facts.ts';
 import { countBySource, edgeKey, type FenyvesSheet, type Override, type SetAside } from './signs.ts';
 import type { EigenwormCheck, PostureCheck } from './eigenworms.ts';
 import type { Sources } from './sources.ts';
@@ -234,6 +235,6 @@ export function buildReport({
     '## Eigenworm basis',
     `The pinned basis for checkpoint 1 has ${eigenworms.modes} modes over ${eigenworms.angles} tangent angles, which checkpoint 1 reads head first (an inferred orientation; see \`DATA_SOURCES.md\`). Its columns are orthonormal to within ${eigenworms.orthonormalError.toExponential(1)}, column ${eigenworms.rotationMode} is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.`,
     '## Starting postures',
-    `The pinned real postures, which checkpoints 0 and 1 start their trials from, are ${postures.count.toLocaleString('en-GB')} rows of ${postures.angles} tangent angles, each with its mean removed to within ${postures.largestMean.toExponential(1)} rad. The first four eigenworms capture ${(100 * postures.captured).toFixed(2)}% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.`,
+    `The pinned real postures, which checkpoints 0 and 1 start their trials from, are ${grouped(postures.count)} rows of ${postures.angles} tangent angles, each with its mean removed to within ${postures.largestMean.toExponential(1)} rad. The first four eigenworms capture ${(100 * postures.captured).toFixed(2)}% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.`,
   ].join('\n\n');
 }

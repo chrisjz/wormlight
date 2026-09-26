@@ -6,7 +6,7 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { provisionalParams, World } from '../src/sim/world.ts';
 import { SEEDS } from '../src/validation/checkpoints.ts';
 import { resample, tangentAngles } from '../src/validation/posture.ts';
-import { runTrial, startingPosture } from '../src/validation/trial.ts';
+import { runTrial, startingPosture, startingWorld } from '../src/validation/trial.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -32,11 +32,30 @@ describe('a trial', () => {
   });
 
   it('starts the world from its posture, turned', () => {
-    const { index, turn } = startingPosture(5, POSTURES.length);
-    const world = new World(data, provisionalParams(), { posture: POSTURES[index].map((a) => a + turn) });
-    const angles = tangentAngles(resample(world.body.midline()));
-    for (let k = 0; k < 100; k++) expect(Math.abs(angles[k] - POSTURES[index][k])).toBeLessThan(0.05);
+    for (const seed of [1, 5, 9]) {
+      const { world, start } = startingWorld(data, {
+        seed,
+        seconds: 0,
+        params: provisionalParams(),
+        postures: POSTURES,
+      });
+      expect(start).toEqual(startingPosture(seed, POSTURES.length));
+      const points = resample(world.body.midline());
+      const angles = tangentAngles(points);
+      const posture = POSTURES[start.index];
+      for (let k = 0; k < 100; k++) expect(Math.abs(angles[k] - posture[k])).toBeLessThan(0.05);
+      // The turn: the head's first piece points along the posture's first angle turned by it.
+      const head = Math.atan2(points[3] - points[1], points[2] - points[0]);
+      const off = head - (posture[0] + start.turn);
+      expect(Math.abs(Math.atan2(Math.sin(off), Math.cos(off)))).toBeLessThan(0.05);
+    }
     expect(() => new World(data, provisionalParams(), { posture: POSTURES[0], heading: 0 })).toThrow(/not both/);
+  });
+
+  it('runs the silenced network, which stays still', () => {
+    const r = runTrial(data, { seed: 3, seconds: 12, params: provisionalParams(), postures: POSTURES, silenced: true });
+    expect(r.finite).toBe(true);
+    for (const v of r.velocity) expect(Math.abs(v)).toBeLessThan(0.01);
   });
 
   it('records aligned samples from 10 s, and postures at 4 Hz', () => {

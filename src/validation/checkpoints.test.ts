@@ -9,7 +9,7 @@ import {
   overall,
   summariseTrial,
 } from './checkpoints.ts';
-import { emptySums } from './posture.ts';
+import { addPosture, emptySums } from './posture.ts';
 import type { TrialRecord } from './trial.ts';
 
 // A record whose velocity is given; the rest is still.
@@ -73,29 +73,72 @@ describe('checkpoint 0', () => {
     });
   });
 
-  it('fails a trial that left the finite numbers', () => {
+  it('fails a trial that left the finite numbers, and a run with no trials', () => {
     expect(checkpoint0([{ ...record([]), finite: false }]).grade).toBe('fail');
+    expect(checkpoint0([]).grade).toBe('fail');
   });
 });
 
 describe('checkpoint 1', () => {
-  it('fails every kinematic clause, unmeasured, without a bout', () => {
+  it('fails every kinematic clause, unmeasured, without a bout, and says why', () => {
     const result = checkpoint1([record(Array<number>(300).fill(0))], [[1]]);
     expect(result.grade).toBe('fail');
-    expect(result.clauses.map((c) => [c.name, c.value, c.grade])).toEqual([
-      ['frequency', null, 'fail'],
-      ['wavelength', null, 'fail'],
-      ['speed', null, 'fail'],
-      ['eigenworms', null, 'fail'],
-      ['bout', 0, 'fail'],
+    expect(result.clauses.map((c) => [c.name, c.value, c.grade, c.reason])).toEqual([
+      ['frequency', null, 'fail', 'no bout of 10 s'],
+      ['wavelength', null, 'fail', 'no bout of 10 s'],
+      ['speed', null, 'fail', 'no bout of 10 s'],
+      ['eigenworms', null, 'fail', 'too few postures'],
+      ['bout', 0, 'fail', null],
     ]);
+    expect(checkpoint1([], [[1]]).clauses.every((c) => c.grade === 'fail')).toBe(true);
+  });
+
+  it('passes a worm that crawls as the real one does', () => {
+    // 0.30 Hz, 0.65 body lengths and 0.22 body lengths per second, forward throughout, with postures along
+    // the first two of an identity basis's modes.
+    const lag = 0.125 / (0.3 * 0.65);
+    const n = 1100;
+    const t = Array.from({ length: n }, (_, k) => k * 0.1);
+    const wave = (shift: number): number[] => t.map((s) => Math.sin(2 * Math.PI * 0.3 * (s - shift)));
+    const postures = emptySums();
+    for (let k = 0; k < 440; k++) {
+      addPosture(
+        postures,
+        Array.from({ length: 100 }, (_, i) => (i === 0 ? Math.sin(k) : i === 1 ? Math.cos(k) : 0)),
+      );
+    }
+    const crawler = (seed: number): TrialRecord => ({
+      ...record(Array<number>(n).fill(0.22), seed),
+      mid: wave(lag / 2),
+      front: wave(0),
+      rear: wave(lag),
+      postures,
+    });
+    const identity = Array.from({ length: 100 }, (_, i) => Array.from({ length: 100 }, (_, j) => (i === j ? 1 : 0)));
+    const result = checkpoint1(SEEDS.map(crawler), identity);
+    expect(result.clauses.map((c) => [c.name, c.grade])).toEqual([
+      ['frequency', 'pass'],
+      ['wavelength', 'pass'],
+      ['speed', 'pass'],
+      ['eigenworms', 'pass'],
+      ['bout', 'pass'],
+    ]);
+    expect(result.grade).toBe('pass');
+    // One trial leaving the finite numbers fails every clause.
+    const broken = checkpoint1([...SEEDS.map(crawler).slice(1), { ...crawler(1), finite: false }], identity);
+    expect(broken.clauses.every((c) => c.grade === 'fail')).toBe(true);
   });
 
   it('counts the share of trials with a 20 s bout', () => {
     const long = record(Array<number>(200).fill(0.2));
     const short = record(Array<number>(199).fill(0.2));
     const result = checkpoint1([long, short, long, long], [[1]]);
-    expect(result.clauses.find((c) => c.name === 'bout')).toEqual({ name: 'bout', value: 0.75, grade: 'partial' });
+    expect(result.clauses.find((c) => c.name === 'bout')).toEqual({
+      name: 'bout',
+      value: 0.75,
+      grade: 'partial',
+      reason: null,
+    });
     expect(summariseTrial(short)).toMatchObject({ forward: 1, paused: 0, backward: 0, longestBout: 19.9 });
   });
 });

@@ -1,5 +1,5 @@
 // Reference data the validation checkpoints (PLAN.md §7) score the model against or start it from, fixed
-// before any simulated data exist. The harness reads these; the pins themselves are in data/sources.json.
+// before any checkpoint's trials ran. The harness reads these; the pins themselves are in data/sources.json.
 
 import type { CitationId } from './citations.ts';
 

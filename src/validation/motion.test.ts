@@ -54,8 +54,9 @@ describe('motion', () => {
 });
 
 describe('kinematics', () => {
-  // A travelling wave at f Hz whose rear rod lags the front by `lag` seconds, over bouts of the given lengths.
-  function waveTrial(f: number, lag: number, speed: number, lengths: number[]): BoutSamples {
+  // Curvature at the mid-body, front and rear rods over bouts of the given lengths, 2 s apart. `rear` gives
+  // the rear rod's curvature from the front's time course.
+  function trial(f: number, rear: (at: (t: number) => number, t: number) => number, lengths: number[]): BoutSamples {
     const n = lengths.reduce((a, b) => a + b + 20, 0);
     const at = (t: number): number => Math.sin(2 * Math.PI * f * t);
     const t = Array.from({ length: n }, (_, k) => k * 0.1);
@@ -66,59 +67,97 @@ describe('kinematics', () => {
       return r;
     });
     return {
-      velocity: t.map(() => speed),
-      mid: t.map((s) => at(s - lag / 2) + 0.3),
+      velocity: t.map(() => 0.22),
+      mid: t.map((s) => at(s) + 0.3),
       front: t.map(at),
-      rear: t.map((s) => at(s - lag)),
+      rear: t.map((s) => rear(at, s)),
       bouts: found,
     };
   }
+  // A wave travelling from head to tail at 0.30 Hz and 0.65 body lengths reaches the rear rod, 0.125 body
+  // lengths on, 0.125 / (0.30 × 0.65) = 0.641 s after the front.
+  const LAG = 0.125 / (0.3 * 0.65);
+  const forward = (at: (t: number) => number, t: number): number => at(t - LAG);
 
   it("measures a crawling worm's frequency, wavelength and speed", () => {
-    // 0.30 Hz at 0.65 body lengths: the rods 0.3125 body lengths apart lag by 0.3125 / (0.30 × 0.65) = 1.603 s.
-    const lag = 0.3125 / (0.3 * 0.65);
-    const k = kinematics([waveTrial(0.3, lag, 0.22, [300, 150]), waveTrial(0.3, lag, 0.22, [400])], 0.3125);
+    const k = kinematics([trial(0.3, forward, [300, 150]), trial(0.3, forward, [400])], 0.125);
     expect(k.bouts).toBe(3);
     expect(k.duration).toBeCloseTo(85, 9);
     expect(k.speed).toBeCloseTo(0.22, 12);
-    expect(k.frequency).toBeGreaterThan(0.29);
-    expect(k.frequency).toBeLessThan(0.31);
-    expect(k.lag).toBeCloseTo(lag, 1);
+    // Crossings counted within whole bouts fall a little short of 0.30 Hz: 0.288 here.
+    expect(k.frequency).toBeGreaterThan(0.285);
+    expect(k.frequency).toBeLessThan(0.315);
+    // The lag comes out within 1%; the wavelength takes the frequency's shortfall with it.
+    expect(Math.abs((k.lag ?? 0) / LAG - 1)).toBeLessThan(0.01);
     expect(k.wavelength).toBeGreaterThan(0.62);
-    expect(k.wavelength).toBeLessThan(0.68);
+    expect(k.wavelength).toBeLessThan(0.69);
+    expect(k.unmeasured).toBeNull();
     expect(k.correlation).toBeGreaterThan(0.99);
   });
 
-  it('reads a backward wave as one lagging by most of a period', () => {
-    // The rear rod leads by 1 s, so it lags by the period less 1 s, and the "wavelength" comes out long.
-    const k = kinematics([waveTrial(0.25, -1, 0.1, [400])], 0.3125);
-    expect(k.lag).toBeCloseTo(3, 1);
+  it("measures the partial band's edges", () => {
+    for (const [f, lambda] of [
+      [0.1, 0.4],
+      [0.6, 0.4],
+      [0.1, 1.0],
+      [0.6, 1.0],
+    ]) {
+      const lag = 0.125 / (f * lambda);
+      const k = kinematics([trial(f, (at, t) => at(t - lag), [1000])], 0.125);
+      expect(k.wavelength, `${f} Hz, ${lambda}`).toBeGreaterThan(lambda * 0.93);
+      expect(k.wavelength, `${f} Hz, ${lambda}`).toBeLessThan(lambda * 1.07);
+    }
+  });
+
+  it('finds no head-to-tail wave in a backward wave or a standing one', () => {
+    const cases: [string, (at: (t: number) => number, t: number) => number][] = [
+      ['backward', (at, t) => at(t + LAG)],
+      ['standing, in phase', (at, t) => 0.5 * at(t)],
+      ['standing, in antiphase', (at, t) => -at(t)],
+    ];
+    for (const [name, rear] of cases) {
+      const k = kinematics([trial(0.3, rear, [400])], 0.125);
+      expect(k.wavelength, name).toBeNull();
+      expect(k.unmeasured, name).toBe('no head-to-tail wave');
+      expect(k.frequency, name).toBeGreaterThan(0.285);
+    }
+    expect(kinematics([trial(0.3, (at, t) => at(t + LAG), [400])], 0.125).lag).toBeLessThan(0);
+  });
+
+  it('keeps its search within half a period and 5 s', () => {
+    // At 0.05 Hz a head-to-tail lag of 7 s lies beyond 5 s, so the search can't reach it.
+    const k = kinematics([trial(0.05, (at, t) => at(t - 7), [400])], 0.125);
+    expect(k.wavelength).toBeNull();
+    expect(Math.abs(k.lag ?? 0)).toBeLessThanOrEqual(5);
   });
 
   it('measures nothing without a bout, and no wave without crossings', () => {
-    const k = kinematics([{ velocity: [], mid: [], front: [], rear: [], bouts: [] }], 0.3125);
+    const k = kinematics([{ velocity: [], mid: [], front: [], rear: [], bouts: [] }], 0.125);
     expect(k).toEqual({
       bouts: 0,
       duration: 0,
+      crossings: 0,
       speed: null,
       frequency: null,
       wavelength: null,
+      unmeasured: 'no bout of 10 s',
       lag: null,
       correlation: null,
     });
+    const flat = Array<number>(100).fill(1);
     const still = kinematics(
       [
         {
-          velocity: Array(100).fill(0.05),
-          mid: Array(100).fill(1),
-          front: Array(100).fill(1),
-          rear: Array(100).fill(1),
+          velocity: Array<number>(100).fill(0.05),
+          mid: flat,
+          front: flat,
+          rear: flat,
           bouts: [{ start: 0, length: 100 }],
         },
       ],
-      0.3125,
+      0.125,
     );
     expect(still.speed).toBeCloseTo(0.05, 12);
-    expect([still.frequency, still.wavelength]).toEqual([0, null]);
+    expect([still.frequency, still.wavelength, still.unmeasured]).toEqual([0, null, 'no mid-body bending']);
   });
 });
