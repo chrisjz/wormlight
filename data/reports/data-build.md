@@ -92,3 +92,7 @@ Muscles sit on one grid of 24 slots per quadrant, so the quadrants line up; the 
 ## Eigenworm basis
 
 The pinned basis for checkpoint 1 has 100 modes over 100 tangent angles, which checkpoint 1 reads head first (an inferred orientation; see `DATA_SOURCES.md`). Its columns are orthonormal to within 1.3e-5, column 100 is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.
+
+## Starting postures
+
+The pinned real postures, which checkpoints 0 and 1 start their trials from, are 6,655 rows of 100 tangent angles, each with its mean removed to within 6.5e-6 rad. The first four eigenworms capture 96.46% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.

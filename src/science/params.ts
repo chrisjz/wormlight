@@ -4,8 +4,9 @@
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
 // bounds set here before it runs (PLAN.md §7.3), which waits for research track R (PLAN.md §9); until
-// then their value and bounds are null. A parameter fixed in advance (level 0) either has a value or is
-// set by a stated rule. Every parameter says what new data or research would raise it (spec §1.3).
+// then their value and bounds are null, and the simulation runs on their provisional values (PLAN.md
+// §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
+// parameter says what new data or research would raise it (spec §1.3).
 
 import type { CitationId } from './citations.ts';
 import { isFree, type Level } from './levels.ts';
@@ -29,6 +30,9 @@ export interface Param {
   // What a calibrated parameter is tuned against (PLAN.md §7.3), and the range it may move within.
   calibratedAgainst?: string;
   bounds?: readonly [number, number] | null;
+  // The value a calibrated parameter takes until calibration sets one: the go/no-go's best draw of the
+  // planned model, to three significant figures, with the noise off (PLAN.md §6.2, DECISIONS.md 2026-09-26).
+  provisional?: number;
 }
 
 export const FREE_PARAMETER_BUDGET = 14;
@@ -170,6 +174,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
     bounds: null,
+    provisional: 0,
   },
 
   // Sensing (PLAN §4.1, §4.2).
@@ -287,6 +292,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Recordings of the head rhythm generator',
     bounds: null,
+    provisional: 258,
   },
   oscillatorExcitability: {
     name: 'Oscillator excitability',
@@ -300,6 +306,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
     bounds: null,
+    provisional: 798,
   },
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
@@ -313,6 +320,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
     bounds: null,
+    provisional: 1.53,
   },
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
@@ -326,6 +334,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured AVB drive at the onset of B-type oscillation',
     bounds: null,
+    provisional: -11.5,
   },
   proprioceptiveReach: {
     name: 'Proprioceptive reach',
@@ -350,6 +359,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Identified stretch receptors and their gain',
     bounds: null,
+    provisional: 16.7,
   },
 
   // Neuromuscular transfer and muscles (PLAN §4.4).
@@ -365,6 +375,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
     bounds: null,
+    provisional: 2.45,
   },
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
@@ -378,6 +389,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
     bounds: null,
+    provisional: 3.48,
   },
   muscleTimeConstant: {
     name: 'Muscle time constant',

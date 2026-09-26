@@ -59,7 +59,8 @@ export function loopParams(values: {
   };
 }
 
-const CALIBRATED = [
+// The calibrated parameters' ids in the registry.
+export const CALIBRATED = [
   'oscillatorExcitability',
   'oscillatorRecoveryTime',
   'oscillatorDriveThreshold',
@@ -77,6 +78,13 @@ export function calibratedParams(): LoopParams {
   return loopParams(values as Parameters<typeof loopParams>[0]);
 }
 
+// The registry's provisional values, which the simulation runs on until calibration (PLAN §6.2).
+export function provisionalParams(): LoopParams {
+  return loopParams(
+    Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].provisional])) as Parameters<typeof loopParams>[0],
+  );
+}
+
 export interface WorldOptions {
   seed?: number;
   // Neurons to ablate (PLAN §3.5): their connections, neuromuscular junctions, oscillators and
@@ -90,6 +98,9 @@ export interface WorldOptions {
   silenced?: boolean;
   // The direction the head faces; the body starts straight with its head at the origin.
   heading?: number;
+  // A midline to start from instead, head at the origin: the directions of its equal pieces from head to
+  // tail, as Body.pose takes them. A trial starts from a real posture this way (PLAN §7.4).
+  posture?: ArrayLike<number>;
   // The brain's solver settings, if not the reference's (PLAN §3.4).
   solver?: SolverOptions;
   // The head switch's threshold P_th, if not the registry's: GPU parity lowers it so the switch flips often.
@@ -155,7 +166,10 @@ export class World {
     this.brain.setOscillators(oscillators);
 
     this.body = new Body(boyleBody());
-    this.body.straighten(0, 0, options.heading ?? Math.PI);
+    if (options.posture) {
+      if (options.heading !== undefined) throw new Error('a world starts from a posture or a heading, not both');
+      this.body.pose(options.posture);
+    } else this.body.straighten(0, 0, options.heading ?? Math.PI);
     this.muscles = new Muscles(
       data,
       {

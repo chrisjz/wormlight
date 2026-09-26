@@ -89,6 +89,21 @@
       "retrieved": "2026-09-25"
     },
     {
+      "id": "oist-postures",
+      "description": "6,655 real postures, 100 tangent angles each with the mean removed: `data/shapes.csv` in the OIST Physics of Behavior tutorials, v1.0 (the commit their Zenodo archive holds)",
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/oist/Physics-of-Behavior-Tutorials/9ce75a49356dbe718b42b92f85495b2cba4bddd8/data/shapes.csv",
+          "sha256": "410abb65af193b86d273bdbba670406c088032b9774e5808b02bb138950fb4b1"
+        }
+      ],
+      "origin": {
+        "repository": "https://github.com/oist/Physics-of-Behavior-Tutorials",
+        "commit": "9ce75a49356dbe718b42b92f85495b2cba4bddd8"
+      },
+      "retrieved": "2026-09-26"
+    },
+    {
       "id": "neural-interactome",
       "description": "Neural Interactome's code, Varshney-based matrices and stimulation presets (`shlizee/C-elegans-Neural-Interactome`), which the port check drives unmodified",
       "files": [
@@ -248,9 +263,18 @@
       "use": "tests",
       "pins": ["eigenworms"],
       "dataset": "The eigenworms of Stephens et al. 2008, _PLoS Comput Biol_ 4:e1000028, as distributed by the authors' group with WormPose (Hebert et al. 2021; `iteal/wormpose`, `extras/EigenWorms.csv`, unchanged since its first commit in July 2020)",
-      "takes": "Checkpoint 1's posture clause: the first four modes, with the head at angle 1. The file names no source; its identity with the 2008 basis is inferred: WormPose projects onto eigenworms citing Stephens et al. 2008, and the group's Broekmans et al. 2016 took its eigenworms from that paper; and and the 6,655 real postures in the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731, CC BY 4.0), which the tutorial introduces as coming from Stephens et al.'s experiment, are consistent with it: the first four modes capture 96.46% of their variance, against 96.48% for the best any four modes can do. That is an in-sample check, not independent confirmation",
+      "takes": "Checkpoint 1's posture clause: the first four modes, with the head at angle 1. The file names no source; its identity with the 2008 basis is inferred: WormPose projects onto eigenworms citing Stephens et al. 2008, and the group's Broekmans et al. 2016 took its eigenworms from that paper; and the 6,655 real postures in the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731, CC BY 4.0), which the tutorial introduces as coming from Stephens et al.'s experiment, are consistent with it: the first four modes capture 96.46% of their variance, against 96.48% for the best any four modes can do. That is an in-sample check, not independent confirmation",
       "route": "Downloaded and checked by the data build; read by the harness",
       "licence": "BSD-3-Clause, Copyright (c) 2020, Okinawa Institute of Science and Technology. Not redistributed: the build and the harness read it from its pinned URL"
+    },
+    {
+      "id": "oist-postures",
+      "use": "tests",
+      "pins": ["oist-postures"],
+      "dataset": "Real postures from the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731, v1.0), `data/shapes.csv`: 6,655 postures that the tutorial introduces as coming from the experiment of Stephens et al. 2008",
+      "takes": "The starting postures of checkpoints 0 and 1: each trial starts from one, drawn by its seed (PLAN §7.4). The data build also scores the eigenworm basis on them, the in-sample check above",
+      "route": "Downloaded and checked by the data build; read by the harness",
+      "licence": "CC BY 4.0, per the Zenodo record of v1.0, whose archive holds this file byte for byte. Not redistributed: the build and the harness read it from its pinned URL"
     },
     {
       "id": "randi2023",

@@ -13,13 +13,13 @@ export interface EigenwormCheck {
 // A plain decimal, optionally signed and in exponent form; blanks, hex and padding are refused.
 const DECIMAL = /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/;
 
-export function parseMatrix(csv: string): number[][] {
+export function parseMatrix(csv: string, what = 'eigenworm basis'): number[][] {
   return csv
     .trim()
     .split(/\r?\n/)
     .map((line, i) =>
       line.split(',').map((cell) => {
-        if (!DECIMAL.test(cell)) throw new Error(`eigenworm basis row ${i + 1}: "${cell}" is not a number`);
+        if (!DECIMAL.test(cell)) throw new Error(`${what} row ${i + 1}: "${cell}" is not a number`);
         return Number(cell);
       }),
     );
@@ -54,4 +54,22 @@ export function checkEigenworms(rows: number[][], angles: number, used = 4): Eig
     if (Math.abs(sum) > 1e-3) throw new Error(`eigenworm basis: mode ${j + 1} is not free of rotation (sum ${sum})`);
   }
   return { angles, modes: angles, orthonormalError, rotationMode: constant[0] + 1 };
+}
+
+export interface PostureCheck {
+  count: number;
+  angles: number;
+  // The largest mean angle of any posture, which should be 0 but for rounding.
+  largestMean: number;
+}
+
+// Check the real postures the harness starts trials from: rows of `angles` tangent angles, each with its mean
+// removed, as the posture analysis produces them.
+export function checkPostures(rows: number[][], angles: number): PostureCheck {
+  if (rows.length === 0 || rows.some((row) => row.length !== angles)) {
+    throw new Error(`postures: expected rows of ${angles} angles`);
+  }
+  const largestMean = Math.max(...rows.map((row) => Math.abs(row.reduce((a, b) => a + b, 0) / angles)));
+  if (largestMean > 1e-4) throw new Error(`postures: a posture's mean angle is ${largestMean}, not 0`);
+  return { count: rows.length, angles, largestMean };
 }

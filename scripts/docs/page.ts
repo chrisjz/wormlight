@@ -62,7 +62,12 @@ export function formatNumber(v: number): string {
 }
 
 export function formatValue(param: Param): string {
-  if (param.value === null) return param.level === 1 ? 'not yet calibrated' : 'set by rule';
+  if (param.value === null) {
+    if (param.level !== 1) return 'set by rule';
+    return param.provisional === undefined
+      ? 'not yet calibrated'
+      : `not yet calibrated; provisionally ${formatNumber(param.provisional)}`;
+  }
   return formatNumber(param.value);
 }
 
@@ -127,7 +132,7 @@ export function fidelityPage(facts: Facts): string {
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    '> **Status: milestone 0c.** The CPU reference simulates the network, the layers outside it and the body, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). No behavioural checkpoint has run and the calibrated parameters have no values yet, so "Tested by" lists the checks planned for each part, and the parts not built yet (odour, touch and the dish) carry the levels planned for them. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.',
+    '> **Status: milestone 3.** The CPU reference and the GPU simulate the network, the layers outside it and the body, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters have no values yet; until calibration the simulation runs on provisional ones, shown beside them below. Checkpoint 0\'s crawling clause and checkpoint 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven\'t, so "Tested by" lists the checks planned for each part, and the parts not built yet (odour, touch and the dish) carry the levels planned for them. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.',
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],
@@ -172,7 +177,7 @@ export function fidelityPage(facts: Facts): string {
     '## Reference data for validation',
     REFERENCE_DATA.map(
       (r) =>
-        `- **Checkpoint ${r.checkpoint}** (pin \`${r.pin}\` in \`data/sources.json\`): ${r.use} Sources: ${cite(r.sources)}.`,
+        `- **${checkpoints(r.checkpoints)}** (pin \`${r.pin}\` in \`data/sources.json\`): ${r.use} Sources: ${cite(r.sources)}.`,
     ).join('\n'),
     '## Parameters',
     `Every constant the plan fixes so far, from \`src/science/params.ts\`. A parameter is free when we set it ourselves, at level 1 or 0. There are ${free.length} free parameters, ${calibrated.length} calibrated and ${free.length - calibrated.length} fixed in advance, against a budget of ${FREE_PARAMETER_BUDGET} (PLAN.md §6.2). Constants that only later milestones use, such as the body's spring constants and the oscillator's fixed coefficients, join the registry with the code that uses them.`,

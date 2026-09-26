@@ -165,6 +165,34 @@ export class Body {
     }
   }
 
+  // Lay the body along a midline, head at (x, y), given as the directions of its equal pieces from head to
+  // tail (radians anticlockwise from x), the whole body long. The rods keep their rest spacing along it, each
+  // across the midline, square to the line through its neighbours.
+  pose(angles: ArrayLike<number>, x = 0, y = 0): void {
+    if (angles.length === 0) throw new Error('a posture needs at least one angle');
+    const ls = this.params.segmentLength;
+    const piece = (ls * this.params.segments) / angles.length;
+    let px = x;
+    let py = y;
+    let k = 0;
+    for (let i = 0; i < this.rods; i++) {
+      const s = i * ls;
+      while (k < angles.length - 1 && (k + 1) * piece <= s) {
+        px += piece * Math.cos(angles[k]);
+        py += piece * Math.sin(angles[k]);
+        k++;
+      }
+      this.x[i] = px + (s - k * piece) * Math.cos(angles[k]);
+      this.y[i] = py + (s - k * piece) * Math.sin(angles[k]);
+    }
+    for (let i = 0; i < this.rods; i++) {
+      const a = Math.max(0, i - 1);
+      const b = Math.min(this.rods - 1, i + 1);
+      // Head to tail is t = (sin θ, −cos θ), so a direction ψ along the body gives θ = ψ + π/2.
+      this.theta[i] = Math.atan2(this.y[b] - this.y[a], this.x[b] - this.x[a]) + Math.PI / 2;
+    }
+  }
+
   // Rod centres from head to tail, as [x0, y0, x1, y1, …].
   midline(): Float64Array {
     const out = new Float64Array(2 * this.rods);

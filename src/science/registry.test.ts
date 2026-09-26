@@ -43,16 +43,19 @@ describe('parameters', () => {
       if (p.level === 1) {
         expect(p.value, p.name).toBeNull();
         expect(p.calibratedAgainst, p.name).toBeTruthy();
+        // Until calibration, a provisional value stands in (PLAN §6.2).
+        expect(Number.isFinite(p.provisional), p.name).toBe(true);
       } else {
         expect(p.value !== null || Boolean(p.rule), p.name).toBe(true);
       }
     }
   });
 
-  it('say what would raise every parameter, and hold bounds for every calibrated one', () => {
+  it('say what would raise every parameter, and hold bounds and a provisional value for every calibrated one', () => {
     for (const p of params) {
       expect(p.upgrade, p.name).toBeTruthy();
       expect('bounds' in p, p.name).toBe(p.level === 1);
+      expect('provisional' in p, p.name).toBe(p.level === 1);
     }
   });
 
