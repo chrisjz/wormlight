@@ -4,7 +4,7 @@
 
 How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.
 
-> **Status: milestone 3.** The CPU reference and the GPU simulate the network, the layers outside it and the body, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters have no values yet; until calibration the simulation runs on provisional ones, shown beside them below. Checkpoint 0's crawling clause and checkpoint 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part, and the parts not built yet (odour, touch and the dish) carry the levels planned for them. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.
+> **Status: milestone 3 done.** The CPU reference and the GPU simulate the network, the layers outside it and the body, and the app shows the worm on its dish, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters have no values yet; until calibration the simulation runs on provisional ones, shown beside them below. Checkpoint 0's crawling clause and checkpoint 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part, and the parts not built yet (odour, touch, the lawn and the dish's wall) carry the levels planned for them. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.
 
 ## The scale
 
@@ -125,7 +125,7 @@ A level describes the kind of evidence, not how much a part matters, and not cer
 
 - Calcium-style glow: model activity filtered through published GCaMP kinetics (Chen et al. 2013). The colour and normalisation are display choices.
 - The 3D graph places each soma where one reconstruction has it (the WormBase Virtual Worm, via c302; Gleeson et al. 2018), unbent along the ventral cord, with the body axis stretched where neurons crowd and the cross-section enlarged. Order along the unbent body is kept.
-- The plate view looks down on the dish as a dark-field microscope would: the worm's outline is the body model's, rod for rod, but its shading, the pharynx's bulbs and the gut's granules drawn inside it, and the agar's specks are texture, not simulated anatomy. The camera follows the worm at body scale, with the whole dish in an inset.
+- The plate view looks down on the dish as a dark-field microscope would. The worm's outline is the body model's: a strip through the rods' centres, smoothed between them, as wide as the rods' diameters, with its tips faded. Everything else is drawn, not simulated: the body's shading, the pharynx's bulbs and the gut's granules inside it, the halo around it, and the agar's mottle, specks, meniscus, rim and darker corners. The camera follows the worm at body scale, with the whole dish in an inset.
 
 ## Reference data for validation
 

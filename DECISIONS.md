@@ -774,37 +774,48 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 
 **Decision.** Milestone 3's last part is the plate view (spec §5–§7): the worm on a 10 cm dish, its whole loop stepped on the GPU, beside the connectome's graph. The maintainer chose, before it was built:
 
-- **A split layout.** The plate and the graph side by side, stacked when the window is taller than it is wide; `?view=plate` or `?view=graph` shows one alone. Considered: the plate with the graph as an inset, and tabs, neither of which shows body and brain together.
+- **A split layout.** The plate and the graph side by side, stacked when the window is taller than it is wide; `?view=plate` or `?view=graph` shows one alone. Considered: the plate with the graph as an inset, which keeps the brain small until asked for, and tabs, which never show body and brain together.
 - **A dark-field look, from above.** Dark agar with faint texture and specks, the worm a translucent tube lit at its edges, as a dark-field microscope shows one. It suits the app's dark palette and will keep the glow readable (milestone 6). The camera follows the worm at three body lengths across the pane's shorter side, with the whole dish in an inset. Considered: bright-field, the look of most worm videos, which clashes with the app and would wash out a green glow; and a tilted 3D camera, which a 2D body gains little from.
 - **A straight start, seeded.** The worm starts straight at the dish's centre, heading where a seed says: random on each visit, shown on the page, and fixed by `?seed=`. Considered: a real posture, which would mean shipping a subset of the OIST postures and their attribution; the harness keeps those.
 
 **How it works.**
 
-- **Drawing from the simulation's buffer.** `GpuWorld` steps the loop, and the renderer reads the rods' coordinates straight from the kernel's body buffer in a vertex shader, so drawing the worm needs no readback. Only the camera, which follows the worm, reads back the rods' centres, a few kilobytes a frame, one or two frames behind, as PLAN §1 allows.
-- **Pacing.** Each frame runs the whole steps that the wall time since the last frame owes at the chosen speed (¼×, 1×, 4× or 10×), a gap counting for at most a tenth of a second. While the GPU is still busy with earlier frames, a frame runs no steps, so a GPU that can't keep up runs slower than asked instead of queueing work.
-- **What's drawn.** The worm's outline is the body model's: a strip through the rods' centres, as wide as their radii, smoothed between them by a spline. Its shading, the pharynx's bulbs and the gut's granules inside it, and the agar's specks are texture, not simulated anatomy, and the registry's presentation notes say so.
+- **Drawing from the simulation's buffer.** `GpuWorld` steps the loop, and the renderer reads the rods' coordinates straight from the kernel's body buffer in a vertex shader, so drawing the worm needs no readback. Only the camera, which follows the worm, and the dish inset read back the rods' centres, a few kilobytes a frame, landing a frame or more behind, as PLAN §1 expects the display to trail the simulation.
+- **Pacing.** Each frame runs the whole steps that the wall time since the last frame owes at the chosen speed (¼×, 1×, 4× or 10×), a gap counting for at most a tenth of a second. While two frames' work is still on the GPU, a frame runs no steps, so a GPU that can't keep up runs slower than asked instead of queueing work without limit. The camera's lag behind the worm is 0.6 s of worm time, so a fast-forwarded worm stays in view.
+- **What's drawn.** The worm's outline is the body model's: a strip through the rods' centres, smoothed between them by a spline, as wide as the rods' diameters, with its tips faded. Everything else is texture, not simulated anatomy: the body's shading, the pharynx's bulbs and the gut's granules inside it, the halo around it, and the agar's mottle, specks, meniscus, rim and darker corners. The registry's presentation notes say so.
 - **What it says.** The app runs on the provisional parameters, and a notice says crawling doesn't emerge yet, linking to `VALIDATION.md`, as PLAN §9 promised it would from the app's first view of the body.
-- **A gap.** The dish's wall doesn't stop the worm yet, as PLAN §5.2 has it; it comes with the environment in milestone 4. At the provisional parameters the worm makes about 0.03 body lengths per second when it moves at all.
+- **A gap.** The dish's wall doesn't stop the worm yet, as PLAN §5.2 has it. With the maintainer's agreement it joins milestone 4, before track R's calibration, when a crawling worm could reach the wall in minutes. At the provisional parameters the worm barely moves: in checkpoint 1's trials it averaged about 0.01 body lengths per second, 0.03 over its forward bouts, and in the app, seeds 1 to 4 strayed no more than 1.3 mm from the centre in 75 minutes of worm time.
 
-**Speed** (the default split view at 1440 × 900, in headless Chrome 153 on the M5 Max, `npm run plate:bench`):
+**Speed** (the default split view at 1440 × 900, in headless Chrome 153 on the M5 Max, `npm run plate:bench -- 1 10 30 50 100`, after review's fixes):
 
-| Asked | Frames a second | Worm time a wall second | Queued work at the end (ms) |
-| ----- | --------------- | ----------------------- | --------------------------- |
-| 1×    | 60.0            | 1.00×                   | 0.2                         |
-| 10×   | 60.0            | 10.00×                  | 4.0                         |
-| 30×   | 60.0            | 30.00×                  | 0.0                         |
-| 50×   | 60.0            | 50.00×                  | 0.4                         |
-| 100×  | 31.8            | 63.10×                  | 171                         |
+| Asked | Frames a second | Least in a second | Worm time a wall second | Queued work at the end (ms) |
+| ----- | --------------- | ----------------- | ----------------------- | --------------------------- |
+| 1×    | 60.0            | 60.0              | 1.00×                   | 0.1                         |
+| 10×   | 60.0            | 60.0              | 10.00×                  | 6.2                         |
+| 30×   | 60.0            | 60.0              | 30.00×                  | 5.8                         |
+| 50×   | 60.0            | 60.0              | 50.00×                  | 12.7                        |
+| 100×  | 31.6            | 29.0              | 61.18×                  | 114                         |
 
-- **Rendering and readback included,** the app clears PLAN's 10× target with room to spare. Its step saturates at about 63× real time, against the 24× milestone 3's first part measured for the step alone.
-- **Why the step is faster here.** That benchmark ran the most demanding parity state, whose solves take the most iterations; the app's worm, near rest, takes fewer. A calibrated, more active brain may take more.
+- **The whole app,** rendering and readback included, clears PLAN's 10× target with room to spare, and saturates at about 60 to 63× real time across runs, the reviewers' included; up to 50×, the work still queued at a run's end stayed under 13 ms in every run. The step alone measured about 24× in milestone 3's first part.
+- **Why it's faster here, likely.** That benchmark ran the last parity state on the parity runs' trial values, whose solves take about 9.9 iterations a step at the GPU's tolerance on the CPU (4.8 with their noise off); the app's worm, on the provisional values, takes about 1.0 once settled. That benchmark also waited after every four dispatches of 67 steps, where the app dispatches up to 128 at once. Neither cause was timed apart, and a calibrated, more active brain may take more iterations.
 - **Headless Chrome paces its own frames,** so these say what the GPU and the page sustain, not what a display shows.
 
-**Visual tests.** The graph's four views now load `?view=graph` and match their baselines unchanged: locally within 0.03%, as before. Three plate views join them, each paused at the start with seed 1: the default field of view, a close-up and the whole dish. Their baselines come from CI's first run of them.
+**Visual tests.** The graph's four views now load `?view=graph` and match their baselines unchanged: exactly on CI, and locally within 0.03% as before. Three plate views join them, each paused at the start with seed 1: the default field of view, a close-up and the whole dish. Their baselines come from CI's runs of them.
 
 **The window check** (the maintainer, on the M5 Max, `/?stats=1` on the dev server, at speeds up to 10×):
 
-- **Chrome** held 120 frames a second throughout: it paces frames to the display, which refreshes at 120 Hz.
-- **Safari** held 60, the rate it caps pages at by default. It dropped a few times, to no lower than 50, then stayed at 60 without dropping again.
+- **Chrome** held 120 frames a second throughout, most likely its pace for a 120 Hz display (not checked).
+- **Safari** held 60, most likely its default cap for pages (not checked). It dropped a few times, to no lower than 50, then stayed at 60 without dropping again. The stats line averages over a second.
 
-**Status.** Done: milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, is met, with Safari's few brief dips to 50 noted.
+**Review.** Three reviewers read the branch, and the fixes are in:
+
+- A readback landing after a restart no longer freezes the inset's trail.
+- A failure while starting stops both views.
+- The inset no longer covers the controls on a phone.
+- A click no longer pans.
+- The worm's shader no longer squares with `pow`, which WGSL leaves undefined for a base below zero.
+- Keys held with Ctrl, Cmd or Alt are left to the browser, in both views.
+- Every frame that gives the GPU work counts towards pacing's limit, drawn or not.
+- This entry's claims are corrected: an earlier draft put the step's speed-up down to the parity bench running "the most demanding" state, which it doesn't.
+
+**Status.** Done: milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, is met on the maintainer's check, with Safari's few dips to 50 noted, as the maintainer accepted.
