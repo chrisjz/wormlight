@@ -19,9 +19,12 @@ export function uniform(h: number): number {
   return ((h >>> 9) + 0.5) * 2 ** -23;
 }
 
-// A standard normal draw for one neuron at one step, by Box–Muller on two hashes.
+// A standard normal draw from two hashes, by Box–Muller.
+export function gaussianFrom(h1: number, h2: number): number {
+  return Math.sqrt(-2 * Math.log(uniform(h1))) * Math.cos(2 * Math.PI * uniform(h2));
+}
+
+// A standard normal draw for one neuron at one step.
 export function gaussian(seed: number, step: number, neuron: number): number {
-  const u1 = uniform(hash(seed, step, 2 * neuron));
-  const u2 = uniform(hash(seed, step, 2 * neuron + 1));
-  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  return gaussianFrom(hash(seed, step, 2 * neuron), hash(seed, step, 2 * neuron + 1));
 }

@@ -611,3 +611,33 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 - **Checkpoints.** Unchanged since milestone 0c: checkpoint 0 not yet run formally, checkpoint 1 a fail, checkpoints 2 to 6 not reached.
 
 **Status.** Done.
+
+## 2026-09-26 — The neural model on the GPU, and what parity compares
+
+**Decision.** Milestone 2 puts the neural model on the GPU and checks it against the CPU reference.
+
+- **The kernel** (`src/gpu/brainShader.ts`) mirrors `Brain.step` line for line: BDF2 voltages (implicit Euler without a history) solved by Jacobi-preconditioned conjugate gradients from the last step, the oscillators linearised as on the CPU, then activation and recovery by BDF2, with the noise drawn from the same hash. The network runs in one workgroup of 256 invocations, each keeping the state of one or two neurons in registers, so a dispatch takes any number of steps with only barriers between them. It binds 7 storage buffers and uses 8 KB of workgroup memory, within WebGPU's default limits.
+- **`GpuBrain`** (`src/gpu/brain.ts`) holds the buffers and trades state with the CPU's `Brain` as a `BrainState`, which the CPU reference now exports and restores whole, history included. A lesion or a brain swap is a new network in the same places, with the thresholds the caller gives.
+- **Parity** (`npm run gpu:parity`, and the `gpu` CI job on SwiftShader) runs `parity.html`, a page the dev server serves and the build leaves out. The CPU reference in the page runs the closed loop with trial values (g_osc = 2 nS, θ_osc = −16 mV, σ_n = 0.01 pA·√s, the rest as the loop tests have them; seed 1), and takes 20 states every 0.5 s after 2 s, plus the rest state. From each, both brains take one step and then one second, the state's input held and the noise on. The random numbers are checked first: the hashes and uniforms must match exactly, and each Gaussian must lie within the error WGSL allows `log`, `sqrt` and `cos`, which the one-step check adds to its tolerance, since the implicit solve moves no voltage by more than dt/C times the current's error.
+- **The Safari check** is the same page opened in Safari: `npm run dev`, then `/parity.html`.
+
+**Decided with you before any results.**
+
+- Milestone 2 comes before research track R, which runs on the CPU reference and can be scheduled between any later milestones.
+- Long-run parity needs the body on the GPU, so it moves to milestone 3, with the full step's speed. Milestone 2 measures the brain's step.
+- While the worm doesn't crawl, long-run parity compares the mid-body curvature's frequency and its standard deviation of κL, the quantities the go/no-go tables report, by the same ±5% two one-sided tests. It returns to crawling frequency and speed once checkpoint 1 reaches partial. PLAN §7.2 and §9 now say so.
+
+**Changed after results: one-second parity (PLAN §7.2, marked changed).** On the M5 Max, 20 of the 21 one-second states passed with room to spare (worst RMS relative error 0.0024 against 0.01), but the state at t = 10.5 s reached 0.033.
+
+- **Not a GPU error.** The f64 CPU reference fails the same state against itself, at 0.020, when its only change is its solver tolerance set to the GPU's 10⁻⁵; an f32-rounded starting state alone costs 8 × 10⁻⁵. Against a 10⁻¹⁰ solve, the reference at its own 10⁻⁶ is 0.0088 away, and the error is not monotonic in the tolerance (0.0003 at 5 × 10⁻⁶, 0.023 at 3 × 10⁻⁶). The GPU at 10⁻⁶ still gives 0.027.
+- **The cause.** VA1, an A-type oscillator, starts its fast FitzHugh–Nagumo upstroke in the last 60 ms of that second, and the sample at 1 s catches it mid-jump near 0 mV. A sub-step difference in when the jump starts is a few tenths of a millivolt there, which the check's 1 mV floor counts as a 35% error. Any solve differs so, which is the spec's reason (§8) for comparing long runs by behaviour.
+- **The rule, your choice.** A state is graded only if it is well posed: if the CPU reference, rerun at the GPU's solver tolerance, stays within the threshold of itself. The others are reported with that figure, not graded, and the check fails if more than a quarter of the states are not graded, since it would then test little. That guard only makes the check stricter; it is my addition. Today the rule sets aside t = 10.5 s alone.
+
+**Results on the M5 Max** (Chrome 153, Metal):
+
+- **Noise.** All 100 hashes and 4,837 uniforms identical; the largest Gaussian error 5 × 10⁻⁷, a negligible share of WGSL's bound.
+- **One step.** All 21 states pass; the worst voltage error is 0.72 of its tolerance, at rest, and the worst activation error 10⁻³ of its. The GPU's solves take 7 to 13 iterations, the CPU's 11 to 15.
+- **One second.** All 20 graded states pass, the worst at 0.0024; t = 10.5 s is not graded.
+- **Speed.** The brain step runs at 29.6× real time at 2.5 ms in dispatches of 67 steps (5.7 ms each) and 25.5× in dispatches of 7 (0.7 ms), about 10 solver iterations a step: well past the 10× target for the brain. The CPU reference's brain runs about as fast in the same page, which bears out the spec's point that at this scale the GPU is a showcase choice.
+
+**Status.** Done, but for the Safari check.
