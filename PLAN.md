@@ -507,6 +507,8 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 2's outcome (2026-09-26): done, but for the Safari check, which moves to milestone 3; it passed there the same day (DECISIONS.md).** The GPU brain matches the CPU reference on the Mac's GPU and on CI's software GPU, by the one-step and one-second checks as changed after results (§7.2), and steps at about 29× real time on an M5 Max. Long-run parity and the full step's speed moved to milestone 3 before any parity results (DECISIONS.md).
 
+**Milestone 3's outcome (2026-09-26): done.** The body runs on the GPU and matches the CPU reference on the Mac, on CI's software GPU and in Safari, long-run parity included. Checkpoint 1 runs in the harness, a fail until track R, and checkpoint 0's crawling clause passes. The plate view shows the worm beside the connectome, at 120 frames a second in Chrome and 60 in Safari at up to 10×, Safari with a few brief dips to 50, and the full step clears the 10× target with rendering and readback (DECISIONS.md).
+
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 
 - the classes and parameters, and the free-parameter budget raise they need (§6.2);

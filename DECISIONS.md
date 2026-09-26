@@ -802,4 +802,9 @@ It only makes the clause stricter, and changes no verdict: checkpoint 1's wavele
 
 **Visual tests.** The graph's four views now load `?view=graph` and match their baselines unchanged: locally within 0.03%, as before. Three plate views join them, each paused at the start with seed 1: the default field of view, a close-up and the whole dish. Their baselines come from CI's first run of them.
 
-**Status.** Built. Milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, needs a window: the maintainer's check with `/?stats=1` at 1× and 10×.
+**The window check** (the maintainer, on the M5 Max, `/?stats=1` on the dev server, at speeds up to 10×):
+
+- **Chrome** held 120 frames a second throughout: it paces frames to the display, which refreshes at 120 Hz.
+- **Safari** held 60, the rate it caps pages at by default. It dropped a few times, to no lower than 50, then stayed at 60 without dropping again.
+
+**Status.** Done: milestone 3's last exit criterion, 60 fps in real time on an M-series Mac in Chrome and Safari, is met, with Safari's few brief dips to 50 noted.
