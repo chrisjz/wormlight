@@ -628,7 +628,7 @@ export const PRESENTATION: readonly { text: string; sources: readonly CitationId
     sources: ['gleeson2018'],
   },
   {
-    text: 'The camera follows the worm at body scale.',
+    text: "The plate view looks down on the dish as a dark-field microscope would. The worm's outline is the body model's: a strip through the rods' centres, smoothed between them, as wide as the rods' diameters, with its tips faded. Everything else is drawn, not simulated: the body's shading, the pharynx's bulbs and the gut's granules inside it, the halo around it, and the agar's mottle, specks, meniscus, rim and darker corners. The camera follows the worm at body scale, with the whole dish in an inset.",
     sources: [],
   },
 ];

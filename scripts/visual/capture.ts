@@ -50,7 +50,7 @@ try {
       new MutationObserver((_, watcher) => {
         if (!document.head) return;
         const style = document.createElement('style');
-        style.textContent = '#app > :not(#gpu) { display: none !important; }';
+        style.textContent = '.pane > :not(canvas) { display: none !important; }';
         document.head.append(style);
         watcher.disconnect();
       }).observe(document, { childList: true, subtree: true });
@@ -68,7 +68,10 @@ try {
         adapterLogged = true;
       }
       const dataUrl = await withTimeout(
-        page.evaluate(() => (globalThis as unknown as { __snap: () => Promise<string> }).__snap()),
+        page.evaluate(
+          (pane) => (globalThis as unknown as { __snap: (pane: string) => Promise<string> }).__snap(pane),
+          view.pane,
+        ),
         60000,
         'the snapshot',
       );

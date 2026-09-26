@@ -443,6 +443,12 @@ export class GpuBrain {
     }
   }
 
+  // The body's buffer, ROD_WORDS per rod and then the muscles' activations, for a renderer to read in place;
+  // the kernel writes it as each dispatch steps.
+  get bodyBuffer(): GPUBuffer {
+    return this.body;
+  }
+
   // The state and the solver's record once the queued work is done.
   async read(): Promise<{ state: BrainState; status: GpuBrainStatus; loop: LoopState | null }> {
     this.alive();
