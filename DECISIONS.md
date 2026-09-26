@@ -744,4 +744,13 @@ Also: a "Find a neuron" box (the `/` key reaches it from anywhere but a text fie
 - Trials use seeds 1 to 20, and checkpoint 0 the same seeds, so it silences the network on the same postures.
 - Each clause is graded pass, partial or fail by §7.4's bands. The checkpoint passes if every clause passes, is partial if every clause is at least partial, and otherwise fails; with no bout of 10 s, the kinematic clauses fail, unmeasured.
 
-**Status.** Settled before any trial ran; results follow.
+**Results** (the M5 Max's 18 cores, at `417359e`; both checkpoints' 40 trials take 6 s). Every trial stayed finite, no brain solve failed to converge, and no posture self-intersected.
+
+- **Checkpoint 0's crawling clause passes.** The silenced network doesn't move: no forward motion in any trial, each trial's mean velocity within 0.0011 body lengths per second of zero, and no reversals. While the intact model doesn't crawl, this pass says nothing about the wiring (PLAN §9).
+- **Checkpoint 1 fails**, as milestone 3 expects until track R. The frequency (0.045 Hz), wavelength (3.54 body lengths) and speed (0.029 body lengths per second) all fall below their partial bands, and no trial has a forward bout of 20 s. The eigenworm clause passes, at 99.5%.
+- **What the intact model does.** From every starting posture it settles into the same cycle. The body bends deeply, to a mid-body κL of about −6, and holds the bend for about a minute. Then it flips, swinging to the other side and back while it lurches forward, and holds again. The lurches are its only forward motion, two runs of about 11 s per flip, so the kinematics measure them: 47 runs in all, every trial's longest lasting 11.6 s. With the noise off, the trials differ only in when they reach the cycle.
+- **Why the eigenworm clause passes.** Held bends and slow swings between them are smooth, simple shapes, which the first four modes capture almost entirely. The clause measures how worm-like the postures are, not whether the worm crawls, so it passes a model that doesn't. It stays in the verdict as PLAN fixes it.
+- **Deterministic.** Rerun, with any number of workers, the records are identical.
+- **Cost.** Checkpoint 1's trials take about 1.4 CPU-minutes per worm-hour, worker start-up included, below the 2–11 PLAN §7.5 took from the review's benchmarks.
+
+**Status.** Milestone 3's second part is done: checkpoint 1 runs in the harness, a fail until track R, and checkpoint 0's crawling clause passes. The comparison of checkpoint 1's metrics at dt and dt/2 (PLAN §7.2's convergence row) is not run: with no wave to measure, it would compare noise, not the integrator. The plate view comes next, with milestone 3's 60 fps criterion.

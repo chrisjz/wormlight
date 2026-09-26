@@ -440,6 +440,8 @@ Trials are independent, so the harness runs them in parallel, one worker per cor
 - **Tuning** is about 53 worm-hours per wiring.
 - **A full pass** of checkpoints 1–6 over the real wiring and 10 nulls is on the order of a day on a 16-core machine.
 
+Measured at milestone 3, checkpoint 1's trials take about 1.4 CPU-minutes per worm-hour on an M5 Max, below the review's figures (2026-09-26, DECISIONS.md).
+
 ## 8. Testing, CI and deployment
 
 **Unit tests** (Vitest) cover the loader's validation and the physics against cases with known answers:
