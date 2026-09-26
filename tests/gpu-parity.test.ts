@@ -7,7 +7,9 @@ import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
 import {
   endVelocities,
   gaussianBound,
+  LOOP_SETUPS,
   loopCases,
+  movedAndTurned,
   paritySetup,
   seededWorld,
   variantSetup,
@@ -101,23 +103,55 @@ describe("the loop's parity", () => {
     for (const c of cases.slice(1)) {
       expect(c.state.previousCurvature).not.toBeNull();
       expect(c.state.x).toHaveLength(49);
-      expect(c.state.muscles.some((a) => a > 0)).toBe(true);
+    }
+    // They differ, body and muscles: each is a different moment of the loop.
+    for (let k = 2; k < cases.length; k++) {
+      expect(cases[k].state.x).not.toEqual(cases[k - 1].state.x);
+      expect(cases[k].state.muscles).not.toEqual(cases[k - 1].state.muscles);
     }
   });
 
-  it("grades each rod's end points: its centre's velocity, plus or minus its radius times its spin", () => {
+  it('includes variants whose head switch flips and gates', () => {
+    const [, flipping, gating] = LOOP_SETUPS;
+    expect(flipping.switchThreshold).toBe(0.5);
+    expect(gating.params.driveThreshold).toBe(-1);
+    expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
+  });
+
+  it('moves and turns copies of a state without touching anything else', () => {
+    const c = loopCases(data)[3];
+    const copy = movedAndTurned(c.state, 0.03, -0.03, 50);
+    expect(copy.x[7]).toBeCloseTo(c.state.x[7] + 0.03, 15);
+    expect(copy.y[7]).toBeCloseTo(c.state.y[7] - 0.03, 15);
+    expect(copy.theta[7]).toBeCloseTo(c.state.theta[7] + 100 * Math.PI, 12);
+    expect(copy.brain).toBe(c.state.brain);
+    expect(copy.muscles).toBe(c.state.muscles);
+  });
+
+  it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {
+    // Against the points themselves, centre ± R (cos θ, sin θ), moved a little along the velocities.
     const world = seededWorld(data, 1);
     const rods = world.body.rods;
-    const theta = new Float64Array(rods).fill(0.3);
-    const v = new Float64Array(3 * rods);
-    v[3 * 5] = 2e-4;
-    v[3 * 5 + 2] = 0.5;
+    const { radii } = world.body.params;
+    const x = Float64Array.from({ length: rods }, (_, i) => i * 2e-5);
+    const theta = Float64Array.from({ length: rods }, (_, i) => 0.3 + 0.01 * i);
+    const v = Float64Array.from({ length: 3 * rods }, (_, k) => (k % 3 === 2 ? 0.4 : 1e-4) * Math.sin(k));
     const ends = endVelocities(world, theta, v);
-    const r = world.body.params.radii[5];
-    expect(ends[4 * 5]).toBeCloseTo(2e-4 - r * 0.5 * Math.sin(0.3), 15);
-    expect(ends[4 * 5 + 1]).toBeCloseTo(r * 0.5 * Math.cos(0.3), 15);
-    expect(ends[4 * 5 + 2]).toBeCloseTo(2e-4 + r * 0.5 * Math.sin(0.3), 15);
-    expect(ends[4 * 5 + 3]).toBeCloseTo(-r * 0.5 * Math.cos(0.3), 15);
-    expect(ends[0]).toBe(0);
+    const h = 1e-6;
+    for (const i of [0, 5, 48]) {
+      for (const [side, sign] of [
+        [0, 1],
+        [1, -1],
+      ]) {
+        const point = (t: number): [number, number] => [
+          x[i] + t * v[3 * i] + sign * radii[i] * Math.cos(theta[i] + t * v[3 * i + 2]),
+          t * v[3 * i + 1] + sign * radii[i] * Math.sin(theta[i] + t * v[3 * i + 2]),
+        ];
+        const [ax, ay] = point(-h);
+        const [bx, by] = point(h);
+        expect(ends[4 * i + 2 * side]).toBeCloseTo((bx - ax) / (2 * h), 9);
+        expect(ends[4 * i + 2 * side + 1]).toBeCloseTo((by - ay) / (2 * h), 9);
+      }
+    }
   });
 });

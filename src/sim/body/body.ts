@@ -186,9 +186,14 @@ export class Body {
     }
   }
 
-  // The velocities the last step took, [ẋ, ẏ, θ̇] per rod; zero before the first.
+  // The velocities the last step took, [ẋ, ẏ, θ̇] per rod, zero before the first; rates() replaces them.
   lastRates(): Float64Array {
     return Float64Array.from(this.velocity);
+  }
+
+  // Set the velocities lastRates() reports, as a restored state had them. The next step doesn't read them.
+  restoreRates(rates: ArrayLike<number>): void {
+    this.velocity.set(rates);
   }
 
   // The rods' velocities in the current state, [ẋ, ẏ, θ̇] per rod: the overdamped motion the next step

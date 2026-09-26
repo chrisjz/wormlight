@@ -1,25 +1,30 @@
-// GPU parity for the whole loop (PLAN §7.2): the body, the muscles and the head switch join the brain. From
-// the rest world and twenty from its closed loop, both sides take one step, then one second, running every
-// layer; the thresholds are the body's row of §7.2, set before any loop results, and the brain's are as
-// before. Long runs, 20 seeds a side for 60 s, are compared by the body wave's statistics with Welch's two
-// one-sided tests, while the worm doesn't crawl.
+// GPU parity for the whole loop (PLAN §7.2): the body, the muscles and the head switch join the brain. Both
+// sides take one step, then one second, running every layer, from whole-world states: the rest world and
+// twenty from the trial values' closed loop, copies of them moved across the dish and turned, which the CPU
+// doesn't notice and the GPU must not, and states from two variants that make the head switch flip and gate.
+// The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
+// 2026-09-26); the brain's are as before. Long runs, LONG_SEEDS a side for 60 s, compare the body wave's
+// statistics by Welch's two one-sided tests while the worm doesn't crawl.
 
 import type { WormlightData } from '../data/schema.ts';
 import { WAVE_ROD, WAVE_SAMPLE, WAVE_WARM_UP, bodyWave, type BodyWave } from '../sim/bodyWave.ts';
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { curvatureOf } from '../sim/proprio.ts';
-import { equivalence, type Equivalence } from '../sim/stats.ts';
+import { equivalence, spreadRatio, type Equivalence, type SpreadRatio } from '../sim/stats.ts';
 import type { World, WorldState } from '../sim/world.ts';
-import { compareStep, type StepResult } from './parity.ts';
+import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
   centroidFloor,
+  COPIES,
   cpuWorld,
   endVelocities,
   FLOOR,
   LOOP_SECOND,
+  LOOP_SETUPS,
   LOOP_STEP,
   loopCases,
   MOST_ILL_POSED,
+  movedAndTurned,
   ONE_SECOND,
   rms,
   SAMPLES,
@@ -27,14 +32,15 @@ import {
   seededWorld,
   velocityFloors,
   type LoopCase,
+  type LoopSetup,
 } from './parityCases.ts';
 import { GpuWorld } from './world.ts';
 
 export interface LoopStepResult extends StepResult {
-  // Graded: the largest error in the rods' end points' velocities, in x and y, as shares of their tolerance.
-  // Reported: the same for the rods' centres, and their rotation.
-  endShares: [number, number];
+  // Graded: the largest error in the rods' centres' velocities, in x, y and θ, as shares of their tolerance.
+  // Reported: the same for the rods' end points, in x and y.
   centreShares: [number, number, number];
+  endShares: [number, number];
   muscleShare: number;
   switchSame: boolean;
 }
@@ -53,9 +59,13 @@ function shares(cpu: ArrayLike<number>, gpu: ArrayLike<number>, width: number, f
   });
 }
 
+// Whether the GPU's head switch is in the CPU's state, its current compared as f32 holds it.
+const sameSwitch = (cpu: World, gpu: WorldState): boolean =>
+  cpu.headSwitch.h === gpu.h && Math.fround(cpu.switchCurrent) === gpu.switchCurrent;
+
 async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): Promise<LoopStepResult> {
-  const cpu = cpuWorld(data, c.state, CG_TOLERANCE_GPU);
-  const reference = cpuWorld(data, c.state);
+  const cpu = cpuWorld(data, c.state, CG_TOLERANCE_GPU, c.setup);
+  const reference = cpuWorld(data, c.state, undefined, c.setup);
   cpu.step();
   reference.step();
   gpu.restore(c.state);
@@ -67,36 +77,39 @@ async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): P
   });
   const floors = velocityFloors(cpu);
   const rates = cpu.body.lastRates();
+  const centreShares = shares(rates, state.velocity, 3, floors) as [number, number, number];
   const endShares = shares(
     endVelocities(cpu, c.state.theta, rates),
     endVelocities(cpu, c.state.theta, state.velocity),
     2,
     floors.slice(0, 2),
   ) as [number, number];
-  const centreShares = shares(rates, state.velocity, 3, floors) as [number, number, number];
   let muscle = 0;
   cpu.muscles.activation.forEach((a, m) => {
     muscle = Math.max(muscle, Math.abs(a - state.muscles[m]) / LOOP_STEP.muscle);
   });
-  const switchSame = cpu.headSwitch.h === state.h && cpu.switchCurrent === state.switchCurrent;
+  const switchSame = sameSwitch(cpu, state);
   return {
     ...brain,
-    endShares,
     centreShares,
+    endShares,
     muscleShare: muscle,
     switchSame,
-    pass: brain.pass && endShares.every((v) => v <= 1) && muscle <= 1 && switchSame,
+    pass: brain.pass && centreShares.every((v) => v <= 1) && muscle <= 1 && switchSame,
   };
 }
 
 export interface LoopSecondResult {
   label: string;
   // The worst sample's shares of the thresholds: the voltage's and activation's RMS relative errors (their
-  // threshold is 10⁻²), the curvature profile's and the centroid's travel's.
+  // threshold is 10⁻²), the curvature profile's and the centroid's travel's; and whether the head switch
+  // agreed at every sample.
   shares: { voltage: number; activation: number; curvature: number; centroid: number };
-  // The same for the CPU reference rerun at the GPU's solver tolerance, against itself, as one share: the
-  // state is graded only if it is at most 1.
+  switchSame: boolean;
+  // The same for the CPU reference rerun at the GPU's solver tolerance, against itself: the state is graded
+  // only if every share is at most 1 and its switch agreed throughout.
   referenceShare: number;
+  referenceSwitchSame: boolean;
   graded: boolean;
   pass: boolean;
 }
@@ -151,13 +164,15 @@ const worse = (a: LoopSecondResult['shares'], b: LoopSecondResult['shares']): Lo
 });
 
 async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase): Promise<LoopSecondResult> {
-  const cpu = cpuWorld(data, c.state);
-  const loose = cpuWorld(data, c.state, CG_TOLERANCE_GPU);
+  const cpu = cpuWorld(data, c.state, undefined, c.setup);
+  const loose = cpuWorld(data, c.state, CG_TOLERANCE_GPU, c.setup);
   gpu.restore(c.state);
   const start = centroid(c.state.x, c.state.y);
   const none = { voltage: 0, activation: 0, curvature: 0, centroid: 0 };
   let shares = none;
   let reference = none;
+  let switchSame = true;
+  let referenceSwitchSame = true;
   let unconverged = 0;
   for (let sample = 0; sample < SAMPLES; sample++) {
     const steps = SECOND / SAMPLES;
@@ -171,45 +186,133 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
     const truth = cpu.snapshot();
     shares = worse(shares, secondShares(cpu, start, truth, read.state));
     reference = worse(reference, secondShares(cpu, start, truth, loose.snapshot()));
+    switchSame &&= sameSwitch(cpu, read.state);
+    referenceSwitchSame &&= cpu.headSwitch.h === loose.headSwitch.h && cpu.switchCurrent === loose.switchCurrent;
   }
   const referenceShare = Math.max(...Object.values(reference));
-  const graded = referenceShare <= 1;
+  const graded = referenceShare <= 1 && referenceSwitchSame;
   return {
     label: c.label,
     shares,
+    switchSame,
     referenceShare,
+    referenceSwitchSame,
     graded,
     pass:
       unconverged === 0 &&
       cpu.brain.unconverged === 0 &&
-      (!graded || Object.values(shares).every((share) => share <= 1)),
+      (!graded || (Object.values(shares).every((share) => share <= 1) && switchSame)),
   };
 }
 
+// The loop's own API: a world's state goes in and comes back, and a run split across dispatches is the run.
+async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
+  const results: ApiResult[] = [];
+  gpu.restore(c.state);
+  const back = (await gpu.read()).state;
+  const f32 = (a: ArrayLike<number>, b: ArrayLike<number>): boolean =>
+    a.length === b.length && Array.from(a).every((x, i) => Math.fround(x) === b[i]);
+  // Positions and angles come back as a coarse part plus a remainder, each exact but for the remainder's f32.
+  const near = (a: ArrayLike<number>, b: ArrayLike<number>, within: number): boolean =>
+    a.length === b.length && Array.from(a).every((x, i) => Math.abs(x - b[i]) <= within);
+  results.push({
+    name: 'a world goes in and comes back',
+    detail: 'the brain, velocities, muscles and switch as f32; places within 10⁻¹³ m and angles within 10⁻¹⁰ rad',
+    pass:
+      f32(c.state.brain.voltage, back.brain.voltage) &&
+      f32(c.state.velocity, back.velocity) &&
+      f32(c.state.muscles, back.muscles) &&
+      near(c.state.x, back.x, 1e-13) &&
+      near(c.state.y, back.y, 1e-13) &&
+      near(c.state.theta, back.theta, 1e-10) &&
+      c.state.h === back.h &&
+      Math.fround(c.state.switchCurrent) === back.switchCurrent &&
+      (c.state.previousCurvature === null
+        ? back.previousCurvature === null
+        : Math.fround(c.state.previousCurvature) === back.previousCurvature),
+  });
+  const steps = 150;
+  gpu.restore(c.state);
+  gpu.run(steps);
+  const together = (await gpu.read()).state;
+  gpu.restore(c.state);
+  for (let k = 0; k < steps; k++) gpu.run(1);
+  const apart = (await gpu.read()).state;
+  const same = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => Array.from(a).every((x, i) => x === b[i]);
+  results.push({
+    name: `${steps} whole-loop steps split into two dispatches equal ${steps} dispatches of one`,
+    detail: 'identical brain, body, muscles and switch',
+    pass:
+      same(together.brain.voltage, apart.brain.voltage) &&
+      same(together.x, apart.x) &&
+      same(together.theta, apart.theta) &&
+      same(together.muscles, apart.muscles) &&
+      together.h === apart.h &&
+      together.switchCurrent === apart.switchCurrent,
+  });
+  return results;
+}
+
 export interface LoopReport {
+  api: ApiResult[];
   oneStep: LoopStepResult[];
   oneSecond: LoopSecondResult[];
   pass: boolean;
+  seconds: number;
+}
+
+// The copies a check runs: the trial values' states as they are and, for one step, moved and turned; for one
+// second, every fifth moved and turned at once; each variant's as they are.
+function withCopies(cases: LoopCase[], setup: LoopSetup, second: boolean): LoopCase[] {
+  if (setup.name !== LOOP_SETUPS[0].name) return cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
+  if (second) {
+    const both = cases
+      .filter((_, k) => k % 5 === 0)
+      .map((c) => ({
+        ...c,
+        label: `${c.label}, moved and turned`,
+        state: movedAndTurned(c.state, COPIES[0].dx, COPIES[0].dy, COPIES[1].turns),
+      }));
+    return [...cases, ...both];
+  }
+  return [
+    ...cases,
+    ...COPIES.flatMap((copy) =>
+      cases.map((c) => ({
+        ...c,
+        label: `${c.label}, ${copy.label}`,
+        state: movedAndTurned(c.state, copy.dx, copy.dy, copy.turns),
+      })),
+    ),
+  ];
 }
 
 export async function runLoopParity(device: GPUDevice, data: WormlightData): Promise<LoopReport> {
-  const cases = loopCases(data);
-  const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state));
+  const started = performance.now();
+  const api: ApiResult[] = [];
   const oneStep: LoopStepResult[] = [];
   const oneSecond: LoopSecondResult[] = [];
-  try {
-    for (const c of cases) oneStep.push(await checkLoopStep(gpu, data, c));
-    for (const c of cases) oneSecond.push(await checkLoopSecond(gpu, data, c));
-  } finally {
-    gpu.destroy();
+  for (const setup of LOOP_SETUPS) {
+    const cases = loopCases(data, setup);
+    const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
+    try {
+      if (setup === LOOP_SETUPS[0]) api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
+      for (const c of withCopies(cases, setup, false)) oneStep.push(await checkLoopStep(gpu, data, c));
+      for (const c of withCopies(cases, setup, true)) oneSecond.push(await checkLoopSecond(gpu, data, c));
+    } finally {
+      gpu.destroy();
+    }
   }
   return {
+    api,
     oneStep,
     oneSecond,
     pass:
+      api.every((r) => r.pass) &&
       oneStep.every((r) => r.pass) &&
       oneSecond.every((r) => r.pass) &&
       oneSecond.filter((r) => !r.graded).length <= MOST_ILL_POSED * oneSecond.length,
+    seconds: (performance.now() - started) / 1000,
   };
 }
 
@@ -220,19 +323,24 @@ export interface LongReport {
   gpu: BodyWave[];
   sd: Equivalence;
   frequency: Equivalence;
+  // Reported, not graded: how the two sides' spreads compare.
+  spread: { sd: SpreadRatio; frequency: SpreadRatio };
+  // Solves that didn't converge, over every seed, on each side.
+  unconverged: { cpu: number; gpu: number };
   pass: boolean;
 }
 
-// Long-run parity's seeds a side. The plan's 20 couldn't show the frequency equivalent: its spread from seed
-// to seed, 0.0297 Hz in a pilot of 20 a side, puts the standard error above the ±5% margin (0.0085 Hz) by
-// itself. For 90% power at no true difference, Welch's two one-sided tests at α = 0.05 need a standard error
-// of at most margin / (1.645 + 1.645), which takes 2 (0.0297 / 0.00258)² = 265 seeds a side (DECISIONS.md,
-// 2026-09-26, sized from the pilot's spread, not its difference).
+// Long-run parity's seeds a side. The plan's 20 couldn't show the frequency equivalent whatever the means:
+// its spread from seed to seed, 0.0297 Hz in that run, gives the difference a standard error of 0.0094 Hz,
+// and Welch's two one-sided tests at α = 0.05 pass only below about 0.0050 Hz (the ±5% margin, 0.0085 Hz,
+// over t at 0.95). For 90% power at no true difference they need a standard error of at most the margin over
+// 3.29, 0.00258 Hz, which takes 2 (0.0297 / 0.00258)² ≈ 265 seeds a side (DECISIONS.md, 2026-09-26: sized from
+// that run's spread, not its difference).
 export const LONG_SEEDS = 265;
 
 // Long-run parity: each seed's world run for `seconds` on each side, its mid-body curvature sampled every 0.1 s
 // after the warm-up from the rods' places after each sample's last step, and the two sides' body waves
-// compared by Welch's two one-sided tests at ±5% of the CPU's mean, α = 0.05.
+// compared by Welch's two one-sided tests at ±5% of the CPU's mean, α = 0.05. Every solve must converge.
 export async function runLongParity(
   device: GPUDevice,
   data: WormlightData,
@@ -253,6 +361,7 @@ export async function runLongParity(
   const gpu = await GpuWorld.create(device, first);
   const cpuWaves: BodyWave[] = [];
   const gpuWaves: BodyWave[] = [];
+  const unconverged = { cpu: 0, gpu: 0 };
   try {
     for (let seed = 1; seed <= seeds; seed++) {
       const world = seed === 1 ? first : seededWorld(data, seed);
@@ -260,32 +369,42 @@ export async function runLongParity(
       gpu.restore(world.snapshot());
       const cpuSamples: number[] = [];
       const gpuSamples: number[] = [];
+      let gpuUnconverged = 0;
       for (let sample = 1; sample <= samples; sample++) {
         gpu.run(every);
         for (let step = 0; step < every; step++) world.step();
-        const { state } = await gpu.read();
+        const { state, status } = await gpu.read();
+        gpuUnconverged = status.unconverged;
         if (sample > warm) {
           cpuSamples.push(midCurvature(world.body.x, world.body.y));
           gpuSamples.push(midCurvature(state.x, state.y));
         }
       }
+      unconverged.cpu += world.brain.unconverged;
+      unconverged.gpu += gpuUnconverged;
       cpuWaves.push(bodyWave(cpuSamples, duration));
       gpuWaves.push(bodyWave(gpuSamples, duration));
     }
   } finally {
     gpu.destroy();
   }
-  const sd = equivalence(
-    cpuWaves.map((w) => w.sd),
-    gpuWaves.map((w) => w.sd),
-    0.05,
-  );
-  const frequency = equivalence(
-    cpuWaves.map((w) => w.frequency),
-    gpuWaves.map((w) => w.frequency),
-    0.05,
-  );
-  return { seeds, seconds, cpu: cpuWaves, gpu: gpuWaves, sd, frequency, pass: sd.equivalent && frequency.equivalent };
+  const values = (waves: BodyWave[], key: keyof BodyWave): number[] => waves.map((w) => w[key]);
+  const sd = equivalence(values(cpuWaves, 'sd'), values(gpuWaves, 'sd'), 0.05);
+  const frequency = equivalence(values(cpuWaves, 'frequency'), values(gpuWaves, 'frequency'), 0.05);
+  return {
+    seeds,
+    seconds,
+    cpu: cpuWaves,
+    gpu: gpuWaves,
+    sd,
+    frequency,
+    spread: {
+      sd: spreadRatio(values(cpuWaves, 'sd'), values(gpuWaves, 'sd')),
+      frequency: spreadRatio(values(cpuWaves, 'frequency'), values(gpuWaves, 'frequency')),
+    },
+    unconverged,
+    pass: sd.equivalent && frequency.equivalent && unconverged.cpu === 0 && unconverged.gpu === 0,
+  };
 }
 
 export interface LoopSpeed {

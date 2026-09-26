@@ -175,8 +175,8 @@ export const rms = (a: Float64Array, b: Float64Array, floor: number): number => 
 
 // The loop's parity (PLAN §7.2, the body's row, set 2026-09-26 before any loop results): the same states, now
 // whole worlds, the body, muscles and head switch included, and both sides run the whole loop. The velocities'
-// rule was changed after results (DECISIONS.md, 2026-09-26): 10⁻², not 10⁻⁴, which f32 can't reach on this
-// system, and graded at each rod's end points, where rotation counts by the rod's radius.
+// threshold was changed after results from 10⁻⁴ to 10⁻², which an f32 assembly of this system can reach
+// (DECISIONS.md, 2026-09-26).
 export const LOOP_STEP = { velocity: 1e-2, muscle: 1e-4 };
 export const LOOP_SECOND = { curvature: 1e-2, centroid: 1e-2 };
 // The floors, absolute tolerances for a body at rest: 10⁻⁴ segment lengths per second and 10⁻⁴ rad/s; and for
@@ -188,37 +188,79 @@ export const velocityFloors = (world: World): [number, number, number] => {
 export const centroidFloor = (world: World): number =>
   0.01 * world.body.params.segmentLength * world.body.params.segments;
 
+// The worlds the loop's parity runs: the trial values, and two variants that exercise the head switch, which
+// with the trial values latches before the first state and never flips again. Lowering P_th to 0.5 makes it
+// flip about forty times a minute; putting θ_osc at −1 mV, within the SMDs' drive, makes its gate turn on and
+// off as well.
+export interface LoopSetup {
+  name: string;
+  params: LoopParams;
+  switchThreshold?: number;
+  // States after the rest world's.
+  states: number;
+}
+export const LOOP_SETUPS: readonly LoopSetup[] = [
+  { name: 'trial', params: PARITY_LOOP, states: STATES },
+  { name: 'flipping', params: PARITY_LOOP, switchThreshold: 0.5, states: 10 },
+  { name: 'gating', params: { ...PARITY_LOOP, driveThreshold: -1 }, switchThreshold: 0.5, states: 10 },
+];
+
 export interface LoopCase {
   label: string;
+  setup: LoopSetup;
   state: WorldState;
 }
 
-// The rest world and twenty from its closed loop, taken as paritySetup takes the brain's.
-export function loopCases(data: WormlightData): LoopCase[] {
-  const world = new World(data, PARITY_LOOP, { seed: SEED });
-  const cases: LoopCase[] = [{ label: 'rest', state: world.snapshot() }];
+// The rest world and states from its closed loop, taken as paritySetup takes the brain's.
+export function loopCases(data: WormlightData, setup: LoopSetup = LOOP_SETUPS[0]): LoopCase[] {
+  const world = new World(data, setup.params, { seed: SEED, switchThreshold: setup.switchThreshold });
+  const cases: LoopCase[] = [{ label: 'rest', setup, state: world.snapshot() }];
   const every = Math.round(INTERVAL / NEURAL_STEP);
   const first = Math.round(WARMUP / NEURAL_STEP);
-  for (let k = 1; cases.length <= STATES; k++) {
+  for (let k = 1; cases.length <= setup.states; k++) {
     world.step();
     if (k >= first && (k - first) % every === 0) {
-      cases.push({ label: `t = ${world.time.toFixed(1)} s`, state: world.snapshot() });
+      cases.push({ label: `t = ${world.time.toFixed(1)} s`, setup, state: world.snapshot() });
     }
   }
   return cases;
 }
 
 // A CPU world at a state, its brain solved to the given tolerance (the reference's by default).
-export function cpuWorld(data: WormlightData, state: WorldState, tolerance?: number, seed = SEED): World {
-  const world = new World(data, PARITY_LOOP, { seed, solver: { tolerance } });
+export function cpuWorld(
+  data: WormlightData,
+  state: WorldState,
+  tolerance?: number,
+  setup: LoopSetup = LOOP_SETUPS[0],
+): World {
+  const world = new World(data, setup.params, {
+    seed: SEED,
+    solver: { tolerance },
+    switchThreshold: setup.switchThreshold,
+  });
   world.restore(state);
   return world;
 }
 
-// A world for long-run parity: the same trial values, from its seed's start.
+// A world for long-run parity: the trial values, from its seed's start.
 export function seededWorld(data: WormlightData, seed: number): World {
   return new World(data, PARITY_LOOP, { seed });
 }
+
+// A state moved across the dish and turned by whole turns, which the CPU's arithmetic doesn't notice: the GPU
+// must not either, so parity checks copies of its states moved 3 cm and turned 50 times.
+export function movedAndTurned(state: WorldState, dx: number, dy: number, turns: number): WorldState {
+  return {
+    ...state,
+    x: state.x.map((x) => x + dx),
+    y: state.y.map((y) => y + dy),
+    theta: state.theta.map((t) => t + 2 * Math.PI * turns),
+  };
+}
+export const COPIES: readonly { label: string; dx: number; dy: number; turns: number }[] = [
+  { label: 'moved 3 cm', dx: 0.03, dy: -0.03, turns: 0 },
+  { label: 'turned 50 times', dx: 0, dy: 0, turns: 50 },
+];
 
 // Each rod's two end points' velocities, the points its springs act on: its centre's, plus or minus R θ̇
 // turned a quarter from its axis, at the step's starting angles.

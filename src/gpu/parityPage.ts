@@ -1,7 +1,7 @@
 // The GPU parity page (PLAN §8), served by the dev server only: `npm run dev`, then /parity.html. It runs the
 // parity checks, the brain's and the whole loop's, and the speed benchmark on this browser's GPU and shows the
-// results, which is how the Safari check is made; /parity.html?long adds long-run parity, which takes some
-// twenty minutes on a laptop's GPU. Headless Chrome reads the same results through window.__parity(),
+// results, which is how the Safari check is made; /parity.html?long adds long-run parity, which takes 11
+// to 18 minutes on an M5 Max. Headless Chrome reads the same results through window.__parity(),
 // window.__bench() and window.__long() (scripts/gpu/parity.ts).
 
 import '../style.css';
@@ -126,41 +126,51 @@ function showParity(report: ParityReport): void {
   );
 }
 
-type FullReport = ParityReport & { loop: LoopReport; brainPass: boolean };
+type FullReport = ParityReport & { loop: LoopReport | { error: string; pass: false }; brainPass: boolean };
 type FullBench = BenchReport & { loop: LoopSpeed[] };
 
-function showLoop(report: LoopReport): void {
+function showLoop(report: LoopReport | { error: string }): void {
+  if ('error' in report) {
+    root.append(el('h3', 'The whole loop: FAIL'), el('p', `The loop's checks stopped: ${report.error}`));
+    return;
+  }
   root.append(
     el('h3', `The whole loop: ${verdict(report.pass)}`),
+    table(
+      ['Check', 'What', ''],
+      report.api.map((r) => [r.name, r.detail, verdict(r.pass)]),
+    ),
     el(
       'p',
-      "One step: the brain as above, each rod's end points' velocities within 10⁻² of the largest (x and y), each " +
-        'muscle within 10⁻⁴, the same head switch; the centres and rotation are reported. One second: shares of ' +
-        'the thresholds, graded under the well-posed rule.',
+      "One step: the brain as above, each rod's centre's velocity within 10⁻² of the largest (x, y and θ), each " +
+        "muscle within 10⁻⁴, the same head switch; the rods' end points are reported. One second: shares of the " +
+        'thresholds and the switch throughout, graded under the well-posed rule.',
     ),
     table(
-      [...STEP_HEAD.slice(0, -1), 'Ends ẋ', 'Ends ẏ', 'Centres ẋ, ẏ, θ̇', 'Muscles', 'Switch', ''],
+      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'Switch', ''],
       report.oneStep.map((r) => [
         ...stepRow(r).slice(0, -1),
-        ...r.endShares.map((v) => fixed(v, 3)),
-        r.centreShares.map((v) => fixed(v, 2)).join(', '),
+        ...r.centreShares.map((v) => fixed(v, 3)),
+        r.endShares.map((v) => fixed(v, 2)).join(', '),
         fixed(r.muscleShare, 3),
         r.switchSame ? 'same' : 'differs',
         verdict(r.pass),
       ]),
     ),
     table(
-      ['State', 'Voltage', 'Activation', 'Curvature', 'Centroid', 'Reference against itself', ''],
+      ['State', 'Voltage', 'Activation', 'Curvature', 'Centroid', 'Switch', 'Reference against itself', ''],
       report.oneSecond.map((r) => [
         r.label,
         fixed(r.shares.voltage, 3),
         fixed(r.shares.activation, 3),
         fixed(r.shares.curvature, 3),
         fixed(r.shares.centroid, 3),
-        fixed(r.referenceShare, 3),
+        r.switchSame ? 'same' : 'differs',
+        `${fixed(r.referenceShare, 3)}${r.referenceSwitchSame ? '' : ', switch differs'}`,
         r.graded ? verdict(r.pass) : 'not graded',
       ]),
     ),
+    el('p', `${fixed(report.seconds, 1)} s.`),
   );
 }
 
@@ -184,6 +194,13 @@ function showLong(report: LongReport): void {
         fixed(report[k].p, 4),
         verdict(report[k].equivalent),
       ]),
+    ),
+    el(
+      'p',
+      `Reported, not graded: the GPU's spread over the CPU's, as variances, ${fixed(report.spread.sd.ratio, 2)} for ` +
+        `the SD (F test p = ${fixed(report.spread.sd.p, 3)}) and ${fixed(report.spread.frequency.ratio, 2)} for the ` +
+        `frequency (p = ${fixed(report.spread.frequency.p, 3)}). Unconverged solves: ${report.unconverged.cpu} on the ` +
+        `CPU, ${report.unconverged.gpu} on the GPU.`,
     ),
   );
 }
@@ -238,9 +255,20 @@ async function start(): Promise<{
   const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
   if (!response.ok) throw new Error(`the connectome could not be loaded: the server answered ${response.status}`);
   const data: WormlightData = validateWormlightData(await response.json());
+  // The loop's checks run after the brain's; if they stop, the brain's results still stand.
+  const began = performance.now();
   const parity = runParity(device, adapter, data).then(async (brain): Promise<FullReport> => {
-    const loop = await runLoopParity(device, data);
-    return { ...brain, loop, brainPass: brain.pass, pass: brain.pass && loop.pass };
+    const loop = await runLoopParity(device, data).catch((e: unknown) => ({
+      error: e instanceof Error ? e.message : String(e),
+      pass: false as const,
+    }));
+    return {
+      ...brain,
+      loop,
+      brainPass: brain.pass,
+      pass: brain.pass && loop.pass,
+      seconds: (performance.now() - began) / 1000,
+    };
   });
   const bench = parity.then(async (): Promise<FullBench> => ({
     ...(await runBench(device, adapter, data)),
@@ -256,7 +284,9 @@ async function start(): Promise<{
     if (!new URLSearchParams(location.search).has('long')) status.remove();
   });
   if (new URLSearchParams(location.search).has('long')) {
-    status.textContent = 'Running the long runs…';
+    void bench.then(() => {
+      status.textContent = 'Running the long runs…';
+    });
     runLong()
       .then(showLong, fail)
       .finally(() => status.remove());

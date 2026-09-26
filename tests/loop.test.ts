@@ -453,4 +453,14 @@ describe('the world', () => {
     }
     expect(copy.snapshot()).toEqual(original.snapshot());
   });
+
+  it('gives back the state it was restored to', () => {
+    const params = { ...TRIAL, noise: 0.05 };
+    const original = new World(data, params, { seed: 6 });
+    for (let k = 0; k < 400; k++) original.step();
+    const state = original.snapshot();
+    const copy = new World(data, params, { seed: 6 });
+    copy.restore(state);
+    expect(copy.snapshot()).toEqual(state);
+  });
 });

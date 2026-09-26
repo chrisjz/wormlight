@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { equivalence, incompleteBeta, studentCdf } from './stats.ts';
+import { equivalence, incompleteBeta, spreadRatio, studentCdf } from './stats.ts';
 
 describe("Student's t", () => {
   it('matches the tables', () => {
@@ -30,5 +30,24 @@ describe("Welch's two one-sided tests", () => {
   it('refuses a difference past the margin, or too much spread to tell', () => {
     expect(equivalence(around(1, 0.01), around(1.1, 0.01), 0.05).equivalent).toBe(false);
     expect(equivalence(around(1, 0.5), around(1, 0.5), 0.05).equivalent).toBe(false);
+  });
+});
+
+describe('the F test of two spreads', () => {
+  it('finds equal spreads unremarkable and a doubled one remarkable', () => {
+    const wave = (scale: number): number[] => Array.from({ length: 60 }, (_, i) => scale * Math.sin(i * 1.7));
+    const same = spreadRatio(wave(1), wave(1));
+    expect(same.ratio).toBeCloseTo(1, 12);
+    expect(same.p).toBeCloseTo(1, 6);
+    const doubled = spreadRatio(wave(1), wave(Math.SQRT2));
+    expect(doubled.ratio).toBeCloseTo(2, 12);
+    // F(59, 59) at 2: a two-sided p near 0.009.
+    expect(doubled.p).toBeGreaterThan(0.005);
+    expect(doubled.p).toBeLessThan(0.02);
+  });
+
+  it('refuses samples too small to have a spread', () => {
+    expect(() => spreadRatio([1], [1, 2])).toThrow(/two values/);
+    expect(() => equivalence([1, 2], [3], 0.05)).toThrow(/two values/);
   });
 });

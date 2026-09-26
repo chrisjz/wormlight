@@ -30,8 +30,30 @@ export const MAX_RODS = BCR_ROWS;
 export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
-// loop's twelve u32 and twenty-four f32.
+// loop's twelve u32 and twenty-four f32, of which the first eighteen are LOOP_SCALARS.
 export const PARAM_WORDS = 56;
+export const LOOP_SCALARS_AT = 32;
+export const LOOP_SCALARS = [
+  'proprio_gain',
+  'switch_gain',
+  'drive_threshold',
+  'switch_b',
+  'switch_threshold',
+  'muscle_gain',
+  'muscle_threshold',
+  'muscle_tau',
+  'body_length',
+  'radius',
+  'lateral_k',
+  'diagonal_k',
+  'muscle_k',
+  'lateral_b',
+  'diagonal_b',
+  'muscle_b',
+  'drag_normal',
+  'drag_tangential',
+] as const;
+export type LoopScalar = (typeof LOOP_SCALARS)[number];
 // Per neuron: v, v₋₁, s, s₋₁, w, w₋₁ and two words of padding.
 export const STATE_WORDS = 8;
 // Per neuron: threshold, oscillator shift θ, whether it oscillates, its proprioceptive field's side and
@@ -42,13 +64,15 @@ export const NEURON_WORDS = 8;
 // iterations in one solve and the iterations in all; then the head switch (its state, the head's last
 // curvature, whether there is one, and its current).
 export const STATUS_WORDS = 16;
-// Per rod in the body buffer: x, y and θ, each as a coarse part on its grid and a remainder, then ẋ, ẏ, θ̇
-// and three words of padding; the muscles' activations follow.
+// Per rod in the body buffer: x, y and θ, each as a coarse part on its grid and a remainder, then ẋ, ẏ, θ̇,
+// the whole turns taken out of θ, and two words of padding; the muscles' activations follow.
 export const ROD_WORDS = 12;
 // The grids: 2⁻²⁰ m, about a micrometre, and 2⁻¹⁰ rad. Coarse parts are exact multiples, up to 16 m and
 // 16,384 rad, and each remainder stays within half a step of its grid.
 export const POSITION_GRID = 2 ** -20;
 export const ANGLE_GRID = 2 ** -10;
+// A turn as the angle grid nearest holds it, 6434 steps; the kernel takes the rest of 2π from the remainder.
+export const TURN_GRID = Math.round((2 * Math.PI) / ANGLE_GRID) * ANGLE_GRID;
 // Per segment: the lateral and diagonal rest lengths, the shortest muscle, the efficacy and the diagonal rest
 // length squared.
 export const SEGMENT_WORDS = 5;
@@ -200,18 +224,21 @@ struct Status {
 const FHN_A: f32 = 0.7;
 const FHN_B: f32 = 0.8;
 
+// Workgroup memory comes to 15,360 bytes of the 16,384 WebGPU guarantees, and the bindings above are the 8
+// storage buffers a stage may have by default; the tests hold both to those limits.
 var<workgroup> pool: array<f32, ${POOL.size}>;
 var<workgroup> partial: array<vec4<f32>, ${WORKGROUP}>;
-// While looping: each rod's curvature, each segment's dorsal and ventral activation, each muscle's, and the
-// rods' centres, in parts, and their angles' cosines and sines.
+// While looping: each rod's curvature, each segment's dorsal and ventral activation, each muscle's, each
+// segment's run from its first rod to its second, the coarse parts' difference and the remainders' kept apart,
+// and the rods' angles' cosines and sines.
 var<workgroup> kappa: array<f32, 64>;
 var<workgroup> dorsal: array<f32, 64>;
 var<workgroup> ventral: array<f32, 64>;
 var<workgroup> muscle_a: array<f32, ${MAX_MUSCLES}>;
-var<workgroup> rod_xh: array<f32, 64>;
-var<workgroup> rod_xl: array<f32, 64>;
-var<workgroup> rod_yh: array<f32, 64>;
-var<workgroup> rod_yl: array<f32, 64>;
+var<workgroup> seg_hx: array<f32, 64>;
+var<workgroup> seg_lx: array<f32, 64>;
+var<workgroup> seg_hy: array<f32, 64>;
+var<workgroup> seg_ly: array<f32, 64>;
 var<workgroup> rod_c: array<f32, 64>;
 var<workgroup> rod_s: array<f32, 64>;
 
@@ -236,9 +263,10 @@ fn finite(x: f32) -> bool {
   return (bitcast<u32>(x) & 0x7f800000u) != 0x7f800000u;
 }
 
-// The cosine and sine of hi + lo to about 10⁻⁷. The angle is reduced by multiples of π/2 in three parts (Cody
-// and Waite), then Taylor series on [−π/4, π/4]. A compiler that reassociates the reduction folds the three
-// parts into f32's π/2, whose error of 4 × 10⁻⁸ still leaves it within 10⁻⁷.
+// The cosine and sine of hi + lo, for an angle within about a half turn, to about 10⁻⁷. The angle is reduced by
+// multiples of π/2 in three parts (Cody and Waite), then Taylor series on [−π/4, π/4]. A compiler that
+// reassociates the reduction may fold the three parts into f32's π/2, costing 4 × 10⁻⁸ for each quarter turn
+// taken out; the kernel keeps angles within a half turn, so at most two.
 fn cos_sin(hi: f32, lo: f32) -> vec2<f32> {
   let k = round(hi * 0.63661977);
   let r = ((hi - k * 1.5703125) - k * 4.837512969970703125e-4) - k * 7.54978995489188216e-8 + lo;
@@ -364,8 +392,8 @@ fn element(m: u32, sa: f32, sb: f32, k: f32, rest: f32, rest2: f32) -> Element {
   let sna = rod_s[m];
   let cb = rod_c[m + 1u];
   let snb = rod_s[m + 1u];
-  let dx = ((rod_xh[m + 1u] - rod_xh[m]) + (rod_xl[m + 1u] - rod_xl[m])) + (rb * cb - ra * ca);
-  let dy = ((rod_yh[m + 1u] - rod_yh[m]) + (rod_yl[m + 1u] - rod_yl[m])) + (rb * snb - ra * sna);
+  let dx = (seg_hx[m] + seg_lx[m]) + (rb * cb - ra * ca);
+  let dy = (seg_hy[m] + seg_ly[m]) + (rb * snb - ra * sna);
   let len2 = dx * dx + dy * dy;
   let len = sqrt(len2);
   let nx = dx / len;
@@ -556,6 +584,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var yl = 0.0;
   var th = 0.0;
   var tl = 0.0;
+  var turns = 0.0;
   var velocity = vec3<f32>(0.0);
   var activation = 0.0;
   if (looping && lid < rods) {
@@ -566,6 +595,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
     yl = body[at + 3u];
     th = body[at + 4u];
     tl = body[at + 5u];
+    turns = body[at + 9u];
   }
   if (looping && lid < params.muscles) {
     activation = body[${ROD_WORDS}u * rods + lid];
@@ -587,14 +617,36 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         drive_in[k] = input[i];`)}
     var restart = false;
     if (looping) {
+      // Each segment's run from its first rod to its second, the coarse parts' difference and the remainders'
+      // kept apart in workgroup memory until they are summed: a compiler that reassociates, as Metal's does,
+      // would otherwise rejoin each rod's parts first and lose the precision they hold. The rods' places go in,
+      // every segment reads its two, and only then do the differences overwrite them.
+      if (lid < rods) {
+        seg_hx[lid] = xh;
+        seg_lx[lid] = xl;
+        seg_hy[lid] = yh;
+        seg_ly[lid] = yl;
+      }
+      workgroupBarrier();
+      var run = vec4<f32>(0.0);
+      if (lid < segments) {
+        run = vec4<f32>(
+          seg_hx[lid + 1u] - seg_hx[lid],
+          seg_lx[lid + 1u] - seg_lx[lid],
+          seg_hy[lid + 1u] - seg_hy[lid],
+          seg_ly[lid + 1u] - seg_ly[lid],
+        );
+      }
+      workgroupBarrier();
+      if (lid < segments) {
+        seg_hx[lid] = run.x;
+        seg_lx[lid] = run.y;
+        seg_hy[lid] = run.z;
+        seg_ly[lid] = run.w;
+      }
+
       // The body's curvature, scaled by its length and positive towards the dorsal side, and the brain's
       // present voltages and activations for the head switch's gate.
-      if (lid < rods) {
-        rod_xh[lid] = xh;
-        rod_xl[lid] = xl;
-        rod_yh[lid] = yh;
-        rod_yl[lid] = yl;
-      }
       ${own(`
         pool[${POOL.x}u + i] = v[k];
         pool[${POOL.s}u + i] = s[k];`)}
@@ -602,14 +654,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       if (lid < rods) {
         var curvature = 0.0;
         if (lid > 0u && lid + 1u < rods) {
-          let a = vec2<f32>(
-            (rod_xh[lid] - rod_xh[lid - 1u]) + (rod_xl[lid] - rod_xl[lid - 1u]),
-            (rod_yh[lid] - rod_yh[lid - 1u]) + (rod_yl[lid] - rod_yl[lid - 1u]),
-          );
-          let bb = vec2<f32>(
-            (rod_xh[lid + 1u] - rod_xh[lid]) + (rod_xl[lid + 1u] - rod_xl[lid]),
-            (rod_yh[lid + 1u] - rod_yh[lid]) + (rod_yl[lid + 1u] - rod_yl[lid]),
-          );
+          let a = vec2<f32>(seg_hx[lid - 1u] + seg_lx[lid - 1u], seg_hy[lid - 1u] + seg_ly[lid - 1u]);
+          let bb = vec2<f32>(seg_hx[lid] + seg_lx[lid], seg_hy[lid] + seg_ly[lid]);
           let turn = atan2_exact(a.x * bb.y - a.y * bb.x, a.x * bb.x + a.y * bb.y);
           curvature = turn / ((length(a) + length(bb)) / 2.0) * params.body_length;
         }
@@ -801,10 +847,6 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         ventral[lid] = (muscle_a[topology[at + 2u * segments + lid]] + muscle_a[topology[at + 3u * segments + lid]]) / 2.0;
       }
       if (lid < rods) {
-        rod_xh[lid] = xh;
-        rod_xl[lid] = xl;
-        rod_yh[lid] = yh;
-        rod_yl[lid] = yl;
         let u = cos_sin(th, tl);
         rod_c[lid] = u.x;
         rod_s[lid] = u.y;
@@ -831,6 +873,15 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         carry(&xh, &xl, ${POSITION_GRID}, ${1 / POSITION_GRID}.0);
         carry(&yh, &yl, ${POSITION_GRID}, ${1 / POSITION_GRID}.0);
         carry(&th, &tl, ${ANGLE_GRID}, ${1 / ANGLE_GRID}.0);
+        // Past a half turn, the angle comes back by a whole turn, counted: by the grid's nearest step to 2π,
+        // exactly, and the rest of 2π taken from the remainder. So cos_sin never reduces by more than two
+        // quarter turns, whose folding by a reassociating compiler would grow with each.
+        if (abs(th) > 3.1415927) {
+          let way = sign(th);
+          th -= way * ${TURN_GRID};
+          tl -= way * ${2 * Math.PI - TURN_GRID};
+          turns += way;
+        }
       }
       // The next step rewrites the rods' shared places and the pool only after every read of them.
       workgroupBarrier();
@@ -853,6 +904,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       body[at + 6u] = velocity.x;
       body[at + 7u] = velocity.y;
       body[at + 8u] = velocity.z;
+      body[at + 9u] = turns;
     }
     if (lid < params.muscles) {
       body[${ROD_WORDS}u * rods + lid] = activation;

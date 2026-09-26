@@ -116,9 +116,9 @@ jobs:
           path: visual-out/
           retention-days: 14
 
-  # The neural model on the GPU against the CPU reference (PLAN §7.2): the parity page, served by the dev
-  # server, in headless Chrome on the visual job's runner, Chrome and SwiftShader. It fails if any check
-  # fails. The results are uploaded with the speed benchmark, which on a software GPU says nothing about a
+  # The simulation on the GPU, brain and loop, against the CPU reference (PLAN §7.2): the parity page, served
+  # by the dev server, in headless Chrome on the visual job's runner, Chrome and SwiftShader. It fails if any
+  # check fails. The results are uploaded with the speed benchmark, which on a software GPU says nothing about a
   # real one.
   gpu:
     runs-on: ubuntu-24.04

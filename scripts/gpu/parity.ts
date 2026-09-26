@@ -1,9 +1,10 @@
 // GPU parity in headless Chrome (PLAN §7.2, §8): the dev server serves the parity page, whose checks run the
-// GPU brain against the CPU reference from identical states. This prints the results and the speed
-// benchmark, writes both to the output directory, and fails if any check fails.
+// GPU against the CPU reference from identical states, the brain alone and then the whole loop. This prints the
+// results and the speed benchmark, and with --long the long runs, writes each to the output directory, and
+// fails if any check fails.
 //
 //   npm run gpu:parity [-- outDir] [--long]      (default gpu-out)
-//   --long            adds long-run parity: 265 seeds a side for 60 s, some twenty minutes on a laptop's GPU and
+//   --long            adds long-run parity: 265 seeds a side for 60 s, 11 to 18 minutes on an M5 Max and
 //                     far too long for CI's software GPU
 //   CHROME_PATH, WEBGPU_CI as in scripts/browser.ts
 
@@ -41,7 +42,9 @@ interface LoopStep extends Step {
 interface LoopSecond {
   label: string;
   shares: { voltage: number; activation: number; curvature: number; centroid: number };
+  switchSame: boolean;
   referenceShare: number;
+  referenceSwitchSame: boolean;
   graded: boolean;
   pass: boolean;
 }
@@ -52,12 +55,22 @@ interface Long {
   gpu: { sd: number; frequency: number }[];
   sd: { difference: number; margin: number; p: number; equivalent: boolean };
   frequency: { difference: number; margin: number; p: number; equivalent: boolean };
+  spread: { sd: { ratio: number; p: number }; frequency: { ratio: number; p: number } };
+  unconverged: { cpu: number; gpu: number };
   pass: boolean;
 }
 interface Report {
   pass: boolean;
   brainPass: boolean;
-  loop: { oneStep: LoopStep[]; oneSecond: LoopSecond[]; pass: boolean };
+  loop:
+    | {
+        api: { name: string; detail: string; pass: boolean }[];
+        oneStep: LoopStep[];
+        oneSecond: LoopSecond[];
+        pass: boolean;
+        seconds: number;
+      }
+    | { error: string; pass: false };
   seconds: number;
   thresholds: {
     oneStep: { voltage: number; activation: number; recovery: number };
@@ -149,24 +162,32 @@ try {
   console.log(stepLine(variant.oneStep));
   console.log(secondLine(variant.oneSecond));
   const { loop } = report;
-  console.log(
-    `\nthe whole loop, one step: the brain as above, then rods' end points' velocities ẋ, ẏ (each within 10⁻² ` +
-      'of the largest), muscles (10⁻⁴) and the head switch; the centres ẋ, ẏ, θ̇ reported',
-  );
-  for (const r of loop.oneStep) {
+  if ('error' in loop) {
+    console.log(`\n✗ the whole loop's checks stopped: ${loop.error}`);
+  } else {
+    console.log('\nthe whole loop');
+    for (const r of loop.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
     console.log(
-      `${stepLine(r)}   ends ${r.endShares.map((v) => g(v)).join(' ')} (centres ${r.centreShares.map((v) => g(v)).join(' ')})   A ${g(r.muscleShare)}` +
-        `   switch ${r.switchSame ? 'same' : 'DIFFERS'}`,
+      "\none step: the brain as above, then the rods' centres' velocities ẋ, ẏ, θ̇ (each within 10⁻² of the " +
+        "largest), muscles (10⁻⁴) and the head switch; the rods' end points reported",
     );
-  }
-  console.log('\nthe whole loop, one second: shares of the thresholds, and the reference against itself');
-  for (const r of loop.oneSecond) {
-    const s = r.shares;
-    console.log(
-      `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(12)} V ${g(s.voltage).padStart(7)}  s ` +
-        `${g(s.activation).padStart(9)}  κL ${g(s.curvature).padStart(7)}  centroid ${g(s.centroid).padStart(7)}` +
-        `   reference ${g(r.referenceShare).padStart(7)}${r.graded ? '' : '   not graded'}`,
-    );
+    for (const r of loop.oneStep) {
+      console.log(
+        `${stepLine(r)}   centres ${r.centreShares.map((v) => g(v)).join(' ')} (ends ${r.endShares.map((v) => g(v)).join(' ')})` +
+          `   A ${g(r.muscleShare)}   switch ${r.switchSame ? 'same' : 'DIFFERS'}`,
+      );
+    }
+    console.log('\none second: shares of the thresholds and the switch throughout, and the reference against itself');
+    for (const r of loop.oneSecond) {
+      const s = r.shares;
+      console.log(
+        `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(32)} V ${g(s.voltage).padStart(7)}  s ` +
+          `${g(s.activation).padStart(9)}  κL ${g(s.curvature).padStart(7)}  centroid ${g(s.centroid).padStart(7)}` +
+          `  switch ${r.switchSame ? 'same' : 'DIFFERS'}   reference ${g(r.referenceShare).padStart(7)}` +
+          `${r.referenceSwitchSame ? '' : ' (its switch differs)'}${r.graded ? '' : '   not graded'}`,
+      );
+    }
+    console.log(`the loop's checks took ${g(loop.seconds, 1)} s`);
   }
   console.log(`\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}`);
   console.log(`parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s`);
@@ -213,6 +234,12 @@ try {
           `p = ${g(e.p, 4)}`,
       );
     }
+    console.log(
+      `  reported: the GPU's variance over the CPU's, ${g(result.spread.sd.ratio, 3)} for the SD ` +
+        `(p = ${g(result.spread.sd.p, 3)}) and ${g(result.spread.frequency.ratio, 3)} for the frequency ` +
+        `(p = ${g(result.spread.frequency.p, 3)}); unconverged solves ${result.unconverged.cpu} on the CPU, ` +
+        `${result.unconverged.gpu} on the GPU`,
+    );
     longPass = result.pass;
   }
   if (errors.length > 0) throw new Error('the page reported errors');

@@ -84,14 +84,24 @@ export class HeadSwitch {
   readonly derivativeWeight: number;
   readonly threshold: number;
   h: number;
-  // The head's curvature at the last update, if there was one.
-  previous: number | null = null;
+  private previous: number | null = null;
 
   // b in seconds and P_th, dimensionless.
   constructor(derivativeWeight: number, threshold: number, initial = 1) {
     this.derivativeWeight = derivativeWeight;
     this.threshold = threshold;
     this.h = initial;
+  }
+
+  // The head's curvature at the last update, if there was one.
+  get lastCurvature(): number | null {
+    return this.previous;
+  }
+
+  // Set the state and the curvature the next update's derivative starts from.
+  restore(h: number, lastCurvature: number | null): void {
+    this.h = h;
+    this.previous = lastCurvature;
   }
 
   // Update from the head's curvature K after a step of dt; while it isn't gated on, it only tracks K.

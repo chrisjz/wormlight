@@ -92,6 +92,8 @@ export interface WorldOptions {
   heading?: number;
   // The brain's solver settings, if not the reference's (PLAN §3.4).
   solver?: SolverOptions;
+  // The head switch's threshold P_th, if not the registry's: GPU parity lowers it so the switch flips often.
+  switchThreshold?: number;
 }
 
 // Everything the next step reads, so another world, on the CPU or the GPU, can take the same step.
@@ -121,8 +123,8 @@ export class World {
   // The head-switch current into the dorsal SMDs, the opposite into the ventral ones.
   switchCurrent = 0;
   // The SMDs the switch drives, and the body coordinates whose curvature it reads.
-  readonly dorsalSwitch: number[];
-  readonly ventralSwitch: number[];
+  readonly dorsalSwitch: readonly number[];
+  readonly ventralSwitch: readonly number[];
   readonly headFrom: number;
   readonly headTo: number;
   private readonly smd: Set<number>;
@@ -183,7 +185,7 @@ export class World {
     // Which side the switch drives first is drawn from the seed, so trials don't all start dorsal.
     this.headSwitch = new HeadSwitch(
       PARAMS.headSwitchDerivativeWeight.value / 1000,
-      PARAMS.headSwitchThreshold.value,
+      options.switchThreshold ?? PARAMS.headSwitchThreshold.value,
       hash(seed, 0, 0xffffffff) & 1,
     );
   }
@@ -197,21 +199,22 @@ export class World {
       velocity: this.body.lastRates(),
       muscles: Float64Array.from(this.muscles.activation),
       h: this.headSwitch.h,
-      previousCurvature: this.headSwitch.previous,
+      previousCurvature: this.headSwitch.lastCurvature,
       switchCurrent: this.switchCurrent,
     };
   }
 
-  // Restore a state; the velocities of the last step are informational and aren't restored.
+  // Restore a state, so snapshot() gives it back. What each step derives afresh, the curvature and the muscles'
+  // drive, waits for the next step.
   restore(state: WorldState): void {
     this.brain.restore(state.brain);
     this.body.x.set(state.x);
     this.body.y.set(state.y);
     this.body.theta.set(state.theta);
+    this.body.restoreRates(state.velocity);
     this.muscles.activation.set(state.muscles);
     this.muscles.segments(this.body.dorsal, this.body.ventral);
-    this.headSwitch.h = state.h;
-    this.headSwitch.previous = state.previousCurvature;
+    this.headSwitch.restore(state.h, state.previousCurvature);
     this.switchCurrent = state.switchCurrent;
   }
 

@@ -6,7 +6,7 @@
 import type { World, WorldState } from '../sim/world.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
-import { MAX_MUSCLES, MAX_RODS, SEGMENT_WORDS } from './brainShader.ts';
+import { MAX_MUSCLES, MAX_RODS, SEGMENT_WORDS, type LoopScalar } from './brainShader.ts';
 
 export interface LoopLayout {
   rods: number;
@@ -30,8 +30,8 @@ export interface LoopLayout {
   // muscle length, efficacy and diagonal rest length squared, the square taken in f64.
   rodConstants: Float32Array;
   segmentConstants: Float32Array;
-  // The scalars, in the shader's order from proprio_gain to drag_tangential.
-  scalars: number[];
+  // The scalars, by their names in the shader.
+  scalars: Record<LoopScalar, number>;
 }
 
 // The interior rods whose body coordinates lie in [from, to], as regionMean reads them, or the nearest one.
@@ -62,6 +62,8 @@ export function packLoop(world: World): LoopLayout {
   const fieldFrom = new Uint32Array(n);
   const fieldTo = new Uint32Array(n);
   for (const field of world.fields) {
+    // The CPU would add two fields on one neuron; the shader holds one.
+    if (fieldSide[field.neuron] !== 0) throw new Error(`neuron ${field.neuron} has two proprioceptive fields`);
     const [from, to] = rodRange(segments, field.from, field.to);
     fieldSide[field.neuron] = field.side;
     fieldFrom[field.neuron] = from;
@@ -95,26 +97,26 @@ export function packLoop(world: World): LoopLayout {
       const diagonal = body.restDiagonal[m];
       return [body.restLateral[m], diagonal, body.shortest[m], p.efficacy[m], diagonal * diagonal][k % SEGMENT_WORDS];
     }),
-    scalars: [
-      params.proprioceptiveGain,
-      params.switchGain,
-      params.driveThreshold,
-      world.headSwitch.derivativeWeight,
-      world.headSwitch.threshold,
-      muscles.params.gain,
-      muscles.params.threshold,
-      muscles.params.timeConstant,
-      p.segmentLength * p.segments,
+    scalars: {
+      proprio_gain: params.proprioceptiveGain,
+      switch_gain: params.switchGain,
+      drive_threshold: params.driveThreshold,
+      switch_b: world.headSwitch.derivativeWeight,
+      switch_threshold: world.headSwitch.threshold,
+      muscle_gain: muscles.params.gain,
+      muscle_threshold: muscles.params.threshold,
+      muscle_tau: muscles.params.timeConstant,
+      body_length: p.segmentLength * p.segments,
       radius,
-      p.lateralStiffness,
-      p.diagonalStiffness,
-      p.muscleStiffness,
-      p.lateralDamping,
-      p.diagonalDamping,
-      p.muscleDamping,
-      p.dragNormal,
-      p.dragTangential,
-    ],
+      lateral_k: p.lateralStiffness,
+      diagonal_k: p.diagonalStiffness,
+      muscle_k: p.muscleStiffness,
+      lateral_b: p.lateralDamping,
+      diagonal_b: p.diagonalDamping,
+      muscle_b: p.muscleDamping,
+      drag_normal: p.dragNormal,
+      drag_tangential: p.dragTangential,
+    },
   };
 }
 
@@ -128,22 +130,30 @@ export class GpuWorld {
     this.layout = layout;
   }
 
-  // Build it from a CPU World, taking that world's network, thresholds, oscillators, noise and state.
+  // Build it from a CPU World, taking that world's network, thresholds, oscillators, noise and state. External
+  // forces on the body (Body.force) aren't carried: nothing applies them yet.
   static async create(device: GPUDevice, world: World, options: GpuBrainOptions = {}): Promise<GpuWorld> {
     const layout = packLoop(world);
     const brain = await GpuBrain.create(device, world.brain.network, world.brain.threshold, {
       ...options,
       loop: layout,
     });
-    brain.setOscillators(world.brain.oscillators);
-    brain.noise = world.brain.noise;
-    brain.seed = world.brain.seed;
-    const gpu = new GpuWorld(brain, layout);
-    gpu.restore(world.snapshot());
-    return gpu;
+    try {
+      brain.setOscillators(world.brain.oscillators);
+      brain.noise = world.brain.noise;
+      brain.seed = world.brain.seed;
+      const gpu = new GpuWorld(brain, layout);
+      gpu.restore(world.snapshot());
+      return gpu;
+    } catch (e) {
+      brain.destroy();
+      throw e;
+    }
   }
 
+  // The loop's state is checked before either part is written, so a mismatch leaves the world as it was.
   restore(state: WorldState): void {
+    this.brain.checkLoopState(state);
     this.brain.restore(state.brain);
     this.brain.restoreLoop(state);
   }

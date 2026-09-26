@@ -12,7 +12,11 @@ import type { WorldState } from '../sim/world.ts';
 import {
   ANGLE_GRID,
   BRAIN_SHADER,
+  LOOP_SCALARS,
+  LOOP_SCALARS_AT,
+  MAX_MUSCLES,
   MAX_NEURONS,
+  MAX_RODS,
   NEURON_WORDS,
   PARAM_WORDS,
   POSITION_GRID,
@@ -27,7 +31,8 @@ const FHN_A = 0.7;
 const FHN_B = 0.8;
 
 // The most steps one dispatch takes: longer runs are split, so no dispatch runs long enough to trip a GPU
-// watchdog. At 2.5 ms steps that is 0.32 s of worm time, some 11 ms on an M5 Max and 0.8 s on SwiftShader.
+// watchdog. At 2.5 ms steps that is 0.32 s of worm time: with the whole loop, some 13 ms on an M5 Max and 1.1 s on
+// SwiftShader.
 export const MAX_STEPS_PER_DISPATCH = 128;
 
 // How a run of `steps` steps is split into dispatches.
@@ -215,6 +220,13 @@ export class GpuBrain {
     const n = network.names.length;
     if (n === 0 || n > MAX_NEURONS) throw new Error(`the GPU brain holds 1 to ${MAX_NEURONS} neurons, not ${n}`);
     if (threshold.length !== n) throw new Error(`expected ${n} thresholds`);
+    const loop = options.loop;
+    if (loop) {
+      if (loop.rods < 3 || loop.rods > MAX_RODS) throw new Error(`the GPU body holds 3 to ${MAX_RODS} rods`);
+      if (loop.muscles > MAX_MUSCLES) throw new Error(`the GPU holds at most ${MAX_MUSCLES} muscles`);
+      const perNeuron = [loop.fieldSide, loop.fieldFrom, loop.fieldTo, loop.switchSide];
+      if (perNeuron.some((a) => a.length !== n)) throw new Error(`the loop's layout isn't for ${n} neurons`);
+    }
     // The scope is popped whatever happens, so a failure can't leave it open on the device.
     device.pushErrorScope('validation');
     let brain: GpuBrain | null = null;
@@ -299,14 +311,24 @@ export class GpuBrain {
     );
   }
 
+  // Whether a loop state fits this brain's loop; throws if not.
+  checkLoopState(state: LoopState): void {
+    const loop = this.loop;
+    if (!loop) throw new Error('this GPU brain has no loop');
+    const { rods, muscles } = loop;
+    const lengths = [state.x.length, state.y.length, state.theta.length, state.velocity.length / 3];
+    if (lengths.some((l) => l !== rods) || state.muscles.length !== muscles) {
+      throw new Error('the state has another body');
+    }
+  }
+
   // Set the loop's state: the body, each coordinate split into a coarse part on its grid and a remainder, the
   // muscles and the head switch.
   restoreLoop(state: LoopState): void {
     this.alive();
-    const loop = this.loop;
-    if (!loop) throw new Error('this GPU brain has no loop');
+    this.checkLoopState(state);
+    const loop = this.loop as LoopLayout;
     const { rods, muscles } = loop;
-    if (state.x.length !== rods || state.muscles.length !== muscles) throw new Error('the state has another body');
     const words = new Float32Array(ROD_WORDS * rods + Math.max(muscles, 1));
     const split = (value: number, grid: number, at: number): void => {
       const coarse = Math.round(value / grid) * grid;
@@ -317,7 +339,10 @@ export class GpuBrain {
       const at = ROD_WORDS * i;
       split(state.x[i], POSITION_GRID, at);
       split(state.y[i], POSITION_GRID, at + 2);
-      split(state.theta[i], ANGLE_GRID, at + 4);
+      // Whole turns are kept apart, so the angle the kernel works with stays within a half turn.
+      const turns = Math.round(state.theta[i] / (2 * Math.PI));
+      split(state.theta[i] - 2 * Math.PI * turns, ANGLE_GRID, at + 4);
+      words[at + 9] = turns;
       words[at + 6] = state.velocity[3 * i];
       words[at + 7] = state.velocity[3 * i + 1];
       words[at + 8] = state.velocity[3 * i + 2];
@@ -384,7 +409,10 @@ export class GpuBrain {
           ],
           20,
         );
-        new Float32Array(words).set(loop.scalars, 32);
+        new Float32Array(words).set(
+          LOOP_SCALARS.map((name) => loop.scalars[name]),
+          LOOP_SCALARS_AT,
+        );
       }
       new Float32Array(words).set(
         [
@@ -486,7 +514,10 @@ export class GpuBrain {
     return {
       x: joined(0),
       y: joined(2),
-      theta: joined(4),
+      theta: Float64Array.from(
+        { length: rods },
+        (_, i) => words[ROD_WORDS * i + 4] + words[ROD_WORDS * i + 5] + 2 * Math.PI * words[ROD_WORDS * i + 9],
+      ),
       velocity: Float64Array.from({ length: 3 * rods }, (_, k) => words[ROD_WORDS * Math.floor(k / 3) + 6 + (k % 3)]),
       muscles: Float64Array.from(words.subarray(ROD_WORDS * rods, ROD_WORDS * rods + muscles)),
       h: status[8],

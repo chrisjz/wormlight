@@ -55,11 +55,15 @@ export interface Equivalence {
   equivalent: boolean;
 }
 
+const mean = (x: readonly number[]): number => x.reduce((s, v) => s + v, 0) / x.length;
+const variance = (x: readonly number[], m: number): number => x.reduce((s, v) => s + (v - m) ** 2, 0) / (x.length - 1);
+const enough = (...samples: (readonly number[])[]): void => {
+  if (samples.some((x) => x.length < 2)) throw new Error('each sample needs at least two values');
+};
+
 // Welch's two one-sided tests: are the means of `b` and `a` within ±share × mean(a) of each other, at level α?
 export function equivalence(a: readonly number[], b: readonly number[], share: number, alpha = 0.05): Equivalence {
-  const mean = (x: readonly number[]): number => x.reduce((s, v) => s + v, 0) / x.length;
-  const variance = (x: readonly number[], m: number): number =>
-    x.reduce((s, v) => s + (v - m) ** 2, 0) / (x.length - 1);
+  enough(a, b);
   const ma = mean(a);
   const mb = mean(b);
   const va = variance(a, ma) / a.length;
@@ -76,4 +80,20 @@ export function equivalence(a: readonly number[], b: readonly number[], share: n
         : 1
       : Math.max(1 - studentCdf((difference + margin) / se, nu), studentCdf((difference - margin) / se, nu));
   return { difference, margin, p, equivalent: p < alpha };
+}
+
+export interface SpreadRatio {
+  // The variance of `b` over that of `a`, and the two-sided p-value of the F test that they are equal.
+  ratio: number;
+  p: number;
+}
+
+// The F test of two samples' variances.
+export function spreadRatio(a: readonly number[], b: readonly number[]): SpreadRatio {
+  enough(a, b);
+  const ratio = variance(b, mean(b)) / variance(a, mean(a));
+  const d1 = b.length - 1;
+  const d2 = a.length - 1;
+  const below = incompleteBeta((d1 * ratio) / (d1 * ratio + d2), d1 / 2, d2 / 2);
+  return { ratio, p: Math.min(1, 2 * Math.min(below, 1 - below)) };
 }

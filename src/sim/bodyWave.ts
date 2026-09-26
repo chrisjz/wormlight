@@ -14,6 +14,7 @@ export interface BodyWave {
 
 // From κL at mid-body, sampled every WAVE_SAMPLE seconds over `duration` seconds.
 export function bodyWave(samples: readonly number[], duration: number): BodyWave {
+  if (samples.length < 2) throw new Error('a body wave needs at least two samples');
   const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
   let crossings = 0;
   for (let i = 1; i < samples.length; i++) if ((samples[i - 1] - mean) * (samples[i] - mean) < 0) crossings++;
