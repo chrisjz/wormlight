@@ -938,4 +938,21 @@ Three choices PLAN left open were put to the maintainer and settled before any t
 - **In the app.** A click on the worm's body without dragging taps its nearest point; "Touch front" and "Touch back" buttons tap the middle of the ALM and PLM fields, s = 0.2 and 0.8, so touch works by keyboard and screen reader too; a brief ring marks each tap. Considered: tapping only.
 - **GPU parity for touch.** The GPU times each pulse itself, so both sides switch the current on and off at the same step and restart BDF2 there, as at the head switch. Under the loop's thresholds, unchanged: copies of the trial values' states with an anterior and a posterior tap starting at the state, graded one step and one second, and an API check that a pulse ends at its 200th step on both sides. Considered: the API check alone.
 
-**Status.** Set before any touch ran; built next.
+**Built.**
+
+- **The receptors** (`src/sim/touch.ts`): the six neurons that sense along their processes, ALML, ALMR, AVM, PLML, PLMR and PVM, with their fields from the data and their currents, 4.43 to 9.46 pA, computed once per data set.
+- **The world.** `World.touch(s)` starts a 200-step pulse, 500 ms, on every receptor whose field covers s and isn't lesioned. Each step adds each stimulated receptor's current to its input, and restarts the brain's integrator when any pulse switches on or off. The pulses, each receptor's steps left and whether it was on at the last step, join the world's state.
+- **The GPU.** A receptor's pulse lives in its neuron's two spare state words and its current in a spare constant, so no buffer is added. The kernel counts the pulses that switch on or off in the workgroup-wide sum it already takes for the head switch's gate, so every invocation restarts together. `GpuWorld.touch(s)` writes the pulse to the receptors' state, taking effect from the next dispatch.
+- **The app.** A click or tap on the worm's body, within its radius plus the pointer's slop, touches the nearest point of the midline as last read back; a drag or pinch doesn't. "Touch front" and "Touch back" tap s = 0.2 and 0.8. A ring opens where the tap lands, only fading when motion is reduced, and a live region names the receptors reached.
+
+**Parity** (Chrome on an M5 Max). Every check passes, with the loop's thresholds unchanged.
+
+- **One step.** All 201 states pass, the 42 tapped copies among them, whose worst voltage error is 0.013 of its tolerance; the pulses agree at every state.
+- **One second.** All 70 graded states of 76 pass, 9 of the 10 tapped copies among them; the pulses agree at every sample of every state.
+- **The API.** Tapped front through `GpuWorld.touch` and `World.touch`, three receptors each, a pulse has 1 step left and was on after 199 steps, none left and on after 200, and is off after 201, on both sides.
+- **Speed.** 25.0× real time, as before.
+- **Safari** (`npm run gpu:parity:safari`). Everything passes, the touch API and all 201 one-step states included, except the one-second state at t = 11.0 s recorded in the AWC entry, 9.97× with the reference at 0.993, as before.
+
+**The harness.** Checkpoints 0 and 1 never touch the worm, so no pulse ever starts: the eight trial worlds of the AWC entry step bit for bit as on `main`, and VALIDATION.md stands.
+
+**Status.** Built; GPU parity passes in Chrome and, but for the state recorded before, in Safari.
