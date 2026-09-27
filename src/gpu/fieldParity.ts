@@ -6,6 +6,7 @@
 
 import { lawnSources } from '../sim/env/dish.ts';
 import { OdourField } from '../sim/env/odour.ts';
+import { OUTSIDE } from './brainShader.ts';
 import { GpuField } from './field.ts';
 import { packOdour } from './loopLayout.ts';
 import { FIELD_SECOND, FIELD_STEP, FIELD_TIMES, fieldCase } from './parityCases.ts';
@@ -22,6 +23,8 @@ export interface FieldResult {
 
 export interface FieldReport {
   results: FieldResult[];
+  // What the comparisons don't reach: a grid whose rows the read-back pads.
+  api: { name: string; detail: string; pass: boolean }[];
   pass: boolean;
   seconds: number;
 }
@@ -71,5 +74,30 @@ export async function runFieldParity(device: GPUDevice): Promise<FieldReport> {
   } finally {
     gpu.destroy();
   }
-  return { results, pass: results.every((r) => r.pass), seconds: (performance.now() - started) / 1000 };
+  const api = [await checkPadding(device)];
+  return {
+    results,
+    api,
+    pass: results.every((r) => r.pass) && api.every((r) => r.pass),
+    seconds: (performance.now() - started) / 1000,
+  };
+}
+
+// A grid 100 cells square, whose 400-byte rows the read-back pads to 512, set and read back unstepped.
+async function checkPadding(device: GPUDevice): Promise<FieldReport['api'][number]> {
+  const grid = packOdour(new OdourField({ cells: 100, cell: 1e-3, dish: 0.045 }));
+  grid.values.forEach((v, k) => {
+    if (v !== OUTSIDE) grid.values[k] = k / 7;
+  });
+  const field = await GpuField.create(device, grid, new Float32Array(grid.values.length));
+  try {
+    const back = await field.read();
+    return {
+      name: 'a grid whose rows are padded on reading comes back as it went in',
+      detail: '100 cells square, 400-byte rows padded to 512',
+      pass: back.every((v, k) => v === grid.values[k]),
+    };
+  } finally {
+    field.destroy();
+  }
 }

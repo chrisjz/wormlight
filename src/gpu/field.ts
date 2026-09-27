@@ -5,7 +5,7 @@
 
 import { DIFFUSION, LOSS, substeps } from '../sim/env/odour.ts';
 import { FIELD_SHADER, FIELD_WORKGROUP } from './fieldShader.ts';
-import { checkOdour, type OdourGrid } from './loopLayout.ts';
+import { checkOdour, checkRing, type OdourGrid } from './loopLayout.ts';
 
 export class GpuField {
   readonly device: GPUDevice;
@@ -51,6 +51,7 @@ export class GpuField {
   // Every validation error in setting it up, the shader's included, rejects here.
   static async create(device: GPUDevice, grid: OdourGrid, sources: ArrayLike<number>): Promise<GpuField> {
     checkOdour(grid, device.limits.maxTextureDimension2D);
+    checkRing(grid);
     if (sources.length !== grid.values.length) throw new Error('the sources are not for this grid');
     device.pushErrorScope('validation');
     let field: GpuField | null = null;

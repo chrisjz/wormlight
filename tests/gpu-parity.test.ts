@@ -26,7 +26,7 @@ import {
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
 import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
-import { awcLayout, checkOdour, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
+import { awcLayout, checkOdour, checkRing, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
 import { World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
 import { TOUCH_STEPS } from '../src/sim/touch.ts';
@@ -280,6 +280,14 @@ describe("the loop's parity", () => {
       ]);
       expect(Array.from(ended.touchApplied).some((c) => c > 0)).toBe(true);
     }
+  });
+
+  it("refuses a grid for stepping whose outermost ring isn't wholly outside the dish", () => {
+    const grid = packOdour(assayField());
+    expect(() => checkRing(grid)).not.toThrow();
+    const leaky = { ...grid, values: Float32Array.from(grid.values) };
+    leaky.values[grid.cells * 7] = 0;
+    expect(() => checkRing(leaky)).toThrow(/outermost ring/);
   });
 
   it('refuses odour grids the kernel could not read', () => {

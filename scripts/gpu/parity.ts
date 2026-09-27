@@ -1,5 +1,6 @@
 // GPU parity in headless Chrome, or in Safari (PLAN §7.2, §8): the dev server serves the parity page, whose
-// checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop.
+// checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop,
+// and the odour field's stepping.
 // This prints the results and the speed benchmark, and with --long the long runs, writes each to the output
 // directory, and fails if any check fails.
 //
@@ -80,6 +81,7 @@ interface Report {
   field:
     | {
         results: { label: string; share: number; totalShare: number | null; pass: boolean }[];
+        api: { name: string; detail: string; pass: boolean }[];
         pass: boolean;
         seconds: number;
       }
@@ -263,6 +265,7 @@ try {
       '\nthe odour field: every cell within 10⁻⁵ of the largest concentration after one sub-step and 10⁻⁴ after ' +
         "one second, and the total odour's change over the second within 10⁻⁴ of the CPU's (shares)",
     );
+    for (const r of field.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
     for (const r of field.results) {
       console.log(
         `  ${mark(r.pass)} ${r.label.padEnd(14)} worst cell ${g(r.share).padStart(9)}` +

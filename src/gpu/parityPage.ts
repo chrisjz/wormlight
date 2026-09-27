@@ -1,8 +1,9 @@
 // The GPU parity page (PLAN §8), served by the dev server only: `npm run dev`, then /parity.html. It runs the
-// parity checks, the brain's and the whole loop's, and the speed benchmark on this browser's GPU and shows the
-// results, which is how the Safari check is made; /parity.html?long adds long-run parity, which takes 11
-// to 18 minutes on an M5 Max. Headless Chrome reads the same results through window.__parity(),
-// window.__bench() and window.__long() (scripts/gpu/parity.ts).
+// parity checks, the brain's, the whole loop's and the odour field's, and the speed benchmark on this browser's
+// GPU and shows the results, which is how the Safari check is made by hand (npm run gpu:parity:safari makes it
+// from a script); /parity.html?long adds long-run parity, which takes 11 to 18 minutes on an M5 Max. Headless
+// Chrome reads the same results through window.__parity(), window.__bench() and window.__long()
+// (scripts/gpu/parity.ts).
 
 import '../style.css';
 import { validateWormlightData, type WormlightData } from '../data/schema.ts';
@@ -146,6 +147,10 @@ function showField(report: FieldReport | { error: string }): void {
       "From the app's steady lawn field with a second lawn just dropped at the dish's centre: every cell within " +
         "10⁻⁵ of the field's largest concentration after one sub-step and 10⁻⁴ after one second, and the change " +
         "in the total odour over the second within 10⁻⁴ of the CPU's. Shares of those tolerances.",
+    ),
+    table(
+      ['Check', 'What', ''],
+      report.api.map((r) => [r.name, r.detail, verdict(r.pass)]),
     ),
     table(
       ['After', 'Worst cell', 'Total odour', ''],
@@ -315,7 +320,7 @@ async function start(): Promise<{
   const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
   if (!response.ok) throw new Error(`the connectome could not be loaded: the server answered ${response.status}`);
   const data: WormlightData = validateWormlightData(await response.json());
-  // The loop's checks run after the brain's; if they stop, the brain's results still stand.
+  // The loop's and the field's checks run after the brain's; if they stop, the brain's results still stand.
   const began = performance.now();
   const parity = runParity(device, adapter, data).then(async (brain): Promise<FullReport> => {
     const stopped = (e: unknown): { error: string; pass: false } => ({

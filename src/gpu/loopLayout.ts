@@ -39,6 +39,17 @@ export function checkOdour(grid: OdourGrid, maxCells = Infinity): void {
   if (!(cell > 0 && Number.isFinite(cell))) throw new Error(`an odour grid's cells are not ${cell} m wide`);
 }
 
+// Throws unless a grid's outermost ring lies wholly outside the dish, as the field's kernel needs: it reads each
+// inside cell's four neighbours without checking they are on the grid.
+export function checkRing(grid: OdourGrid): void {
+  const { cells, values } = grid;
+  for (let k = 0; k < cells; k++) {
+    for (const at of [k, (cells - 1) * cells + k, k * cells, k * cells + cells - 1]) {
+      if (values[at] !== OUTSIDE) throw new Error('an odour grid for stepping has its outermost ring outside the dish');
+    }
+  }
+}
+
 // The grid for an odour, or for none: two cells square, all outside, which reads as none anywhere.
 export function packOdour(odour: Odour | null): OdourGrid {
   if (odour === null) return { cells: 2, cell: 1, values: new Float32Array(4).fill(OUTSIDE) };
