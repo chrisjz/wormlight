@@ -1497,3 +1497,22 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 - **The tests** read the fit's values from the registry instead of pinning them, and give the report a stand-in registry instead of changing the real one. They also hold the committed fit to the settings the code has now: its procedure, start, search space, objective and a clean commit.
 
 **Status.** R suspended; the convergence study is next.
+
+## 2026-09-28 — The convergence study: its design, set before it runs
+
+**Why.** R's fit fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until the numerics converge (the entry above). A study comes first, then a fix set as a rule. So that the study can't be shaped by its results, its measures and criterion are set here, before it runs.
+
+**What it measures.**
+
+- **Both fits in the loop.** Checkpoint 1's 20 trials, and the calibration's 16 fresh seeds, 1005 to 1020, at steps of 2.5, 1.25, 0.625 and 0.3125 ms. Each fit is run with its noise as fitted and with the noise off, since noise drawn at a different step is a different realisation and can move a metric by chance. The measures are:
+  - checkpoint 1's five clauses and its grade;
+  - the reversal rate and the head switch's flips a minute;
+  - the calibration's objective on the fresh seeds.
+- **The oscillator alone.** A lone neuron with its leak and one oscillator, held by a constant current where it cycles. g_osc is 0.3, 1, 2.14 and 5 nS, τ_w is 1.36 s and 2.51 s, and each is run at the same four steps. Its period and its voltage's course over a cycle are measured against an RK4 solution at 10 µs. With the fitted noise and no current, the rate of noise-excited excursions is measured at each step.
+- **Cost.** The CPU's and the GPU's speed at each step, in real time.
+
+**The criterion.** PLAN §7.2's: checkpoint 1's metrics agree within 2% at dt and dt/2. The largest step at which a fit meets it, against the step below, is that fit's converged step. With the noise on, where trials differ by chance, the comparison is made on the noise-off runs, and the noise-on runs are reported beside them.
+
+**Then.** The results, and the fixes they leave open, go to the maintainer: a smaller step, a stable treatment of the oscillator, or a bound on g_osc. The chosen fix is set as a rule before R's fit runs again.
+
+**Status.** Set before the study runs.
