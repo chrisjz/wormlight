@@ -3,7 +3,7 @@
 
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import type { Odour } from '../sim/sensing.ts';
-import { covers } from '../sim/touch.ts';
+import { tap, type TouchReceptor } from '../sim/touch.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
 import { awcLayout, packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
@@ -62,11 +62,12 @@ export class GpuWorld {
     this.brain.setOdour(packOdour(odour));
   }
 
-  // Tap the body at coordinate s, as World.touch does. Returns how many receptors are stimulated.
-  touch(s: number): number {
-    const touched = this.layout.touch.filter((r) => covers(r, s));
-    for (const r of touched) this.brain.touch(r.neuron);
-    return touched.length;
+  // Tap the body at coordinate s, as World.touch does. Returns the receptors reached.
+  touch(s: number): TouchReceptor[] {
+    const { mask, currents } = tap(this.layout.touchSets, s);
+    const reached = this.layout.touch.filter((r) => mask & (1 << r.index));
+    for (const r of reached) this.brain.touch(r.neuron, currents[r.index]);
+    return reached;
   }
 
   run(steps: number): void {

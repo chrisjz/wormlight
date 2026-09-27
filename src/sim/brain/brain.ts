@@ -100,6 +100,19 @@ export function inputConductance(network: Network, s: number, neuron: number): n
   return 1 / response[neuron];
 }
 
+// How a set of neurons respond to one another with every activation held at s: entry [j][i] is how far neuron
+// neurons[i] moves from its equilibrium, in mV, under 1 pA into neurons[j], once all have followed.
+export function responses(network: Network, s: number, neurons: readonly number[]): Float64Array[] {
+  const { d } = held(network, s);
+  return neurons.map((j) => {
+    const unit = new Float64Array(d.length);
+    unit[j] = 1;
+    const response = new Float64Array(d.length);
+    solveHeld(network, d, unit, response, 1e-12);
+    return Float64Array.from(neurons, (i) => response[i]);
+  });
+}
+
 export class Brain {
   readonly network: Network;
   readonly n: number;

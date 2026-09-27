@@ -20,7 +20,7 @@ import { Muscles } from './muscles.ts';
 import { NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
 import { AWC_GAIN, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
-import { covers, TOUCH_STEPS, touchReceptors, type TouchReceptor } from './touch.ts';
+import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
 
 // The calibrated parameters (PLAN §6.2), in the units the simulation uses.
 export interface LoopParams {
@@ -127,9 +127,11 @@ export interface WorldState {
   switchCurrent: number;
   // AWC-ON's adaptive threshold T (µM).
   awcThreshold: number;
-  // Per touch receptor, the steps left in its pulse, and whether it was stimulated on the last step.
+  // Per touch receptor, the steps left in its pulse, the current its last tap gave it (pA), and the current it
+  // took on the last step.
   touchLeft: Int32Array;
-  touchOn: Uint8Array;
+  touchCurrent: Float64Array;
+  touchApplied: Float64Array;
 }
 
 export class World {
@@ -155,11 +157,14 @@ export class World {
   readonly awc: AwcSensor;
   readonly odour: Odour | null;
   awcCurrent = 0;
-  // The touch receptors that aren't lesioned; per receptor, the steps left in its pulse and whether it was
-  // stimulated on the last step.
+  // Every touch receptor and the currents of the sets a tap can reach; the receptors that aren't lesioned; and
+  // per receptor, the steps left in its pulse, the current its last tap gave it and the current it took on the
+  // last step.
+  readonly touchSets: Touch;
   readonly receptors: readonly TouchReceptor[];
   readonly touchLeft: Int32Array;
-  readonly touchOn: Uint8Array;
+  readonly touchCurrent: Float64Array;
+  readonly touchApplied: Float64Array;
   private readonly smd: Set<number>;
 
   constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
@@ -237,22 +242,24 @@ export class World {
     this.odour = options.odour ?? null;
     this.adapt();
 
-    this.receptors = touchReceptors(data).filter((r) => alive(r.name));
+    this.touchSets = touchData(data);
+    this.receptors = this.touchSets.receptors.filter((r) => alive(r.name));
     this.touchLeft = new Int32Array(this.receptors.length);
-    this.touchOn = new Uint8Array(this.receptors.length);
+    this.touchCurrent = new Float64Array(this.receptors.length);
+    this.touchApplied = new Float64Array(this.receptors.length);
   }
 
   // Tap the body at coordinate s, from the nose (0) to the tail tip (1): every receptor whose field covers it is
-  // stimulated for the next 500 ms, from the next step. Returns how many are.
-  touch(s: number): number {
-    let count = 0;
-    this.receptors.forEach((r, k) => {
-      if (covers(r, s)) {
-        this.touchLeft[k] = TOUCH_STEPS;
-        count++;
-      }
+  // stimulated for the next 500 ms, from the next step, at the current its covered set gives it. Returns the
+  // receptors reached; a lesioned one is reached by none, though its set's currents are the intact wiring's.
+  touch(s: number): TouchReceptor[] {
+    const { mask, currents } = tap(this.touchSets, s);
+    return this.receptors.filter((r, k) => {
+      if (!(mask & (1 << r.index))) return false;
+      this.touchLeft[k] = TOUCH_STEPS;
+      this.touchCurrent[k] = currents[r.index];
+      return true;
     });
-    return count;
   }
 
   // The concentration (µM) where AWC senses.
@@ -281,13 +288,18 @@ export class World {
       switchCurrent: this.switchCurrent,
       awcThreshold: this.awc.threshold,
       touchLeft: Int32Array.from(this.touchLeft),
-      touchOn: Uint8Array.from(this.touchOn),
+      touchCurrent: Float64Array.from(this.touchCurrent),
+      touchApplied: Float64Array.from(this.touchApplied),
     };
   }
 
   // Restore a state, so snapshot() gives it back. What each step derives afresh, the curvature and the muscles'
-  // drive, waits for the next step.
+  // drive, waits for the next step. A state of other touch receptors is refused before anything changes.
   restore(state: WorldState): void {
+    const receptors = this.receptors.length;
+    if ([state.touchLeft, state.touchCurrent, state.touchApplied].some((a) => a.length !== receptors)) {
+      throw new Error('the state has other touch receptors');
+    }
     this.brain.restore(state.brain);
     this.body.x.set(state.x);
     this.body.y.set(state.y);
@@ -299,7 +311,8 @@ export class World {
     this.switchCurrent = state.switchCurrent;
     this.awc.threshold = state.awcThreshold;
     this.touchLeft.set(state.touchLeft);
-    this.touchOn.set(state.touchOn);
+    this.touchCurrent.set(state.touchCurrent);
+    this.touchApplied.set(state.touchApplied);
   }
 
   get time(): number {
@@ -346,23 +359,21 @@ export class World {
     // AWC-ON's threshold follows the odour at the nose, and the difference drives it (PLAN §4.1).
     this.awcCurrent = this.awc.step(this.smell(), dt);
     if (this.awcOn >= 0) brain.input[this.awcOn] += this.awcCurrent;
-    // Each stimulated touch receptor takes its current for its pulse's steps (PLAN §4.2).
-    let touchSwitched = false;
+    // Each stimulated touch receptor takes its tap's current for its pulse's steps (PLAN §4.2).
+    let touchJumped = false;
     this.receptors.forEach((r, k) => {
-      const on = this.touchLeft[k] > 0;
-      if (on) {
-        brain.input[r.neuron] += r.current;
-        this.touchLeft[k]--;
-      }
-      if (on !== (this.touchOn[k] === 1)) touchSwitched = true;
-      this.touchOn[k] = on ? 1 : 0;
+      const applied = this.touchLeft[k] > 0 ? this.touchCurrent[k] : 0;
+      if (this.touchLeft[k] > 0) this.touchLeft[k]--;
+      if (applied !== this.touchApplied[k]) touchJumped = true;
+      this.touchApplied[k] = applied;
+      brain.input[r.neuron] += applied;
     });
     const gated = this.headDrive() > params.driveThreshold;
     this.headSwitch.update(regionMean(this.curvature, this.headFrom, this.headTo), dt, gated);
     const current = gated ? params.switchGain * (this.headSwitch.h - 0.5) : 0;
     // The switch current jumps when it flips or is gated on or off, and a touch current when it switches on or
-    // off; BDF2 across a jump is first order.
-    if (current !== this.switchCurrent || touchSwitched) brain.restart();
+    // off or a new tap changes it; BDF2 across a jump is first order.
+    if (current !== this.switchCurrent || touchJumped) brain.restart();
     this.switchCurrent = current;
     for (const i of this.dorsalSwitch) brain.input[i] += current;
     for (const i of this.ventralSwitch) brain.input[i] -= current;

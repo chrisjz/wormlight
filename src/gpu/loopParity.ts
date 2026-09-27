@@ -15,7 +15,7 @@ import { WAVE_ROD, WAVE_SAMPLE, WAVE_WARM_UP, bodyWave, type BodyWave } from '..
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { curvatureOf } from '../sim/proprio.ts';
 import { equivalence, spreadRatio, type Equivalence, type SpreadRatio } from '../sim/stats.ts';
-import { covers, FRONT, TOUCH_STEPS, type TouchReceptor } from '../sim/touch.ts';
+import { covers, FRONT, TOUCH_STEPS, type Touch, type TouchReceptor } from '../sim/touch.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
@@ -40,6 +40,8 @@ import {
   SECOND,
   seededWorld,
   TAP_COPIES,
+  ENDING_COPIES,
+  ending,
   tapped,
   assayField,
   velocityFloors,
@@ -78,9 +80,10 @@ function shares(cpu: ArrayLike<number>, gpu: ArrayLike<number>, width: number, f
 }
 
 // Whether the GPU's touch pulses are the CPU's, step for step.
-const sameTouch = (cpu: World, gpu: WorldState): boolean =>
+const sameTouch = (cpu: World | WorldState, gpu: WorldState): boolean =>
   Array.from(cpu.touchLeft).every((left, k) => left === gpu.touchLeft[k]) &&
-  Array.from(cpu.touchOn).every((on, k) => on === gpu.touchOn[k]);
+  Array.from(cpu.touchCurrent).every((c, k) => Math.fround(c) === gpu.touchCurrent[k]) &&
+  Array.from(cpu.touchApplied).every((c, k) => Math.fround(c) === gpu.touchApplied[k]);
 
 // Whether the GPU's head switch is in the CPU's state, its current compared as f32 holds it.
 const sameSwitch = (cpu: World, gpu: WorldState): boolean =>
@@ -247,7 +250,8 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
   };
 }
 
-// The loop's own API: a world's state goes in and comes back, and a run split across dispatches is the run.
+// The loop's own API, from a state with a touch pulse under way: it goes in and comes back, and a run split
+// across dispatches is the run.
 async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const results: ApiResult[] = [];
   gpu.restore(c.state);
@@ -260,9 +264,11 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   results.push({
     name: 'a world goes in and comes back',
     detail:
-      "the brain, velocities, muscles, switch and AWC-ON's threshold as f32; places within 10⁻¹³ m and angles " +
-      'within 10⁻¹⁰ rad',
+      "the brain, velocities, muscles, switch, AWC-ON's threshold and touch pulses as f32; places within " +
+      '10⁻¹³ m and angles within 10⁻¹⁰ rad',
     pass:
+      c.state.touchLeft.some((left) => left > 0) &&
+      sameTouch(c.state, back) &&
       f32(c.state.brain.voltage, back.brain.voltage) &&
       f32(c.state.velocity, back.velocity) &&
       f32(c.state.muscles, back.muscles) &&
@@ -286,7 +292,7 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const same = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => Array.from(a).every((x, i) => x === b[i]);
   results.push({
     name: `${steps} whole-loop steps split into two dispatches equal ${steps} dispatches of one`,
-    detail: "identical brain, body, muscles, switch and AWC-ON's threshold",
+    detail: "identical brain, body, muscles, switch, AWC-ON's threshold and touch pulses",
     pass:
       same(together.brain.voltage, apart.brain.voltage) &&
       same(together.x, apart.x) &&
@@ -294,7 +300,8 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
       same(together.muscles, apart.muscles) &&
       together.h === apart.h &&
       together.switchCurrent === apart.switchCurrent &&
-      together.awcThreshold === apart.awcThreshold,
+      together.awcThreshold === apart.awcThreshold &&
+      sameTouch(together, apart),
   });
   return results;
 }
@@ -309,8 +316,8 @@ export interface LoopReport {
 
 // The trial values' states and their copies: moved across the dish and turned, which the CPU's arithmetic
 // doesn't notice; pressed against the dish's wall, which it pushes back; and tapped front and back. One step
-// takes every state's copies; one second, every fifth state's. A variant takes its states alone, and moved as
-// well if it asks.
+// takes every state's copies, and copies whose pulse ends at the first step; one second, every fifth state's
+// copies. A variant takes its states alone, and moved as well if it asks.
 function withCopies(
   cases: LoopCase[],
   setup: LoopSetup,
@@ -318,6 +325,7 @@ function withCopies(
   radii: ArrayLike<number>,
   wall: number,
   receptors: readonly TouchReceptor[],
+  sets: Touch,
 ): LoopCase[] {
   if (setup.name !== LOOP_SETUPS[0].name) {
     const named = cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
@@ -340,7 +348,13 @@ function withCopies(
     TAP_COPIES.map((copy) => ({
       ...c,
       label: `${c.label}, ${copy.label}`,
-      state: tapped(c.state, receptors, copy.s),
+      state: tapped(c.state, receptors, sets, copy.s),
+    }));
+  const ended = (c: LoopCase): LoopCase[] =>
+    ENDING_COPIES.map((copy) => ({
+      ...c,
+      label: `${c.label}, ${copy.label}`,
+      state: ending(c.state, receptors, sets, copy.s),
     }));
   if (second) {
     const some = cases.filter((_, k) => k % 5 === 0);
@@ -362,6 +376,7 @@ function withCopies(
     ),
     ...cases.flatMap(pressed),
     ...cases.flatMap(touched),
+    ...cases.flatMap(ended),
   ];
 }
 
@@ -370,7 +385,7 @@ function withCopies(
 async function checkTouchApi(gpu: GpuWorld, data: WormlightData, c: LoopCase): Promise<ApiResult[]> {
   const cpu = cpuWorld(data, c.state, CG_TOLERANCE_GPU, c.setup);
   gpu.restore(c.state);
-  const touched = [cpu.touch(FRONT), gpu.touch(FRONT)];
+  const touched = [cpu.touch(FRONT).length, gpu.touch(FRONT).length];
   const first = cpu.receptors.findIndex((r) => covers(r, FRONT));
   const seen: [number, number][] = [];
   let agree = true;
@@ -378,7 +393,7 @@ async function checkTouchApi(gpu: GpuWorld, data: WormlightData, c: LoopCase): P
     for (let k = 0; k < steps; k++) cpu.step();
     gpu.run(steps);
     agree &&= sameTouch(cpu, (await gpu.read()).state);
-    seen.push([cpu.touchLeft[first], cpu.touchOn[first]]);
+    seen.push([cpu.touchLeft[first], cpu.touchApplied[first] > 0 ? 1 : 0]);
   }
   return [
     {
@@ -487,16 +502,18 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
       if (setup === LOOP_SETUPS[0]) {
-        api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
+        const last = cases[cases.length - 1];
+        const pulsing = tapped(last.state, gpu.layout.touch, gpu.layout.touchSets, FRONT);
+        api.push(...(await checkLoopApi(gpu, { ...last, state: pulsing })));
         api.push(...(await checkAwcApi(device, data, gpu, cpuWorld(data, cases[0].state, undefined, setup))));
         api.push(...(await checkTouchApi(gpu, data, cases[cases.length - 1])));
       }
       const { radii, wall } = boyleBody();
-      const receptors = gpu.layout.touch;
-      for (const c of withCopies(cases, setup, false, radii, wall, receptors)) {
+      const { touch: receptors, touchSets: sets } = gpu.layout;
+      for (const c of withCopies(cases, setup, false, radii, wall, receptors, sets)) {
         oneStep.push(await checkLoopStep(gpu, data, c));
       }
-      for (const c of withCopies(cases, setup, true, radii, wall, receptors)) {
+      for (const c of withCopies(cases, setup, true, radii, wall, receptors, sets)) {
         oneSecond.push(await checkLoopSecond(gpu, data, c));
       }
     } finally {

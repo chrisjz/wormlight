@@ -26,8 +26,9 @@ describe("the kernel's layout", () => {
     expect(params.slice(LOOP_SCALARS_AT, LOOP_SCALARS_AT + LOOP_SCALARS.length)).toEqual([...LOOP_SCALARS]);
     expect(fields('State')).toHaveLength(STATE_WORDS);
     expect(fields('NeuronConstants')).toHaveLength(NEURON_WORDS);
-    // GpuBrain writes a touch receptor's pulse into its neuron's state at words 6 and 7, its current at 7.
-    expect(fields('State').slice(6)).toEqual(['touch_left', 'touch_on']);
+    // GpuBrain writes a touch receptor's pulse into its neuron's state at words 6 and 7, its tap's current into
+    // its constants at 7.
+    expect(fields('State').slice(6)).toEqual(['touch_left', 'touch_last']);
     expect(fields('NeuronConstants')[7]).toBe('touch_current');
     expect(fields('Status')).toHaveLength(STATUS_WORDS);
     // GpuBrain writes the head switch and AWC-ON's threshold from word 8, and reads them back there.

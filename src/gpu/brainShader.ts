@@ -61,11 +61,11 @@ export const LOOP_SCALARS = [
   'odour_cell',
 ] as const;
 export type LoopScalar = (typeof LOOP_SCALARS)[number];
-// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and whether it was
-// stimulated on the last step.
+// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and the touch current
+// it took on the last step.
 export const STATE_WORDS = 8;
 // Per neuron: threshold, oscillator shift θ, whether it oscillates, its proprioceptive field's side and
-// rods, the side the head switch drives it on, and its touch current (0 for none).
+// rods, the side the head switch drives it on, and the current of its touch pulse, which each tap sets.
 export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
@@ -201,7 +201,7 @@ struct State {
   w: f32,
   w_prev: f32,
   touch_left: f32,
-  touch_on: f32,
+  touch_last: f32,
 }
 
 struct Status {
@@ -654,7 +654,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var q: array<f32, ${per}>;
   var drive_in: array<f32, ${per}>;
   var touch_left: array<f32, ${per}>;
-  var touch_on: array<f32, ${per}>;
+  var touch_last: array<f32, ${per}>;
   ${own(`
         let here = state[i];
         v[k] = here.v;
@@ -664,7 +664,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         w[k] = here.w;
         w_prev[k] = here.w_prev;
         touch_left[k] = here.touch_left;
-        touch_on[k] = here.touch_on;`)}
+        touch_last[k] = here.touch_last;`)}
 
   // The rod and the muscle this invocation holds, while looping: each coordinate in its coarse part and
   // remainder.
@@ -761,7 +761,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
 
       // The network's drive on the SMDs (World.headDrive): for each, the voltage its partners and leak would
       // hold it at, less its threshold, with links among the SMDs at their rest values. The same total counts
-      // the touch receptors whose stimulus switches on or off this step.
+      // the neurons whose touch current changes this step, switching on or off or set anew by a tap.
       let rest = params.rise / (params.rise + 2.0 * params.decay);
       var term = vec4<f32>(0.0);
       ${own(`
@@ -784,7 +784,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
           }
           term += vec4<f32>(current / g - constants.threshold, 1.0, 0.0, 0.0);
         }
-        if (constants.touch_current != 0.0 && (touch_left[k] > 0.0) != (touch_on[k] == 1.0)) {
+        if (select(0.0, constants.touch_current, touch_left[k] > 0.0) != touch_last[k]) {
           term.z += 1.0;
         }`)}
       // total() begins after kappa is written and ends on a barrier, so kappa is ready after it.
@@ -806,7 +806,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       }
       let current = select(0.0, params.switch_gain * (h - 0.5), gated);
       // The switch current jumps when it flips or is gated on or off, and a touch current when it switches on
-      // or off; BDF2 across a jump is first order.
+      // or off or a new tap changes it; BDF2 across a jump is first order.
       restart = current != switch_current || drive.z > 0.0;
       switch_current = current;
 
@@ -828,13 +828,12 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         if (i == params.awc_on) {
           drive_in[k] += awc_current;
         }
+        let applied = select(0.0, constants.touch_current, touch_left[k] > 0.0);
         if (touch_left[k] > 0.0) {
-          drive_in[k] += constants.touch_current;
           touch_left[k] -= 1.0;
-          touch_on[k] = 1.0;
-        } else {
-          touch_on[k] = 0.0;
         }
+        touch_last[k] = applied;
+        drive_in[k] += applied;
         drive_in[k] += constants.switch_side * current;`)}
     }
 
@@ -1012,7 +1011,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   }
 
   ${own(`
-        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], touch_left[k], touch_on[k]);`)}
+        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], touch_left[k], touch_last[k]);`)}
   if (looping) {
     if (lid < rods) {
       let at = ${ROD_WORDS}u * lid;

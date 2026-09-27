@@ -5,7 +5,7 @@
 import { between } from '../sim/body/body.ts';
 import { OdourField } from '../sim/env/odour.ts';
 import type { Odour } from '../sim/sensing.ts';
-import type { TouchReceptor } from '../sim/touch.ts';
+import type { Touch, TouchReceptor } from '../sim/touch.ts';
 import type { World } from '../sim/world.ts';
 import {
   MAX_MUSCLES,
@@ -65,7 +65,9 @@ export interface LoopLayout {
   awcOn: number;
   awcRod: number;
   odour: OdourGrid;
-  // The touch receptors that aren't lesioned, in the world's order: their neurons, fields and currents.
+  // Every touch receptor and the currents of the sets a tap can reach; and those that aren't lesioned, in the
+  // world's order.
+  touchSets: Touch;
   touch: readonly TouchReceptor[];
   // The neuromuscular rows: each muscle's first entry, and each entry's presynaptic neuron and signed sections.
   nmStart: Uint32Array;
@@ -163,6 +165,7 @@ export function packLoop(world: World): LoopLayout {
     awcOn: awc.awcOn,
     awcRod: awc.awcRod,
     odour,
+    touchSets: world.touchSets,
     touch: world.receptors.map((r) => ({ ...r })),
     nmStart: Uint32Array.from(muscles.start),
     nmPre: Uint32Array.from(muscles.pre),

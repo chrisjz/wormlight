@@ -11,7 +11,7 @@ import { hash, uniform } from '../sim/brain/rng.ts';
 import { steadyField } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
-import { BACK, covers, FRONT, TOUCH_STEPS, type TouchReceptor } from '../sim/touch.ts';
+import { BACK, FRONT, tap, TOUCH_STEPS, type Touch, type TouchReceptor } from '../sim/touch.ts';
 import { World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
 
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
@@ -310,16 +310,39 @@ export interface WallCopy {
   along: boolean;
 }
 // Copies tapped as the state starts, front and back where the app's buttons tap, so the pulse switches on at
-// the first step and, over one second, off at the 201st (PLAN §7.2, set 2026-09-27 before any touch ran).
+// the first step and, over one second, off at the 201st (PLAN §7.2, set 2026-09-27 before any touch ran); and,
+// for one step, copies whose pulse took its last step just before the state, so it switches off at the first
+// (added after review, stricter than the rule).
 export const TAP_COPIES: readonly { label: string; s: number }[] = [
   { label: 'tapped front', s: FRONT },
   { label: 'tapped back', s: BACK },
 ];
+export const ENDING_COPIES: readonly { label: string; s: number }[] = [
+  { label: 'pulse ending front', s: FRONT },
+  { label: 'pulse ending back', s: BACK },
+];
 
-export function tapped(state: WorldState, receptors: readonly TouchReceptor[], s: number): WorldState {
+// A state tapped at s as it starts, as World.touch taps it: `receptors` are the world's, `sets` every receptor's.
+export function tapped(state: WorldState, receptors: readonly TouchReceptor[], sets: Touch, s: number): WorldState {
+  const { mask, currents } = tap(sets, s);
+  const hit = (k: number): boolean => (mask & (1 << receptors[k].index)) !== 0;
   return {
     ...state,
-    touchLeft: Int32Array.from(state.touchLeft, (left, k) => (covers(receptors[k], s) ? TOUCH_STEPS : left)),
+    touchLeft: Int32Array.from(state.touchLeft, (left, k) => (hit(k) ? TOUCH_STEPS : left)),
+    touchCurrent: Float64Array.from(state.touchCurrent, (c, k) => (hit(k) ? currents[receptors[k].index] : c)),
+  };
+}
+
+// A state whose pulse, from a tap at s, took its last step just before it, so it switches off at the first.
+export function ending(state: WorldState, receptors: readonly TouchReceptor[], sets: Touch, s: number): WorldState {
+  const { mask, currents } = tap(sets, s);
+  const hit = (k: number): boolean => (mask & (1 << receptors[k].index)) !== 0;
+  const current = (c: number, k: number): number => (hit(k) ? currents[receptors[k].index] : c);
+  return {
+    ...state,
+    touchLeft: Int32Array.from(state.touchLeft, (left, k) => (hit(k) ? 0 : left)),
+    touchCurrent: Float64Array.from(state.touchCurrent, current),
+    touchApplied: Float64Array.from(state.touchApplied, current),
   };
 }
 

@@ -328,7 +328,7 @@ export async function startPlate(
   // Touching the worm (PLAN §4.2): a tap at body coordinate s, marked by a ring where it lands and announced
   // with the receptors it reaches.
   const touchAt = (s: number): void => {
-    const count = gpu.touch(s);
+    const count = gpu.touch(s).length;
     const reached = [...new Set(gpu.layout.touch.filter((r) => covers(r, s)).map((r) => r.name.replace(/[LR]$/, '')))];
     live.textContent =
       `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
