@@ -363,6 +363,7 @@ export class GpuBrain {
     f[3] = state.switchCurrent;
     f[4] = state.awcThreshold;
     this.device.queue.writeBuffer(this.status, 4 * 8, bytes);
+    this.device.queue.writeBuffer(this.status, 4 * 14, Float32Array.of(state.awcCurrent));
     loop.touch.forEach((r, k) => {
       const at = 4 * (STATE_WORDS * r.neuron + 6);
       this.device.queue.writeBuffer(this.state, at, Float32Array.of(state.touchLeft[k], state.touchApplied[k]));
@@ -607,6 +608,7 @@ export class GpuBrain {
       previousCurvature: flags[10] === 1 ? status[9] : null,
       switchCurrent: status[11],
       awcThreshold: status[12],
+      awcCurrent: status[14],
       touchLeft: Int32Array.from(loop.touch, (r) => neuronWords[STATE_WORDS * r.neuron + 6]),
       // The pulses' currents as last written, which a tap made after this read was queued would show early.
       touchCurrent: Float64Array.from(loop.touch, (r) => this.touchCurrent[r.neuron]),

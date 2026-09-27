@@ -17,7 +17,7 @@
 // None of this changes the model. Compilers that reassociate floating-point arithmetic, as Metal's does, give
 // back some of the precision; parity measures what is left (DECISIONS.md, 2026-09-26).
 
-import { WALL_SOFTENING } from '../sim/numerics.ts';
+import { AWC_JUMP, WALL_SOFTENING } from '../sim/numerics.ts';
 import { RNG_WGSL } from './rngShader.ts';
 
 const WORKGROUP = 256;
@@ -70,8 +70,8 @@ export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
 // iterations in one solve and the iterations in all; then the head switch (its state, the head's last
-// curvature, whether there is one, and its current), AWC-ON's adaptive threshold, and the odour it sensed on the
-// last step, which parity reports.
+// curvature, whether there is one, and its current), AWC-ON's adaptive threshold, the odour it sensed on the
+// last step, which parity reports, and the current it took then.
 export const STATUS_WORDS = 16;
 // Per rod in the body buffer: x, y and θ, each as a coarse part on its grid and a remainder, then ẋ, ẏ, θ̇,
 // the whole turns taken out of θ, and two words of padding; the muscles' activations follow.
@@ -219,7 +219,7 @@ struct Status {
   switch_current: f32,
   awc_threshold: f32,
   smell: f32,
-  _pad4: f32,
+  awc_last: f32,
   _pad5: f32,
 }
 
@@ -699,6 +699,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var has_previous = status.has_previous;
   var switch_current = status.switch_current;
   var awc_threshold = status.awc_threshold;
+  var awc_last = status.awc_last;
   var last = 0u;
   var peak = 0u;
   var iterations_sum = 0u;
@@ -817,6 +818,11 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       awc_threshold += (settled - awc_threshold) * one_less_exp(dt / params.awc_time);
       let awc_sum = awc_threshold + held;
       let awc_current = select(0.0, params.awc_gain * ((awc_threshold - held) / awc_sum), awc_sum > 0.0);
+      // A fast change in AWC-ON's current restarts the integrator, as the switch's and touch's do.
+      if (params.awc_on != ${NO_NEURON}u && abs(awc_current - awc_last) > ${AWC_JUMP} * params.awc_gain) {
+        restart = true;
+      }
+      awc_last = awc_current;
 
       // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current, a touch pulse's and the
       // switch's.
@@ -1039,6 +1045,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       status.has_previous = has_previous;
       status.switch_current = switch_current;
       status.awc_threshold = awc_threshold;
+      status.awc_last = awc_last;
       status.smell = smelt;
     }
     status.steps = steps;
