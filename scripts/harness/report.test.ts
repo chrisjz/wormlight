@@ -3,7 +3,7 @@ import type { ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import { checkpoint0, checkpoint1, touchSchedule } from '../../src/validation/checkpoints.ts';
 import { emptySums } from '../../src/validation/posture.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
-import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, shares } from './report.ts';
+import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, scientific, shares } from './report.ts';
 import { parseArgs } from './run.ts';
 
 const info = { date: '2026-09-26', commit: 'abc1234', trials: 1, seconds: 70 };
@@ -98,10 +98,19 @@ describe('the harness report', () => {
     expect(section).toContain('2 anterior touches and 1 posterior');
     expect(section).toContain('Each front touch reached ALML, ALMR, AVM; each back touch PLML, PLMR.');
     expect(section).toContain('| 1 | F B F | 0 of 2 | 0 of 2 | 0.0000 → 0.0000 | 0 |');
+    // The touched trial lies still where its twin backed up at 0.05 body lengths per second.
+    expect(section).toContain("differs from its twin's by more than 5.0 × 10⁻² body lengths per second");
     expect(section).toContain('| 1 | 7 | AWCR | Neither | 44.62 | 44.71 | 0.015 |');
     // A figure that rounds to zero carries no minus sign.
     const still = { ...record, velocity: Array<number>(600).fill(-0.00001) };
     expect(checkpoint0Section(checkpoint0([still], [touched], [worm]), info)).toContain('| 0.0000 |');
+  });
+
+  it('writes small numbers with powers of ten', () => {
+    expect(scientific(2.710003e-7)).toBe('2.7 × 10⁻⁷');
+    expect(scientific(-0.05)).toBe('−5.0 × 10⁻²');
+    expect(scientific(1234)).toBe('1.2 × 10³');
+    expect(scientific(0)).toBe('0');
   });
 
   it('gives shares that add up to 100%', () => {

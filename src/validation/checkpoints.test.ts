@@ -182,6 +182,11 @@ describe("checkpoint 0's touch clause", () => {
     expect(sped.posterior).toMatchObject({ pairs: 50, positive: 1275, reflex: true, grade: 'fail' });
     expect(sped.posterior.p).toBeCloseTo(2 ** -50, 20);
     expect(sped.grade).toBe('fail');
+    // For context, the untouched twins over the same windows, and how far the touched trials moved from them.
+    expect(sped.posterior.twin).toEqual({ n: 0, positive: 0, p: 1 });
+    expect(sped.largestChange).toBe(0.005);
+    expect(touchClause(speeding, speeding).posterior.twin).toMatchObject({ n: 50, positive: 1275 });
+    expect(touchClause(speeding, speeding).largestChange).toBe(0);
   });
 
   it('fails touches not made as the protocol says, or reaching no receptor, or a broken trial', () => {

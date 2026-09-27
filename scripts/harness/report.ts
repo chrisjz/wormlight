@@ -93,6 +93,13 @@ const pValue = (p: number): string => (p >= 0.001 ? `p = ${p.toPrecision(2)}` : 
 // "seed 1", "seeds 1 to 20".
 const seeds = (n: number): string => (n === 1 ? 'seed 1' : `seeds 1 to ${n}`);
 const mm = (metres: number, digits = 2): string => (1000 * metres).toFixed(digits);
+// A small number as "2.7 × 10⁻⁷", or 0.
+export function scientific(x: number): string {
+  if (x === 0) return '0';
+  const [mantissa, exponent] = x.toExponential(1).split('e');
+  const superscript = exponent.replace(/^\+/, '').replace(/[-0-9]/g, (c) => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'['-0123456789'.indexOf(c)]);
+  return `${mantissa.replace('-', '−')} × 10${superscript}`;
+}
 // Backward activity, reported and not graded: reversals of 1 s or more, and how often.
 function backward(trials: readonly TrialSummary[]): string {
   const reversals = trials.reduce((n, t) => n + t.reversals, 0);
@@ -173,7 +180,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
     trialTable(crawling.trials),
     '#### Touch',
-    `The same trials ran again, each touched ${count(touch.trials.length > 0 ? touch.touches.length / touch.trials.length : 0, 'time').replace(/^1 time$/, 'once')}, ${CHECKPOINT_0_TOUCH.every} s apart from t = ${CHECKPOINT_0_TOUCH.first} s, alternating front (F, s = ${front}) and back (B, s = ${back}), odd seeds starting at the front: ${anterior.touches} anterior touches and ${posterior.touches} posterior. Each front touch reached ${reach('anterior')}; each back touch ${reach('posterior')}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${posterior.pairs} posterior touches whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
+    `The same trials ran again, each touched ${count(touch.trials.length > 0 ? touch.touches.length / touch.trials.length : 0, 'time').replace(/^1 time$/, 'once')}, ${CHECKPOINT_0_TOUCH.every} s apart from t = ${CHECKPOINT_0_TOUCH.first} s, alternating front (F, s = ${front}) and back (B, s = ${back}), odd seeds starting at the front: ${anterior.touches} anterior touches and ${posterior.touches} posterior. Each front touch reached ${reach('anterior')}; each back touch ${reach('posterior')}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${posterior.pairs} posterior touches whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Reported, not graded: over the same windows in the untouched trials, the same test gives a rank sum of ${posterior.twin.positive}, ${pValue(posterior.twin.p)}, and no velocity sample of a touched trial differs from its twin's by more than ${scientific(touch.largestChange)} body lengths per second. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
     table(
       [
         'Seed',

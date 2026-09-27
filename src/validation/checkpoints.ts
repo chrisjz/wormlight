@@ -2,7 +2,7 @@
 // clauses for it; §7.4's checkpoint 1), from the trials' and the assay runs' records.
 
 import { PARAMS } from '../science/params.ts';
-import { fisherGreater, signedRankGreater } from '../sim/stats.ts';
+import { fisherGreater, signedRankGreater, type SignedRank } from '../sim/stats.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
 import type { ChemotaxisRecord } from './chemotaxis.ts';
 import {
@@ -215,7 +215,8 @@ export function meanVelocity(velocity: ArrayLike<number>, from: number, to: numb
 }
 
 // One touch as graded: whether a reversal followed it, and one started in its matched window, and the mean
-// forward velocity (body lengths per second) over the 2 s before and after it.
+// forward velocity (body lengths per second) over the 2 s before and after it, in the touched trial and, for
+// context, in its untouched twin.
 export interface TouchOutcome {
   seed: number;
   time: number;
@@ -225,6 +226,8 @@ export interface TouchOutcome {
   matched: boolean;
   before: number;
   after: number;
+  twinBefore: number;
+  twinAfter: number;
 }
 
 // Each reflex's grade is a pass if it wasn't found; the clause passes if neither was.
@@ -248,7 +251,11 @@ export interface TouchClause {
     positive: number;
     p: number;
     reflex: boolean;
+    // Reported, not graded: the same test over the same windows in the untouched twins.
+    twin: SignedRank;
   };
+  // Reported, not graded: the largest difference between any velocity sample of a touched trial and its twin's.
+  largestChange: number;
   touches: TouchOutcome[];
   trials: TrialSummary[];
 }
@@ -257,6 +264,7 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
   const { window } = CHECKPOINT_0_TOUCH;
   const matching = new Map(untouched.map((r) => [r.seed, r]));
   const touches: TouchOutcome[] = [];
+  let largestChange = 0;
   for (const r of touched) {
     const twin = matching.get(r.seed);
     if (!twin) throw new Error(`no untouched trial for seed ${r.seed}`);
@@ -278,8 +286,13 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
         matched: reversalFrom(twin.velocity, t.time),
         before: meanVelocity(r.velocity, t.time - window, t.time),
         after: meanVelocity(r.velocity, t.time, t.time + window),
+        twinBefore: meanVelocity(twin.velocity, t.time - window, t.time),
+        twinAfter: meanVelocity(twin.velocity, t.time, t.time + window),
       });
     });
+    for (let k = 0; k < Math.min(r.velocity.length, twin.velocity.length); k++) {
+      largestChange = Math.max(largestChange, Math.abs(r.velocity[k] - twin.velocity[k]));
+    }
   }
   const front = touches.filter((t) => t.place === 'anterior');
   const back = touches.filter((t) => t.place === 'posterior');
@@ -316,11 +329,13 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
     positive: rise.positive,
     p: rise.p,
     reflex: rise.p < ALPHA,
+    twin: signedRankGreater(back.map((t) => t.twinAfter - t.twinBefore)),
   };
   return {
     grade: overall([anterior.grade, posterior.grade]),
     anterior,
     posterior,
+    largestChange,
     touches,
     trials: touched.map(summariseTrial),
   };
