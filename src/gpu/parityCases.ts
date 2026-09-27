@@ -8,9 +8,9 @@ import type { WormlightData } from '../data/schema.ts';
 import { Brain, type BrainState, type Oscillators } from '../sim/brain/brain.ts';
 import { lesion, type Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
-import { steadyField } from '../sim/env/dish.ts';
+import { FIRST_LAWN, lawnField, steadyField, type Lawn } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
-import { NEURAL_STEP } from '../sim/numerics.ts';
+import { NEURAL_STEP, ODOUR_SUBSTEP } from '../sim/numerics.ts';
 import { BACK, FRONT, tap, TOUCH_STEPS, type Touch, type TouchReceptor } from '../sim/touch.ts';
 import { World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
 
@@ -395,4 +395,17 @@ export function endVelocities(world: World, theta: ArrayLike<number>, v: ArrayLi
     }
   }
   return out;
+}
+
+// The odour field's parity (PLAN §7.2, set 2026-09-27 before any food was built): the GPU's stepped field
+// against OdourField.step, every cell within these shares of the field's largest concentration, after one
+// 4 ms sub-step and after one simulated second; and over the second, the change in the total odour within
+// FIELD_SECOND of the CPU's.
+export const FIELD_STEP = 1e-5;
+export const FIELD_SECOND = 1e-4;
+export const FIELD_TIMES = { step: ODOUR_SUBSTEP, second: 1 } as const;
+
+// Where it starts: the app's steady lawn field, with a second lawn just dropped at the dish's centre.
+export function fieldCase(): { start: OdourField; lawns: Lawn[] } {
+  return { start: lawnField([FIRST_LAWN]), lawns: [FIRST_LAWN, [0, 0]] };
 }

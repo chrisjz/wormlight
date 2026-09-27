@@ -32,12 +32,14 @@ describe("the kernel's layout", () => {
     expect(fields('NeuronConstants')[7]).toBe('touch_current');
     expect(fields('Status')).toHaveLength(STATUS_WORDS);
     // GpuBrain writes the head switch and AWC-ON's threshold from word 8, and reads them back there.
-    expect(fields('Status').slice(8, 13)).toEqual([
+    expect(fields('Status').slice(8, 15)).toEqual([
       'h',
       'previous_k',
       'has_previous',
       'switch_current',
       'awc_threshold',
+      'smell',
+      'awc_last',
     ]);
   });
 

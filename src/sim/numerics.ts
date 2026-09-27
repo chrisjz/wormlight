@@ -24,6 +24,11 @@ export const ODOUR_CELL = 4e-4; // m
 export const ODOUR_SUBSTEP = 0.004; // s
 export const ODOUR_TOLERANCE = 1e-10;
 
+// The brain's integrator restarts when AWC-ON's current changes by more than this share of g_AWC in one step,
+// as at the head switch's and touch's jumps: BDF2 across a jump is first order. On a fixed field the current
+// never changes that fast; in the app it does when the stepped field changes fast at the nose (PLAN §4.1).
+export const AWC_JUMP = 0.01;
+
 // The dish wall's spring and damper ease in together over this much penetration, so the contact grows smoothly
 // from zero: the explicit step can't overshoot a rod that only grazes the wall, and the CPU and the GPU can't
 // disagree much about one. It shapes contact only within its first 0.1 µm.

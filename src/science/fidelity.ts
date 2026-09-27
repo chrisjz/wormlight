@@ -615,11 +615,17 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'environment',
     levels: [0],
     basis:
-      "A 1 cm disc that releases butanone at the spot's total rate, spread evenly; the app puts it where checkpoint 4's spot sits",
+      "A 1 cm disc that releases butanone at the spot's total rate, spread evenly; the app puts one where checkpoint 4's spot sits, and the user can drop up to eight, move them and remove them, what one released staying to diffuse and decay",
     caveats: 'Real lawns release many odours; no mechanosensation, feeding or slowing',
     upgrade: '',
     sources: [],
-    testedBy: [],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          "lawns release at the spot's rate inside the dish, at most eight; changing them keeps the odour released, which then decays at the loss rate",
+      },
+    ],
   },
   {
     name: 'Dish wall',

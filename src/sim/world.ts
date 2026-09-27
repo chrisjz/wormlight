@@ -17,7 +17,7 @@ import {
 import { cookNetwork, lesion, type Network } from './brain/network.ts';
 import { hash } from './brain/rng.ts';
 import { Muscles } from './muscles.ts';
-import { NEURAL_STEP } from './numerics.ts';
+import { AWC_JUMP, NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
 import { AWC_GAIN, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
@@ -125,8 +125,9 @@ export interface WorldState {
   h: number;
   previousCurvature: number | null;
   switchCurrent: number;
-  // AWC-ON's adaptive threshold T (µM).
+  // AWC-ON's adaptive threshold T (µM), and the current it took on the last step (pA).
   awcThreshold: number;
+  awcCurrent: number;
   // Per touch receptor, the steps left in its pulse, the current its last tap gave it (pA), and the current it
   // took on the last step.
   touchLeft: Int32Array;
@@ -272,7 +273,10 @@ export class World {
   // Adapt AWC-ON's threshold to the concentration where it is now, as in a worm that has sat there a while.
   // The world adapts when it is made; whoever moves the body afterwards adapts it again.
   adapt(): void {
-    this.awc.adapt(this.smell());
+    const c = this.smell();
+    this.awc.adapt(c);
+    // And the current it would have been taking there, so the next step sees no jump.
+    this.awcCurrent = this.awc.current(Math.max(c, 0));
   }
 
   snapshot(): WorldState {
@@ -287,6 +291,7 @@ export class World {
       previousCurvature: this.headSwitch.lastCurvature,
       switchCurrent: this.switchCurrent,
       awcThreshold: this.awc.threshold,
+      awcCurrent: this.awcCurrent,
       touchLeft: Int32Array.from(this.touchLeft),
       touchCurrent: Float64Array.from(this.touchCurrent),
       touchApplied: Float64Array.from(this.touchApplied),
@@ -310,6 +315,7 @@ export class World {
     this.headSwitch.restore(state.h, state.previousCurvature);
     this.switchCurrent = state.switchCurrent;
     this.awc.threshold = state.awcThreshold;
+    this.awcCurrent = state.awcCurrent;
     this.touchLeft.set(state.touchLeft);
     this.touchCurrent.set(state.touchCurrent);
     this.touchApplied.set(state.touchApplied);
@@ -357,8 +363,10 @@ export class World {
         params.proprioceptiveGain * field.side * regionMean(this.curvature, field.from, field.to);
     }
     // AWC-ON's threshold follows the odour at the nose, and the difference drives it (PLAN §4.1).
-    this.awcCurrent = this.awc.step(this.smell(), dt);
-    if (this.awcOn >= 0) brain.input[this.awcOn] += this.awcCurrent;
+    const awc = this.awc.step(this.smell(), dt);
+    const awcJumped = this.awcOn >= 0 && Math.abs(awc - this.awcCurrent) > AWC_JUMP * this.awc.gain;
+    this.awcCurrent = awc;
+    if (this.awcOn >= 0) brain.input[this.awcOn] += awc;
     // Each stimulated touch receptor takes its tap's current for its pulse's steps (PLAN §4.2).
     let touchJumped = false;
     this.receptors.forEach((r, k) => {
@@ -371,9 +379,10 @@ export class World {
     const gated = this.headDrive() > params.driveThreshold;
     this.headSwitch.update(regionMean(this.curvature, this.headFrom, this.headTo), dt, gated);
     const current = gated ? params.switchGain * (this.headSwitch.h - 0.5) : 0;
-    // The switch current jumps when it flips or is gated on or off, and a touch current when it switches on or
-    // off or a new tap changes it; BDF2 across a jump is first order.
-    if (current !== this.switchCurrent || touchJumped) brain.restart();
+    // The switch current jumps when it flips or is gated on or off, a touch current when it switches on or off
+    // or a new tap changes it, and AWC-ON's when the odour at the nose changes fast; BDF2 across a jump is first
+    // order.
+    if (current !== this.switchCurrent || touchJumped || awcJumped) brain.restart();
     this.switchCurrent = current;
     for (const i of this.dorsalSwitch) brain.input[i] += current;
     for (const i of this.ventralSwitch) brain.input[i] -= current;

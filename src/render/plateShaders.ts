@@ -2,11 +2,48 @@
 // specks and by the worm's edges, on dark. Positions are in metres from the camera's centre, which the
 // frame holds, so f32 keeps sub-micrometre detail anywhere in the dish.
 
-import { ROD_WORDS } from '../gpu/brainShader.ts';
+import { OUTSIDE, ROD_WORDS } from '../gpu/brainShader.ts';
+import { PARAMS } from '../science/params.ts';
+import { LAWN_RADIUS, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 
 // The frame: the camera's centre, split into a coarse part and a remainder as the body's coordinates are,
-// the half extent shown (m), metres per device pixel, the dish's radius (m), the lawn's centre and radius
-// (m), and the width of the odour field's grid (m).
+// the half extent shown (m), metres per device pixel, the dish's radius (m), K (µM), the width of the odour
+// field's grid (m), how many lawns there are and their radius (m), and the lawns' centres (m).
+export const FRAME_WORDS = 12 + 4 * MAX_LAWNS;
+
+// A frame's words in the order the struct declares them: the centre's coarse part as f32 and its remainder, the
+// half extent, metres per pixel, the dish's radius, K, the field's width `extent`, the lawns' count and radius,
+// then each lawn's centre in a vec4 of its own.
+export function packFrame(
+  frame: {
+    centre: readonly [number, number];
+    half: readonly [number, number];
+    pixel: number;
+    dish: number;
+    lawns: readonly Lawn[];
+  },
+  extent: number,
+  out = new Float32Array(FRAME_WORDS),
+): Float32Array {
+  if (frame.lawns.length > MAX_LAWNS) throw new Error(`the plate draws at most ${MAX_LAWNS} lawns`);
+  const high = frame.centre.map((v) => Math.fround(v));
+  out.fill(0);
+  out.set([
+    high[0],
+    high[1],
+    frame.centre[0] - high[0],
+    frame.centre[1] - high[1],
+    ...frame.half,
+    frame.pixel,
+    frame.dish,
+    PARAMS.awcAdaptationScale.value,
+    extent,
+    frame.lawns.length,
+    LAWN_RADIUS,
+  ]);
+  frame.lawns.forEach(([x, y], k) => out.set([x, y], 12 + 4 * k));
+  return out;
+}
 const FRAME = /* wgsl */ `
 struct Frame {
   centre_high: vec2<f32>,
@@ -14,9 +51,11 @@ struct Frame {
   half: vec2<f32>,
   pixel: f32,
   dish: f32,
-  lawn: vec2<f32>,
-  lawn_radius: f32,
+  k: f32,
   field_extent: f32,
+  lawn_count: f32,
+  lawn_radius: f32,
+  lawns: array<vec4<f32>, ${MAX_LAWNS}>,
 }
 @group(0) @binding(0) var<uniform> frame: Frame;
 `;
@@ -51,9 +90,14 @@ fn noise(p: vec2<f32>) -> f32 {
 export const AGAR_SHADER = /* wgsl */ `
 ${FRAME}
 ${HASH}
-// The odour field as log₂(C/K), on a grid centred on the dish, interpolated here in f32 between its four
-// nearest cells, so it stays smooth, and its isolines narrow, at any zoom.
+// The odour field the simulation steps, the concentration per cell of a grid centred on the dish and OUTSIDE
+// beyond its wall, interpolated here in f32 between its four nearest cells inside the dish, their weights
+// renormalised as the brain's sampling has them, so it stays smooth, its isolines narrow at any zoom, and the
+// field doesn't dip at the wall. Drawn as log₂(C/K); far beyond the wall, where no inside cell is near, it is
+// FAR, below anything drawn.
 @group(0) @binding(1) var odour_map: texture_2d<f32>;
+const OUTSIDE: f32 = ${OUTSIDE.toFixed(1)};
+const FAR: f32 = -30.0;
 
 fn odour_level(q: vec2<f32>) -> f32 {
   let n = f32(textureDimensions(odour_map).x);
@@ -61,11 +105,23 @@ fn odour_level(q: vec2<f32>) -> f32 {
   let c = floor(g);
   let f = g - c;
   let i = vec2<i32>(c);
-  let a = textureLoad(odour_map, i, 0).r;
-  let b = textureLoad(odour_map, i + vec2<i32>(1, 0), 0).r;
-  let d = textureLoad(odour_map, i + vec2<i32>(0, 1), 0).r;
-  let e = textureLoad(odour_map, i + vec2<i32>(1, 1), 0).r;
-  return mix(mix(a, b, f.x), mix(d, e, f.x), f.y);
+  var sum = 0.0;
+  var weight = 0.0;
+  for (var corner = 0; corner < 4; corner++) {
+    let a = corner & 1;
+    let b = corner >> 1u;
+    let value = textureLoad(odour_map, i + vec2<i32>(a, b), 0).r;
+    let w = select(1.0 - f.x, f.x, a == 1) * select(1.0 - f.y, f.y, b == 1);
+    if (value != OUTSIDE) {
+      sum += w * value;
+      weight += w;
+    }
+  }
+  if (weight <= 0.0) {
+    return FAR;
+  }
+  // WGSL leaves log2 of 0 undefined, so an empty cell is floored far below anything drawn.
+  return max(log2(max(sum / weight, 1e-30) / frame.k), FAR);
 }
 
 struct Out {
@@ -120,8 +176,11 @@ fn specks(q: vec2<f32>, size: f32, chance: f32, radius: f32) -> f32 {
   let rim = exp(-abs(r - frame.dish - 4e-4) / max(1.5e-4, 1.5 * px));
   let outside = smoothstep(-px, px, -inside);
   light = mix(light, 0.012 + 0.18 * rim, outside);
-  // The lawn: bacteria scatter light, most at its thicker rim.
-  let from_lawn = length(q - frame.lawn);
+  // The lawns: bacteria scatter light, most at their thicker rims. Only the nearest lawn is drawn at a point.
+  var from_lawn = 1e9;
+  for (var k = 0u; k < u32(frame.lawn_count); k++) {
+    from_lawn = min(from_lawn, length(q - frame.lawns[k].xy));
+  }
   let on_lawn = (1.0 - smoothstep(frame.lawn_radius - px, frame.lawn_radius + px, from_lawn)) * (1.0 - outside);
   let rim_lawn = exp(-max(frame.lawn_radius - from_lawn, 0.0) / max(2.5e-4, 2.0 * px));
   let lawn_light = 0.075 + 0.035 * noise(q / 7e-5) + 0.02 * noise(q / 6e-4) + 0.16 * rim_lawn;

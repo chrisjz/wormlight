@@ -1,8 +1,9 @@
 // The GPU parity page (PLAN §8), served by the dev server only: `npm run dev`, then /parity.html. It runs the
-// parity checks, the brain's and the whole loop's, and the speed benchmark on this browser's GPU and shows the
-// results, which is how the Safari check is made; /parity.html?long adds long-run parity, which takes 11
-// to 18 minutes on an M5 Max. Headless Chrome reads the same results through window.__parity(),
-// window.__bench() and window.__long() (scripts/gpu/parity.ts).
+// parity checks, the brain's, the whole loop's and the odour field's, and the speed benchmark on this browser's
+// GPU and shows the results, which is how the Safari check is made by hand (npm run gpu:parity:safari makes it
+// from a script); /parity.html?long adds long-run parity, which takes 11 to 18 minutes on an M5 Max. Headless
+// Chrome reads the same results through window.__parity(), window.__bench() and window.__long()
+// (scripts/gpu/parity.ts).
 
 import '../style.css';
 import { validateWormlightData, type WormlightData } from '../data/schema.ts';
@@ -14,6 +15,7 @@ import {
   type LoopReport,
   type LoopSpeed,
 } from './loopParity.ts';
+import { runFieldParity, type FieldReport } from './fieldParity.ts';
 import { runBench, runParity, type BenchReport, type ParityReport, type StepResult } from './parity.ts';
 import { describeGpuSupport, probeWebGpu } from './support.ts';
 
@@ -126,8 +128,41 @@ function showParity(report: ParityReport): void {
   );
 }
 
-type FullReport = ParityReport & { loop: LoopReport | { error: string; pass: false }; brainPass: boolean };
+type FullReport = ParityReport & {
+  loop: LoopReport | { error: string; pass: false };
+  field: FieldReport | { error: string; pass: false };
+  brainPass: boolean;
+};
 type FullBench = BenchReport & { loop: LoopSpeed[] };
+
+function showField(report: FieldReport | { error: string }): void {
+  if ('error' in report) {
+    root.append(el('h3', 'The odour field: FAIL'), el('p', `The field's checks stopped: ${report.error}`));
+    return;
+  }
+  root.append(
+    el('h3', `The odour field: ${verdict(report.pass)}`),
+    el(
+      'p',
+      "From the app's steady lawn field with a second lawn just dropped at the dish's centre: every cell within " +
+        "10⁻⁵ of the field's largest concentration after one sub-step and 10⁻⁴ after one second, and the change " +
+        "in the total odour over the second within 10⁻⁴ of the CPU's. Shares of those tolerances.",
+    ),
+    table(
+      ['Check', 'What', ''],
+      report.api.map((r) => [r.name, r.detail, verdict(r.pass)]),
+    ),
+    table(
+      ['After', 'Worst cell', 'Total odour', ''],
+      report.results.map((r) => [
+        r.label,
+        fixed(r.share, 3),
+        r.totalShare === null ? '–' : fixed(r.totalShare, 3),
+        verdict(r.pass),
+      ]),
+    ),
+  );
+}
 
 function showLoop(report: LoopReport | { error: string }): void {
   if ('error' in report) {
@@ -285,18 +320,21 @@ async function start(): Promise<{
   const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
   if (!response.ok) throw new Error(`the connectome could not be loaded: the server answered ${response.status}`);
   const data: WormlightData = validateWormlightData(await response.json());
-  // The loop's checks run after the brain's; if they stop, the brain's results still stand.
+  // The loop's and the field's checks run after the brain's; if they stop, the brain's results still stand.
   const began = performance.now();
   const parity = runParity(device, adapter, data).then(async (brain): Promise<FullReport> => {
-    const loop = await runLoopParity(device, data).catch((e: unknown) => ({
+    const stopped = (e: unknown): { error: string; pass: false } => ({
       error: e instanceof Error ? e.message : String(e),
-      pass: false as const,
-    }));
+      pass: false,
+    });
+    const loop = await runLoopParity(device, data).catch(stopped);
+    const field = await runFieldParity(device).catch(stopped);
     return {
       ...brain,
       loop,
+      field,
       brainPass: brain.pass,
-      pass: brain.pass && loop.pass,
+      pass: brain.pass && loop.pass && field.pass,
       seconds: (performance.now() - began) / 1000,
     };
   });
@@ -309,6 +347,7 @@ async function start(): Promise<{
   parity.then((report) => {
     showParity(report);
     showLoop(report.loop);
+    showField(report.field);
   }, fail);
   bench.then(showBench, fail).finally(() => {
     if (!new URLSearchParams(location.search).has('long')) status.remove();

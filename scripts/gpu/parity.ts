@@ -1,5 +1,6 @@
 // GPU parity in headless Chrome, or in Safari (PLAN §7.2, §8): the dev server serves the parity page, whose
-// checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop.
+// checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop,
+// and the odour field's stepping.
 // This prints the results and the speed benchmark, and with --long the long runs, writes each to the output
 // directory, and fails if any check fails.
 //
@@ -73,6 +74,14 @@ interface Report {
         api: { name: string; detail: string; pass: boolean }[];
         oneStep: LoopStep[];
         oneSecond: LoopSecond[];
+        pass: boolean;
+        seconds: number;
+      }
+    | { error: string; pass: false };
+  field:
+    | {
+        results: { label: string; share: number; totalShare: number | null; pass: boolean }[];
+        api: { name: string; detail: string; pass: boolean }[];
         pass: boolean;
         seconds: number;
       }
@@ -248,7 +257,26 @@ try {
     }
     console.log(`the loop's checks took ${g(loop.seconds, 1)} s`);
   }
-  console.log(`\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}`);
+  const { field } = report;
+  if ('error' in field) {
+    console.log(`\n✗ the odour field's checks stopped: ${field.error}`);
+  } else {
+    console.log(
+      '\nthe odour field: every cell within 10⁻⁵ of the largest concentration after one sub-step and 10⁻⁴ after ' +
+        "one second, and the total odour's change over the second within 10⁻⁴ of the CPU's (shares)",
+    );
+    for (const r of field.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
+    for (const r of field.results) {
+      console.log(
+        `  ${mark(r.pass)} ${r.label.padEnd(14)} worst cell ${g(r.share).padStart(9)}` +
+          (r.totalShare === null ? '' : `   total ${g(r.totalShare).padStart(9)}`),
+      );
+    }
+  }
+  console.log(
+    `\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}, the field ` +
+      `${field.pass ? 'passed' : 'FAILED'}`,
+  );
   console.log(`parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s`);
 
   const bench = await withTimeout(browser.call<Bench>('__bench'), 120000, 'the benchmark');

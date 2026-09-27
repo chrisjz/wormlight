@@ -1,8 +1,9 @@
 // AWC-ON on the real data (PLAN §4.1): its gain by the rule fixed in advance, and the world that feeds it the
 // odour at the nose.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
+import { Brain } from '../src/sim/brain/brain.ts';
 import { hash } from '../src/sim/brain/rng.ts';
 import { SPOT, steadyField } from '../src/sim/env/dish.ts';
 import { AWC_GAIN, AWC_RISE, awcGain, type Odour } from '../src/sim/sensing.ts';
@@ -104,6 +105,26 @@ describe('the world with odour', () => {
     world.step();
     expect(world.awcCurrent).toBe(world.awc.gain);
     expect(world.brain.input[world.awcOn]).toBe(world.awc.gain);
+  });
+
+  it("restarts the integrator when AWC-ON's current jumps, and only then", () => {
+    const odour = new Uniform(2);
+    const world = new World(data, { ...TRIAL, switchGain: 0 }, { odour, seed: 1 });
+    const restartedAt: number[] = [];
+    vi.spyOn(world.brain, 'restart').mockImplementation(() => {
+      restartedAt.push(world.brain.steps);
+      Brain.prototype.restart.call(world.brain);
+    });
+    for (let k = 0; k < 20; k++) world.step();
+    // A small drift in the odour moves the current by far less than 1% of g_AWC a step.
+    odour.level = 2.0001;
+    for (let k = 0; k < 20; k++) world.step();
+    expect(restartedAt).toEqual([]);
+    // Taken away, the current leaps to +g_AWC.
+    odour.level = 0;
+    world.step();
+    expect(restartedAt).toEqual([40]);
+    expect(world.snapshot().awcCurrent).toBe(world.awc.gain);
   });
 
   it('smells nothing without odour, so AWC-ON takes no current', () => {

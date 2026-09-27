@@ -26,4 +26,11 @@ export const VIEWS: readonly { name: string; pane: 'graph' | 'plate'; query: str
   { name: 'dish', pane: 'plate', query: 'view=plate&seed=1&paused=1&span=110', threshold: PLATE },
   // The lawn close up: its rim, the isolines around it, and the wall and meniscus beside it.
   { name: 'lawn', pane: 'plate', query: 'view=plate&seed=1&paused=1&span=14&cx=43&cy=0', threshold: PLATE },
+  // Food the URL places: three lawns and their steady field together, one near the dish's wall.
+  {
+    name: 'food',
+    pane: 'plate',
+    query: 'view=plate&seed=1&paused=1&span=110&food=45,0;-20,-20;-5,40',
+    threshold: PLATE,
+  },
 ];

@@ -744,6 +744,22 @@ button.inspector-row:focus-visible .row-name {
   background: rgb(255 255 255 / 6%);
 }
 
+.plate-controls button:disabled {
+  color: var(--faint);
+  border-color: transparent;
+  cursor: default;
+}
+
+.plate-controls button:disabled:hover {
+  background: none;
+}
+
+/* Add food while it is armed: the next click on the dish drops a lawn. */
+.plate-controls button[aria-pressed='true'] {
+  border-color: var(--fg);
+  background: rgb(255 255 255 / 10%);
+}
+
 .plate-controls button:focus-visible,
 .plate-follow:focus-visible {
   outline: 2px solid var(--muted);
@@ -867,6 +883,13 @@ button.inspector-row:focus-visible .row-name {
   stroke: rgb(242 222 190 / 60%);
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;
+}
+
+/* A lawn picked up, waiting to be put down. */
+.plate-lawn.plate-carried {
+  fill: none;
+  stroke: var(--fg);
+  stroke-dasharray: 2 2;
 }
 
 .plate-trail {

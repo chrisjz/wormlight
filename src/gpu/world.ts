@@ -6,6 +6,7 @@ import type { Odour } from '../sim/sensing.ts';
 import { tap, type TouchReceptor } from '../sim/touch.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
+import type { GpuField } from './field.ts';
 import { awcLayout, packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
 
 // A whole World on the GPU: its brain and its loop, stepped together at the neural step.
@@ -55,6 +56,12 @@ export class GpuWorld {
     this.brain.seed = world.brain.seed;
     this.brain.noise = world.brain.noise;
     this.restore(state);
+  }
+
+  // Sense a stepped field on the GPU from the next step on, as it stands when each dispatch begins; call it again
+  // after the field steps, as it then reads from its other texture.
+  useField(field: GpuField): void {
+    this.brain.useOdour(field.current, field.cell);
   }
 
   // The odour AWC-ON senses from the next step on, an OdourField or none, as a CPU World would sense it.

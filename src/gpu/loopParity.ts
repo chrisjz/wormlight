@@ -48,6 +48,8 @@ import {
   type LoopCase,
   type LoopSetup,
 } from './parityCases.ts';
+import { GpuField } from './field.ts';
+import { packOdour } from './loopLayout.ts';
 import { GpuWorld } from './world.ts';
 
 export interface LoopStepResult extends StepResult {
@@ -278,6 +280,7 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
       c.state.h === back.h &&
       Math.fround(c.state.switchCurrent) === back.switchCurrent &&
       Math.fround(c.state.awcThreshold) === back.awcThreshold &&
+      Math.fround(c.state.awcCurrent) === back.awcCurrent &&
       (c.state.previousCurvature === null
         ? back.previousCurvature === null
         : Math.fround(c.state.previousCurvature) === back.previousCurvature),
@@ -447,13 +450,19 @@ async function checkAwcApi(device: GPUDevice, data: WormlightData, gpu: GpuWorld
     made.push(created);
     return created;
   };
+  let lent: GpuField | null = null;
   try {
     const built = await create(other);
     const fresh = await run(built, state);
     gpu.load(other);
     const loaded = await run(gpu, state);
     gpu.load(home);
+    // A world built without odour: lent the field's texture, as the app feeds it, it must sense the field, so a
+    // lending that changed nothing would fail; then set the field as its own.
     const blank = await create(seededWorld(data, OTHER_SEED, { odour: undefined }));
+    lent = await GpuField.create(device, packOdour(assayField()), new Float32Array(assayField().source.length));
+    blank.useField(lent);
+    const fromLent = await run(blank, state);
     blank.setOdour(assayField());
     const set = await run(blank, state);
     built.setOdour(null);
@@ -470,6 +479,11 @@ async function checkAwcApi(device: GPUDevice, data: WormlightData, gpu: GpuWorld
           `seed ${OTHER_SEED} puts ${other.awcSide} ON where seed ${home.brain.seed} puts ${home.awcSide}; ` +
           `${steps} steps identical, AWC-ON's threshold included`,
         pass: other.awcSide !== home.awcSide && sameWorm(loaded, fresh) && loaded.awcThreshold === fresh.awcThreshold,
+      },
+      {
+        name: "a stepped field's texture, lent to the brain, is sensed as its own copy is",
+        detail: `${steps} steps identical, AWC-ON's threshold included`,
+        pass: sameWorm(fromLent, fresh) && fromLent.awcThreshold === fresh.awcThreshold,
       },
       {
         name: 'an odour set after building runs as one built with it',
@@ -489,6 +503,7 @@ async function checkAwcApi(device: GPUDevice, data: WormlightData, gpu: GpuWorld
     ];
   } finally {
     for (const world of made) world.destroy();
+    lent?.destroy();
   }
 }
 
