@@ -117,7 +117,9 @@ export class GpuBrain {
   private readonly wiring: PackedNetwork;
   private readonly wiringBuffers: GPUBuffer[];
   private bindGroup: GPUBindGroup;
+  // The brain's own odour texture, and the bindings to textures it is lent, such as a stepped field's two.
   private odour: GPUTexture;
+  private readonly lent = new Map<GPUTexture, GPUBindGroup>();
   private readonly pipeline: GPUComputePipeline;
   private readonly params: GPUBuffer;
   private readonly neurons: GPUBuffer;
@@ -393,10 +395,30 @@ export class GpuBrain {
     const texture = this.odourTexture(grid);
     // Work already queued keeps the old texture until it is done.
     this.odour.destroy();
+    this.lent.clear();
     this.odour = texture;
     this.bindGroup = this.bind();
     loop.odour = grid;
     loop.scalars.odour_cell = grid.cell;
+  }
+
+  // Sense odour from a texture the brain doesn't own, as setOdour's would hold it, on cells `cell` metres wide,
+  // from the next step on: a stepped field's, which changes texture as it steps. Its owner keeps it alive
+  // while the brain reads it; setOdour takes the brain back to its own.
+  useOdour(texture: GPUTexture, cell: number): void {
+    this.alive();
+    const loop = this.loop;
+    if (!loop) throw new Error('this GPU brain has no loop');
+    if (texture.format !== 'r32float' || texture.width !== texture.height) {
+      throw new Error('an odour texture is square, of r32float');
+    }
+    let group = this.lent.get(texture);
+    if (!group) {
+      group = this.bind(texture);
+      this.lent.set(texture, group);
+    }
+    this.bindGroup = group;
+    loop.scalars.odour_cell = cell;
   }
 
   // Which AWC is ON from the next step on, with its gain and where it senses, as another seed draws it.
@@ -625,14 +647,14 @@ export class GpuBrain {
     return texture;
   }
 
-  // The kernel's bindings: the buffers in the order it declares them, then the odour.
-  private bind(): GPUBindGroup {
+  // The kernel's bindings: the buffers in the order it declares them, then the odour, its own or one lent.
+  private bind(odour: GPUTexture = this.odour): GPUBindGroup {
     const buffers = [this.params, ...this.wiringBuffers, this.neurons, this.input, this.state, this.status, this.body];
     return this.device.createBindGroup({
       layout: this.pipeline.getBindGroupLayout(0),
       entries: [
         ...buffers.map((b, binding) => ({ binding, resource: { buffer: b } })),
-        { binding: buffers.length, resource: this.odour.createView() },
+        { binding: buffers.length, resource: odour.createView() },
       ],
     });
   }

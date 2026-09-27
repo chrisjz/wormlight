@@ -35,6 +35,14 @@ export const DISH_GEOMETRY: FieldGeometry = {
   dish: PARAMS.dishDiameter.value / 200, // cm → m, radius
 };
 
+// How `seconds` is split into the explicit scheme's sub-steps on cells `cell` metres wide: equal steps of at most
+// ODOUR_SUBSTEP, within the scheme's stability limit, 2h²/(kh² + 8D), with a margin of 5%.
+export function substeps(seconds: number, cell: number): { n: number; dt: number } {
+  const most = Math.min(ODOUR_SUBSTEP, (0.95 * 2 * cell * cell) / (LOSS * cell * cell + 8 * DIFFUSION));
+  const n = Math.max(1, Math.ceil(seconds / most - 1e-9));
+  return { n, dt: seconds / n };
+}
+
 export class OdourField {
   readonly geometry: FieldGeometry;
   // µM per cell, row by row from the grid's lower left, and each cell's source in µM/s.
@@ -70,6 +78,12 @@ export class OdourField {
   centre(i: number, j: number): [number, number] {
     const { cells, cell } = this.geometry;
     return [(i + 0.5 - cells / 2) * cell, (j + 0.5 - cells / 2) * cell];
+  }
+
+  // Replace every source with these, leaving the concentration as it is: what the old ones released stays.
+  setSources(sources: readonly Source[]): void {
+    this.source.fill(0);
+    for (const s of sources) this.addSource(s);
   }
 
   // Add a source: a point spread bilinearly over its four nearest cells, or a disc spread evenly over the
@@ -166,13 +180,9 @@ export class OdourField {
     return { iterations, residual: Math.sqrt(rr / bb) };
   }
 
-  // Advance the field by `seconds`, in explicit sub-steps of at most ODOUR_SUBSTEP, and within the scheme's
-  // stability limit on this grid, 2h²/(kh² + 8D).
+  // Advance the field by `seconds`, in the sub-steps substeps() gives, as the GPU's field does.
   step(seconds: number): void {
-    const h = this.geometry.cell;
-    const most = Math.min(ODOUR_SUBSTEP, (0.95 * 2 * h * h) / (LOSS * h * h + 8 * DIFFUSION));
-    const n = Math.max(1, Math.ceil(seconds / most - 1e-9));
-    const dt = seconds / n;
+    const { n, dt } = substeps(seconds, this.geometry.cell);
     const c = this.concentration;
     const change = this.scratch;
     const list = this.cellsInside;

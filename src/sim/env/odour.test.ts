@@ -3,14 +3,18 @@ import { PARAMS } from '../../science/params.ts';
 import {
   CAPTURE_RADIUS,
   DISH_RADIUS,
+  FIRST_LAWN,
   LAWN_RADIUS,
+  lawnField,
+  lawnSources,
+  MAX_LAWNS,
   RELEASE_RATE,
   SPOT,
   releaseRate,
   sources,
   steadyField,
 } from './dish.ts';
-import { DIFFUSION, LOSS, OdourField } from './odour.ts';
+import { DIFFUSION, LOSS, OdourField, substeps } from './odour.ts';
 
 // Simpson's rule on [a, b].
 function simpson(f: (t: number) => number, a: number, b: number, n = 4000): number {
@@ -126,5 +130,45 @@ describe("the dish's layout", () => {
     let total = 0;
     for (const s of field.source) total += s;
     expect(total * 4e-4 * 4e-4).toBeCloseTo(1, 12);
+  });
+});
+
+describe('food the user places', () => {
+  it("is lawns like the app's first, releasing the spot's total rate each, at most eight, inside the dish", () => {
+    expect(FIRST_LAWN).toEqual(SPOT);
+    expect(lawnSources([FIRST_LAWN, [0, 0]])).toEqual([
+      { x: SPOT[0], y: SPOT[1], rate: RELEASE_RATE, radius: LAWN_RADIUS },
+      { x: 0, y: 0, rate: RELEASE_RATE, radius: LAWN_RADIUS },
+    ]);
+    expect(() => lawnSources([[0.06, 0]])).toThrow(/outside the dish/);
+    expect(() => lawnSources(Array.from({ length: MAX_LAWNS + 1 }, () => [0, 0] as const))).toThrow(/at most/);
+    expect(lawnField([]).total()).toBe(0);
+  });
+
+  it("starts a link steady for its lawns, the same as the app's first lawn alone", { timeout: 30000 }, () => {
+    const one = lawnField([FIRST_LAWN]);
+    const lawn = steadyField('lawn');
+    expect(Array.from(one.concentration)).toEqual(Array.from(lawn.concentration));
+  });
+
+  it('keeps what the old sources released when they change, which then decays', () => {
+    const field = new OdourField();
+    field.setSources(lawnSources([FIRST_LAWN]));
+    field.step(5);
+    const before = field.total();
+    field.setSources([]);
+    expect(field.total()).toBe(before);
+    expect(field.source.every((q) => q === 0)).toBe(true);
+    field.step(1);
+    // Nothing released and nothing lost at the wall: the total falls at the loss rate alone.
+    expect(field.total() / before).toBeCloseTo(Math.exp(-LOSS), 4);
+  });
+
+  it('splits time into equal sub-steps of at most 4 ms, as the GPU does', () => {
+    expect(substeps(1, 4e-4)).toEqual({ n: 250, dt: 0.004 });
+    expect(substeps(0.004, 4e-4)).toEqual({ n: 1, dt: 0.004 });
+    const { n, dt } = substeps(0.0175, 4e-4);
+    expect(n).toBe(5);
+    expect(dt).toBeCloseTo(0.0035, 15);
   });
 });

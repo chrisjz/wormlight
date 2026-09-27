@@ -47,3 +47,27 @@ export function steadyField(layout: Layout, rate = RELEASE_RATE): OdourField {
   field.steady();
   return field;
 }
+
+// Food the user can place in the app (PLAN §5.2, DECISIONS.md 2026-09-27): lawns like the first, up to eight,
+// each releasing at the spot's total rate while it is in place. A lawn's centre must lie inside the dish.
+export const MAX_LAWNS = 8;
+export type Lawn = readonly [number, number];
+export const FIRST_LAWN: Lawn = SPOT;
+
+export const inDish = (x: number, y: number): boolean => Math.hypot(x, y) < DISH_RADIUS;
+
+export function lawnSources(lawns: readonly Lawn[], rate = RELEASE_RATE): Source[] {
+  if (lawns.length > MAX_LAWNS) throw new Error(`a dish holds at most ${MAX_LAWNS} lawns, not ${lawns.length}`);
+  return lawns.map(([x, y]) => {
+    if (!inDish(x, y)) throw new Error(`a lawn at (${x}, ${y}) m lies outside the dish`);
+    return { x, y, rate, radius: LAWN_RADIUS };
+  });
+}
+
+// The field of these lawns at its steady state, as a link to them starts from it.
+export function lawnField(lawns: readonly Lawn[], rate = RELEASE_RATE): OdourField {
+  const field = new OdourField();
+  field.setSources(lawnSources(lawns, rate));
+  field.steady();
+  return field;
+}
