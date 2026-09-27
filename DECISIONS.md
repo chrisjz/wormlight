@@ -1105,3 +1105,77 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 **A known weakness, to settle before any fallback rerun.** Checkpoint 0's chemotaxis band, ±0.1 over 30 worms, isn't a controlled test. A worm that moves but has no bias fails it by chance 15% of the time if a fifth of the worms reach a spot, 37% if half do, and 58% if all do. The silenced worm doesn't move, so the run of 2026-09-27 isn't affected.
 
 **Status.** The rules are revised before any trial they apply to. The report and harness fixes are built, and checkpoint 0, run again at `a633c02`, which has them, gives the same results (VALIDATION.md).
+
+## 2026-09-27 — Track R, round 1: the proposal
+
+**Why now.** Milestone 4 closed with checkpoints 2 to 4 not reached, and milestone 5's checkpoints would be too: everything from checkpoint 1 on needs forward crawling. No held-out checkpoint has run, so R's model changes can't turn a result into a fitted one (PLAN §10). The maintainer chose R over milestone 5, and approved this proposal, which PLAN §9 requires before anything runs. Compute isn't the constraint: at the 1.4 CPU-minutes per worm-hour measured for checkpoint 1's trials (2026-09-26), 2,000 evaluations of 4 trials of 120 s, about 267 worm-hours, take about 6 CPU-hours, under half an hour on 18 cores.
+
+**Decision** (PLAN §6.2, §7.1, §7.2, §7.3, §7.4, §9's "R's first round" and §10). Four questions were put to the maintainer, the recommendation first each time, and all were agreed: the gains' floor, the budget, the spec deviations, and "the rest", which covered everything else below and was offered with the option of adjusting it. The proposal was revised after review the same day (below).
+
+- **Calibrate the planned model first.** §7.3's CMA-ES procedure is built and run on the eight calibrated parameters as they stand. If that reaches checkpoint 1's partial band, R needs no model change; if not, the fit is the baseline.
+- **R's model:**
+  - **Neuromuscular drive relative to each muscle's own range**, as the go/no-go's script scales it.
+  - **Three calibrated parameters.** Each comes from a rung of the ladder (2026-09-26):
+    - a gain on the SMDs' neuromuscular junctions past the first 0.3 body lengths, whose full reach took the B-type chain out of the partial band;
+    - the B-types' own oscillator excitability, the oscillators having done the same;
+    - a gain on the B-types' gap junctions, which halved the chain's speed.
+  - **The spec deviations, signed off:** relative drive gives each muscle its own scale by one shared rule, against spec §1.1's same layer for every muscle. As first approved, an A-type resting offset of 18.5 mV, departing from PLAN §3.3's threshold rule, was signed off too; it was dropped after review (below).
+  - Considered: rectifying the AVA–A-type gap junctions as well (Liu et al. 2017), with the A-type side taken explicitly to keep the solve symmetric; relative drive alone; and neither.
+- **Gains no lower than 0.1.** The fit can weaken the two connection classes tenfold but can't cut them. Fallback 3's cut B-types did cut them, and were the only setting at the go/no-go that reached the partial band without a forced head. A model that crawls by disconnecting the connectome would undercut the project's claim and the wiring test. The oscillator is an intrinsic layer, and may reach 0. Considered: a floor of 0.3, stricter; and 0, which lets the fit cut a class.
+- **2,000 evaluations a fit, not §7.3's 400.** 400 is about 36 CMA-ES generations for eleven parameters, thin for it to converge. It is marked "Changed after results" on checkpoints 1 and 6, since checkpoint 1 has results and R's parameters come from the go/no-go's, and every null gets the same budget. Considered: keeping 400; and 4,000.
+- **The rest, as drafted:**
+  - the fit's trials on seeds 1001 to 1004, so no checkpoint's own trials are fitted;
+  - §7.3's search settings, measures and bounds, as revised below;
+  - one pre-registered fit: if checkpoint 1 stays below partial, R ends, and a further round needs a new proposal;
+  - the free-parameter budget from 14 to 17, the code's constant rising when the parameters land.
+- **Checkpoint 0's chemotaxis clause, for reruns. Changed after results.** ±0.1 over 30 worms isn't a controlled test. A worm that moves but has no bias fails it by chance 15% of the time if each worm has a one-in-five chance of reaching a spot, 37% at one-in-two, and 58% if every worm reaches one. R is a fallback, so checkpoint 0 runs again after it, and from that run the clause is graded by the exact binomial test on arrivals, made two-sided after review. The run of 2026-09-27 stands under the rule it ran under. Considered: keeping ±0.1.
+
+**Left out:** the RMDs in the head switch, which helped a little at the go/no-go (0.041 against 0.027) but which no source puts there, making them an unsourced spec deviation; and rectification, as above.
+
+**Revised after review, the same day.** Three reviews of the branch, of its science, of whether it can be built as written, and of its docs, found the following, and the maintainer agreed four further decisions, the recommendation first each time:
+
+- **The A-type offset is dropped.**
+  - It clashed with the A-types' own oscillator, which reads the same threshold. With the oscillators on, the A-types sat only 5 to 9 mV below threshold, not 18.5.
+  - Keeping the oscillator centred on the old equilibrium restores about 22 mV. But relative drive's baseline, taken at the midpoint, then starts each muscle below its own rest.
+  - In a probe of R's model with the gains at their floors, 96 of the go/no-go's draws of 30 s each with the noise off:
+
+    | Offset                                                | Best speed, head switch free | Best speed, head forced at 0.3 Hz |
+    | ----------------------------------------------------- | ---------------------------- | --------------------------------- |
+    | As drafted                                            | 0.046                        | 0.065                             |
+    | Oscillator centred, baseline at the A-types' own rest | 0.077                        | 0.110                             |
+    | None                                                  | 0.081                        | 0.142                             |
+
+  - Liu, Chen & Wang's −71.7 mV is VA5's down state, from which it alternated with an up state, and the same paper puts VD5 7.4 mV above VB6, while the D-types got no offset.
+  - Considered: keeping it, done right; and keeping it as drafted.
+- **The noise ceiling is 0.169 pA·√s, not 0.089.** At 0.089, set by a lone neuron, the network's median neuron spreads 3.0 mV at rest and AVA 0.9, so noise could hardly reach the reversal target. The new ceiling is where the neuron that spreads most at the intact network's rest, IL2DL, reaches 20 mV, with AVA about 1.6. A σ_n that ends at its ceiling is reported as limited by it. Considered: the median neuron at 16 mV, the sigmoid's working width, about 0.47, at which the least-coupled neurons would spread about 56 mV; and keeping 0.089.
+- **Checkpoint 0's chemotaxis test is two-sided,** since odour-driven avoidance in a silenced worm would be the glue's behaviour too. The report gives the number of arrivals; with 5 or fewer the test can't fail. Considered: one-sided, as drafted.
+- **Everything else, as recommended:**
+  - **The objective.**
+    - Each target's relative error is capped at 2, and an unmeasured one takes the cap. Before, a wavelength of 4 body lengths from a near-standing wave scored worse than having no bout at all.
+    - The frequency takes the cap when there is no bout. At the go/no-go, 6 to 12 of 95 still draws in each variant of the planned model had crossing frequencies in the pass band, from bends as small as κL 5 × 10⁻⁴, and silenced ones from rounding alone.
+    - A candidate with a trial that leaves the finite numbers ranks last.
+    - The gap between the objective and checkpoint 1's bout clause is acknowledged.
+  - **The final parameters.** The ten best evaluated candidates and the final mean are run again on 16 fresh seeds, 1005 to 1020, and the best there is final, for every null too. Otherwise a candidate could be chosen for its luck on four seeds.
+  - **The search.** Each parameter's mapping is named, the seed is 1, a candidate outside the bounds pays the squared distance it lay outside, and CMA-ES updates from the candidate as sampled.
+  - **Relative drive's baseline** is the midpoint, the model's own rest without the offset. It is computed once, from the intact map with κ_SMD applied, the same for every brain and lesion, so that a lesion's lost drive shows.
+  - **Thresholds.** Each κ_gap,B candidate is a rewired brain with its own thresholds, as at the go/no-go. The AWC gains and touch currents stay as built on the intact wiring.
+  - **θ_osc from −28 mV.** The silenced head's drive is −28.47 mV. At the go/no-go's −30 the silenced head gate could open, held shut in a review's probe only because the SMDs alone can't bend the head to P_th.
+  - **The markers** are "Changed after results" throughout, as the sham twins' entry above has them, and checkpoint 0's §7.2 row carries one.
+  - **The text** now covers:
+    - κ_SMD's exact muscles, each quadrant's from the ninth on;
+    - κ_gap,B's scope, 92 pairs, 7 of them with A-types, and SMDVL's with VB1;
+    - the kernel work the oscillator split and relative drive need;
+    - the planned model kept as a switch, and R's provisional values;
+    - the risk that R won't reach partial, and the fairness notes;
+    - §7.5's tuning cost.
+  - Considered and not adopted: restarts with a growing population (IPOP), and whole-window speed in the objective.
+- **Corrections to the first draft.**
+  - The budget was first 10, raised to 14 (PLAN §0).
+  - The 63× real time had no record, and gives way to the measured 1.4 CPU-minutes per worm-hour.
+  - Only two of the three parameters came from rungs that took the chain out of the band.
+  - The A-types' junctions drive the muscles about as much as the B-types' ventrally (318 against 338 EM sections) and twice as much dorsally (346 against 170), not "at least as much" everywhere.
+  - The ±0.1 rates hold when each worm reaches a spot with that probability, not for exactly that many arrivals.
+
+**What R's fit won't show.** R's parameterisation comes from experiments on the real wiring, the ladder, a design step the nulls don't get, and checkpoint 6's report will say so. PLAN §9 lists the rest.
+
+**Status.** Approved, and revised after review; nothing in it has run. The order is: the calibration procedure, and the planned model's fit; then R's model, on the CPU and the GPU with parity; then R's fit, checkpoint 1, and checkpoint 0's rerun, with its sham twins built first.
