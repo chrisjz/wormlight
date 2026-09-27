@@ -1,10 +1,26 @@
-// Checkpoints 0 and 1 graded as PLAN fixes them (§7.2's checkpoint 0 row, crawling clause; §7.4's
-// checkpoint 1), from the trials' records.
+// Checkpoints 0 and 1 graded as PLAN fixes them (§7.2's checkpoint 0 row, with §7.4's touch and chemotaxis
+// clauses for it; §7.4's checkpoint 1), from the trials' and the assay runs' records.
 
 import { PARAMS } from '../science/params.ts';
-import { FRONT_ROD, REAR_ROD, bouts, kinematics, reversals, runs, seconds, type Kinematics } from './motion.ts';
+import { fisherGreater, signedRankGreater } from '../sim/stats.ts';
+import { BACK, FRONT } from '../sim/touch.ts';
+import type { ChemotaxisRecord } from './chemotaxis.ts';
+import {
+  FRONT_ROD,
+  MEASURE_FROM,
+  MOTION_SAMPLE,
+  REAR_ROD,
+  REVERSAL_MIN,
+  VELOCITY_WINDOW,
+  bouts,
+  kinematics,
+  reversals,
+  runs,
+  seconds,
+  type Kinematics,
+} from './motion.ts';
 import { covariance, poolSums, varianceCaptured } from './posture.ts';
-import type { TrialRecord } from './trial.ts';
+import type { TrialRecord, TrialTouch } from './trial.ts';
 
 export type Grade = 'pass' | 'partial' | 'fail';
 
@@ -131,7 +147,10 @@ export function checkpoint1(records: readonly TrialRecord[], basis: readonly (re
   return { grade: overall(clauses.map((c) => c.grade)), clauses, kinematics: k, postures: pooled.count, trials };
 }
 
-export interface Checkpoint0 {
+// Every test at α = 0.05 (PLAN §7.1).
+export const ALPHA = 0.05;
+
+export interface Crawling {
   grade: Grade;
   // Forward bouts of 10 s or more, over all trials; the clause passes with none.
   bouts: number;
@@ -140,10 +159,222 @@ export interface Checkpoint0 {
 
 // Checkpoint 0's crawling clause: no forward bout of 10 s or more in any trial. Backward activity is
 // reported, not graded.
-export function checkpoint0(records: readonly TrialRecord[]): Checkpoint0 {
+export function crawlingClause(records: readonly TrialRecord[]): Crawling {
   const trials = records.map(summariseTrial);
   const count = records.reduce((n, r) => n + bouts(r.velocity).length, 0);
   // With no trials, or any that left the finite numbers, the clause fails.
   const sound = records.length > 0 && records.every((r) => r.finite);
   return { grade: count === 0 && sound ? 'pass' : 'fail', bouts: count, trials };
+}
+
+// Checkpoint 0's touch clause (PLAN §7.4, set 2026-09-27): the trials run again with 5 touches each, 20 s apart
+// from t = 20 s, alternating front and back, odd seeds starting at the front. A reflex counts as found if it
+// reaches its checkpoint's partial level: for anterior touches, a reversal starting within 2 s after 40% or
+// more of them and more often than in the untouched trials' matched windows (checkpoint 2); for posterior
+// ones, a significant rise in forward speed from the 2 s before to the 2 s after (checkpoint 3).
+export const CHECKPOINT_0_TOUCH = {
+  touches: 5,
+  first: 20, // s
+  every: 20, // s
+  front: FRONT,
+  back: BACK,
+  window: 2, // s
+  anteriorPartial: 0.4, // share of anterior touches followed by a reversal
+} as const;
+
+export type Place = 'anterior' | 'posterior';
+
+// A trial's touches, with the place each is aimed at: those whose windows fit in a trial of this length, so a
+// shortened run touches fewer times. Each needs 2 s after it for a reversal to start and 1 s more for it to
+// count, within the velocity samples, which end half a window before the trial does.
+export function touchSchedule(seed: number, trialSeconds = TRIAL_SECONDS): (TrialTouch & { place: Place })[] {
+  const { touches, first, every, front, back, window } = CHECKPOINT_0_TOUCH;
+  const frontFirst = seed % 2 === 1;
+  return Array.from({ length: touches }, (_, k) => {
+    const place: Place = (k % 2 === 0) === frontFirst ? 'anterior' : 'posterior';
+    return { time: first + k * every, s: place === 'anterior' ? front : back, place };
+  }).filter((t) => t.time + window + REVERSAL_MIN + VELOCITY_WINDOW / 2 <= trialSeconds + 1e-9);
+}
+
+// The velocity sample at time t: samples start at the first measured second, 0.1 s apart.
+const sampleAt = (t: number): number => Math.round((t - MEASURE_FROM) / MOTION_SAMPLE);
+
+// Whether a reversal's first backward sample lies from t to t + 2 s.
+export function reversalFrom(velocity: ArrayLike<number>, t: number): boolean {
+  const [a, b] = [sampleAt(t), sampleAt(t + CHECKPOINT_0_TOUCH.window)];
+  return reversals(velocity).some((r) => r.start >= a && r.start <= b);
+}
+
+// The mean of the velocity samples whose centred windows lie within [from, to] (s).
+export function meanVelocity(velocity: ArrayLike<number>, from: number, to: number): number {
+  const [a, b] = [sampleAt(from + VELOCITY_WINDOW / 2), sampleAt(to - VELOCITY_WINDOW / 2)];
+  if (a < 0 || b >= velocity.length || b < a) throw new Error(`no velocity samples span ${from}–${to} s`);
+  let sum = 0;
+  for (let k = a; k <= b; k++) sum += velocity[k];
+  return sum / (b - a + 1);
+}
+
+// One touch as graded: whether a reversal followed it, and one started in its matched window, and the mean
+// forward velocity (body lengths per second) over the 2 s before and after it.
+export interface TouchOutcome {
+  seed: number;
+  time: number;
+  place: Place;
+  reached: string[];
+  reversal: boolean;
+  matched: boolean;
+  before: number;
+  after: number;
+}
+
+// Each reflex's grade is a pass if it wasn't found; the clause passes if neither was.
+export interface TouchClause {
+  grade: Grade;
+  anterior: {
+    grade: Grade;
+    touches: number;
+    followed: number;
+    matched: number;
+    share: number;
+    p: number;
+    reflex: boolean;
+  };
+  posterior: {
+    grade: Grade;
+    touches: number;
+    before: number;
+    after: number;
+    pairs: number;
+    positive: number;
+    p: number;
+    reflex: boolean;
+  };
+  touches: TouchOutcome[];
+  trials: TrialSummary[];
+}
+
+export function touchClause(touched: readonly TrialRecord[], untouched: readonly TrialRecord[]): TouchClause {
+  const { window } = CHECKPOINT_0_TOUCH;
+  const matching = new Map(untouched.map((r) => [r.seed, r]));
+  const touches: TouchOutcome[] = [];
+  for (const r of touched) {
+    const twin = matching.get(r.seed);
+    if (!twin) throw new Error(`no untouched trial for seed ${r.seed}`);
+    if (!r.finite || !twin.finite) continue;
+    const schedule = touchSchedule(r.seed, r.seconds);
+    if (
+      JSON.stringify(schedule.map(({ time, s }) => [time, s])) !==
+      JSON.stringify(r.touches.map(({ time, s }) => [time, s]))
+    ) {
+      throw new Error(`seed ${r.seed} wasn't touched as the protocol says`);
+    }
+    schedule.forEach((t, k) => {
+      touches.push({
+        seed: r.seed,
+        time: t.time,
+        place: t.place,
+        reached: r.touches[k].reached,
+        reversal: reversalFrom(r.velocity, t.time),
+        matched: reversalFrom(twin.velocity, t.time),
+        before: meanVelocity(r.velocity, t.time - window, t.time),
+        after: meanVelocity(r.velocity, t.time, t.time + window),
+      });
+    });
+  }
+  const front = touches.filter((t) => t.place === 'anterior');
+  const back = touches.filter((t) => t.place === 'posterior');
+  const followed = front.filter((t) => t.reversal).length;
+  const matched = front.filter((t) => t.matched).length;
+  const share = front.length > 0 ? followed / front.length : 0;
+  const pFront = front.length > 0 ? fisherGreater(followed, front.length, matched, front.length) : 1;
+  const rise = signedRankGreater(back.map((t) => t.after - t.before));
+  const mean = (x: number[]): number => (x.length > 0 ? x.reduce((a, b) => a + b, 0) / x.length : 0);
+  // With no touches of either kind, a touch that reached no receptor, or any trial that left the finite numbers,
+  // the clause fails.
+  const sound =
+    touched.length > 0 &&
+    [...touched, ...untouched].every((r) => r.finite) &&
+    front.length > 0 &&
+    back.length > 0 &&
+    touches.every((t) => t.reached.length > 0);
+  const found = share >= CHECKPOINT_0_TOUCH.anteriorPartial && pFront < ALPHA;
+  const anterior = {
+    grade: sound && !found ? ('pass' as const) : ('fail' as const),
+    touches: front.length,
+    followed,
+    matched,
+    share,
+    p: pFront,
+    reflex: found,
+  };
+  const posterior = {
+    grade: sound && rise.p >= ALPHA ? ('pass' as const) : ('fail' as const),
+    touches: back.length,
+    before: mean(back.map((t) => t.before)),
+    after: mean(back.map((t) => t.after)),
+    pairs: rise.n,
+    positive: rise.positive,
+    p: rise.p,
+    reflex: rise.p < ALPHA,
+  };
+  return {
+    grade: overall([anterior.grade, posterior.grade]),
+    anterior,
+    posterior,
+    touches,
+    trials: touched.map(summariseTrial),
+  };
+}
+
+// Checkpoint 0's chemotaxis clause (PLAN §7.4, set 2026-09-27): 30 worms of 60 min in checkpoint 4's assay,
+// every worm counted, so no arrivals give 0; it passes with the index within ±0.1 of zero.
+export const CHECKPOINT_0_CHEMOTAXIS = { worms: 30, seconds: 3600, within: 0.1 } as const;
+
+export interface ChemotaxisClause {
+  grade: Grade;
+  worms: number;
+  odour: number;
+  control: number;
+  index: number;
+  runs: ChemotaxisRecord[];
+}
+
+// CI = (at odour − at control) / total, the total every worm run (PLAN §7.4).
+export function chemotaxisIndex(runs: readonly ChemotaxisRecord[]): { odour: number; control: number; index: number } {
+  const odour = runs.filter((r) => r.reached === 'odour').length;
+  const control = runs.filter((r) => r.reached === 'control').length;
+  return { odour, control, index: runs.length > 0 ? (odour - control) / runs.length : 0 };
+}
+
+export function chemotaxisClause(runs: readonly ChemotaxisRecord[]): ChemotaxisClause {
+  const { odour, control, index } = chemotaxisIndex(runs);
+  // With no worms, or any that left the finite numbers, the clause fails.
+  const sound = runs.length > 0 && runs.every((r) => r.finite);
+  return {
+    grade: sound && Math.abs(index) <= CHECKPOINT_0_CHEMOTAXIS.within ? 'pass' : 'fail',
+    worms: runs.length,
+    odour,
+    control,
+    index,
+    runs: [...runs],
+  };
+}
+
+export interface Checkpoint0 {
+  // Pass if every clause passes; the clauses have no partial.
+  grade: Grade;
+  crawling: Crawling;
+  touch: TouchClause;
+  chemotaxis: ChemotaxisClause;
+}
+
+export function checkpoint0(
+  trials: readonly TrialRecord[],
+  touched: readonly TrialRecord[],
+  worms: readonly ChemotaxisRecord[],
+): Checkpoint0 {
+  const crawling = crawlingClause(trials);
+  const touch = touchClause(touched, trials);
+  const chemotaxis = chemotaxisClause(worms);
+  return { grade: overall([crawling.grade, touch.grade, chemotaxis.grade]), crawling, touch, chemotaxis };
 }

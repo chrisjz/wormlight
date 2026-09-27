@@ -3,8 +3,11 @@
 
 import { grouped } from '../../src/science/facts.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
+import { CAPTURE_RADIUS, SPOT } from '../../src/sim/env/dish.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import {
+  CHECKPOINT_0_CHEMOTAXIS,
+  CHECKPOINT_0_TOUCH,
   CHECKPOINT_1,
   type Checkpoint0,
   type Checkpoint1,
@@ -18,6 +21,9 @@ export interface RunInfo {
   commit: string;
   trials: number;
   seconds: number;
+  // Checkpoint 0's assay runs: how many worms, each for up to how long (s).
+  worms?: number;
+  wormSeconds?: number;
 }
 
 export function parameterText(): string {
@@ -82,15 +88,125 @@ function runLine(info: RunInfo, trials: readonly TrialSummary[]): string {
 
 const GRADE = { pass: '**Pass**', partial: '**Partial**', fail: '**Fail**' } as const;
 
+// A p-value to two significant figures, or a bound below 0.001.
+const pValue = (p: number): string => (p >= 0.001 ? `p = ${p.toPrecision(2)}` : 'p < 0.001');
+// "seed 1", "seeds 1 to 20".
+const seeds = (n: number): string => (n === 1 ? 'seed 1' : `seeds 1 to ${n}`);
+const mm = (metres: number, digits = 2): string => (1000 * metres).toFixed(digits);
+// Backward activity, reported and not graded: reversals of 1 s or more, and how often.
+function backward(trials: readonly TrialSummary[]): string {
+  const reversals = trials.reduce((n, t) => n + t.reversals, 0);
+  const minutes = trials.reduce((n, t) => n + t.measured, 0) / 60;
+  return `${count(reversals, 'reversal')} of 1 s or more${minutes > 0 ? `, ${(reversals / minutes).toFixed(2)} a minute` : ''}`;
+}
+
 export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
-  const reversals = result.trials.reduce((n, t) => n + t.reversals, 0);
-  const minutes = result.trials.reduce((n, t) => n + t.measured, 0) / 60;
-  const longest = Math.max(0, ...result.trials.map((t) => t.longestBout));
+  const { crawling, touch, chemotaxis } = result;
+  const { anterior, posterior } = touch;
+  const worms = chemotaxis.runs;
+  const trials = [...crawling.trials, ...touch.trials];
+  const unconverged = trials.reduce((n, t) => n + t.unconverged, 0) + worms.reduce((n, w) => n + w.unconverged, 0);
+  const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length;
+  const wormSeconds = info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds;
+  const run = [
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${wormSeconds / 60} min, ${seeds(worms.length)}, on ${parameterText()}.`,
+    `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${count(infinite, 'trial or worm')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
+  ].join(' ');
+  const { front, back, window, anteriorPartial } = CHECKPOINT_0_TOUCH;
+  const clauses = table(
+    ['Clause', 'Measured', 'Passes if', 'Grade'],
+    [
+      [
+        'Crawling',
+        `${count(crawling.bouts, 'forward bout')} of 10 s or more`,
+        'None in any trial',
+        GRADE[crawling.grade],
+      ],
+      [
+        'Anterior touch',
+        `A reversal within ${window} s after ${anterior.followed} of ${anterior.touches} touches (${percent(anterior.share)}), and in ${anterior.matched} of the matched windows; ${pValue(anterior.p)}`,
+        `Under ${percent(anteriorPartial)}, or not more often than in the matched windows (Fisher's exact test, one-sided)`,
+        GRADE[anterior.grade],
+      ],
+      [
+        'Posterior touch',
+        `Forward velocity ${fixed(posterior.before, 4)} before, ${fixed(posterior.after, 4)} after (body lengths/s); ${pValue(posterior.p)}`,
+        "No significant rise (Wilcoxon's signed-rank test, one-sided)",
+        GRADE[posterior.grade],
+      ],
+      [
+        'Chemotaxis',
+        `CI ${fixed(chemotaxis.index, 2)}: ${chemotaxis.odour} of ${chemotaxis.worms} at the odour, ${chemotaxis.control} at the control`,
+        `Within ±${CHECKPOINT_0_CHEMOTAXIS.within} of zero`,
+        GRADE[chemotaxis.grade],
+      ],
+    ],
+  );
+  const longest = Math.max(0, ...crawling.trials.map((t) => t.longestBout));
+  const reach = (place: 'anterior' | 'posterior'): string => {
+    const sets = [...new Set(touch.touches.filter((t) => t.place === place).map((t) => t.reached.join(', ')))];
+    return sets.length === 1 ? sets[0] : sets.map((s) => `(${s})`).join(' or ');
+  };
+  const bySeed = touch.trials.map((t) => {
+    const mine = touch.touches.filter((o) => o.seed === t.seed);
+    const front = mine.filter((o) => o.place === 'anterior');
+    const back = mine.filter((o) => o.place === 'posterior');
+    const mean = (x: number[]): number => x.reduce((a, b) => a + b, 0) / Math.max(1, x.length);
+    return [
+      String(t.seed),
+      mine.map((o) => (o.place === 'anterior' ? 'F' : 'B')).join(' '),
+      `${front.filter((o) => o.reversal).length} of ${front.length}`,
+      `${front.filter((o) => o.matched).length} of ${front.length}`,
+      `${fixed(mean(back.map((o) => o.before)), 4)} → ${fixed(mean(back.map((o) => o.after)), 4)}`,
+      String(t.reversals),
+    ];
+  });
+  const nearest = (spot: 'odour' | 'control'): number => Math.min(...worms.map((w) => w.closest[spot]));
+  const farthest = Math.max(0, ...worms.map((w) => w.farthest));
+  const neither = worms.filter((w) => w.reached === null).length;
   return [
-    `### Checkpoint 0: the silenced network, crawling clause — ${GRADE[result.grade]}`,
-    runLine(info, result.trials),
-    `No forward bout of 10 s or more in any trial is the pass; the clause is predicted, since nothing is calibrated to it. There ${result.bouts === 1 ? 'was 1' : `were ${result.bouts}`}; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${count(reversals, 'reversal')} of 1 s or more${minutes > 0 ? `, ${(reversals / minutes).toFixed(2)} a minute` : ''}.`,
-    trialTable(result.trials),
+    `### Checkpoint 0: the silenced network — ${GRADE[result.grade]}`,
+    run,
+    clauses,
+    'Every clause is predicted, since nothing is calibrated to it: each passes if a behaviour that should need the connectome is absent without it.',
+    '#### Crawling',
+    `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
+    trialTable(crawling.trials),
+    '#### Touch',
+    `The same trials ran again, each touched ${count(touch.trials.length > 0 ? touch.touches.length / touch.trials.length : 0, 'time').replace(/^1 time$/, 'once')}, ${CHECKPOINT_0_TOUCH.every} s apart from t = ${CHECKPOINT_0_TOUCH.first} s, alternating front (F, s = ${front}) and back (B, s = ${back}), odd seeds starting at the front: ${anterior.touches} anterior touches and ${posterior.touches} posterior. Each front touch reached ${reach('anterior')}; each back touch ${reach('posterior')}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${posterior.pairs} posterior touches whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
+    table(
+      [
+        'Seed',
+        'Touches',
+        'Anterior touches followed by a reversal',
+        'Matched windows with one',
+        'Posterior touches: forward velocity before → after (body lengths/s)',
+        'Reversals',
+      ],
+      bySeed,
+    ),
+    '#### Chemotaxis',
+    `Each worm ran alone in checkpoint 4's assay: the butanone spot's steady field, the worm's centroid starting at the dish's centre, ${mm(SPOT[0], 0)} mm from each spot, and the run stopping when any part of its body came within ${mm(CAPTURE_RADIUS, 0)} mm of a spot's centre. ${count(chemotaxis.odour, 'worm')} reached the odour, ${chemotaxis.control} the control and ${neither} neither. ${worms.length > 0 ? `The nearest any worm came was ${mm(nearest('odour'))} mm from the odour spot's centre and ${mm(nearest('control'))} mm from the control's; the farthest any centroid got from its start was ${mm(farthest, 3)} mm.` : ''}`,
+    table(
+      [
+        'Seed',
+        'Posture',
+        'AWC-ON',
+        'Reached',
+        'Nearest the odour spot (mm)',
+        'Nearest the control (mm)',
+        'Farthest from the start (mm)',
+      ],
+      worms.map((w) => [
+        String(w.seed),
+        String(w.posture + 1),
+        w.awcSide,
+        w.reached === null ? 'Neither' : `The ${w.reached} at ${(w.time ?? 0).toFixed(1)} s`,
+        mm(w.closest.odour),
+        mm(w.closest.control),
+        mm(w.farthest, 3),
+      ]),
+    ),
   ].join('\n\n');
 }
 

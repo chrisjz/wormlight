@@ -1,10 +1,12 @@
 // One behavioural trial on the CPU reference (PLAN §7.4): a World started from a real posture drawn by the
-// trial's seed, run for its duration, and sampled for the measures checkpoints 0 and 1 take.
+// trial's seed, run for its duration, touched if its protocol says so, and sampled for the measures
+// checkpoints 0 and 1 take.
 
 import type { WormlightData } from '../data/schema.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { curvature } from '../sim/proprio.ts';
+import type { Odour } from '../sim/sensing.ts';
 import { World, type LoopParams } from '../sim/world.ts';
 import { FRONT_ROD, MEASURE_FROM, MID_ROD, MOTION_SAMPLE, REAR_ROD, forwardVelocity } from './motion.ts';
 import { addPosture, emptySums, resample, selfIntersects, tangentAngles, type PostureSums } from './posture.ts';
@@ -21,18 +23,34 @@ export function startingPosture(seed: number, count: number): { index: number; t
   };
 }
 
-export interface TrialOptions {
+// A tap at body coordinate s (0 at the nose, 1 at the tail's tip) at time t (s).
+export interface TrialTouch {
+  time: number;
+  s: number;
+}
+
+// What a world at the start of a trial or an assay run needs.
+export interface StartOptions {
   seed: number;
-  seconds: number;
   params: LoopParams;
   // Checkpoint 0's silenced network (PLAN §7.2).
   silenced?: boolean;
   // The real postures, each the tangent angles head first with their mean removed.
   postures: readonly (readonly number[])[];
+  // The odour AWC-ON senses; trials have none.
+  odour?: Odour;
+}
+
+export interface TrialOptions extends StartOptions {
+  seconds: number;
+  // Touches, each starting with the step after its time (PLAN §7.4, checkpoint 0's touch clause).
+  touches?: readonly TrialTouch[];
 }
 
 export interface TrialRecord {
   seed: number;
+  // The trial's length (s).
+  seconds: number;
   posture: number;
   turn: number;
   // False if the body left the finite numbers, in which case the samples stop there.
@@ -48,17 +66,23 @@ export interface TrialRecord {
   selfIntersecting: number;
   // Brain solves that did not converge.
   unconverged: number;
+  // The touches made, and the receptors each reached.
+  touches: (TrialTouch & { reached: string[] })[];
 }
 
-// The trial's world at its start: the real posture its seed draws, turned.
+// The world at its start: the real posture its seed draws, turned, head at the dish's centre.
 export function startingWorld(
   data: WormlightData,
-  options: TrialOptions,
-): { world: World; start: { index: number; turn: number } } {
+  options: StartOptions,
+): { world: World; start: { index: number; turn: number }; posture: number[] } {
   const { seed, params, postures } = options;
   const start = startingPosture(seed, postures.length);
   const posture = postures[start.index].map((a) => a + start.turn);
-  return { world: new World(data, params, { seed, silenced: options.silenced, posture }), start };
+  return {
+    world: new World(data, params, { seed, silenced: options.silenced, posture, odour: options.odour }),
+    start,
+    posture,
+  };
 }
 
 export function runTrial(data: WormlightData, options: TrialOptions): TrialRecord {
@@ -70,6 +94,16 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const posturesEvery = Math.round(POSTURE_SAMPLE / NEURAL_STEP);
   const from = Math.round(MEASURE_FROM / NEURAL_STEP);
   const steps = Math.round(seconds / NEURAL_STEP);
+  // Each touch by the step it follows, which must be one of the trial's.
+  const due = new Map<number, TrialTouch>();
+  for (const t of options.touches ?? []) {
+    const after = t.time / NEURAL_STEP;
+    if (Math.abs(after - Math.round(after)) > 1e-6 || after < 0 || after >= steps || due.has(Math.round(after))) {
+      throw new Error(`a touch at ${t.time} s doesn't fall on a step of its own within the trial`);
+    }
+    due.set(Math.round(after), t);
+  }
+  const touches: TrialRecord['touches'] = [];
   const centroid: number[] = [];
   const head: number[] = [];
   const bend: [number[], number[], number[]] = [[], [], []];
@@ -93,6 +127,8 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   };
   sample();
   for (let s = 1; s <= steps; s++) {
+    const touch = due.get(s - 1);
+    if (touch) touches.push({ ...touch, reached: world.touch(touch.s).map((r) => r.name) });
     world.step();
     if (!body.x.every(Number.isFinite) || !body.y.every(Number.isFinite)) {
       finite = false;
@@ -111,6 +147,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const aligned = (a: number[]): number[] => a.slice(first, first + velocity.length);
   return {
     seed,
+    seconds,
     posture: start.index,
     turn: start.turn,
     finite,
@@ -121,5 +158,6 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     postures: sums,
     selfIntersecting,
     unconverged: world.brain.unconverged,
+    touches,
   };
 }

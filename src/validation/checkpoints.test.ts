@@ -1,13 +1,23 @@
 import { describe, expect, it } from 'vitest';
+import type { ChemotaxisRecord } from './chemotaxis.ts';
 import {
+  CHECKPOINT_0_CHEMOTAXIS,
+  CHECKPOINT_0_TOUCH,
   CHECKPOINT_1,
   SEEDS,
+  TRIAL_SECONDS,
   checkpoint0,
   checkpoint1,
+  chemotaxisClause,
+  crawlingClause,
   gradeAtLeast,
   gradeRange,
+  meanVelocity,
   overall,
+  reversalFrom,
   summariseTrial,
+  touchClause,
+  touchSchedule,
 } from './checkpoints.ts';
 import { addPosture, emptySums } from './posture.ts';
 import type { TrialRecord } from './trial.ts';
@@ -17,6 +27,7 @@ function record(velocity: number[], seed = 1): TrialRecord {
   const zeros = velocity.map(() => 0);
   return {
     seed,
+    seconds: 10 + velocity.length / 10 + 0.4,
     posture: 0,
     turn: 0,
     finite: true,
@@ -27,6 +38,7 @@ function record(velocity: number[], seed = 1): TrialRecord {
     postures: emptySums(),
     selfIntersecting: 0,
     unconverged: 0,
+    touches: [],
   };
 }
 
@@ -61,21 +73,177 @@ describe('the checkpoint bands', () => {
   });
 });
 
-describe('checkpoint 0', () => {
+describe("checkpoint 0's crawling clause", () => {
   it('passes with no forward bout of 10 s, and fails on one', () => {
     const creeping = record([...Array<number>(99).fill(0.02), 0, ...Array<number>(50).fill(-0.02)]);
-    const result = checkpoint0([creeping]);
+    const result = crawlingClause([creeping]);
     expect(result).toMatchObject({ grade: 'pass', bouts: 0 });
     expect(result.trials[0]).toMatchObject({ longestBout: 9.9, reversals: 1 });
-    expect(checkpoint0([creeping, record(Array<number>(100).fill(0.02), 2)])).toMatchObject({
+    expect(crawlingClause([creeping, record(Array<number>(100).fill(0.02), 2)])).toMatchObject({
       grade: 'fail',
       bouts: 1,
     });
   });
 
   it('fails a trial that left the finite numbers, and a run with no trials', () => {
-    expect(checkpoint0([{ ...record([]), finite: false }]).grade).toBe('fail');
-    expect(checkpoint0([]).grade).toBe('fail');
+    expect(crawlingClause([{ ...record([]), finite: false }]).grade).toBe('fail');
+    expect(crawlingClause([]).grade).toBe('fail');
+  });
+});
+
+// A full trial's velocity samples, 10.0 to 119.5 s, still but where `moves` sets them.
+const SAMPLES = 1096;
+function still(seed: number, moves: (t: number) => number = () => 0): TrialRecord {
+  const velocity = Array.from({ length: SAMPLES }, (_, k) => moves(10 + k / 10));
+  return { ...record(velocity, seed), seconds: TRIAL_SECONDS };
+}
+// The same trial touched as the protocol says, every touch reaching a receptor.
+const touched = (r: TrialRecord): TrialRecord => ({
+  ...r,
+  touches: touchSchedule(r.seed).map(({ time, s }) => ({ time, s, reached: ['X'] })),
+});
+
+describe("checkpoint 0's touch clause", () => {
+  it("is PLAN §7.4's protocol: 50 touches of each kind over the 20 trials, odd seeds starting at the front", () => {
+    expect(CHECKPOINT_0_TOUCH).toEqual({
+      touches: 5,
+      first: 20,
+      every: 20,
+      front: 0.2,
+      back: 0.8,
+      window: 2,
+      anteriorPartial: 0.4,
+    });
+    expect(touchSchedule(1).map((t) => [t.time, t.s, t.place])).toEqual([
+      [20, 0.2, 'anterior'],
+      [40, 0.8, 'posterior'],
+      [60, 0.2, 'anterior'],
+      [80, 0.8, 'posterior'],
+      [100, 0.2, 'anterior'],
+    ]);
+    expect(touchSchedule(2).map((t) => t.place)).toEqual([
+      'posterior',
+      'anterior',
+      'posterior',
+      'anterior',
+      'posterior',
+    ]);
+    const all = SEEDS.flatMap((seed) => touchSchedule(seed));
+    expect(all.filter((t) => t.place === 'anterior').length).toBe(50);
+    expect(all.filter((t) => t.place === 'posterior').length).toBe(50);
+    // A shortened trial keeps only the touches whose windows fit: 3.5 s after each.
+    expect(touchSchedule(1, 43.5).map((t) => t.time)).toEqual([20, 40]);
+    expect(touchSchedule(1, 43.4).map((t) => t.time)).toEqual([20]);
+  });
+
+  it('counts a reversal whose first backward sample lies from the touch to 2 s after it', () => {
+    const backing = (from: number) => (t: number) => (t >= from - 1e-9 && t < from + 1.5 ? -0.05 : 0);
+    expect(reversalFrom(still(1, backing(20)).velocity, 20)).toBe(true);
+    expect(reversalFrom(still(1, backing(22)).velocity, 20)).toBe(true);
+    expect(reversalFrom(still(1, backing(22.1)).velocity, 20)).toBe(false);
+    // One already under way at the touch doesn't follow it.
+    expect(reversalFrom(still(1, backing(19.9)).velocity, 20)).toBe(false);
+    // Nor does backing up for under 1 s.
+    const brief = still(1, (t) => (t >= 20.5 && t < 21.3 ? -0.05 : 0));
+    expect(reversalFrom(brief.velocity, 20)).toBe(false);
+  });
+
+  it('takes the speed before and after from the samples whose windows lie wholly on each side', () => {
+    // Velocity equal to its sample's time: the samples from 18.5 to 19.5 s, and 20.5 to 21.5 s.
+    const r = still(1, (t) => t);
+    expect(meanVelocity(r.velocity, 18, 20)).toBeCloseTo(19, 12);
+    expect(meanVelocity(r.velocity, 20, 22)).toBeCloseTo(21, 12);
+    expect(() => meanVelocity(r.velocity, 118, 121)).toThrow(/no velocity samples/);
+  });
+
+  it('passes a network that ignores touch, and fails one that reverses or speeds up', () => {
+    const untouched = SEEDS.map((seed) => still(seed));
+    expect(touchClause(untouched.map(touched), untouched)).toMatchObject({
+      grade: 'pass',
+      anterior: { touches: 50, followed: 0, matched: 0, p: 1, grade: 'pass' },
+      posterior: { touches: 50, pairs: 0, p: 1, grade: 'pass' },
+    });
+    // Reversing after every anterior touch, and never in the matched windows.
+    const reversing = untouched.map((r) => {
+      const at = touchSchedule(r.seed).filter((t) => t.place === 'anterior');
+      return touched(still(r.seed, (t) => (at.some((a) => t >= a.time + 0.5 && t < a.time + 2) ? -0.05 : 0)));
+    });
+    const reversed = touchClause(reversing, untouched);
+    expect(reversed.anterior).toMatchObject({ followed: 50, share: 1, reflex: true, grade: 'fail' });
+    expect(reversed.grade).toBe('fail');
+    // As often in the matched windows: no reflex, however often.
+    expect(touchClause(reversing, reversing).anterior).toMatchObject({ followed: 50, matched: 50, reflex: false });
+    // Speeding up after every posterior touch.
+    const speeding = untouched.map((r) => {
+      const at = touchSchedule(r.seed).filter((t) => t.place === 'posterior');
+      return touched(still(r.seed, (t) => (at.some((a) => t > a.time && t < a.time + 2) ? 0.005 : 0)));
+    });
+    const sped = touchClause(speeding, untouched);
+    expect(sped.posterior).toMatchObject({ pairs: 50, positive: 1275, reflex: true, grade: 'fail' });
+    expect(sped.posterior.p).toBeCloseTo(2 ** -50, 20);
+    expect(sped.grade).toBe('fail');
+  });
+
+  it('fails touches not made as the protocol says, or reaching no receptor, or a broken trial', () => {
+    const untouched = SEEDS.map((seed) => still(seed));
+    const quiet = untouched.map(touched);
+    expect(() => touchClause(untouched, untouched)).toThrow(/wasn't touched as the protocol says/);
+    expect(() => touchClause(quiet, untouched.slice(1))).toThrow(/no untouched trial/);
+    const numb = quiet.map((r) => ({ ...r, touches: r.touches.map((t) => ({ ...t, reached: [] })) }));
+    expect(touchClause(numb, untouched).grade).toBe('fail');
+    expect(touchClause([{ ...quiet[0], finite: false }, ...quiet.slice(1)], untouched).grade).toBe('fail');
+    expect(touchClause([], untouched).grade).toBe('fail');
+  });
+});
+
+// A worm that reached a spot, or neither.
+const worm = (seed: number, reached: ChemotaxisRecord['reached']): ChemotaxisRecord => ({
+  seed,
+  posture: 0,
+  turn: 0,
+  awcSide: 'AWCL',
+  finite: true,
+  reached,
+  time: reached === null ? null : 100,
+  seconds: reached === null ? 3600 : 100,
+  closest: { odour: 0.04, control: 0.04 },
+  start: [0, 0],
+  end: [0, 0],
+  farthest: 0,
+  unconverged: 0,
+});
+
+describe("checkpoint 0's chemotaxis clause", () => {
+  it('counts every worm run, so none arriving gives 0, and passes within ±0.1', () => {
+    expect(CHECKPOINT_0_CHEMOTAXIS).toEqual({ worms: 30, seconds: 3600, within: 0.1 });
+    const none = Array.from({ length: 30 }, (_, i) => worm(i + 1, null));
+    expect(chemotaxisClause(none)).toMatchObject({ grade: 'pass', odour: 0, control: 0, index: 0 });
+    // 3 at the odour of 30: 0.1, on the edge.
+    const three = none.map((w, i) => (i < 3 ? worm(w.seed, 'odour') : w));
+    expect(chemotaxisClause(three)).toMatchObject({ grade: 'pass', index: 0.1 });
+    const four = none.map((w, i) => (i < 4 ? worm(w.seed, 'odour') : w));
+    expect(chemotaxisClause(four).grade).toBe('fail');
+    // Drawn to the control as much fails too.
+    const away = none.map((w, i) => (i < 4 ? worm(w.seed, 'control') : w));
+    expect(chemotaxisClause(away)).toMatchObject({ grade: 'fail', control: 4 });
+    expect(chemotaxisClause(away).index).toBeCloseTo(-4 / 30, 15);
+  });
+
+  it('fails a worm that left the finite numbers, and a run with no worms', () => {
+    expect(chemotaxisClause([{ ...worm(1, null), finite: false }]).grade).toBe('fail');
+    expect(chemotaxisClause([]).grade).toBe('fail');
+  });
+});
+
+describe('checkpoint 0', () => {
+  it('passes only if every clause passes', () => {
+    const untouched = SEEDS.map((seed) => still(seed));
+    const worms = Array.from({ length: 30 }, (_, i) => worm(i + 1, null));
+    expect(checkpoint0(untouched, untouched.map(touched), worms).grade).toBe('pass');
+    const drawn = worms.map((w, i) => (i < 4 ? worm(w.seed, 'odour') : w));
+    const result = checkpoint0(untouched, untouched.map(touched), drawn);
+    expect([result.crawling.grade, result.touch.grade, result.chemotaxis.grade]).toEqual(['pass', 'pass', 'fail']);
+    expect(result.grade).toBe('fail');
   });
 });
 

@@ -1,10 +1,12 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 //
-// The behavioural harness (PLAN §8): checkpoint 0's crawling clause and checkpoint 1 (PLAN §7.2, §7.4), run on
-// the CPU reference in parallel worker processes, one per core by default, on the provisional parameters
-// until calibration. Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
-// section of VALIDATION.md is regenerated. --trials and --seconds shorten a run for a quick look; such a
-// run leaves VALIDATION.md alone, since the checkpoints are fixed at 20 trials of 120 s.
+// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, and checkpoint 1 (PLAN §7.2, §7.4),
+// run on the CPU reference in parallel worker processes, one per core by default, on the provisional
+// parameters until calibration. Checkpoint 0 runs its 20 trials untouched and touched, and 30 worms in the
+// chemotaxis assay for 60 min each. Each checkpoint's records and summary go to
+// harness-out/checkpoint-<n>.json, and its section of VALIDATION.md is regenerated. --trials and --seconds
+// shorten a run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run
+// leaves VALIDATION.md alone, since the checkpoints are fixed.
 
 import { execFileSync, fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,8 +14,18 @@ import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
+import { steadyField } from '../../src/sim/env/dish.ts';
+import type { OdourField } from '../../src/sim/env/odour.ts';
 import { provisionalParams } from '../../src/sim/world.ts';
-import { checkpoint0, checkpoint1, TRIAL_SECONDS, TRIALS } from '../../src/validation/checkpoints.ts';
+import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
+import {
+  CHECKPOINT_0_CHEMOTAXIS,
+  checkpoint0,
+  checkpoint1,
+  touchSchedule,
+  TRIAL_SECONDS,
+  TRIALS,
+} from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
 import { POSTURE_ANGLES } from '../../src/validation/posture.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
@@ -25,15 +37,19 @@ import { checkpoint0Section, checkpoint1Section, replaceSection, type RunInfo } 
 const CHECKPOINTS = [0, 1] as const;
 type Checkpoint = (typeof CHECKPOINTS)[number];
 
+// A trial, the same trial touched (checkpoint 0 only), or a worm in the chemotaxis assay (checkpoint 0 only).
+type Kind = 'trial' | 'touched' | 'assay';
+
 interface Job {
   checkpoint: Checkpoint;
+  kind: Kind;
   seed: number;
   seconds: number;
 }
 
 interface Result {
   job: Job;
-  record?: TrialRecord;
+  record?: TrialRecord | ChemotaxisRecord;
   error?: string;
 }
 
@@ -54,18 +70,28 @@ async function readPostures(): Promise<number[][]> {
 }
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
+// The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
+let assay: OdourField | undefined;
 
-async function runJob(job: Job): Promise<TrialRecord> {
+async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   cached ??= {
     data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))),
     postures: await readPostures(),
   };
-  return runTrial(cached.data, {
+  const common = {
     seed: job.seed,
     seconds: job.seconds,
     params: provisionalParams(),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
+  };
+  if (job.kind === 'assay') {
+    assay ??= steadyField('assay');
+    return runChemotaxis(cached.data, { ...common, odour: assay });
+  }
+  return runTrial(cached.data, {
+    ...common,
+    touches: job.kind === 'touched' ? touchSchedule(job.seed, job.seconds) : undefined,
   });
 }
 
@@ -141,18 +167,34 @@ if (process.argv.includes('--worker')) {
   });
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
+  const full = options.trials === TRIALS && options.seconds === TRIAL_SECONDS;
+  // A full run's worms are the assay's; a shortened run's are as many and as long as its trials.
+  const worms = full ? CHECKPOINT_0_CHEMOTAXIS.worms : options.trials;
+  const wormSeconds = full ? CHECKPOINT_0_CHEMOTAXIS.seconds : options.seconds;
   const info: RunInfo = {
     date: new Date().toISOString().slice(0, 10),
     commit: commit(),
     trials: options.trials,
     seconds: options.seconds,
+    ...(options.checkpoints.includes(0) ? { worms, wormSeconds } : {}),
   };
   // Fetch the pinned files once here, so the workers read them from the cache.
   const postures = await readPostures();
   const basis = await readPinned('eigenworms');
-  const queue: Job[] = options.checkpoints.flatMap((checkpoint) =>
-    Array.from({ length: options.trials }, (_, i) => ({ checkpoint, seed: i + 1, seconds: options.seconds })),
-  );
+  const jobs = (checkpoint: Checkpoint, kind: Kind, count: number, seconds: number): Job[] =>
+    Array.from({ length: count }, (_, i) => ({ checkpoint, kind, seed: i + 1, seconds }));
+  // The longest first, so that no long run starts last.
+  const queue: Job[] = options.checkpoints
+    .flatMap((checkpoint) =>
+      checkpoint === 0
+        ? [
+            ...jobs(0, 'assay', worms, wormSeconds),
+            ...jobs(0, 'trial', options.trials, options.seconds),
+            ...jobs(0, 'touched', options.trials, options.seconds),
+          ]
+        : jobs(checkpoint, 'trial', options.trials, options.seconds),
+    )
+    .sort((a, b) => b.seconds - a.seconds);
   const total = queue.length;
   const results: Result[] = [];
   const started = Date.now();
@@ -163,7 +205,9 @@ if (process.argv.includes('--worker')) {
       workers.map(async (worker) => {
         for (let job = queue.shift(); job; job = queue.shift()) {
           const result = await send(worker, job);
-          if (result.error) throw new Error(`checkpoint ${job.checkpoint}, seed ${job.seed}: ${result.error}`);
+          if (result.error) {
+            throw new Error(`checkpoint ${job.checkpoint}, ${job.kind} ${job.seed}: ${result.error}`);
+          }
           results.push(result);
           process.stderr.write(`${results.length}/${total}\r`);
         }
@@ -175,22 +219,26 @@ if (process.argv.includes('--worker')) {
     for (const worker of workers) worker.kill();
   }
   if (results.length !== total) throw new Error(`${results.length} of ${total} trials came back`);
-  process.stderr.write(`${total} trials in ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
+  process.stderr.write(`${total} runs in ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
 
-  const full = options.trials === TRIALS && options.seconds === TRIAL_SECONDS;
   const out = join(ROOT, 'harness-out');
   mkdirSync(out, { recursive: true });
   let page = readFileSync(PAGE, 'utf8');
   for (const checkpoint of options.checkpoints) {
-    const records = results
-      .filter((r) => r.job.checkpoint === checkpoint)
-      .map((r) => r.record as TrialRecord)
-      .sort((a, b) => a.seed - b.seed);
-    const summary = checkpoint === 0 ? checkpoint0(records) : checkpoint1(records, basis);
+    const of = <T>(kind: Kind): T[] =>
+      results
+        .filter((r) => r.job.checkpoint === checkpoint && r.job.kind === kind)
+        .map((r) => r.record as T & { seed: number })
+        .sort((a, b) => a.seed - b.seed);
+    const trials = of<TrialRecord>('trial');
+    const touched = of<TrialRecord>('touched');
+    const assayed = of<ChemotaxisRecord>('assay');
+    const summary = checkpoint === 0 ? checkpoint0(trials, touched, assayed) : checkpoint1(trials, basis);
     const section =
       checkpoint === 0
         ? checkpoint0Section(summary as ReturnType<typeof checkpoint0>, info)
         : checkpoint1Section(summary as ReturnType<typeof checkpoint1>, info);
+    const records = checkpoint === 0 ? { trials, touched, worms: assayed } : trials;
     const name = full
       ? `checkpoint-${checkpoint}.json`
       : `checkpoint-${checkpoint}-${options.trials}x${options.seconds}s.json`;
