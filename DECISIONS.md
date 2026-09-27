@@ -1596,3 +1596,25 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 **What it costs the model.** R's fit found its reversals, and its score, at 5 nS partly through the step's artefact, so the refit loses that. At 1 nS, with the fit's other values, the worm reverses about 11 times a minute and doesn't crawl; the refit will find what the bounded space allows.
 
 **Status.** Set before R's refit.
+
+## 2026-09-28 — After review: the 1 nS bound is withdrawn, and the numerics have two causes
+
+**Why.** Three reviews of the convergence study found that its conclusion, and the rule drawn from it, don't hold. Each finding below was reproduced before this entry was written.
+
+- **The loop doesn't converge under the bound.** At the refit's own start, R's provisional values with both oscillator gains clipped to 1 nS, with the noise off, seeds 1 to 8 reverse 5, 25 and 31 times at 2.5, 1.25 and 0.625 ms. A review's 20 seeds give 17, 71, 80 and 83 down to 0.3125 ms. Each oscillator class alone converges there, and the pair doesn't. And in R's fit, with the noise off, the A-types at 2.14 nS do converge: a review found 9.91, 9.91 and 9.94 reversals a minute over three steps. So whether 2.5 ms converges depends on the whole parameter set, not on g_osc alone.
+- **The evidence for 1 nS was weak.** At 0.4 and 1 nS the worm doesn't crawl, so checkpoint 1's metrics couldn't be compared, and on 8 seeds the mean velocity still moved by 3–11% between steps. The cause table's 2.14 nS row set a mean velocity (0.0057) against a bout speed (0.0520): measured alike, the two steps agree. The B-types' bound rested on no loop evidence.
+- **The noise's effect depends on the step everywhere.** With R's fitted noise, the network's noise-driven voltage spread at 2.5 ms is a median 0.80 of its spread at 0.156 ms, ranging from 0.57 to 0.99; AVA's is 0.60 mV against 1.03 mV. At 0.625 ms the median is 0.94. The implicit solve damps white noise in any neuron whose time constant the step doesn't resolve. So the calibrated σ_n means what it means only at 2.5 ms. And R's fit with its A-types lesioned, converged without noise, isn't converged with it: a review's 20 seeds give bouts of 20 s in 55%, 60% and 70% of trials over three steps.
+- **The study's noise measure hid a real effect.** Its crossings of x = 0 were rightly discarded. But full excursions of the lone oscillator, from below −1 to above +1, also rise steeply as the step shrinks, at every gain: 343 to 1,531 a minute at 0.3 nS, and 22 to 48 at 5 nS, from 2.5 ms to 0.156 ms (a review's count).
+- **A 1 nS bound would also stop three A-types cycling at all.** DA8, DA9 and VA12 have input conductances of 1.28 to 1.43 nS, more than the bound lets an oscillator overcome. DA9 is the cell Gao et al. 2018 describe leading the A-type rhythm.
+
+**Decision** (PLAN §7.3, §9, the withdrawal marked). The maintainer chose the recommendation each time:
+
+- **The 1 nS bound is withdrawn,** and so is the change that would have dropped the planned fit from the choice between fits. PLAN's bounds and choice rule stand as before, and R stays suspended. The choice of 2026-09-27 stands for what the app and the harness run, and is made again when R resumes. Considered: keeping the bound and requiring the refit's start and finalists to pass PLAN §7.2's comparison, which the start already fails.
+- **Next, a second study of real fixes,** designed and committed before it runs. It tests a fix for each cause:
+  - a coloured noise current, an Ornstein–Uhlenbeck process with a correlation time fixed in advance, whose effect a step much shorter than that time resolves. That time is a new free parameter, so the budget would rise to 18, with approval;
+  - an accurate treatment of the oscillators, or a finer step for the neural solve alone.
+
+  Each is judged by PLAN §7.2's criterion at several points of the search space, not one: the refit's start, R's fit and the box's corners, with the noise paths paired between steps. The maintainer then chooses a rule. Considered: adopting a 0.625 ms step now, at four times the cost, with the app's 10× target lowered to about 5× and convergence not shown; and pausing track R.
+
+- **This pull request lands corrected,** keeping the study and trials' lesions, with its results entry corrected and its code and docs fixed. The second study is its own pull request.
+- **Everything else, as recommended:** the study script records what each record set ran on, and checks it; each step's tree asserts its step; the lone oscillator's samples line up; the pool reports failures fully and writes records whole; the figures and wording the reviews found wrong are corrected.
