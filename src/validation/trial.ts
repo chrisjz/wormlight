@@ -23,7 +23,7 @@ export function startingPosture(seed: number, count: number): { index: number; t
   };
 }
 
-// A tap at body coordinate s (0 at the nose, 1 at the tail's tip) at time t (s).
+// A tap at body coordinate s (0 at the nose, 1 at the tail's tip) at `time` (s).
 export interface TrialTouch {
   time: number;
   s: number;
@@ -98,10 +98,11 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const due = new Map<number, TrialTouch>();
   for (const t of options.touches ?? []) {
     const after = t.time / NEURAL_STEP;
-    if (Math.abs(after - Math.round(after)) > 1e-6 || after < 0 || after >= steps || due.has(Math.round(after))) {
+    const step = Math.round(after);
+    if (Math.abs(after - step) > 1e-6 || step < 0 || step >= steps || due.has(step)) {
       throw new Error(`a touch at ${t.time} s doesn't fall on a step of its own within the trial`);
     }
-    due.set(Math.round(after), t);
+    due.set(step, t);
   }
   const touches: TrialRecord['touches'] = [];
   const centroid: number[] = [];

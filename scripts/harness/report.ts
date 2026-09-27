@@ -9,6 +9,7 @@ import {
   CHECKPOINT_0_CHEMOTAXIS,
   CHECKPOINT_0_TOUCH,
   CHECKPOINT_1,
+  touchSchedule,
   type Checkpoint0,
   type Checkpoint1,
   type Clause,
@@ -36,6 +37,8 @@ export function parameterText(): string {
 
 // "1 trial", "2 trials".
 const count = (n: number, word: string): string => `${n} ${n === 1 ? word : `${word}s`}`;
+// "1 touch", "2 touches".
+const plural = (n: number, one: string, more: string): string => `${n} ${n === 1 ? one : more}`;
 // A signed figure, with a true minus sign, and none on a value that rounds to zero.
 const fixed = (x: number, digits: number): string => {
   const text = x.toFixed(digits);
@@ -95,7 +98,7 @@ const seeds = (n: number): string => (n === 1 ? 'seed 1' : `seeds 1 to ${n}`);
 const mm = (metres: number, digits = 2): string => (1000 * metres).toFixed(digits);
 // A small number as "2.7 × 10⁻⁷", or 0.
 export function scientific(x: number): string {
-  if (x === 0) return '0';
+  if (x === 0 || !Number.isFinite(x)) return String(x);
   const [mantissa, exponent] = x.toExponential(1).split('e');
   const superscript = exponent.replace(/^\+/, '').replace(/[-0-9]/g, (c) => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'['-0123456789'.indexOf(c)]);
   return `${mantissa.replace('-', '−')} × 10${superscript}`;
@@ -114,12 +117,18 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   const trials = [...crawling.trials, ...touch.trials];
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0) + worms.reduce((n, w) => n + w.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length;
-  const wormSeconds = info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds;
+  const minutes = (info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds) / 60;
   const run = [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${wormSeconds / 60} min, ${seeds(worms.length)}, on ${parameterText()}.`,
-    `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${count(infinite, 'trial or worm')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText()}.`,
+    `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${plural(infinite, 'trial or worm', 'trials or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
-  const { front, back, window, anteriorPartial } = CHECKPOINT_0_TOUCH;
+  const { front, back, window, anteriorPartial, first, every } = CHECKPOINT_0_TOUCH;
+  const backs = touch.touches.filter((t) => t.place === 'posterior');
+  const rose = backs.filter((t) => t.after > t.before).length;
+  const rise = backs.length > 0 ? backs.reduce((sum, t) => sum + t.after - t.before, 0) / backs.length : 0;
+  // Why a reflex went unmeasured, if it did.
+  const unmeasured = (touches: number, place: string): string =>
+    `unmeasured: ${!touch.finite ? 'no touched trials, or one left the finite numbers' : touches === 0 ? `no ${place} touch` : 'a touch reached no receptor'}`;
   const clauses = table(
     ['Clause', 'Measured', 'Passes if', 'Grade'],
     [
@@ -131,13 +140,17 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
       ],
       [
         'Anterior touch',
-        `A reversal within ${window} s after ${anterior.followed} of ${anterior.touches} touches (${percent(anterior.share)}), and in ${anterior.matched} of the matched windows; ${pValue(anterior.p)}`,
+        anterior.measured
+          ? `A reversal within ${window} s after ${anterior.followed} of ${plural(anterior.touches, 'touch', 'touches')} (${percent(anterior.share)}), and in ${anterior.matched} of the matched windows; ${pValue(anterior.p)}`
+          : unmeasured(anterior.touches, 'anterior'),
         `Under ${percent(anteriorPartial)}, or not more often than in the matched windows (Fisher's exact test, one-sided)`,
         GRADE[anterior.grade],
       ],
       [
         'Posterior touch',
-        `Forward velocity ${fixed(posterior.before, 4)} before, ${fixed(posterior.after, 4)} after (body lengths/s); ${pValue(posterior.p)}`,
+        posterior.measured
+          ? `Forward velocity ${fixed(posterior.before, 4)} before, ${fixed(posterior.after, 4)} after (body lengths/s), rising after ${rose} of ${plural(posterior.touches, 'touch', 'touches')} by ${scientific(rise)} on average; ${pValue(posterior.p)}`
+          : unmeasured(posterior.touches, 'posterior'),
         "No significant rise (Wilcoxon's signed-rank test, one-sided)",
         GRADE[posterior.grade],
       ],
@@ -150,21 +163,37 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     ],
   );
   const longest = Math.max(0, ...crawling.trials.map((t) => t.longestBout));
-  const reach = (place: 'anterior' | 'posterior'): string => {
+  // The receptors each place's touches reached, or null if none was made there.
+  const reach = (place: 'anterior' | 'posterior'): string | null => {
     const sets = [...new Set(touch.touches.filter((t) => t.place === place).map((t) => t.reached.join(', ')))];
-    return sets.length === 1 ? sets[0] : sets.map((s) => `(${s})`).join(' or ');
+    if (sets.length === 0) return null;
+    return sets.length === 1 ? sets[0] : sets.map((set) => `(${set})`).join(' or ');
   };
+  const reached = (['anterior', 'posterior'] as const)
+    .map((place) => {
+      const where = place === 'anterior' ? 'front' : 'back';
+      const r = reach(place);
+      return r === null ? `no ${where} touch was made` : `each ${where} touch reached ${r}`;
+    })
+    .join('; ');
+  const perTrial = touchSchedule(1, info.seconds).length;
+  const schedule =
+    perTrial === 1
+      ? `each touched once, at t = ${first} s, at the front (F, s = ${front}) on odd seeds and the back (B, s = ${back}) on even ones`
+      : `each touched ${perTrial} times, ${every} s apart from t = ${first} s, alternating front (F, s = ${front}) and back (B, s = ${back}), odd seeds starting at the front`;
   const bySeed = touch.trials.map((t) => {
     const mine = touch.touches.filter((o) => o.seed === t.seed);
-    const front = mine.filter((o) => o.place === 'anterior');
-    const back = mine.filter((o) => o.place === 'posterior');
-    const mean = (x: number[]): number => x.reduce((a, b) => a + b, 0) / Math.max(1, x.length);
+    const ahead = mine.filter((o) => o.place === 'anterior');
+    const behind = mine.filter((o) => o.place === 'posterior');
+    const mean = (x: number[]): number => x.reduce((sum, v) => sum + v, 0) / x.length;
     return [
       String(t.seed),
       mine.map((o) => (o.place === 'anterior' ? 'F' : 'B')).join(' '),
-      `${front.filter((o) => o.reversal).length} of ${front.length}`,
-      `${front.filter((o) => o.matched).length} of ${front.length}`,
-      `${fixed(mean(back.map((o) => o.before)), 4)} → ${fixed(mean(back.map((o) => o.after)), 4)}`,
+      ahead.length > 0 ? `${ahead.filter((o) => o.reversal).length} of ${ahead.length}` : '—',
+      ahead.length > 0 ? `${ahead.filter((o) => o.matched).length} of ${ahead.length}` : '—',
+      behind.length > 0
+        ? `${fixed(mean(behind.map((o) => o.before)), 4)} → ${fixed(mean(behind.map((o) => o.after)), 4)}`
+        : '—',
       String(t.reversals),
     ];
   });
@@ -180,7 +209,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
     trialTable(crawling.trials),
     '#### Touch',
-    `The same trials ran again, each touched ${count(touch.trials.length > 0 ? touch.touches.length / touch.trials.length : 0, 'time').replace(/^1 time$/, 'once')}, ${CHECKPOINT_0_TOUCH.every} s apart from t = ${CHECKPOINT_0_TOUCH.first} s, alternating front (F, s = ${front}) and back (B, s = ${back}), odd seeds starting at the front: ${anterior.touches} anterior touches and ${posterior.touches} posterior. Each front touch reached ${reach('anterior')}; each back touch ${reach('posterior')}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${posterior.pairs} posterior touches whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Reported, not graded: over the same windows in the untouched trials, the same test gives a rank sum of ${posterior.twin.positive}, ${pValue(posterior.twin.p)}, and no velocity sample of a touched trial differs from its twin's by more than ${scientific(touch.largestChange)} body lengths per second. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
+    `The same trials ran again, ${schedule}: ${plural(anterior.touches, 'anterior touch', 'anterior touches')} and ${posterior.touches} posterior. ${reached[0].toUpperCase()}${reached.slice(1)}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${plural(posterior.pairs, 'posterior touch', 'posterior touches')} whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Reported, not graded: over the same windows in the untouched trials, the same test gives a rank sum of ${posterior.twin.positive}, ${pValue(posterior.twin.p)}, and no velocity sample of a touched trial differs from its twin's by more than ${scientific(touch.largestChange)} body lengths per second. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
     table(
       [
         'Seed',

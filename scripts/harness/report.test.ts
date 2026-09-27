@@ -96,7 +96,8 @@ describe('the harness report', () => {
     expect(section).toContain('| −0.0017 |');
     expect(section).toContain('each touched 3 times, 20 s apart from t = 20 s');
     expect(section).toContain('2 anterior touches and 1 posterior');
-    expect(section).toContain('Each front touch reached ALML, ALMR, AVM; each back touch PLML, PLMR.');
+    expect(section).toContain('Each front touch reached ALML, ALMR, AVM; each back touch reached PLML, PLMR.');
+    expect(section).toContain('rising after 0 of 1 touch by 0 on average; p = 1.0');
     expect(section).toContain('| 1 | F B F | 0 of 2 | 0 of 2 | 0.0000 → 0.0000 | 0 |');
     // The touched trial lies still where its twin backed up at 0.05 body lengths per second.
     expect(section).toContain("differs from its twin's by more than 5.0 × 10⁻² body lengths per second");
@@ -106,11 +107,35 @@ describe('the harness report', () => {
     expect(checkpoint0Section(checkpoint0([still], [touched], [worm]), info)).toContain('| 0.0000 |');
   });
 
+  it("says why a reflex went unmeasured, and what a shortened run's single touch was", () => {
+    // Trials of 30 s: one touch each, at 20 s, at the front on the odd seed.
+    const once: TrialRecord = {
+      ...touched,
+      seconds: 30,
+      touches: touchSchedule(1, 30).map(({ time, s }) => ({ time, s, reached: ['ALML', 'ALMR', 'AVM'] })),
+    };
+    const section = checkpoint0Section(checkpoint0([record], [once], [worm]), { ...info, seconds: 30 });
+    expect(section).toContain('each touched once, at t = 20 s, at the front (F, s = 0.2) on odd seeds');
+    expect(section).toContain('1 anterior touch and 0 posterior');
+    expect(section).toContain('no back touch was made');
+    expect(section).toContain('| Posterior touch | unmeasured: no posterior touch |');
+    expect(section).toContain('| 1 | F | 0 of 1 | 0 of 1 | — | 0 |');
+    // A trial and a worm that left the finite numbers.
+    const broken = checkpoint0Section(
+      checkpoint0([record], [{ ...touched, finite: false }], [{ ...worm, finite: false, end: null }]),
+      info,
+    );
+    expect(broken).toContain('2 trials or worms left the finite numbers');
+    expect(broken).toContain('| Anterior touch | unmeasured: no touched trials, or one left the finite numbers |');
+    expect(broken).toContain('### Checkpoint 0: the silenced network — **Fail**');
+  });
+
   it('writes small numbers with powers of ten', () => {
     expect(scientific(2.710003e-7)).toBe('2.7 × 10⁻⁷');
     expect(scientific(-0.05)).toBe('−5.0 × 10⁻²');
     expect(scientific(1234)).toBe('1.2 × 10³');
     expect(scientific(0)).toBe('0');
+    expect(scientific(Number.NaN)).toBe('NaN');
   });
 
   it('gives shares that add up to 100%', () => {
@@ -139,11 +164,15 @@ describe('the harness report', () => {
   it('refuses options that would run no trial', () => {
     expect(parseArgs(['--checkpoint', '1', '--jobs', '3'])).toMatchObject({ checkpoints: [1], jobs: 3, trials: 20 });
     expect(parseArgs(['--checkpoint', '1', '--checkpoint', '0']).checkpoints).toEqual([0, 1]);
+    expect(parseArgs(['--checkpoint', '0', '--seconds', '24']).seconds).toBe(24);
+    expect(parseArgs(['--checkpoint', '1', '--seconds', '11']).seconds).toBe(11);
     for (const args of [
       ['--checkpoint', '1', '--jobs', '0'],
       ['--checkpoint', '1', '--trials', ''],
       ['--checkpoint', '1', '--trials', '2.5'],
       ['--checkpoint', '1', '--seconds', '10'],
+      // Checkpoint 0's first touch, at 20 s, needs 3.5 s after it.
+      ['--checkpoint', '0', '--seconds', '23'],
       ['--checkpoint', '0x1'],
       ['--checkpoint', '2'],
       ['--checkpoint'],

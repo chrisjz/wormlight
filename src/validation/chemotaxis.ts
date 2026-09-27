@@ -34,9 +34,10 @@ export interface ChemotaxisRecord {
   seconds: number;
   // The nearest any part of the body came to each spot's centre (m).
   closest: Record<Spot, number>;
-  // The centroid at the start and the end (m from the dish's centre), and the farthest it got from its start.
+  // The centroid at the start and the end (m from the dish's centre), the end null if the body left the finite
+  // numbers, and the farthest it got from its start, sampled every 0.1 s and at the end.
   start: [number, number];
-  end: [number, number];
+  end: [number, number] | null;
   farthest: number;
   unconverged: number;
 }
@@ -50,7 +51,7 @@ function nearest(x: ArrayLike<number>, y: ArrayLike<number>, [px, py]: readonly 
 
 export function runChemotaxis(data: WormlightData, options: ChemotaxisOptions): ChemotaxisRecord {
   const { seed, seconds } = options;
-  const { world, start, posture } = startingWorld(data, options);
+  const { world, start, posture: angles } = startingWorld(data, options);
   const { body } = world;
   const centroid = (): [number, number] => {
     let x = 0;
@@ -64,12 +65,12 @@ export function runChemotaxis(data: WormlightData, options: ChemotaxisOptions): 
   // The same posture moved so its centroid sits at the dish's centre, with AWC-ON adapted there.
   const [cx, cy] = centroid();
   const [ax, ay] = options.at ?? [0, 0];
-  body.pose(posture, ax - cx, ay - cy);
+  body.pose(angles, ax - cx, ay - cy);
   world.adapt();
   const from = centroid();
   const closest = { odour: Infinity, control: Infinity };
   // The spot the body now reaches, if any, noting how near it has come to each.
-  const at = (): Spot | null => {
+  const arrived = (): Spot | null => {
     closest.odour = Math.min(closest.odour, nearest(body.x, body.y, SPOT));
     closest.control = Math.min(closest.control, nearest(body.x, body.y, CONTROL));
     return closest.odour <= CAPTURE_RADIUS ? 'odour' : closest.control <= CAPTURE_RADIUS ? 'control' : null;
@@ -78,7 +79,7 @@ export function runChemotaxis(data: WormlightData, options: ChemotaxisOptions): 
   const steps = Math.round(seconds / NEURAL_STEP);
   let farthest = 0;
   let finite = true;
-  let reached = at();
+  let reached = arrived();
   let step = 0;
   while (reached === null && step < steps) {
     world.step();
@@ -91,8 +92,10 @@ export function runChemotaxis(data: WormlightData, options: ChemotaxisOptions): 
       const [x, y] = centroid();
       farthest = Math.max(farthest, Math.hypot(x - from[0], y - from[1]));
     }
-    reached = at();
+    reached = arrived();
   }
+  const end = finite ? centroid() : null;
+  if (end) farthest = Math.max(farthest, Math.hypot(end[0] - from[0], end[1] - from[1]));
   return {
     seed,
     posture: start.index,
@@ -104,7 +107,7 @@ export function runChemotaxis(data: WormlightData, options: ChemotaxisOptions): 
     seconds: step * NEURAL_STEP,
     closest,
     start: from,
-    end: finite ? centroid() : from,
+    end,
     farthest,
     unconverged: world.brain.unconverged,
   };

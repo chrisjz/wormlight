@@ -20,6 +20,8 @@ import { provisionalParams } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
+  CHECKPOINT_0_TOUCH,
+  TOUCH_NEEDS,
   checkpoint0,
   checkpoint1,
   touchSchedule,
@@ -37,8 +39,14 @@ import { checkpoint0Section, checkpoint1Section, replaceSection, type RunInfo } 
 const CHECKPOINTS = [0, 1] as const;
 type Checkpoint = (typeof CHECKPOINTS)[number];
 
-// A trial, the same trial touched (checkpoint 0 only), or a worm in the chemotaxis assay (checkpoint 0 only).
-type Kind = 'trial' | 'touched' | 'assay';
+// A trial, the same trial touched (checkpoint 0 only), or a worm in the chemotaxis assay (checkpoint 0 only), and
+// the record each gives.
+interface Records {
+  trial: TrialRecord;
+  touched: TrialRecord;
+  assay: ChemotaxisRecord;
+}
+type Kind = keyof Records;
 
 interface Job {
   checkpoint: Checkpoint;
@@ -139,11 +147,15 @@ export function parseArgs(args: readonly string[]): {
     else throw new Error(`unknown option ${flag}; usage: ${USAGE}`);
   }
   if (checkpoints.length === 0) throw new Error(`say which checkpoint; usage: ${USAGE}`);
+  const seconds = numbers.get('--seconds') ?? TRIAL_SECONDS;
+  // Checkpoint 0's touch clause needs trials long enough for its first touch's windows.
+  const fits = Math.ceil(CHECKPOINT_0_TOUCH.first + TOUCH_NEEDS);
+  if (checkpoints.includes(0) && seconds < fits) throw new Error(`checkpoint 0 needs --seconds ${fits} or more`);
   return {
     checkpoints: [...new Set(checkpoints)].sort((x, y) => x - y),
     jobs: numbers.get('--jobs') ?? availableParallelism(),
     trials: numbers.get('--trials') ?? TRIALS,
-    seconds: numbers.get('--seconds') ?? TRIAL_SECONDS,
+    seconds,
   };
 }
 
@@ -218,34 +230,35 @@ if (process.argv.includes('--worker')) {
     queue.length = 0;
     for (const worker of workers) worker.kill();
   }
-  if (results.length !== total) throw new Error(`${results.length} of ${total} trials came back`);
+  if (results.length !== total) throw new Error(`${results.length} of ${total} runs came back`);
   process.stderr.write(`${total} runs in ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
 
   const out = join(ROOT, 'harness-out');
   mkdirSync(out, { recursive: true });
   let page = readFileSync(PAGE, 'utf8');
   for (const checkpoint of options.checkpoints) {
-    const of = <T extends TrialRecord | ChemotaxisRecord>(kind: Kind): T[] =>
+    const of = <K extends Kind>(kind: K): Records[K][] =>
       results
         .filter((r) => r.job.checkpoint === checkpoint && r.job.kind === kind)
-        .map((r) => r.record as T)
+        .map((r) => r.record as Records[K])
         .sort((a, b) => a.seed - b.seed);
-    const trials = of<TrialRecord>('trial');
-    const touched = of<TrialRecord>('touched');
-    const assayed = of<ChemotaxisRecord>('assay');
+    const trials = of('trial');
+    const touched = of('touched');
+    const assayed = of('assay');
+    const records = checkpoint === 0 ? { trials, touched, worms: assayed } : trials;
+    const file = join(
+      out,
+      full ? `checkpoint-${checkpoint}.json` : `checkpoint-${checkpoint}-${options.trials}x${options.seconds}s.json`,
+    );
+    const head = { checkpoint, ...info, postures: postures.length };
+    // The records first, so that a failure in grading or in the report loses no run.
+    writeFileSync(file, JSON.stringify({ ...head, records }) + '\n');
     const summary = checkpoint === 0 ? checkpoint0(trials, touched, assayed) : checkpoint1(trials, basis);
     const section =
       checkpoint === 0
         ? checkpoint0Section(summary as ReturnType<typeof checkpoint0>, info)
         : checkpoint1Section(summary as ReturnType<typeof checkpoint1>, info);
-    const records = checkpoint === 0 ? { trials, touched, worms: assayed } : trials;
-    const name = full
-      ? `checkpoint-${checkpoint}.json`
-      : `checkpoint-${checkpoint}-${options.trials}x${options.seconds}s.json`;
-    writeFileSync(
-      join(out, name),
-      JSON.stringify({ checkpoint, ...info, postures: postures.length, summary, records }) + '\n',
-    );
+    writeFileSync(file, JSON.stringify({ ...head, summary, records }) + '\n');
     process.stdout.write(`${section}\n\n`);
     if (full) page = replaceSection(page, checkpoint, section);
   }

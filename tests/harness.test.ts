@@ -88,10 +88,39 @@ describe('a touched trial', () => {
       { time: 10.5, s: FRONT, reached: ['ALML', 'ALMR', 'AVM'] },
       { time: 11.5, s: BACK, reached: ['PLML', 'PLMR'] },
     ]);
-    // The sample at 10.0 s, whose window ends at the touch, is the same; the intact network then responds.
+    // The sample at 10.0 s, whose window ends at the touch, is the same; the next, whose window runs 0.1 s past
+    // it, isn't: the touch starts with the step after its time, neither earlier nor later.
     expect(touched.velocity[0]).toBe(plain.velocity[0]);
-    expect(touched.velocity).not.toEqual(plain.velocity);
+    expect(touched.velocity[1]).not.toBe(plain.velocity[1]);
     expect(plain.touches).toEqual([]);
+  });
+
+  it('reaches the body of a silenced worm only at rounding level, where an intact one responds', () => {
+    // Touched front and back, then 3 s on: with every synapse cut, no receptor either touch reaches has a way to
+    // the muscles, and the integrator's restarts and the voltage solve's sums leave only rounding.
+    const apart = (silenced: boolean, seed: number): number => {
+      const make = (): World => new World(data, provisionalParams(), { seed, silenced, posture: POSTURES[seed] });
+      const [plain, touched] = [make(), make()];
+      for (let k = 0; k < 2000; k++) {
+        if (k === 400) touched.touch(FRONT);
+        if (k === 1200) touched.touch(BACK);
+        plain.step();
+        touched.step();
+      }
+      let most = 0;
+      for (let i = 0; i < plain.body.rods; i++) {
+        most = Math.max(
+          most,
+          Math.abs(plain.body.x[i] - touched.body.x[i]),
+          Math.abs(plain.body.y[i] - touched.body.y[i]),
+        );
+      }
+      return most;
+    };
+    for (const seed of [1, 2, 3]) {
+      expect(apart(true, seed)).toBeLessThan(1e-10);
+      expect(apart(false, seed)).toBeGreaterThan(1e-9);
+    }
   });
 
   it('refuses a touch between steps, or outside the trial', () => {
@@ -120,6 +149,9 @@ describe('a worm in the chemotaxis assay', () => {
     expect(Math.hypot(...r.start)).toBeLessThan(1e-12);
     expect(r.posture).toBe(startingPosture(4, POSTURES.length).index);
     expect(r).toMatchObject({ reached: null, time: null, seconds: 1 });
+    // The farthest the centroid got includes where it ended.
+    const end = r.end ?? [NaN, NaN];
+    expect(r.farthest).toBeGreaterThanOrEqual(Math.hypot(end[0] - r.start[0], end[1] - r.start[1]));
     // 45 mm from each spot's centre, less up to half a body length.
     for (const d of [r.closest.odour, r.closest.control]) {
       expect(d).toBeGreaterThan(SPOT[0] - 0.5e-3);

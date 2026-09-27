@@ -184,16 +184,19 @@ export const CHECKPOINT_0_TOUCH = {
 
 export type Place = 'anterior' | 'posterior';
 
+// What a touch needs of the trial after it: 2 s for a reversal to start and 1 s more for it to count, within the
+// velocity samples, which end half a window before the trial does.
+export const TOUCH_NEEDS = CHECKPOINT_0_TOUCH.window + REVERSAL_MIN + VELOCITY_WINDOW / 2; // s
+
 // A trial's touches, with the place each is aimed at: those whose windows fit in a trial of this length, so a
-// shortened run touches fewer times. Each needs 2 s after it for a reversal to start and 1 s more for it to
-// count, within the velocity samples, which end half a window before the trial does.
+// shortened run touches fewer times.
 export function touchSchedule(seed: number, trialSeconds = TRIAL_SECONDS): (TrialTouch & { place: Place })[] {
-  const { touches, first, every, front, back, window } = CHECKPOINT_0_TOUCH;
+  const { touches, first, every, front, back } = CHECKPOINT_0_TOUCH;
   const frontFirst = seed % 2 === 1;
   return Array.from({ length: touches }, (_, k) => {
     const place: Place = (k % 2 === 0) === frontFirst ? 'anterior' : 'posterior';
     return { time: first + k * every, s: place === 'anterior' ? front : back, place };
-  }).filter((t) => t.time + window + REVERSAL_MIN + VELOCITY_WINDOW / 2 <= trialSeconds + 1e-9);
+  }).filter((t) => t.time + TOUCH_NEEDS <= trialSeconds + 1e-9);
 }
 
 // The velocity sample at time t: samples start at the first measured second, 0.1 s apart.
@@ -230,11 +233,13 @@ export interface TouchOutcome {
   twinAfter: number;
 }
 
-// Each reflex's grade is a pass if it wasn't found; the clause passes if neither was.
+// Each reflex's grade is a pass if it was measured, on sound trials, and not found; the clause passes if both
+// reflexes' grades do.
 export interface TouchClause {
   grade: Grade;
   anterior: {
     grade: Grade;
+    measured: boolean;
     touches: number;
     followed: number;
     matched: number;
@@ -244,6 +249,7 @@ export interface TouchClause {
   };
   posterior: {
     grade: Grade;
+    measured: boolean;
     touches: number;
     before: number;
     after: number;
@@ -256,6 +262,8 @@ export interface TouchClause {
   };
   // Reported, not graded: the largest difference between any velocity sample of a touched trial and its twin's.
   largestChange: number;
+  // Whether there were touched trials, and they and their twins all stayed finite.
+  finite: boolean;
   touches: TouchOutcome[];
   trials: TrialSummary[];
 }
@@ -302,17 +310,15 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
   const pFront = front.length > 0 ? fisherGreater(followed, front.length, matched, front.length) : 1;
   const rise = signedRankGreater(back.map((t) => t.after - t.before));
   const mean = (x: number[]): number => (x.length > 0 ? x.reduce((a, b) => a + b, 0) / x.length : 0);
-  // With no touches of either kind, a touch that reached no receptor, or any trial that left the finite numbers,
-  // the clause fails.
-  const sound =
-    touched.length > 0 &&
-    [...touched, ...untouched].every((r) => r.finite) &&
-    front.length > 0 &&
-    back.length > 0 &&
-    touches.every((t) => t.reached.length > 0);
+  // A reflex is measured if it had touches, every one reaching a receptor, on trials that all stayed finite; one
+  // that wasn't fails.
+  const finite = touched.length > 0 && [...touched, ...untouched].every((r) => r.finite);
+  const measured = (list: readonly TouchOutcome[]): boolean =>
+    finite && list.length > 0 && list.every((t) => t.reached.length > 0);
   const found = share >= CHECKPOINT_0_TOUCH.anteriorPartial && pFront < ALPHA;
   const anterior = {
-    grade: sound && !found ? ('pass' as const) : ('fail' as const),
+    grade: measured(front) && !found ? ('pass' as const) : ('fail' as const),
+    measured: measured(front),
     touches: front.length,
     followed,
     matched,
@@ -321,7 +327,8 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
     reflex: found,
   };
   const posterior = {
-    grade: sound && rise.p >= ALPHA ? ('pass' as const) : ('fail' as const),
+    grade: measured(back) && rise.p >= ALPHA ? ('pass' as const) : ('fail' as const),
+    measured: measured(back),
     touches: back.length,
     before: mean(back.map((t) => t.before)),
     after: mean(back.map((t) => t.after)),
@@ -336,6 +343,7 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
     anterior,
     posterior,
     largestChange,
+    finite,
     touches,
     trials: touched.map(summariseTrial),
   };

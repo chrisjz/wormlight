@@ -198,6 +198,23 @@ describe("checkpoint 0's touch clause", () => {
     expect(touchClause(numb, untouched).grade).toBe('fail');
     expect(touchClause([{ ...quiet[0], finite: false }, ...quiet.slice(1)], untouched).grade).toBe('fail');
     expect(touchClause([], untouched).grade).toBe('fail');
+    // Trials too short for any touch leave both reflexes unmeasured; one kind alone leaves the other so.
+    const short = untouched.map((r) => ({ ...r, seconds: 23 }));
+    expect(touchClause(short, short)).toMatchObject({
+      grade: 'fail',
+      anterior: { measured: false, touches: 0, grade: 'fail' },
+      posterior: { measured: false, touches: 0, grade: 'fail' },
+    });
+    const odd = untouched.filter((r) => r.seed % 2 === 1).map((r) => ({ ...r, seconds: 30 }));
+    const once = touchClause(
+      odd.map((r) => ({
+        ...r,
+        touches: touchSchedule(r.seed, 30).map(({ time, s }) => ({ time, s, reached: ['X'] })),
+      })),
+      odd,
+    );
+    expect(once.anterior).toMatchObject({ measured: true, touches: 10, grade: 'pass' });
+    expect(once.posterior).toMatchObject({ measured: false, touches: 0, grade: 'fail' });
   });
 });
 
