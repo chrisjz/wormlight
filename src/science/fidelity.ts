@@ -490,14 +490,16 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Touch stimulus',
     subsystem: 'sensing',
     levels: [0],
-    basis: '10 mV for 500 ms, one current for every brain; a second tap restarts the 500 ms',
+    basis:
+      '10 mV for 500 ms for every receptor a tap reaches, the currents computed per covered set, the same for every brain; a second tap restarts the 500 ms',
     caveats: '',
     upgrade: 'Recorded receptor currents',
     sources: [],
     testedBy: [
       {
         check: 'unit',
-        detail: 'each current holds its receptor 10 mV up, for exactly 200 steps, restarting the integrator on and off',
+        detail:
+          "each set's currents hold all its receptors 10 mV up together, for exactly 200 steps, restarting the integrator whenever a current changes",
       },
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
