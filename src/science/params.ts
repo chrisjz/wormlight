@@ -3,9 +3,8 @@
 //
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
-// bounds set here before it runs (PLAN.md §7.3), which waits for research track R (PLAN.md §9); until
-// then their value and bounds are null, and the simulation runs on their provisional values (PLAN.md
-// §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
+// bounds set here before it runs (PLAN.md §7.3), which research track R's first round starts with (PLAN.md
+// §9); until then their value is null, and the simulation runs on their provisional values (PLAN.md §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
 // parameter says what new data or research would raise it (spec §1.3).
 
 import type { CitationId } from './citations.ts';
@@ -173,7 +172,7 @@ export const PARAMS = {
     note: 'White current noise, drawn each step with standard deviation σ_n/√dt.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
-    bounds: null,
+    bounds: [0, 0.169],
     provisional: 0,
   },
 
@@ -291,7 +290,7 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Recordings of the head rhythm generator',
-    bounds: null,
+    bounds: [20, 400],
     provisional: 258,
   },
   oscillatorExcitability: {
@@ -305,7 +304,7 @@ export const PARAMS = {
     note: 'Shared by the A- and B-type oscillators.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
-    bounds: null,
+    bounds: [300, 5000],
     provisional: 798,
   },
   oscillatorRecoveryTime: {
@@ -319,7 +318,7 @@ export const PARAMS = {
     note: 'Shared by the A- and B-type oscillators.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
-    bounds: null,
+    bounds: [0.2, 3],
     provisional: 1.53,
   },
   oscillatorDriveThreshold: {
@@ -333,7 +332,7 @@ export const PARAMS = {
     note: "B-type neurons and the head switch run only above it, which AVB's drive supplies.",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured AVB drive at the onset of B-type oscillation',
-    bounds: null,
+    bounds: [-28, 5],
     provisional: -11.5,
   },
   proprioceptiveReach: {
@@ -358,7 +357,7 @@ export const PARAMS = {
     note: 'One gain for A- and B-type neurons.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Identified stretch receptors and their gain',
-    bounds: null,
+    bounds: [0.1, 30],
     provisional: 16.7,
   },
 
@@ -374,7 +373,7 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: null,
+    bounds: [0.2, 5],
     provisional: 2.45,
   },
   neuromuscularThreshold: {
@@ -388,7 +387,7 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: null,
+    bounds: [0.5, 8],
     provisional: 3.48,
   },
   muscleTimeConstant: {

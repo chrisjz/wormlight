@@ -1179,3 +1179,31 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 **What R's fit won't show.** R's parameterisation comes from experiments on the real wiring, the ladder, a design step the nulls don't get, and checkpoint 6's report will say so. PLAN §9 lists the rest.
 
 **Status.** Approved, and revised after review; nothing in it has run. The order is: the calibration procedure, and the planned model's fit; then R's model, on the CPU and the GPU with parity; then R's fit, checkpoint 1, and checkpoint 0's rerun, with its sham twins built first.
+
+## 2026-09-27 — Calibration: the procedure, as built
+
+**Decision.** PLAN §7.3's procedure is built as it fixes it (`npm run calibrate`), and run first on the planned model's eight parameters, track R's first step (PLAN §9). What §7.3 leaves to the implementation was set with the code, before any calibration ran:
+
+- **CMA-ES** (`src/validation/cmaes.ts`), as Hansen's tutorial gives it ("The CMA Evolution Strategy: A Tutorial", arXiv:1604.00772), with its default settings:
+  - the (μ/μ_w, λ) strategy with μ = ⌊λ/2⌋ and positive weights proportional to ln(μ + ½) − ln i;
+  - cumulative step-size adaptation, and the rank-one and rank-μ covariance updates, with the tutorial's default constants and its stall of the rank-one path, h_σ;
+  - no active update with negative weights, which the tutorial's later versions add;
+  - the covariance decomposed every generation, by Jacobi rotations, which suits eleven dimensions or fewer.
+
+  Its samples come from the neural noise's counter-based hash, from seed 1, the generation and the candidate, so a run replays exactly. On standard test functions in eight dimensions it reaches 10⁻¹⁰ in about 1,200 evaluations on the sphere, about 4,000 on an ellipsoid of condition 10⁶, and about 4,000 on Rosenbrock's function, as CMA-ES should.
+
+- **The search** (`src/validation/calibration.ts`, `scripts/calibrate/run.ts`).
+  - Each candidate is evaluated at its point clipped into the bounds, on seeds 1001 to 1004. The search ranks it by its objective plus the squared distance it lay outside.
+  - A generation the budget cuts short is evaluated but doesn't update the search.
+  - The final mean is the mean after the last update.
+- **The final check.**
+  - It runs the ten best distinct candidates again on seeds 1005 to 1020, ranked by their objective as evaluated, which the search's penalty doesn't enter, and the final mean too.
+  - The lowest objective there is final, the earlier candidate on a tie.
+- **The measures** are pooled over each candidate's trials: the kinematics over their forward bouts, with checkpoint 1's own functions, and the reversal rate over their measured windows.
+- **The bounds** go into the registry now, before the fit, as §7.3 sets them.
+- **The fit's values go into the registry unrounded**, so that checkpoint 1 and the app run on exactly the parameters the check chose; `FIDELITY.md` shows them rounded.
+- **The app and the harness then run on the calibrated values,** as PLAN §6.2 says they will once calibration sets them, the provisional ones staying beside them.
+
+**Cost.** A short run of 20 evaluations took 90 s on 18 cores, final check included. With the noise on, a trial of 120 s takes about 5.4 CPU-seconds, about 22× real time: slower than the 1.4 CPU-minutes per worm-hour measured on the provisional parameters, whose noise is off. The full fit takes about 45 minutes.
+
+**Status.** Built and tested; the fit runs next, at the commit that has this entry.

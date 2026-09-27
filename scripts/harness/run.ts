@@ -29,11 +29,10 @@ import {
   TRIALS,
 } from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
-import { POSTURE_ANGLES } from '../../src/validation/posture.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
-import { parseMatrix } from '../data/eigenworms.ts';
 import { formatMarkdown } from '../data/render.ts';
-import { loadSources, pinById, readFile, ROOT } from '../data/sources.ts';
+import { ROOT } from '../data/sources.ts';
+import { readPinned, readPostures } from './pinned.ts';
 import { checkpoint0Section, checkpoint1Section, replaceSection, type RunInfo } from './report.ts';
 
 const CHECKPOINTS = [0, 1] as const;
@@ -63,19 +62,6 @@ interface Result {
 
 const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 const PAGE = join(ROOT, 'VALIDATION.md');
-
-// A pinned CSV of numbers, fetched or read from the cache and checked against its digest.
-async function readPinned(id: string): Promise<number[][]> {
-  const files = pinById(loadSources(), id).files;
-  if (!files || files.length !== 1) throw new Error(`pin ${id} should hold one file`);
-  return parseMatrix((await readFile(files[0])).toString('utf8'), `pin ${id}`);
-}
-
-async function readPostures(): Promise<number[][]> {
-  const postures = await readPinned('oist-postures');
-  if (postures.some((p) => p.length !== POSTURE_ANGLES)) throw new Error(`postures need ${POSTURE_ANGLES} angles`);
-  return postures;
-}
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
 // The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
