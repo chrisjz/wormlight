@@ -580,8 +580,14 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
      - rectified gap junctions. The AVA–A-type junctions' rectification (Liu et al. 2017) bears on reversals more than on crawling, and would need kernel work and parity to keep the voltage solve symmetric; the ladder gives no sign rectification helps forward crawling, and the AVB–B-type evidence leans against it;
      - the RMDs in the head switch, which no source puts there;
      - after review, the A-type resting offset (DECISIONS.md). In a probe of R's model it gained nothing, and Liu, Chen & Wang's VA5 potential is a down state.
-3. **The fit.** One run of §7.3's procedure on R's eleven parameters (the eight, with g_osc for the A-types alone, and the three above), on 2,000 evaluations, starting from R's provisional values (§7.3). If checkpoint 1 then stays below partial, R ends; a further round needs a new proposal you approve.
-4. **Then,** after whichever fit ends R: checkpoint 1, and checkpoint 0 run again, as after any fallback. Its reruns need the sham twins' harness code (§7.4) and grade chemotaxis by the binomial test. Every primary null is tuned later by the same procedure, with the parameterisation of the real wiring's final fit, on the same budget. If that fit is the planned model's, the calibration runner first needs a path for the planned model, which it lost when R's model took the planned model's place in the registry (2026-09-27, DECISIONS.md). PLAN's sections on the model (§4.3, §4.4 and §6.2's table), and the spec's §1.1 for relative drive, changed when R's model landed.
+3. **The fit.** One run of §7.3's procedure on R's eleven parameters (the eight, with g_osc for the A-types alone, and the three above), on 2,000 evaluations, starting from R's provisional values (§7.3). If checkpoint 1 then stays below partial, R ends; a further round needs a new proposal you approve. Either way, the real wiring's final fit is chosen between the planned model's and R's, and the app and the harness then run it (set 2026-09-27, before R's fit, DECISIONS.md):
+   - the better checkpoint 1 grade;
+   - on a tie, more clauses graded pass, then more graded partial;
+   - then the lower objective on the final check's 16 seeds, 1005 to 1020.
+
+   The choice uses checkpoint 1's own trials, and its report says so.
+
+4. **Then,** on the chosen fit: checkpoint 1's section reports it, and checkpoint 0 runs again, as after any fallback. Its reruns need the sham twins' harness code (§7.4) and grade chemotaxis by the binomial test. Every primary null is tuned later by the same procedure, with the parameterisation of the real wiring's final fit, on the same budget. If that fit is the planned model's, the calibration runner first needs a path for the planned model, which it lost when R's model took the planned model's place in the registry (2026-09-27, DECISIONS.md). PLAN's sections on the model (§4.3, §4.4 and §6.2's table), and the spec's §1.1 for relative drive, changed when R's model landed.
 
 **The risk.** R may not reach partial. A review's probe of R's model, 96 of the go/no-go's draws of 30 s each with the noise off, found the head switch cycling at up to 0.3 Hz. With the gains at their floors, one draw of 96 reached the partial speed with the head switch free, 0.081 body lengths/s at 0.275 Hz; with the gains drawn across their bounds, none did. CMA-ES searches far more thoroughly than 96 draws, but nothing guarantees it finds more.
 
@@ -591,7 +597,7 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
 - With R's crawling carried by parts no null rewires, many nulls may crawl too.
 - Each brain's gains are tuned, so a tuned null's gap junctions and neuromuscular weights differ from the real wiring's, as its g_nmj and θ_nmj do. That is intended: spec §4 holds a null's gap junctions and neuromuscular map unrewired, and the class gains are calibrated parameters.
 - κ_SMD is a gain on one class's junctions split by where its muscles lie, a class-level parameter of a new kind (spec §1.2).
-- The real wiring gets two fits and the choice between them; each null gets the procedure of the one that ends R.
+- The real wiring gets two fits and the choice between them (step 3); each null gets the procedure of the one chosen.
 - **Open, to settle before any null is tuned** (DECISIONS.md, 2026-09-27): the calibration's reversal term can be met by the head switch's slips in any wiring, which would blunt checkpoint 6 on it.
 - Weakening AVB's junctions with the B-types, inside κ_gap,B, may weaken checkpoint 5's held-out AVB + PVC lesion effect. That is noted now, before any lesion runs.
 

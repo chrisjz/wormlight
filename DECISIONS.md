@@ -1375,3 +1375,14 @@ The brain steps at 29.9× real time and the whole loop at 25.0×, as before. On 
 - **Parity** in Chrome, rerun on this code, gives the same results as before, every check passing.
 
 **Status.** Decided and built; R's fit is the next pull request, from R's provisional values.
+
+## 2026-09-27 — How the real wiring's final fit is chosen
+
+**Why.** PLAN §9 gives the real wiring two fits, the planned model's and R's, and the choice between them, but didn't say how the choice is made. The chosen fit is what the app and the harness run, what checkpoint 0 reruns on, and whose procedure every null gets. So the rule is set now, before R's fit runs.
+
+**Decision** (PLAN §9, step 3). The maintainer chose the recommendation. The better checkpoint 1 grade wins; on a tie, the fit with more clauses graded pass, then more graded partial; then the one with the lower objective on the final check's 16 seeds, 1005 to 1020, which each fit already reports. Checkpoint 1 is the gate R's stopping rule uses, and its bout and eigenworm clauses test what the objective doesn't, which the head switch's slips can't game. It chooses on checkpoint 1's own trials, and its report says so.
+
+- **Considered:** the lower objective on the fresh seeds alone, the criterion each fit uses for its own final candidate, which keeps checkpoint 1's trials out of the choice. The planned fit scored 0.87 there, partly by counting the head switch's slips as reversals, which R's fit could exploit as well. Also R's fit by design, whatever it scores.
+- **The planned fit's standing** (VALIDATION.md): Fail, with the wavelength and eigenworm clauses graded pass and the frequency partial, and 0.87 on the fresh seeds.
+
+**Status.** Set before R's fit.
