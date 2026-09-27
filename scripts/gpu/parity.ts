@@ -1,18 +1,20 @@
-// GPU parity in headless Chrome (PLAN §7.2, §8): the dev server serves the parity page, whose checks run the
-// GPU against the CPU reference from identical states, the brain alone and then the whole loop. This prints the
-// results and the speed benchmark, and with --long the long runs, writes each to the output directory, and
-// fails if any check fails.
+// GPU parity in headless Chrome, or in Safari (PLAN §7.2, §8): the dev server serves the parity page, whose
+// checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop.
+// This prints the results and the speed benchmark, and with --long the long runs, writes each to the output
+// directory, and fails if any check fails.
 //
-//   npm run gpu:parity [-- outDir] [--long]      (default gpu-out)
+//   npm run gpu:parity [-- outDir] [--long] [--safari]      (default gpu-out, or gpu-out/safari)
 //   --long            adds long-run parity: 265 seeds a side for 60 s, 11 to 18 minutes on an M5 Max and
 //                     far too long for CI's software GPU
+//   --safari          runs the page in Safari, on this Mac's GPU, through safaridriver (scripts/safari.ts),
+//                     which needs Safari's "Allow remote automation" setting; npm run gpu:parity:safari
 //   CHROME_PATH, WEBGPU_CI as in scripts/browser.ts
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { Browser } from 'puppeteer-core';
-import { closeChrome, collectErrors, describeAdapter, launchChrome, serve, withTimeout } from '../browser.ts';
+import { ADAPTER, closeChrome, collectErrors, describeAdapter, launchChrome, serve, withTimeout } from '../browser.ts';
 import { ROOT } from '../data/sources.ts';
+import { Safari } from '../safari.ts';
 
 // What the page reports (src/gpu/parity.ts), as far as this prints it.
 interface Step {
@@ -37,11 +39,13 @@ interface LoopStep extends Step {
   endShares: [number, number];
   centreShares: [number, number, number];
   muscleShare: number;
+  thresholdShare: number;
+  smellError: number;
   switchSame: boolean;
 }
 interface LoopSecond {
   label: string;
-  shares: { voltage: number; activation: number; curvature: number; centroid: number };
+  shares: { voltage: number; activation: number; curvature: number; centroid: number; threshold: number };
   switchSame: boolean;
   referenceShare: number;
   referenceSwitchSame: boolean;
@@ -100,9 +104,11 @@ interface Bench {
 }
 
 const PORT = Number(process.env.PARITY_PORT ?? 5231);
+const DRIVER_PORT = Number(process.env.SAFARI_DRIVER_PORT ?? 5232);
 const args = process.argv.slice(2);
 const long = args.includes('--long');
-const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? 'gpu-out');
+const safari = args.includes('--safari');
+const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? (safari ? 'gpu-out/safari' : 'gpu-out'));
 mkdirSync(outDir, { recursive: true });
 for (const file of ['parity.json', 'bench.json', 'long.json']) rmSync(join(outDir, file), { force: true });
 
@@ -118,23 +124,64 @@ const secondLine = (r: Second): string =>
   `${g(r.activationRms, 5).padStart(9)}   reference ${g(r.referenceRms, 5).padStart(9)}` +
   (r.graded ? '' : '   not graded');
 
-let browser: Browser | null = null;
+// The browser the page runs in: what it is, its GPU adapter, a call to one of the page's async globals, the
+// errors the page reported, and closing it.
+interface Driver {
+  name: string;
+  adapter: () => Promise<string>;
+  call: <T>(global: string) => Promise<T>;
+  errors: () => Promise<string[]>;
+  close: () => Promise<void>;
+}
+
+async function chrome(url: string): Promise<Driver> {
+  const browser = await launchChrome(1000, 800);
+  try {
+    const page = await browser.newPage();
+    const errors = collectErrors(page);
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: 60000 });
+    return {
+      name: `Chrome ${await browser.version()}`,
+      adapter: () => describeAdapter(page),
+      call: <T>(global: string) =>
+        page.evaluate((name) => (globalThis as unknown as Record<string, () => Promise<T>>)[name](), global),
+      errors: () => Promise.resolve(errors),
+      close: () => closeChrome(browser),
+    };
+  } catch (e) {
+    await closeChrome(browser);
+    throw e;
+  }
+}
+
+async function safariDriver(url: string): Promise<Driver> {
+  const session = await Safari.launch(DRIVER_PORT);
+  try {
+    await session.open(url, '__parity');
+    return {
+      name: `Safari ${session.version}`,
+      adapter: () => session.evaluate<string>(ADAPTER),
+      call: <T>(global: string) => session.call<T>(global),
+      errors: () => session.errors(),
+      close: () => session.close(),
+    };
+  } catch (e) {
+    await session.close();
+    throw e;
+  }
+}
+
+let driver: Driver | null = null;
 let stopServer = (): void => {};
 let failed = true;
 let errors: string[] = [];
 try {
   stopServer = await serve([], PORT);
-  browser = await launchChrome(1000, 800);
-  console.log(`Chrome ${await browser.version()}`);
-  const page = await browser.newPage();
-  errors = collectErrors(page);
-  await page.goto(`http://localhost:${PORT}/parity.html`, { waitUntil: 'networkidle0', timeout: 60000 });
-  console.log(`GPU adapter: ${await describeAdapter(page)}`);
-  const report = await withTimeout(
-    page.evaluate(() => (globalThis as unknown as { __parity: () => Promise<Report> }).__parity()),
-    600000,
-    'the parity checks',
-  );
+  const url = `http://localhost:${PORT}/parity.html`;
+  const browser = (driver = safari ? await safariDriver(url) : await chrome(url));
+  console.log(browser.name);
+  console.log(`GPU adapter: ${await browser.adapter()}`);
+  const report = await withTimeout(browser.call<Report>('__parity'), 600000, 'the parity checks');
   writeFileSync(join(outDir, 'parity.json'), `${JSON.stringify(report, null, 2)}\n`);
   const { noise, thresholds } = report;
   console.log(
@@ -169,12 +216,14 @@ try {
     for (const r of loop.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
     console.log(
       "\none step: the brain as above, then the rods' centres' velocities ẋ, ẏ, θ̇ (each within 10⁻² of the " +
-        "largest), muscles (10⁻⁴) and the head switch; the rods' end points reported",
+        "largest), muscles (10⁻⁴), AWC-ON's threshold T (10⁻⁴) and the head switch; the rods' end points and the " +
+        'relative error of the odour AWC-ON sensed, C, reported',
     );
     for (const r of loop.oneStep) {
       console.log(
         `${stepLine(r)}   centres ${r.centreShares.map((v) => g(v)).join(' ')} (ends ${r.endShares.map((v) => g(v)).join(' ')})` +
-          `   A ${g(r.muscleShare)}   switch ${r.switchSame ? 'same' : 'DIFFERS'}`,
+          `   A ${g(r.muscleShare)}   T ${g(r.thresholdShare)} (C ${g(r.smellError)})   switch ` +
+          `${r.switchSame ? 'same' : 'DIFFERS'}`,
       );
     }
     console.log('\none second: shares of the thresholds and the switch throughout, and the reference against itself');
@@ -183,6 +232,7 @@ try {
       console.log(
         `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(32)} V ${g(s.voltage).padStart(7)}  s ` +
           `${g(s.activation).padStart(9)}  κL ${g(s.curvature).padStart(7)}  centroid ${g(s.centroid).padStart(7)}` +
+          `  T ${g(s.threshold).padStart(7)}` +
           `  switch ${r.switchSame ? 'same' : 'DIFFERS'}   reference ${g(r.referenceShare).padStart(7)}` +
           `${r.referenceSwitchSame ? '' : ' (its switch differs)'}${r.graded ? '' : '   not graded'}`,
       );
@@ -192,11 +242,7 @@ try {
   console.log(`\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}`);
   console.log(`parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s`);
 
-  const bench = await withTimeout(
-    page.evaluate(() => (globalThis as unknown as { __bench: () => Promise<Bench> }).__bench()),
-    120000,
-    'the benchmark',
-  );
+  const bench = await withTimeout(browser.call<Bench>('__bench'), 120000, 'the benchmark');
   writeFileSync(join(outDir, 'bench.json'), `${JSON.stringify(bench, null, 2)}\n`);
   console.log(`\nspeed of the brain step at ${1000 * bench.dt} ms`);
   for (const r of bench.gpu) {
@@ -218,11 +264,7 @@ try {
   }
   let longPass = true;
   if (long) {
-    const result = await withTimeout(
-      page.evaluate(() => (globalThis as unknown as { __long: () => Promise<Long> }).__long()),
-      3600000,
-      'the long runs',
-    );
+    const result = await withTimeout(browser.call<Long>('__long'), 3600000, 'the long runs');
     writeFileSync(join(outDir, 'long.json'), `${JSON.stringify(result, null, 2)}\n`);
     const mean = (x: number[]): number => x.reduce((a, b) => a + b, 0) / x.length;
     console.log(`\nlong runs: ${result.seeds} seeds a side, ${result.seconds} s each`);
@@ -242,13 +284,14 @@ try {
     );
     longPass = result.pass;
   }
+  errors = await browser.errors();
   if (errors.length > 0) throw new Error('the page reported errors');
   failed = !report.pass || !longPass;
 } catch (e) {
   console.error(`✗ ${e instanceof Error ? e.message : String(e)}`);
   for (const error of errors) console.error(`    ${error}`);
 } finally {
-  await closeChrome(browser);
+  await driver?.close().catch(() => undefined);
   stopServer();
 }
 process.exit(failed ? 1 : 0);

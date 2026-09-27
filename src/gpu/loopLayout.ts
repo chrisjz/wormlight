@@ -1,9 +1,51 @@
 // The loop outside the brain, as the GPU kernel holds it (PLAN §1): a CPU World's proprioceptive fields,
-// head switch, neuromuscular layer, body and dish, packed into the shader's layout. Pure data, so tests
-// without WebGPU can check it.
+// AWC-ON and the odour it senses, head switch, neuromuscular layer, body and dish, packed into the shader's
+// layout. Pure data, so tests without WebGPU can check it.
 
+import { between } from '../sim/body/body.ts';
+import { OdourField } from '../sim/env/odour.ts';
+import type { Odour } from '../sim/sensing.ts';
 import type { World } from '../sim/world.ts';
-import { MAX_MUSCLES, MAX_RODS, MAX_WALL, ROD_CONSTANTS, SEGMENT_WORDS, type LoopScalar } from './brainShader.ts';
+import {
+  MAX_MUSCLES,
+  MAX_RODS,
+  MAX_WALL,
+  NO_NEURON,
+  OUTSIDE,
+  ROD_CONSTANTS,
+  SEGMENT_WORDS,
+  type LoopScalar,
+} from './brainShader.ts';
+
+// An odour field as the kernel's texture holds it: each cell's concentration (µM), or OUTSIDE beyond the dish's
+// wall, row by row up the dish as OdourField's are, on a square grid `cells` wide of cells `cell` metres wide.
+export interface OdourGrid {
+  cells: number;
+  cell: number;
+  values: Float32Array;
+}
+
+// Throws unless a grid is one the kernel can read: at least two cells square, no wider than the device's largest
+// texture, a value for every cell, and cells of a positive size.
+export function checkOdour(grid: OdourGrid, maxCells = Infinity): void {
+  const { cells, cell, values } = grid;
+  if (!Number.isInteger(cells) || cells < 2 || cells > maxCells) {
+    throw new Error(`an odour grid is 2 to ${maxCells} cells square, not ${cells}`);
+  }
+  if (values.length !== cells * cells) {
+    throw new Error(`an odour grid of ${cells} × ${cells} cells has ${cells * cells} values, not ${values.length}`);
+  }
+  if (!(cell > 0 && Number.isFinite(cell))) throw new Error(`an odour grid's cells are not ${cell} m wide`);
+}
+
+// The grid for an odour, or for none: two cells square, all outside, which reads as none anywhere.
+export function packOdour(odour: Odour | null): OdourGrid {
+  if (odour === null) return { cells: 2, cell: 1, values: new Float32Array(4).fill(OUTSIDE) };
+  if (!(odour instanceof OdourField)) throw new Error('the GPU takes odour only as an OdourField');
+  const { cells, cell } = odour.geometry;
+  const values = Float32Array.from(odour.concentration, (c, k) => (odour.inside[k] ? c : OUTSIDE));
+  return { cells, cell, values };
+}
 
 export interface LoopLayout {
   rods: number;
@@ -17,6 +59,11 @@ export interface LoopLayout {
   // The rods whose curvature the head switch reads.
   headFrom: number;
   headTo: number;
+  // AWC-ON's neuron (NO_NEURON if lesioned), and the rod before the point where it senses, which awc_along in
+  // the scalars places between that rod and the next; and the odour it senses.
+  awcOn: number;
+  awcRod: number;
+  odour: OdourGrid;
   // The neuromuscular rows: each muscle's first entry, and each entry's presynaptic neuron and signed sections.
   nmStart: Uint32Array;
   nmPre: Uint32Array;
@@ -30,6 +77,28 @@ export interface LoopLayout {
   segmentConstants: Float32Array;
   // The scalars, by their names in the shader.
   scalars: Record<LoopScalar, number>;
+}
+
+// What of the loop depends on a world's seed: which AWC is ON, and so its neuron, its gain and where it senses.
+// The rest of the layout is the same for every seed of a world made the same way.
+export interface AwcLayout {
+  awcOn: number;
+  awcRod: number;
+  scalars: Pick<Record<LoopScalar, number>, 'awc_gain' | 'awc_scale' | 'awc_time' | 'awc_along'>;
+}
+
+export function awcLayout(world: World): AwcLayout {
+  const [awcRod, awcAlong] = between(world.nose, world.body.params.segments);
+  return {
+    awcOn: world.awcOn >= 0 ? world.awcOn : NO_NEURON,
+    awcRod,
+    scalars: {
+      awc_gain: world.awc.gain,
+      awc_scale: world.awc.scale,
+      awc_time: world.awc.time,
+      awc_along: awcAlong,
+    },
+  };
 }
 
 // The interior rods whose body coordinates lie in [from, to], as regionMean reads them, or the nearest one.
@@ -74,6 +143,8 @@ export function packLoop(world: World): LoopLayout {
   for (const i of world.dorsalSwitch) switchSide[i] = 1;
   for (const i of world.ventralSwitch) switchSide[i] = -1;
   const [headFrom, headTo] = rodRange(segments, world.headFrom, world.headTo);
+  const awc = awcLayout(world);
+  const odour = packOdour(world.odour);
   const { cover } = muscles;
   const p = body.params;
   const radius = p.radius;
@@ -86,6 +157,9 @@ export function packLoop(world: World): LoopLayout {
     switchSide,
     headFrom,
     headTo,
+    awcOn: awc.awcOn,
+    awcRod: awc.awcRod,
+    odour,
     nmStart: Uint32Array.from(muscles.start),
     nmPre: Uint32Array.from(muscles.pre),
     nmWeight: Float32Array.from(muscles.weight),
@@ -124,6 +198,8 @@ export function packLoop(world: World): LoopLayout {
       drag_normal: p.dragNormal,
       drag_tangential: p.dragTangential,
       wall: p.wall,
+      ...awc.scalars,
+      odour_cell: odour.cell,
     },
   };
 }

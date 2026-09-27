@@ -87,17 +87,18 @@ export async function closeChrome(browser: Browser | null): Promise<void> {
 }
 
 // Everything the page's WebGPU adapter says about itself, since a software GPU's name alone can mislead.
-export async function describeAdapter(page: Page): Promise<string> {
-  const adapter = await page.evaluate(`(async () => {
+// What the page's WebGPU adapter says of itself, as an async function's body, for any browser to run.
+export const ADAPTER = `
     if (!navigator.gpu) return 'none: this browser has no WebGPU';
     const a = await navigator.gpu.requestAdapter();
     const i = a && a.info;
     if (!i) return 'none';
     return ['vendor', 'architecture', 'device', 'description', 'isFallbackAdapter']
       .map((k) => k + '=' + JSON.stringify(i[k]))
-      .join(' ');
-  })()`);
-  return String(adapter);
+      .join(' ');`;
+
+export async function describeAdapter(page: Page): Promise<string> {
+  return String(await page.evaluate(`(async () => {${ADAPTER}})()`));
 }
 
 // Errors the page reports, collected as they happen.
