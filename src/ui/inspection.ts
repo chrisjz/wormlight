@@ -3,6 +3,7 @@
 
 import type { CellClass, Neuron, Neuromuscular, Sign, WormlightData } from '../data/schema.ts';
 import { chemicalProvenance, GAP_PROVENANCE, muscleProvenance, type Provenance } from '../science/provenance.ts';
+import { currentParams } from '../sim/world.ts';
 import type { Wiring } from './connections.ts';
 
 export const CLASS_NAMES: Record<CellClass, string> = {
@@ -54,12 +55,18 @@ const TRANSMITTERS: Record<string, string> = {
 
 const percent = (f: number): string => `${Math.round(100 * f)}%`;
 
-// The cell's part in the model's rhythm, as the ledger describes it.
+// The cell's part in the model's rhythm, as the ledger describes it, for the parameters the app runs on: a fit
+// may leave the B-types without their oscillator.
 const ROLES = {
-  A: 'an A-type intrinsic oscillator (Gao et al. 2018), which does not yet cycle on its own',
+  A: 'an A-type intrinsic oscillator (Gao et al. 2018), excitable rather than cycling on its own',
   B: 'a B-type intrinsic oscillator, gated by drive (Fouad et al. 2018; Xu et al. 2018)',
+  noB: 'a B-type motor neuron, whose intrinsic oscillator (Fouad et al. 2018; Xu et al. 2018) the current fit leaves out',
   headSwitch: "driven by the head's proprioceptive switch (Ji et al. 2021; Yeon et al. 2018)",
 } as const;
+
+function role(oscillator: NonNullable<Neuron['oscillator']>): string {
+  return oscillator === 'B' && currentParams().oscillatorGainB === 0 ? ROLES.noB : ROLES[oscillator];
+}
 
 function facts(n: Neuron): { label: string; value: string }[] {
   const out = [
@@ -83,7 +90,7 @@ function facts(n: Neuron): { label: string; value: string }[] {
       value: `touch from ${percent(n.sensing.s0)} to ${percent(n.sensing.s1)} of the way along`,
     });
   }
-  if (n.oscillator) out.push({ label: 'In the model', value: ROLES[n.oscillator] });
+  if (n.oscillator) out.push({ label: 'In the model', value: role(n.oscillator) });
   return out;
 }
 

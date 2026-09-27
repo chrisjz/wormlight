@@ -12,7 +12,7 @@ import { FIRST_LAWN, lawnField, steadyField, type Lawn } from '../sim/env/dish.t
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP, ODOUR_SUBSTEP } from '../sim/numerics.ts';
 import { BACK, FRONT, tap, TOUCH_STEPS, type Touch, type TouchReceptor } from '../sim/touch.ts';
-import { World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
+import { currentParams, World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
 
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
 // B-types' drive threshold is in the range where they cycle (DECISIONS.md, 2026-09-26), and the noise, about
@@ -213,7 +213,8 @@ export function assayField(): OdourField {
 // off as well. The gating variant's seed makes AWCR AWC-ON, where the others' makes AWCL, and its states are
 // also taken moved, so AWCR senses odour its threshold never adapted to. A fourth runs track R's model (PLAN §9):
 // relative drive, g_nmj and θ_nmj in its units, the B-types' oscillator gain apart from the A-types', and the two
-// class gains below 1.
+// class gains below 1. A fifth runs the values the app runs, the registry's, so the GPU is checked on whatever a fit
+// sets (DECISIONS.md, 2026-09-28): R's fit leaves the B-types without oscillators and the A-types' at 5 nS.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
@@ -248,6 +249,7 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     },
     states: 10,
   },
+  { name: 'registry', params: currentParams(), states: 10 },
 ];
 
 export interface LoopCase {

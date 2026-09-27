@@ -128,12 +128,17 @@ export function fidelityPage(facts: Facts): string {
   const subsystems = Object.keys(SUBSYSTEMS) as SubsystemId[];
   const free = freeParams();
   const calibrated = free.filter((id) => PARAMS[id].level === 1);
+  // Calibrated values the fit left on a bound, which the page reports as limited by it.
+  const onBound = calibrated.filter((id) => {
+    const p: Param = PARAMS[id];
+    return p.value !== null && p.bounds != null && (p.value === p.bounds[0] || p.value === p.bounds[1]);
+  }).length;
   const groups = Object.keys(PARAM_GROUPS) as Subsystem[];
   return [
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    "> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), which awaits its fit: each is shown not yet calibrated, with the provisional value it runs on, the planned model's calibration carried over (DECISIONS.md, 2026-09-27). Checkpoints 0 and 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven't, so \"Tested by\" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.",
+    `> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling as checkpoint 1 asks for it does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), shown below rounded from its fit, ${onBound} of them on a bound (DECISIONS.md, 2026-09-27). R is suspended while its checkpoint 1 result depends on the time step (DECISIONS.md, 2026-09-28). Checkpoints 0 and 1 have run in the harness (\`VALIDATION.md\`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],

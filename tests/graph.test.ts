@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData, type Chemical } from '../src/data/schema.ts';
 import { DEFAULT_LAYOUT, graphLayout, isCordNeuron, unbendNeurons } from '../src/render/layout.ts';
 import { linkKind, Wiring } from '../src/ui/connections.ts';
+import { currentParams } from '../src/sim/world.ts';
 import { badgeKey, GROUP_TITLES, inspect, musclesByNeuron, type GroupKind, type Row } from '../src/ui/inspection.ts';
 import { readJson } from './checks.ts';
 
@@ -187,5 +188,16 @@ describe('the inspector', () => {
   it('says which neurons release no identified transmitter', () => {
     const silent = data.neurons.find((n) => n.transmitters.length === 0)!;
     expect(look(silent.name).facts[0].value).toMatch(/^no release identified/);
+  });
+
+  it("gives an oscillator's part in the rhythm as the parameters the app runs on have it", () => {
+    const role = (name: string) => look(name).facts.find((f) => f.label === 'In the model')?.value;
+    const bRole =
+      currentParams().oscillatorGainB === 0
+        ? /whose intrinsic oscillator .* the current fit leaves out/
+        : /^a B-type intrinsic oscillator/;
+    expect(role('VB6')).toMatch(bRole);
+    expect(role('DA9')).toMatch(/^an A-type intrinsic oscillator/);
+    expect(role('SMDVL')).toMatch(/proprioceptive switch/);
   });
 });

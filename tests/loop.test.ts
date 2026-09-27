@@ -135,11 +135,15 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it("runs track R's model on its provisional values until R's fit calibrates them (PLAN §9)", () => {
-    expect(isCalibrated()).toBe(false);
-    expect(() => calibratedParams()).toThrow(/not calibrated/);
-    expect(currentParams()).toEqual(provisionalParams());
-    expect(currentParams()).toMatchObject({ relativeDrive: true, gapGainB: 1, smdGain: 1, oscillatorGainB: 2.14 });
+  it("runs track R's model on its fit's values (PLAN §9), its provisional values kept beside them", () => {
+    expect(isCalibrated()).toBe(true);
+    expect(currentParams()).toEqual(calibratedParams());
+    expect(currentParams()).toMatchObject({
+      relativeDrive: true,
+      oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,
+      oscillatorGainB: (PARAMS.oscillatorExcitabilityB.value as number) / 1000,
+    });
+    expect(provisionalParams()).toMatchObject({ gapGainB: 1, smdGain: 1, oscillatorGainB: 2.14 });
   });
 
   it('feeds curvature to the motor neurons with the sign of their side', () => {

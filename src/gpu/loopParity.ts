@@ -3,7 +3,7 @@
 // the assay's odour field: the rest world and twenty from the trial values' closed loop; copies of them moved
 // across the dish and turned, which the CPU doesn't notice and the GPU must not; copies pressed against the
 // dish's wall, which both push back; copies tapped front and back; states from two variants that make the head
-// switch flip and gate; and states from track R's model.
+// switch flip and gate; states from track R's model; and states on the registry's values, which the app runs.
 // The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
 // 2026-09-26), and AWC-ON's threshold's, set before any results (2026-09-27); the brain's are as before. Long
 // runs, LONG_SEEDS a side for 60 s, compare the body wave's statistics by Welch's two one-sided tests while the

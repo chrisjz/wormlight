@@ -175,8 +175,8 @@ export async function startPlate(
   why.href = VALIDATION;
   why.rel = 'noopener';
   notice.append(
-    el('strong', undefined, "Crawling doesn't emerge yet. "),
-    'No parameter values tried so far make this model crawl: the worm bends and creeps, but does not crawl. ',
+    el('strong', undefined, 'Crawling only partly emerges. '),
+    "The worm crawls in bouts, at under a third of a real worm's speed, and how well depends on the time step. ",
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
