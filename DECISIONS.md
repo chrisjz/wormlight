@@ -1032,7 +1032,7 @@ Checkpoints 2 to 4 stay "not reached": they need forward crawling, which checkpo
 - **The grading** (`src/validation/checkpoints.ts`). The touch schedule, the reversal and speed windows, the two tests and the CI; checkpoint 0 passes if all three clauses pass. Fisher's exact test and the exact signed-rank test, both one-sided, are in `src/sim/stats.ts`, checked against SciPy 1.18.1 and, for ties and zeros, against every sign flip.
 - **The harness** runs checkpoint 0's 20 trials untouched and touched and its 30 worms, the longest first, each worker solving the assay's field once: about 100 s on 18 cores. The untouched trials are unchanged, and the eight fingerprinted worlds step bit for bit as on `main`.
 
-**Results** (run at `67dbcda`, VALIDATION.md). Checkpoint 0 passes every clause:
+**Results** (run at `67dbcda`, and again after review at `a633c02` with the same results, VALIDATION.md). Checkpoint 0 passes every clause:
 
 - **Crawling**, as before: no forward bout, and no reversal.
 - **Anterior touch.** No reversal followed any of the 50 anterior touches, and none started in the 50 matched windows; p = 1.
@@ -1094,7 +1094,14 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
   - With the restarts off, 11 of the 20 touched trials still part from their twins, by up to 1.7 × 10⁻⁹ body lengths per second, through the voltage solve's sums.
   - The restarts are still the main path, at up to 2.7 × 10⁻⁷.
   - A test now holds a touched silenced body within 10⁻¹⁰ m of its twin over 3 s, where an intact one moves more than 10⁻⁹ m.
+- **The harness.**
+  - A touch at a trial's last step could be dropped silently.
+  - The report garbled failing clauses and shortened runs: "each touched 4.75 times", empty lists of receptors, and wrong plurals. Each reflex is now graded as measured or not on its own touches, and the report says why one went unmeasured.
+  - Checkpoint 0 refuses trials too short for any touch.
+  - The records are written before they are graded, so a failure in grading loses no run.
+  - The report now prints how many posterior touches the speed rose after, and by how much.
+- **The docs.** Stale text in PLAN §7.1 and §8, and wording that overstated or read ambiguously in PLAN, VALIDATION.md and the two entries above. The registry lists checkpoint 0 against every AWC and touch component it exercises.
 
 **A known weakness, to settle before any fallback rerun.** Checkpoint 0's chemotaxis band, ±0.1 over 30 worms, isn't a controlled test. A worm that moves but has no bias fails it by chance 15% of the time if a fifth of the worms reach a spot, 37% if half do, and 58% if all do. The silenced worm doesn't move, so the run of 2026-09-27 isn't affected.
 
-**Status.** The rules are revised before any trial they apply to; the review's fixes to the harness, its report and the docs follow.
+**Status.** The rules are revised before any trial they apply to. The report and harness fixes are built, and checkpoint 0, run again at `a633c02`, which has them, gives the same results (VALIDATION.md).
