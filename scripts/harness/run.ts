@@ -225,10 +225,10 @@ if (process.argv.includes('--worker')) {
   mkdirSync(out, { recursive: true });
   let page = readFileSync(PAGE, 'utf8');
   for (const checkpoint of options.checkpoints) {
-    const of = <T>(kind: Kind): T[] =>
+    const of = <T extends TrialRecord | ChemotaxisRecord>(kind: Kind): T[] =>
       results
         .filter((r) => r.job.checkpoint === checkpoint && r.job.kind === kind)
-        .map((r) => r.record as T & { seed: number })
+        .map((r) => r.record as T)
         .sort((a, b) => a.seed - b.seed);
     const trials = of<TrialRecord>('trial');
     const touched = of<TrialRecord>('touched');

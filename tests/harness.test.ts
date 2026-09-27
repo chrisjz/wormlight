@@ -38,7 +38,6 @@ describe('a trial', () => {
     for (const seed of [1, 5, 9]) {
       const { world, start } = startingWorld(data, {
         seed,
-        seconds: 0,
         params: provisionalParams(),
         postures: POSTURES,
       });
