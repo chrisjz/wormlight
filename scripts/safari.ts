@@ -1,9 +1,11 @@
 // Safari for the harnesses that need its WebGPU: safaridriver, the WebDriver server macOS ships with Safari,
 // spoken to over W3C WebDriver's HTTP protocol, so no dependency. It drives the real Safari, in a window of its
 // own, on this Mac's GPU. It needs Safari → Settings → Developer → "Allow remote automation" turned on once;
-// without it the session is refused, with a message saying so. One automated session can run at a time.
+// without it the session is refused, with a message saying so. One automated session can run at a time. Keep its
+// window uncovered: one long run stalled with Safari idle, most likely because the window was covered.
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { request } from 'node:http';
 import { withTimeout } from './browser.ts';
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -34,8 +36,8 @@ export class Safari {
           for (;;) {
             if (driver.exitCode !== null) throw new Error('safaridriver exited: is the port free?');
             try {
-              const status = (await (await fetch(`${root}/status`)).json()) as { value?: { ready?: boolean } };
-              if (status.value?.ready) return;
+              const status = (await command(root, 'GET', '/status')) as { ready?: boolean };
+              if (status.ready) return;
             } catch {
               // Not listening yet.
             }
@@ -111,11 +113,13 @@ export class Safari {
     return (await this.sync('return globalThis.__driverErrors ?? [];')) as string[];
   }
 
+  // End the session and the driver. Safari answers the end of a session only once a script it is running
+  // finishes, so after a timed-out call the driver is stopped regardless, which ends the session with it.
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
     try {
-      await command(this.base, 'DELETE', '');
+      await withTimeout(command(this.base, 'DELETE', ''), 10000, 'ending the Safari session');
     } finally {
       this.driver.kill('SIGKILL');
     }
@@ -126,14 +130,31 @@ export class Safari {
   }
 }
 
-// One WebDriver command; a WebDriver error is thrown with its message.
+// One WebDriver command; a WebDriver error is thrown with its message. It goes by node:http, not fetch, whose
+// five minutes' wait for a response's headers the long runs' single call outlasts.
 async function command(base: string, method: string, path: string, body?: Json): Promise<Json> {
-  const response = await fetch(`${base}${path}`, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+  const text = await new Promise<string>((resolve, reject) => {
+    const payload = body === undefined ? undefined : JSON.stringify(body);
+    const req = request(
+      `${base}${path}`,
+      {
+        method,
+        headers:
+          payload === undefined
+            ? {}
+            : { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        res.on('error', reject);
+      },
+    );
+    req.on('error', reject);
+    req.end(payload);
   });
-  const json = (await response.json()) as { value: Json };
+  const json = JSON.parse(text) as { value: Json };
   const value = json.value as { error?: string; message?: string } | null;
   if (value && typeof value === 'object' && 'error' in value && value.error) {
     throw new Error(`Safari: ${value.message || value.error}`);
