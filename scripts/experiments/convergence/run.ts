@@ -3,7 +3,9 @@
 // The convergence study (DECISIONS.md, 2026-09-28), set before it ran:
 // - the oscillator alone (oscillator.ts), held where it cycles and excited by noise, at each step;
 // - both fits in the loop, R's and the planned model's, on checkpoint 1's 20 trials and the calibration's 16 fresh
-//   seeds, with their noise as fitted and off, at each step.
+//   seeds, with their noise as fitted and off, at each step;
+// - the cause, added after those ran: R's fit with the A-types lesioned, and with the A-types' g_osc lowered, at the
+//   coarsest step and at 0.625 ms, on seeds 1 to 8.
 //
 // The neural step is a module constant, so each step runs in a copy of the committed tree with it changed, under
 // harness-out/convergence/trees/. Records go to harness-out/convergence/records/, and the summary, with the
@@ -37,7 +39,20 @@ interface Job {
   noise: Noise;
   seed: number;
   out: string;
+  // The cause's variants: neurons lesioned, or the A-types' g_osc in nS.
+  lesions?: string[];
+  oscillatorGain?: number;
 }
+
+// The cause's variants of R's fit.
+const CAUSE_STEPS = [0.0025, 0.000625];
+const CAUSE_SEEDS = Array.from({ length: 8 }, (_, i) => i + 1);
+const CAUSE_VARIANTS: { name: string; lesions?: 'A'; oscillatorGain?: number }[] = [
+  { name: 'A-types lesioned', lesions: 'A' },
+  { name: "A-types' g_osc 0.4 nS", oscillatorGain: 0.4 },
+  { name: "A-types' g_osc 1 nS", oscillatorGain: 1 },
+  { name: "A-types' g_osc 2.14 nS", oscillatorGain: 2.14 },
+];
 
 const tree = (step: number): string => join(OUT, 'trees', String(step * 1e6));
 const recordDir = (step: number, model: Model, noise: Noise): string =>
@@ -70,8 +85,18 @@ async function runJob(job: Job): Promise<void> {
   const { readPostures } = await from<typeof import('../../harness/pinned.ts')>('scripts/harness/pinned.ts');
   const data = validateWormlightData(JSON.parse(readFileSync(join(job.tree, 'public/data/wormlight.v1.json'), 'utf8')));
   const fitted = job.model === 'planned' ? plannedParams(PLANNED.calibrated) : currentParams();
-  const params = job.noise === 'off' ? { ...fitted, noise: 0 } : fitted;
-  const record = runTrial(data, { seed: job.seed, seconds: SECONDS, params, postures: await readPostures() });
+  const params = {
+    ...fitted,
+    ...(job.noise === 'off' ? { noise: 0 } : {}),
+    ...(job.oscillatorGain === undefined ? {} : { oscillatorGain: job.oscillatorGain }),
+  };
+  const record = runTrial(data, {
+    seed: job.seed,
+    seconds: SECONDS,
+    params,
+    postures: await readPostures(),
+    lesions: job.lesions,
+  });
   writeFileSync(job.out, JSON.stringify(record));
 }
 
@@ -149,13 +174,52 @@ if (process.argv[2] === '--worker') {
       }
     }
   }
+  process.stderr.write('the cause\n');
+  const { validateWormlightData } = await import('../../../src/data/schema.ts');
+  const data = validateWormlightData(JSON.parse(readFileSync(join(ROOT, 'public/data/wormlight.v1.json'), 'utf8')));
+  const aTypes = data.neurons.filter((n) => n.oscillator === 'A').map((n) => n.name);
+  const causeDir = (variant: number, step: number, noise: Noise): string =>
+    join(OUT, 'records', `cause-${variant}-${step * 1e6}us-${noise}`);
+  for (const step of CAUSE_STEPS) {
+    CAUSE_VARIANTS.forEach((v, k) => {
+      for (const noise of ['fitted', 'off'] as const) {
+        const dir = causeDir(k, step, noise);
+        mkdirSync(dir, { recursive: true });
+        for (const seed of CAUSE_SEEDS) {
+          const out = join(dir, `${seed}.json`);
+          if (existsSync(out)) continue;
+          const lesions = v.lesions === 'A' ? aTypes : undefined;
+          jobs.push({
+            tree: tree(step),
+            step,
+            model: 'r',
+            noise,
+            seed,
+            out,
+            lesions,
+            oscillatorGain: v.oscillatorGain,
+          });
+        }
+      }
+    });
+  }
   const started = Date.now();
   await pool(jobs, workers);
   const loop = [];
   for (const step of STEPS)
     for (const model of ['r', 'planned'] as const)
       for (const noise of ['fitted', 'off'] as const) loop.push(await grade(step, model, noise));
-  const summary = { ...head, seconds: (Date.now() - started) / 1000, oscillator, loop };
+  const cause = CAUSE_STEPS.flatMap((step) =>
+    CAUSE_VARIANTS.flatMap((v, k) =>
+      (['fitted', 'off'] as const).map((noise) => {
+        const records = CAUSE_SEEDS.map(
+          (seed) => JSON.parse(readFileSync(join(causeDir(k, step, noise), `${seed}.json`), 'utf8')) as TrialRecord,
+        );
+        return { step, variant: v.name, noise, ...measure(records) };
+      }),
+    ),
+  );
+  const summary = { ...head, seconds: (Date.now() - started) / 1000, oscillator, loop, cause };
   writeFileSync(join(OUT, 'summary.json'), JSON.stringify(summary, null, 2) + '\n');
   process.stderr.write(
     `wrote ${join(OUT, 'summary.json')} (${readdirSync(join(OUT, 'records')).length} record sets)\n`,

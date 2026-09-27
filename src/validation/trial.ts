@@ -35,6 +35,8 @@ export interface StartOptions {
   params: LoopParams;
   // Checkpoint 0's silenced network (PLAN §7.2).
   silenced?: boolean;
+  // Neurons laser-ablated, as checkpoint 5's rows lesion them, keeping the intact network's thresholds (PLAN §3.3).
+  lesions?: readonly string[];
   // The real postures, each the tangent angles head first with their mean removed.
   postures: readonly (readonly number[])[];
   // The odour AWC-ON senses; trials have none.
@@ -83,7 +85,13 @@ export function startingWorld(
   const start = startingPosture(seed, postures.length);
   const posture = postures[start.index].map((a) => a + start.turn);
   return {
-    world: new World(data, params, { seed, silenced: options.silenced, posture, odour: options.odour }),
+    world: new World(data, params, {
+      seed,
+      silenced: options.silenced,
+      lesions: options.lesions,
+      posture,
+      odour: options.odour,
+    }),
     start,
     posture,
   };
