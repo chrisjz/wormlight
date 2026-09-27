@@ -4,7 +4,7 @@
 import { grouped } from '../../src/science/facts.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CAPTURE_RADIUS, SPOT } from '../../src/sim/env/dish.ts';
-import { CALIBRATED, isCalibrated } from '../../src/sim/world.ts';
+import { CALIBRATED } from '../../src/sim/world.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
   CHECKPOINT_0_TOUCH,
@@ -12,14 +12,18 @@ import {
   touchSchedule,
   type Checkpoint0,
   type Checkpoint1,
+  type Diagnostics,
   type Clause,
   type TrialSummary,
 } from '../../src/validation/checkpoints.ts';
 import { table } from '../data/render.ts';
+import { formatNumber } from '../docs/page.ts';
 
 export interface RunInfo {
   date: string;
   commit: string;
+  // Whether the run used the calibrated parameters, or the provisional ones.
+  calibrated: boolean;
   trials: number;
   seconds: number;
   // Checkpoint 0's assay runs: how many worms, each for up to how long (s).
@@ -27,14 +31,13 @@ export interface RunInfo {
   wormSeconds?: number;
 }
 
-// The parameters a run used: the calibrated ones, to three significant figures, or the provisional ones until
-// calibration.
-export function parameterText(): string {
-  const calibrated = isCalibrated();
+// The parameters a run used: the calibrated ones, to three significant figures, as FIDELITY.md shows them, or
+// the provisional ones.
+export function parameterText(calibrated: boolean): string {
   const values = CALIBRATED.map((id) => {
     const p: Param = PARAMS[id];
     const v = calibrated ? Number((p.value as number).toPrecision(3)) : (p.provisional as number);
-    return `${p.symbol} = ${String(v).replace('-', '−')} ${p.unit}`;
+    return `${p.symbol} = ${formatNumber(v)} ${p.unit}`;
   });
   return calibrated
     ? `the calibrated parameters (PLAN §7.3), here to three significant figures: ${values.join(', ')}`
@@ -90,7 +93,7 @@ function runLine(info: RunInfo, trials: readonly TrialSummary[]): string {
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length;
   return [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText()}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText(info.calibrated)}.`,
     `Every measure starts after each trial's first 10 s. ${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
 }
@@ -125,7 +128,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length;
   const minutes = (info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds) / 60;
   const run = [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText()}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated)}.`,
     `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${plural(infinite, 'trial or worm', 'trials or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
   const { front, back, window, anteriorPartial, first, every } = CHECKPOINT_0_TOUCH;
@@ -305,6 +308,20 @@ const clauseRow = (c: Clause): string[] => {
   ];
 };
 
+// Checkpoint 1's diagnostics, reported and not graded (PLAN §7.4).
+export function diagnosticsText(d: Diagnostics): string {
+  const parts = [
+    d.peak === null || d.share === null
+      ? 'the mid-body curvature has no spectrum to report'
+      : `the mid-body curvature's spectrum peaks at ${d.peak.toFixed(3)} Hz, with ${percent(d.share)} of its power between 0.2 and 0.45 Hz`,
+    `${d.afterFlip} of ${plural(d.reversals, 'reversal', 'reversals')} started within 3 s after a flip of the head switch`,
+    d.avaChange === null || d.avaSpread === null
+      ? "AVA's activation has no reversal to report"
+      : `over reversals AVA's activation changed by ${scientific(d.avaChange)} on average, against a standard deviation of ${scientific(d.avaSpread)}`,
+  ];
+  return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;
+}
+
 export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
   const k = result.kinematics;
   const selfIntersecting = result.trials.reduce((n, t) => n + t.selfIntersecting, 0);
@@ -328,7 +345,8 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
     `### Checkpoint 1: crawling — ${GRADE[result.grade]}`,
     runLine(info, result.trials),
     table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], result.clauses.map(clauseRow)),
-    `${kinematics} The eigenworm clause pools ${grouped(result.postures)} postures sampled at 4 Hz; ${left} left out. The kinematic clauses are calibration targets, ${isCalibrated() ? 'which the parameters were tuned against (PLAN §7.3), on trials of their own' : 'but the parameters are provisional, not calibrated'}.`,
+    `${kinematics} The eigenworm clause pools ${grouped(result.postures)} postures sampled at 4 Hz; ${left} left out. The kinematic clauses are calibration targets, ${info.calibrated ? 'which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020' : 'but the parameters are provisional, not calibrated'}.`,
+    diagnosticsText(result.diagnostics),
     trialTable(result.trials),
   ].join('\n\n');
 }

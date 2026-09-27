@@ -68,6 +68,10 @@ export interface TrialRecord {
   unconverged: number;
   // The touches made, and the receptors each reached.
   touches: (TrialTouch & { reached: string[] })[];
+  // For checkpoint 1's diagnostics (PLAN §7.4): when the head switch flipped (s from the start), and AVA's
+  // activation, the mean of AVAL's and AVAR's, aligned with the velocity samples.
+  switchFlips: number[];
+  ava: number[];
 }
 
 // The world at its start: the real posture its seed draws, turned, head at the dish's centre.
@@ -105,6 +109,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     due.set(step, t);
   }
   const touches: TrialRecord['touches'] = [];
+  const switchFlips: number[] = [];
+  let side = world.headSwitch.h;
+  const avaIndex = ['AVAL', 'AVAR'].map((name) => data.neurons.findIndex((n) => n.name === name));
+  const avaSamples: number[] = [];
   const centroid: number[] = [];
   const head: number[] = [];
   const bend: [number[], number[], number[]] = [[], [], []];
@@ -125,6 +133,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     bend[0].push(k[MID_ROD]);
     bend[1].push(k[FRONT_ROD]);
     bend[2].push(k[REAR_ROD]);
+    avaSamples.push(avaIndex.reduce((a, i) => a + world.brain.activation[i], 0) / avaIndex.length);
   };
   sample();
   for (let s = 1; s <= steps; s++) {
@@ -134,6 +143,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     if (!body.x.every(Number.isFinite) || !body.y.every(Number.isFinite)) {
       finite = false;
       break;
+    }
+    if (world.headSwitch.h !== side) {
+      side = world.headSwitch.h;
+      switchFlips.push(s * NEURAL_STEP);
     }
     if (s % every === 0) sample();
     if (s >= from && s % posturesEvery === 0) {
@@ -160,5 +173,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     selfIntersecting,
     unconverged: world.brain.unconverged,
     touches,
+    switchFlips,
+    ava: aligned(avaSamples),
   };
 }

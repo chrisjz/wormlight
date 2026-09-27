@@ -55,16 +55,26 @@ describe('CMA-ES', () => {
     expect(() => new Cmaes({ mean: [0, 0], sigma: 1, seed: 1 }).tell([1, 2])).toThrow(/needs/);
   });
 
-  it('ranks an infinite value last', () => {
-    const es = new Cmaes({ mean: [0, 0], sigma: 1, seed: 3 });
-    const xs = es.ask();
-    // Every candidate but the first is infinite: the mean moves towards the first alone.
-    const before = [...es.mean];
-    es.tell(xs.map((_, k) => (k === 0 ? 0 : Infinity)));
-    const toFirst = xs[0].map((v, i) => v - before[i]);
-    const moved = es.mean.map((v, i) => v - before[i]);
-    expect(Math.sign(moved[0])).toBe(Math.sign(toFirst[0]));
-    expect(Math.sign(moved[1])).toBe(Math.sign(toFirst[1]));
+  it('ranks an infinite value last, as it would the worst finite one', () => {
+    // One candidate infinite among finite ones steers the search exactly as the same candidate scored worst.
+    const step = (worst: number): number[] => {
+      const es = new Cmaes({ mean: [0, 0, 0], sigma: 1, seed: 3 });
+      const xs = es.ask();
+      const values = xs.map((x) => x[0] ** 2 + x[1] ** 2 + x[2] ** 2);
+      values[2] = worst;
+      es.tell(values);
+      return es.mean;
+    };
+    expect(step(Infinity)).toEqual(step(1e300));
+  });
+
+  it('refuses NaN, a tell with no generation asked, and a population under 2', () => {
+    const es = new Cmaes({ mean: [0, 0], sigma: 1, seed: 1 });
+    expect(() => es.tell(new Array<number>(es.lambda).fill(1))).toThrow(/ask first/);
+    const values = es.ask().map(() => 1);
+    values[0] = Number.NaN;
+    expect(() => es.tell(values)).toThrow(/NaN/);
+    expect(() => new Cmaes({ mean: [0], sigma: 1, seed: 1, lambda: 1 })).toThrow(/at least 2/);
   });
 });
 

@@ -10,6 +10,8 @@ import {
   checkpoint1,
   chemotaxisClause,
   crawlingClause,
+  diagnostics,
+  periodogram,
   gradeAtLeast,
   gradeRange,
   meanVelocity,
@@ -39,6 +41,8 @@ function record(velocity: number[], seed = 1): TrialRecord {
     selfIntersecting: 0,
     unconverged: 0,
     touches: [],
+    switchFlips: [],
+    ava: zeros,
   };
 }
 
@@ -330,5 +334,42 @@ describe('checkpoint 1', () => {
       reason: null,
     });
     expect(summariseTrial(short)).toMatchObject({ forward: 1, paused: 0, backward: 0, longestBout: 19.9 });
+  });
+});
+
+describe("checkpoint 1's diagnostics", () => {
+  it('find the spectral peak of the mid-body bend, and its share in 0.2–0.45 Hz', () => {
+    // 0.3 Hz over 100 s of samples, 0.1 s apart: every bit of power in the band, at 0.3 Hz.
+    const wave = Array.from({ length: 1000 }, (_, k) => Math.sin(2 * Math.PI * 0.3 * (k / 10)));
+    const d = diagnostics([{ ...record(new Array<number>(1000).fill(0)), mid: wave }]);
+    expect(d.peak).toBeCloseTo(0.3, 12);
+    expect(d.share).toBeCloseTo(1, 6);
+    // A slow bend at 0.07 Hz dominates: the peak moves there and the share falls.
+    const slow = wave.map((v, k) => v + 3 * Math.sin(2 * Math.PI * 0.07 * (k / 10)));
+    const e = diagnostics([{ ...record(new Array<number>(1000).fill(0)), mid: slow }]);
+    expect(e.peak).toBeCloseTo(0.07, 12);
+    expect(e.share).toBeCloseTo(1 / 10, 2);
+    // A pure tone's periodogram peaks in its own frequency's bin, 0.3 Hz × 100 s.
+    const p = periodogram(wave);
+    expect(p.indexOf(Math.max(...p))).toBe(30);
+  });
+
+  it('count the reversals starting within 3 s after a flip of the head switch, and AVA over them', () => {
+    // Backing up from 20 s and from 40 s; the head switch flipped at 18 s only.
+    const velocity = Array.from({ length: 600 }, (_, k) => {
+      const t = 10 + k / 10;
+      return (t >= 20 && t < 22) || (t >= 40 && t < 42) ? -0.05 : 0.05;
+    });
+    const ava = velocity.map((_, k) => (10 + k / 10 >= 40 ? 0.2 : 0.1));
+    const d = diagnostics([{ ...record(velocity), switchFlips: [5, 18], ava }]);
+    expect(d).toMatchObject({ reversals: 2, afterFlip: 1 });
+    // AVA rose by 0.1 across the second reversal only, which began at 40 s: a mean change of 0.05.
+    expect(d.avaChange).toBeCloseTo(0.05, 12);
+    expect(d.avaSpread).toBeGreaterThan(0);
+  });
+
+  it('say nothing when there is nothing to measure', () => {
+    const d = diagnostics([{ ...record([]), finite: false }]);
+    expect(d).toMatchObject({ peak: null, share: null, reversals: 0, afterFlip: 0, avaChange: null });
   });
 });

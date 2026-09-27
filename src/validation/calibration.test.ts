@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CALIBRATED } from '../sim/world.ts';
+import { emptySums } from './posture.ts';
 import {
   CALIBRATION,
   ERROR_CAP,
@@ -7,12 +8,15 @@ import {
   TARGETS,
   best,
   bounds,
+  calibrate,
   fromUnit,
   measure,
   objective,
   outside,
   toUnit,
+  type Evaluated,
   type KinematicRecord,
+  type Scorer,
   type Values,
 } from './calibration.ts';
 
@@ -142,5 +146,89 @@ describe('the final check', () => {
     ];
     expect(best(evaluated, 3).map((e) => e.values)).toEqual([v(0.5), v(0.2), v(0.4)]);
     expect(best(evaluated, 10)).toHaveLength(5);
+  });
+});
+
+// A synthetic scorer: the objective is the distance from a point, the same on every seed, so the search's
+// bookkeeping can be checked without a trial.
+const target = [0.2, 0.8, 0.5, 0.6, 0.4, 0.7, 0.3, 0.5];
+const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
+  return (values, seeds) => {
+    calls.push({ seeds });
+    const u = toUnit(values);
+    const value = u.reduce((s, x, i) => s + (x - target[i]) ** 2, 0);
+    const measures = { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 };
+    return Promise.resolve({
+      value,
+      errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+      measures,
+      unconverged: 0,
+    });
+  };
+};
+
+describe('the search', () => {
+  it('spends its budget, a last generation cut short included, then checks the best on fresh seeds', async () => {
+    const calls: { seeds: readonly number[] }[] = [];
+    const fit = await calibrate(synthetic(calls), { budget: 25 });
+    expect(fit.evaluated).toHaveLength(25);
+    expect(fit.generations.map((g) => g.evaluations)).toEqual([10, 20, 25]);
+    expect(fit.evaluated.map((e) => e.generation)).toEqual([
+      ...new Array<number>(10).fill(0),
+      ...new Array<number>(10).fill(1),
+      ...new Array<number>(5).fill(2),
+    ]);
+    expect(fit.evaluated.slice(20).map((e) => e.candidate)).toEqual([0, 1, 2, 3, 4]);
+    // The ten best and the final mean, on the 16 fresh seeds.
+    expect(fit.checked).toHaveLength(11);
+    expect(fit.checked[10].from).toBe('the final mean');
+    expect(calls.filter((c) => c.seeds[0] === 1005)).toHaveLength(11);
+    expect(calls.filter((c) => c.seeds[0] === 1001)).toHaveLength(25);
+    expect(fit.final.value).toBe(Math.min(...fit.checked.map((c) => c.value)));
+    expect(fit.checked.slice(0, 10).map((c) => c.fit)).toEqual(
+      [...fit.checked.slice(0, 10).map((c) => c.fit)].sort((a, b) => (a ?? 0) - (b ?? 0)),
+    );
+  });
+
+  it('resumes a stopped run exactly, and refuses one that parts from the record', async () => {
+    const whole = await calibrate(synthetic(), { budget: 30 });
+    const partial = await calibrate(synthetic(), { budget: 20 });
+    const calls: { seeds: readonly number[] }[] = [];
+    const resumed = await calibrate(synthetic(calls), { budget: 30, previous: partial.evaluated });
+    expect(resumed.evaluated).toEqual(whole.evaluated);
+    expect(resumed.final).toEqual(whole.final);
+    // Only the 10 new candidates, and the final check, were scored.
+    expect(calls.filter((c) => c.seeds[0] === 1001)).toHaveLength(10);
+    const tampered: Evaluated[] = partial.evaluated.map((e, k) =>
+      k === 12 ? { ...e, unit: e.unit.map((x) => x + 1e-12) } : e,
+    );
+    await expect(calibrate(synthetic(), { budget: 30, previous: tampered })).rejects.toThrow(
+      /parts from the recorded one/,
+    );
+  });
+
+  it('measures as checkpoint 1 does', async () => {
+    const { checkpoint1 } = await import('./checkpoints.ts');
+    const r = crawling(110, 0.2);
+    const trial = {
+      ...r,
+      seed: 1,
+      seconds: 120,
+      posture: 0,
+      turn: 0,
+      velocity: Array.from(r.velocity),
+      mid: Array.from(r.mid),
+      front: Array.from(r.front),
+      rear: Array.from(r.rear),
+      postures: emptySums(),
+      selfIntersecting: 0,
+      unconverged: 0,
+      touches: [],
+      switchFlips: [],
+      ava: [],
+    };
+    const k = checkpoint1([trial, { ...trial, seed: 2 }], [[1]]).kinematics;
+    const m = measure([trial, trial]);
+    expect([m.frequency, m.wavelength, m.speed]).toEqual([k.frequency, k.wavelength, k.speed]);
   });
 });

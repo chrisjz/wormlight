@@ -82,6 +82,7 @@ export class Cmaes {
     const n = options.mean.length;
     this.n = n;
     this.lambda = options.lambda ?? defaultLambda(n);
+    if (!(this.lambda >= 2)) throw new Error('CMA-ES needs at least 2 candidates a generation');
     this.mu = Math.floor(this.lambda / 2);
     const raw = Array.from({ length: this.mu }, (_, i) => Math.log(this.mu + 0.5) - Math.log(i + 1));
     const sum = raw.reduce((a, w) => a + w, 0);
@@ -122,6 +123,9 @@ export class Cmaes {
   tell(values: readonly number[]): void {
     const { n, mu, weights, b, d } = this;
     if (values.length !== this.lambda) throw new Error(`tell needs ${this.lambda} values, not ${values.length}`);
+    if (this.steps.length !== this.lambda) throw new Error('tell needs a generation from ask first');
+    // Infinity ranks last; NaN would rank arbitrarily.
+    if (values.some((v) => Number.isNaN(v))) throw new Error('tell needs values that are numbers, not NaN');
     const order = values.map((v, k) => [v, k] as const).sort((p, q) => p[0] - q[0] || p[1] - q[1]);
     const best = order.slice(0, mu).map(([, k]) => this.steps[k]);
     const yw = Array.from({ length: n }, (_, i) => best.reduce((s, y, r) => s + weights[r] * y[i], 0));
@@ -149,9 +153,15 @@ export class Cmaes {
     // Enforce symmetry against rounding, then decompose.
     for (let i = 0; i < n; i++)
       for (let j = 0; j < i; j++) this.c[i][j] = this.c[j][i] = (this.c[i][j] + this.c[j][i]) / 2;
+    // Every term of the update is positive semi-definite with a positive weight, so C's smallest eigenvalue
+    // stays at least (1 − c_1 − c_μ)^g of its first; the absolute stop of the Jacobi sweeps and this check hold
+    // over any budget the calibration uses (e.g. 2.8 × 10⁻⁵ after 200 generations in eight dimensions).
     const { values: eig, vectors } = symmetricEigen(this.c);
+    const largest = Math.max(...eig);
+    if (!(Math.min(...eig) > 1e-14 * largest)) throw new Error('the covariance has become degenerate');
     this.b = vectors;
-    this.d = eig.map((e) => Math.sqrt(Math.max(e, 1e-300)));
+    this.d = eig.map((e) => Math.sqrt(e));
+    this.steps = [];
     this.generation++;
   }
 }

@@ -3,6 +3,7 @@
 
 import { PARAMS } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
+import { Cmaes } from './cmaes.ts';
 import { FRONT_ROD, MOTION_SAMPLE, REAR_ROD, bouts, kinematics, reversals } from './motion.ts';
 
 export type CalibratedId = (typeof CALIBRATED)[number];
@@ -43,6 +44,8 @@ export const ERROR_CAP = 2;
 export function bounds(id: CalibratedId): readonly [number, number] {
   const b = PARAMS[id].bounds;
   if (!b) throw new Error(`${id} has no bounds`);
+  if (MAPPING[id] === 'log' && !(b[0] > 0))
+    throw new Error(`${id} is searched logarithmically, so its lower bound must be above 0`);
   return b;
 }
 
@@ -56,7 +59,9 @@ export function fromUnit(u: readonly number[]): Values {
     CALIBRATED.map((id, i) => {
       const [lo, hi] = bounds(id);
       const t = clip(u[i]);
-      return [id, MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t];
+      // Held within the bounds, so rounding can't carry a value at a bound past it.
+      const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
+      return [id, Math.min(hi, Math.max(lo, v))];
     }),
   ) as Values;
 }
@@ -158,4 +163,134 @@ export function best<T extends { values: Values; value: number }>(evaluated: rea
       return true;
     })
     .slice(0, count);
+}
+
+// One candidate as the search evaluated it: where CMA-ES sampled it, the values it ran at (clipped into the
+// bounds), its objective on the fit's seeds, and the penalty the search added for lying outside.
+export interface Evaluated {
+  generation: number;
+  candidate: number;
+  unit: number[];
+  values: Values;
+  value: number;
+  penalty: number;
+  errors: Record<Target, number>;
+  measures: Measures;
+  // Brain solves that didn't converge over the candidate's trials.
+  unconverged: number;
+}
+
+export interface Generation {
+  generation: number;
+  evaluations: number;
+  // The best objective evaluated so far, without the penalty, and this generation's median with it.
+  best: number;
+  median: number;
+  sigma: number;
+  mean: number[];
+}
+
+// A candidate's score on some seeds.
+export type Scorer = (
+  values: Values,
+  seeds: readonly number[],
+) => Promise<Score & { measures: Measures; unconverged: number }>;
+
+export interface Finalist {
+  from: string;
+  values: Values;
+  // Its objective on the fit's seeds, or null for the final mean.
+  fit: number | null;
+  value: number;
+  errors: Record<Target, number>;
+  measures: Measures;
+  unconverged: number;
+}
+
+export interface Fit {
+  generations: Generation[];
+  evaluated: Evaluated[];
+  checked: Finalist[];
+  final: Finalist;
+}
+
+// PLAN §7.3's search, from CALIBRATION's start, up to `budget` evaluations, then the final check. A run
+// resumes from the evaluations of an earlier one with the same settings: CMA-ES replays them, and each
+// candidate must come out as recorded, bit for bit. `progress` sees each generation as it ends.
+export async function calibrate(
+  score: Scorer,
+  options: {
+    budget: number;
+    previous?: readonly Evaluated[];
+    progress?: (fit: Omit<Fit, 'checked' | 'final'>) => void;
+  },
+): Promise<Fit> {
+  const n = CALIBRATED.length;
+  const es = new Cmaes({
+    mean: new Array<number>(n).fill(CALIBRATION.start),
+    sigma: CALIBRATION.sigma,
+    seed: CALIBRATION.seed,
+  });
+  const evaluated: Evaluated[] = [];
+  const generations: Generation[] = [];
+  const previous = options.previous ?? [];
+  while (evaluated.length < options.budget) {
+    const candidates = es.ask();
+    const take = Math.min(candidates.length, options.budget - evaluated.length);
+    const replayed = previous.slice(evaluated.length, evaluated.length + take);
+    const results = await Promise.all(
+      candidates.slice(0, take).map(async (u, k): Promise<Evaluated> => {
+        const was = replayed[k] as Evaluated | undefined;
+        if (was) {
+          if (was.unit.length !== u.length || was.unit.some((x, i) => x !== u[i])) {
+            throw new Error(
+              `the resumed run parts from the recorded one at generation ${es.generation}, candidate ${k}`,
+            );
+          }
+          return was;
+        }
+        const values = fromUnit(u);
+        const s = await score(values, CALIBRATION.fitSeeds);
+        return {
+          generation: es.generation,
+          candidate: k,
+          unit: u,
+          values,
+          value: s.value,
+          penalty: outside(u),
+          errors: s.errors,
+          measures: s.measures,
+          unconverged: s.unconverged,
+        };
+      }),
+    );
+    evaluated.push(...results);
+    const ranked = results.map((e) => e.value + e.penalty);
+    const sorted = [...ranked].sort((a, b) => a - b);
+    generations.push({
+      generation: es.generation,
+      evaluations: evaluated.length,
+      best: Math.min(...evaluated.map((e) => e.value)),
+      median: sorted[Math.floor(sorted.length / 2)],
+      sigma: es.sigma,
+      mean: [...es.mean],
+    });
+    options.progress?.({ generations, evaluated });
+    // A generation cut short by the budget doesn't update the search.
+    if (take === candidates.length) es.tell(ranked);
+  }
+  const finalists = [
+    ...best(evaluated, CALIBRATION.rechecked).map((e) => ({
+      from: `generation ${e.generation}, candidate ${e.candidate}`,
+      values: e.values,
+      fit: e.value,
+    })),
+    { from: 'the final mean', values: fromUnit(es.mean), fit: null as number | null },
+  ];
+  const checked = await Promise.all(
+    finalists.map(async (f): Promise<Finalist> => ({ ...f, ...(await score(f.values, CALIBRATION.checkSeeds)) })),
+  );
+  // The lowest objective on the fresh seeds, the better on the fit's seeds on a tie.
+  const final = checked.reduce((a, b) => (b.value < a.value ? b : a));
+  return { generations, evaluated, checked, final };
 }
