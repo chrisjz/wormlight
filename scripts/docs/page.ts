@@ -68,7 +68,8 @@ export function formatValue(param: Param): string {
       ? 'not yet calibrated'
       : `not yet calibrated; provisionally ${formatNumber(param.provisional)}`;
   }
-  return formatNumber(param.value);
+  // A calibrated value is the fit's, unrounded in the registry; the page shows it to three significant figures.
+  return formatNumber(param.level === 1 ? Number(param.value.toPrecision(3)) : param.value);
 }
 
 // Plain checkpoints folded into ranges: "Checkpoint 4", "Checkpoints 2 and 3", "Checkpoints 1–6".
@@ -132,7 +133,7 @@ export function fidelityPage(facts: Facts): string {
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    '> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON\'s sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters have no values yet; until calibration the simulation runs on provisional ones, shown beside them below. Checkpoints 0 and 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven\'t, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.',
+    "> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters have their first values, from calibrating the planned model as research track R's first step (PLAN §9; DECISIONS.md, 2026-09-27), shown below rounded. Checkpoints 0 and 1 have run in the harness (`VALIDATION.md`) and the other checkpoints haven't, so \"Tested by\" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from `public/data/wormlight.v1.json` when the page is generated.",
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],

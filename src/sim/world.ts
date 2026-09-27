@@ -87,6 +87,13 @@ export function provisionalParams(): LoopParams {
   );
 }
 
+// Whether calibration has set every calibrated parameter's value.
+export const isCalibrated = (): boolean => CALIBRATED.every((id) => PARAMS[id].value !== null);
+
+// The values the app and the harness run on: the calibrated ones once calibration has set them, the provisional
+// ones until then (PLAN §6.2).
+export const currentParams = (): LoopParams => (isCalibrated() ? calibratedParams() : provisionalParams());
+
 export interface WorldOptions {
   seed?: number;
   // Neurons to ablate (PLAN §3.5): their connections, neuromuscular junctions, oscillators and

@@ -6,7 +6,7 @@ import type { TrialRecord } from '../../src/validation/trial.ts';
 import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, scientific, shares } from './report.ts';
 import { parseArgs } from './run.ts';
 
-const info = { date: '2026-09-26', commit: 'abc1234', trials: 1, seconds: 70 };
+const info = { date: '2026-09-26', commit: 'abc1234', calibrated: true, trials: 1, seconds: 70 };
 // A trial that backs up for 2 s of its 60 measured, then lies still.
 const velocity = [...Array<number>(20).fill(-0.05), ...Array<number>(580).fill(0)];
 const zeros = velocity.map(() => 0);
@@ -24,6 +24,8 @@ const record: TrialRecord = {
   selfIntersecting: 0,
   unconverged: 0,
   touches: [],
+  switchFlips: [],
+  ava: zeros,
 };
 // The same trial touched as the protocol says, at 20, 40 and 60 s, and still throughout.
 const touched: TrialRecord = {
@@ -69,10 +71,14 @@ describe('the harness report', () => {
     expect(() => replaceSection('Prose.', 0, 'x')).toThrow(/no markers/);
   });
 
-  it('names the provisional parameters it ran on', () => {
-    expect(parameterText()).toContain('g_osc = 798 pS');
-    expect(parameterText()).toContain('θ_osc = −11.5 mV');
-    expect(parameterText()).toContain('σ_n = 0 pA·√s');
+  it('names the parameters it ran on: the calibrated, to three significant figures, or the provisional', () => {
+    expect(parameterText(true)).toContain('the calibrated parameters (PLAN §7.3)');
+    expect(parameterText(true)).toContain('g_osc = 2140 pS');
+    expect(parameterText(true)).toContain('θ_osc = −12.9 mV');
+    expect(parameterText(true)).toContain('σ_n = 0.0834 pA·√s');
+    expect(parameterText(false)).toContain('the provisional parameters, not calibrated (PLAN §6.2)');
+    expect(parameterText(false)).toContain('g_osc = 798 pS');
+    expect(parameterText(false)).toContain('σ_n = 0 pA·√s');
   });
 
   it("writes checkpoint 0's verdict, each clause's, and its backward activity", () => {
@@ -159,6 +165,16 @@ describe('the harness report', () => {
     expect(section).toContain('| Posture variance the four eigenworms capture | unmeasured: too few postures |');
     expect(section).toContain('crossed its mean 0 times, 0.0 a bout');
     expect(section).toContain('0 self-intersecting postures were left out');
+    expect(section).toContain(
+      'which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020',
+    );
+    expect(section).toContain('Diagnostics, reported and not graded (PLAN §7.4): ');
+    expect(section).toContain(
+      'the mid-body curvature has no spectrum to report; 0 of 0 reversals started within 3 s after a flip of the head switch',
+    );
+    expect(checkpoint1Section(checkpoint1([record], [[1]]), { ...info, calibrated: false })).toContain(
+      'but the parameters are provisional, not calibrated',
+    );
   });
 
   it('refuses options that would run no trial', () => {

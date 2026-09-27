@@ -113,6 +113,93 @@ export interface Checkpoint1 {
   kinematics: Kinematics;
   postures: number;
   trials: TrialSummary[];
+  diagnostics: Diagnostics;
+}
+
+// Checkpoint 1's diagnostics, reported and not graded (PLAN §7.4, set 2026-09-27 before track R's fit).
+export interface Diagnostics {
+  // The mid-body curvature's spectral peak above 0.02 Hz, and the share of its power between 0.2 and 0.45 Hz,
+  // from the periodogram of each trial's κL, less its mean, summed over the trials; null with no samples.
+  peak: number | null;
+  share: number | null;
+  // Reversals, and those whose first backward sample lies within 3 s after a flip of the head switch.
+  reversals: number;
+  afterFlip: number;
+  // The mean change in AVA's activation from 1 s before each reversal to its end, and the activation's standard
+  // deviation over the measured windows; null with no reversals, or no samples.
+  avaChange: number | null;
+  avaSpread: number | null;
+}
+
+export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
+const FLIP_WINDOW = 3; // s
+
+// The periodogram of samples 0.1 s apart, less their mean: power at k / (n · 0.1) Hz for k = 0 … ⌊n/2⌋.
+export function periodogram(x: ArrayLike<number>): number[] {
+  const n = x.length;
+  let mean = 0;
+  for (let i = 0; i < n; i++) mean += x[i];
+  mean /= n;
+  return Array.from({ length: Math.floor(n / 2) + 1 }, (_, k) => {
+    let re = 0;
+    let im = 0;
+    for (let i = 0; i < n; i++) {
+      const phase = (2 * Math.PI * k * i) / n;
+      re += (x[i] - mean) * Math.cos(phase);
+      im -= (x[i] - mean) * Math.sin(phase);
+    }
+    return re * re + im * im;
+  });
+}
+
+export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
+  const finite = records.filter((r) => r.finite && r.mid.length > 1);
+  // The trials share one frequency grid: the shortest's.
+  const n = Math.min(...finite.map((r) => r.mid.length));
+  let peak: number | null = null;
+  let share: number | null = null;
+  if (finite.length > 0) {
+    const power = new Array<number>(Math.floor(n / 2) + 1).fill(0);
+    for (const r of finite) periodogram(r.mid.slice(0, n)).forEach((p, k) => (power[k] += p));
+    const freq = (k: number): number => k / (n * MOTION_SAMPLE);
+    let best = -1;
+    let total = 0;
+    let inBand = 0;
+    power.forEach((p, k) => {
+      const f = freq(k);
+      if (f > 0) total += p;
+      if (f >= SPECTRUM.band[0] && f <= SPECTRUM.band[1]) inBand += p;
+      if (f > SPECTRUM.from && (best < 0 || p > power[best])) best = k;
+    });
+    peak = best < 0 ? null : freq(best);
+    share = total > 0 ? inBand / total : null;
+  }
+  let count = 0;
+  let afterFlip = 0;
+  const changes: number[] = [];
+  const all: number[] = [];
+  const before = Math.round(1 / MOTION_SAMPLE);
+  for (const r of records) {
+    all.push(...r.ava);
+    for (const rev of reversals(r.velocity)) {
+      count++;
+      const t = MEASURE_FROM + rev.start * MOTION_SAMPLE;
+      if (r.switchFlips.some((f) => f <= t && t <= f + FLIP_WINDOW)) afterFlip++;
+      const end = rev.start + rev.length - 1;
+      if (end < r.ava.length) changes.push(r.ava[end] - r.ava[Math.max(0, rev.start - before)]);
+    }
+  }
+  const mean = (x: readonly number[]): number => x.reduce((a, b) => a + b, 0) / x.length;
+  const spread =
+    all.length > 1 ? Math.sqrt(all.reduce((a, v) => a + (v - mean(all)) ** 2, 0) / (all.length - 1)) : null;
+  return {
+    peak,
+    share,
+    reversals: count,
+    afterFlip,
+    avaChange: changes.length > 0 ? mean(changes) : null,
+    avaSpread: spread,
+  };
 }
 
 export function checkpoint1(records: readonly TrialRecord[], basis: readonly (readonly number[])[]): Checkpoint1 {
@@ -144,7 +231,14 @@ export function checkpoint1(records: readonly TrialRecord[], basis: readonly (re
     clause('eigenworms', captured, gradeAtLeast(captured, CHECKPOINT_1.eigenworms), 'too few postures'),
     clause('bout', boutShare, gradeAtLeast(boutShare, CHECKPOINT_1.bout), 'no trials'),
   ];
-  return { grade: overall(clauses.map((c) => c.grade)), clauses, kinematics: k, postures: pooled.count, trials };
+  return {
+    grade: overall(clauses.map((c) => c.grade)),
+    clauses,
+    kinematics: k,
+    postures: pooled.count,
+    trials,
+    diagnostics: diagnostics(records),
+  };
 }
 
 // Every test at α = 0.05 (PLAN §7.1).

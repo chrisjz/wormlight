@@ -1179,3 +1179,104 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 **What R's fit won't show.** R's parameterisation comes from experiments on the real wiring, the ladder, a design step the nulls don't get, and checkpoint 6's report will say so. PLAN §9 lists the rest.
 
 **Status.** Approved, and revised after review; nothing in it has run. The order is: the calibration procedure, and the planned model's fit; then R's model, on the CPU and the GPU with parity; then R's fit, checkpoint 1, and checkpoint 0's rerun, with its sham twins built first.
+
+## 2026-09-27 — Calibration: the procedure, as built
+
+**Decision.** PLAN §7.3's procedure is built as it fixes it (`npm run calibrate`), and run first on the planned model's eight parameters, track R's first step (PLAN §9). What §7.3 leaves to the implementation was set with the code, before the fit ran (a timing run of 20 evaluations came first, and its two generations match the fit's):
+
+- **CMA-ES** (`src/validation/cmaes.ts`), as Hansen's tutorial gives it ("The CMA Evolution Strategy: A Tutorial", arXiv:1604.00772), with its default settings:
+  - the (μ/μ_w, λ) strategy with μ = ⌊λ/2⌋ and positive weights proportional to ln(μ + ½) − ln i;
+  - cumulative step-size adaptation, and the rank-one and rank-μ covariance updates, with the tutorial's default constants and its stall of the rank-one path, h_σ;
+  - no active update with negative weights, which the tutorial's later versions add;
+  - the covariance decomposed every generation, by Jacobi rotations, which suits eleven dimensions or fewer.
+
+  Its samples come from the neural noise's counter-based hash, from seed 1, the generation and the candidate, so a run replays exactly. On standard test functions in eight dimensions it reaches 10⁻¹⁰ in about 1,200 evaluations on the sphere, about 4,000 on an ellipsoid of condition 10⁶, and about 4,000 on Rosenbrock's function. A review found pycma, without its active update, close: about 1,160, 3,920 and 3,500.
+
+- **The search** (`src/validation/calibration.ts`, `scripts/calibrate/run.ts`).
+  - Each candidate is evaluated at its point clipped into the bounds, on seeds 1001 to 1004. The search ranks it by its objective plus the squared distance it lay outside.
+  - A generation the budget cuts short is evaluated but doesn't update the search.
+  - The final mean is the mean after the last update.
+- **The final check.**
+  - It runs the ten best distinct candidates again on seeds 1005 to 1020, ranked by their objective as evaluated, which the search's penalty doesn't enter, and the final mean too.
+  - The lowest objective there is final, the better on the fit's seeds on a tie.
+- **The measures** are pooled over each candidate's trials: the kinematics over their forward bouts, with checkpoint 1's own functions, and the reversal rate over their measured windows.
+- **The bounds** go into the registry now, before the fit, as §7.3 sets them.
+- **The fit's values go into the registry unrounded**, so that checkpoint 1 and the app run on exactly the parameters the check chose; `FIDELITY.md` shows them rounded.
+- **The app and the harness then run on the calibrated values,** as PLAN §6.2 says they will once calibration sets them, the provisional ones staying beside them.
+
+**Cost.** A short run of 20 evaluations took 90 s on 18 cores, final check included. With the noise on, a trial of 120 s takes about 5.4 CPU-seconds, about 22× real time: slower than the 1.4 CPU-minutes per worm-hour measured on the provisional parameters, whose noise is off. The full fit takes about 45 minutes.
+
+**Results.** The fit ran at `4b17c57` and took 59 minutes: 2,000 evaluations over 200 generations, and the final check.
+
+- **The search settled against two bounds.** Corrected after review: this entry first said it converged.
+  - The best objective on the fit's seeds fell from about 10 in the first generation to 1.15 by the 400th evaluation.
+  - It reached 0.81 at generation 120, and didn't improve after. The step size fell from 0.3 to about 0.01.
+  - From generation 100 the search's mean lay beyond the neuromuscular gain's upper bound, so each of the last 800 candidates ran at g_nmj = 5. From generation 120 it sat on the head-switch gain's.
+  - The speed term, 0.74 of the pick's 0.87, never moved. The search stopped at its budget.
+- **The final check changed the pick.**
+  - The best candidate on the fit's seeds, 0.81, scored 0.90 on the 16 fresh ones.
+  - The final pick came from generation 180: 0.83 on the fit's seeds, and the lowest on the fresh ones, 0.87. The top four there lay within 0.03 of each other.
+- **The calibrated values,** to three significant figures:
+  - g_osc = 2140 pS, τ_w = 2.51 s and θ_osc = −12.9 mV;
+  - g_sw = 371 pA and g_p = 0.308 pA;
+  - g_nmj = 5 per EM section and θ_nmj = 3.74 EM sections;
+  - σ_n = 0.0834 pA·√s.
+- **The neuromuscular gain ended on its upper bound,** 5 per EM section, so it is reported as limited by it. **The head-switch gain ended near its own,** 371 of 400 pA, where the search's mean sat. Every other value ended inside its bounds, the noise at about half its ceiling. Corrected after review: this entry first said the fit wanted more muscle drive. Raised past its bound, the gain lifts the frequency, not the speed (below).
+- **On the 16 fresh seeds,** with 7 forward bouts of 10 s or more between them, the pick bends at 0.200 Hz, with a wavelength of 0.56 body lengths, and reverses 1.85 times a minute. It moves at 0.031 body lengths per second, against a target of 0.22.
+- **Checkpoint 1, on seeds 1 to 20** (`4a5c087`, VALIDATION.md), fails. The provisional parameters' run of 2026-09-26 is given for comparison:
+
+  | Clause                             | Calibrated | Grade       | Provisional |
+  | ---------------------------------- | ---------- | ----------- | ----------- |
+  | Frequency (Hz)                     | 0.185      | **Partial** | 0.045       |
+  | Wavelength (body lengths)          | 0.58       | **Pass**    | 5.82        |
+  | Speed (body lengths/s)             | 0.030      | **Fail**    | 0.029       |
+  | Posture variance, four eigenworms  | 95.1%      | **Pass**    | 99.5%       |
+  | Trials with a forward bout of 20 s | 0%         | **Fail**    | 0%          |
+  - The provisional column's frequency and wavelength came from one crossing of the mean a bout, and described no undulation (2026-09-26).
+  - The worm moves forward 62–75% of the time and reverses about 2.0 times a minute.
+  - Its forward runs end at the head switch's flips: no forward run lasted longer than 13.6 s. Corrected after review: this entry first put it down to dips under the motion floor.
+
+- **What it means for track R.** Calibration alone doesn't bring checkpoint 1 to partial, so R goes on to its model (PLAN §9, step 2). This fit is the baseline R is measured against.
+  - Over its bouts a bend travels from head to tail, but the body is led by the head switch's slow cycle, and its reversals are that switch's slips (below). What it lacks most is speed, and with it the 20 s bouts.
+  - The fit pushed the neuromuscular and head-switch gains as far as the bounds let them, for the frequency term, not the speed.
+- **Cost.** The fit took 59 minutes on 18 cores, not the 45 estimated: each generation's 40 trials ran in three rounds on the 18 workers. R's fit, on eleven parameters, will take about as long, and so will each null's.
+
+**Also changed.** The app and the harness run on the calibrated values. `FIDELITY.md` shows them to three significant figures, and the harness's report names them. Checkpoint 0's section still describes its run on the provisional parameters, and it runs again after whichever fit ends R.
+
+**Status.** Run; checkpoint 1 fails, and track R goes on to its model.
+
+## 2026-09-27 — After review: what the planned model's calibration found, and checkpoint 1's diagnostics
+
+**Why.** Three reviews of the calibration found that the fit ran correctly and as pre-registered, but that its first reading, in the entry above, misdescribed the calibrated worm. The findings were reproduced before this entry was written:
+
+- **The reversals are the head switch's slips.** Over seeds 1 to 8 on the calibrated parameters, all 29 reversals began between 1 s before and 3 s after a flip of the head switch to one side, and none near a flip to the other. AVA's activation changed by 0.0007 on average over them, against a standard deviation of 0.006. In a review's sweep the reversal rate fell and rose irregularly with the noise: the calibration's 1.8 a minute was met by the noise sparing some flips their slip, not by the network reversing.
+- **The frequency and wavelength mix two waves.** The mid-body curvature's spectrum over checkpoint 1's trials peaks at 0.073 Hz, the head switch's slow cycle, with 61% of the power below 0.12 Hz and 19% between 0.2 and 0.45 Hz. The measured 0.185 Hz and 0.58 body lengths average that slow wave with a weaker ripple near 0.37 Hz, so neither describes one wave.
+- **The speed deficit is structural.** The neuromuscular gain is the slope of the muscles' response, not the strength of their pull. Raised past its bound to 20, it lifted the frequency (0.41 Hz on four fresh seeds) and not the speed (0.034). The speed never exceeded 0.035 in 2,000 evaluations. Proprioception is inert: at 0.001 pA the pick behaves as at 0.31. The bouts break once per cycle of the head switch, every 10 to 14 s, not by jitter at the motion floor.
+- **The search settled against two bounds; it didn't converge on the objective.**
+  - From generation 100 its mean lay beyond the neuromuscular gain's upper bound, so every one of the last 800 candidates ran at 5. From generation 120 it sat on the head-switch gain's.
+  - The speed term, 0.74 of the pick's 0.87, never moved.
+  - The objective is rugged: on four seeds of their own the pick made no forward bout of 10 s and scored 8.85, against 0.87 on sixteen.
+
+**Decision** (PLAN §7.4, §9), agreed by the maintainer, the recommendation first each time:
+
+- **Checkpoint 1's report adds diagnostics, reported and not graded,** set before track R's fit: the mid-body curvature's spectral peak and its share of power in 0.2–0.45 Hz; the share of reversals starting within 3 s after a head-switch flip; and AVA's activation change over reversals. R's model is then judged on whether it crawls, not only on whether it scores. Considered: also stopping head-switch slips from counting toward the calibration's reversal rate, a change to the objective after results that would need a rule reading network state; and neither.
+- **Checkpoint 6's reversal term is an open question,** to settle before any null is tuned, with R's fit in hand. R's own fit doesn't depend on it. Considered: settling it now, with less evidence.
+- **Everything else, as recommended:** the entry above's reading is corrected in DECISIONS, VALIDATION, PLAN and README; the runner is made robust; a compact summary of the fit is committed, with a test that the registry matches it; CMA-ES gains guards that can't change this fit's replay. The fit isn't rerun: none of this changes its result.
+
+**Built and run.**
+
+- **The diagnostics** (`src/validation/checkpoints.ts`). Each trial records when the head switch flipped and AVA's activation. On checkpoint 1's trials of the calibrated model (VALIDATION.md):
+  - the mid-body curvature's spectrum peaks at 0.073 Hz, with 19% of its power between 0.2 and 0.45 Hz;
+  - all 73 reversals started within 3 s after a flip of the head switch;
+  - AVA's activation changed by 1.2 × 10⁻³ over them on average, against a standard deviation of 8.3 × 10⁻³.
+- **The runner.**
+  - Its search moved into `calibrate()` (`src/validation/calibration.ts`), tested on a synthetic objective: the budget, a last generation cut short, the final check, and a resumed run.
+  - It rewrites its record after every generation, and `--resume` replays a stopped run, each candidate checked bit for bit.
+  - It records its commit, settings and unconverged solves, runs the final check in parallel, and prints the final values unrounded.
+  - Its worker pool no longer hands work to a worker that died while idle.
+  - Replaying the recorded fit through the new code reproduces all 2,000 candidates, its generations, its finalists and its pick exactly. A new short run matches the old one's evaluations and pick.
+- **The record.** `data/calibration/planned.json` is the fit's summary, without its evaluations, committed. It was assembled from the run's output and log, since the runner didn't yet record its commit, date or time. `tests/calibration.test.ts` holds the registry's values and bounds to it.
+- **CMA-ES's guards.** It now refuses NaN values, a tell with no generation asked, a population under 2, and a covariance gone degenerate. None of them fires in the recorded fit, whose replay they leave unchanged.
+- **The app's speed.** With the calibrated noise on, the app in headless Chrome holds 60 frames a second at 10× and 20×, but saturates at about 21–23× real time, down from about 60× on the provisional parameters. On the CPU, the noise alone costs about 40%: 55× real time without it, 34× with it, on one core. The 10× target still holds.
+
+**Status.** Built and run; the fit isn't rerun, since nothing here changes it.

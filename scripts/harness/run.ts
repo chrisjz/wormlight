@@ -1,14 +1,14 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 //
 // The behavioural harness (PLAN §8): checkpoint 0, the silenced network, and checkpoint 1 (PLAN §7.2, §7.4),
-// run on the CPU reference in parallel worker processes, one per core by default, on the provisional
-// parameters until calibration. Checkpoint 0 runs its 20 trials untouched and touched, and 30 worms in the
+// run on the CPU reference in parallel worker processes, one per core by default, on the calibrated
+// parameters, or the provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and touched, and 30 worms in the
 // chemotaxis assay for 60 min each. Each checkpoint's records and summary go to
 // harness-out/checkpoint-<n>.json, and its section of VALIDATION.md is regenerated. --trials and --seconds
 // shorten a run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run
 // leaves VALIDATION.md alone, since the checkpoints are fixed.
 
-import { execFileSync, fork, type ChildProcess } from 'node:child_process';
+import { fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
-import { provisionalParams } from '../../src/sim/world.ts';
+import { currentParams, isCalibrated } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
@@ -29,11 +29,11 @@ import {
   TRIALS,
 } from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
-import { POSTURE_ANGLES } from '../../src/validation/posture.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
-import { parseMatrix } from '../data/eigenworms.ts';
 import { formatMarkdown } from '../data/render.ts';
-import { loadSources, pinById, readFile, ROOT } from '../data/sources.ts';
+import { ROOT } from '../data/sources.ts';
+import { commit } from './commit.ts';
+import { readPinned, readPostures } from './pinned.ts';
 import { checkpoint0Section, checkpoint1Section, replaceSection, type RunInfo } from './report.ts';
 
 const CHECKPOINTS = [0, 1] as const;
@@ -64,19 +64,6 @@ interface Result {
 const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 const PAGE = join(ROOT, 'VALIDATION.md');
 
-// A pinned CSV of numbers, fetched or read from the cache and checked against its digest.
-async function readPinned(id: string): Promise<number[][]> {
-  const files = pinById(loadSources(), id).files;
-  if (!files || files.length !== 1) throw new Error(`pin ${id} should hold one file`);
-  return parseMatrix((await readFile(files[0])).toString('utf8'), `pin ${id}`);
-}
-
-async function readPostures(): Promise<number[][]> {
-  const postures = await readPinned('oist-postures');
-  if (postures.some((p) => p.length !== POSTURE_ANGLES)) throw new Error(`postures need ${POSTURE_ANGLES} angles`);
-  return postures;
-}
-
 let cached: { data: WormlightData; postures: number[][] } | undefined;
 // The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
 let assay: OdourField | undefined;
@@ -89,7 +76,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: provisionalParams(),
+    params: currentParams(),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
   };
@@ -159,15 +146,6 @@ export function parseArgs(args: readonly string[]): {
   };
 }
 
-// The commit the trials run on, taken before they start. Prose can't change a result, so Markdown, the page
-// the harness writes included, doesn't count as a change; untracked files do, since code may import them.
-function commit(): string {
-  const git = (...args: string[]): string => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
-  const head = git('rev-parse', '--short', 'HEAD');
-  const changes = git('status', '--porcelain', '--', '.', ':!*.md');
-  return changes === '' ? head : `${head}, with uncommitted changes`;
-}
-
 if (process.argv.includes('--worker')) {
   // A worker whose parent has gone stops.
   process.on('disconnect', () => process.exit());
@@ -186,6 +164,7 @@ if (process.argv.includes('--worker')) {
   const info: RunInfo = {
     date: new Date().toISOString().slice(0, 10),
     commit: commit(),
+    calibrated: isCalibrated(),
     trials: options.trials,
     seconds: options.seconds,
     ...(options.checkpoints.includes(0) ? { worms, wormSeconds } : {}),

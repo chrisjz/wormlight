@@ -3,10 +3,11 @@
 //
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
-// bounds set here before it runs (PLAN.md §7.3), which waits for research track R (PLAN.md §9); until
-// then their value and bounds are null, and the simulation runs on their provisional values (PLAN.md
-// §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
-// parameter says what new data or research would raise it (spec §1.3).
+// bounds set here before it runs (PLAN.md §7.3). Their values are the last fit's final ones, unrounded,
+// which data/calibration/planned.json records and a test holds them to; their provisional values, which
+// the simulation ran on before calibration, stay beside them (PLAN.md §6.2). A parameter fixed in advance
+// (level 0) either has a value or is set by a stated rule. Every parameter says what new data or research
+// would raise it (spec §1.3).
 
 import type { CitationId } from './citations.ts';
 import { isFree, type Level } from './levels.ts';
@@ -165,7 +166,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: null,
+    value: 0.08342308722948755,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -173,7 +174,7 @@ export const PARAMS = {
     note: 'White current noise, drawn each step with standard deviation σ_n/√dt.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
-    bounds: null,
+    bounds: [0, 0.169],
     provisional: 0,
   },
 
@@ -283,7 +284,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch current gain',
     symbol: 'g_sw',
-    value: null,
+    value: 371.2328520506383,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -291,13 +292,13 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Recordings of the head rhythm generator',
-    bounds: null,
+    bounds: [20, 400],
     provisional: 258,
   },
   oscillatorExcitability: {
     name: 'Oscillator excitability',
     symbol: 'g_osc',
-    value: null,
+    value: 2135.222828203875,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -305,13 +306,13 @@ export const PARAMS = {
     note: 'Shared by the A- and B-type oscillators.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
-    bounds: null,
+    bounds: [300, 5000],
     provisional: 798,
   },
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: null,
+    value: 2.5061031374385916,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -319,13 +320,13 @@ export const PARAMS = {
     note: 'Shared by the A- and B-type oscillators.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
-    bounds: null,
+    bounds: [0.2, 3],
     provisional: 1.53,
   },
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: null,
+    value: -12.882325367708441,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -333,7 +334,7 @@ export const PARAMS = {
     note: "B-type neurons and the head switch run only above it, which AVB's drive supplies.",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured AVB drive at the onset of B-type oscillation',
-    bounds: null,
+    bounds: [-28, 5],
     provisional: -11.5,
   },
   proprioceptiveReach: {
@@ -350,7 +351,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: null,
+    value: 0.3083730736997604,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -358,7 +359,7 @@ export const PARAMS = {
     note: 'One gain for A- and B-type neurons.',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Identified stretch receptors and their gain',
-    bounds: null,
+    bounds: [0.1, 30],
     provisional: 16.7,
   },
 
@@ -366,7 +367,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: null,
+    value: 5,
     unit: 'per EM section',
     level: 1,
     subsystem: 'muscle',
@@ -374,13 +375,13 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: null,
+    bounds: [0.2, 5],
     provisional: 2.45,
   },
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: null,
+    value: 3.7377259379130763,
     unit: 'EM sections',
     level: 1,
     subsystem: 'muscle',
@@ -388,7 +389,7 @@ export const PARAMS = {
     note: '',
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: null,
+    bounds: [0.5, 8],
     provisional: 3.48,
   },
   muscleTimeConstant: {

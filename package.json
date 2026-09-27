@@ -25,6 +25,7 @@
     "gpu:parity": "node scripts/gpu/parity.ts",
     "gpu:parity:safari": "node scripts/gpu/parity.ts --safari",
     "harness": "node scripts/harness/run.ts",
+    "calibrate": "node scripts/calibrate/run.ts",
     "plate:bench": "node scripts/plate/bench.ts",
     "test": "vitest run",
     "test:watch": "vitest",

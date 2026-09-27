@@ -41,9 +41,10 @@ describe('parameters', () => {
   it('say how every free value is set', () => {
     for (const p of params.filter((q) => isFree(q.level))) {
       if (p.level === 1) {
-        expect(p.value, p.name).toBeNull();
+        // Calibrated within its bounds (PLAN §7.3), the provisional value kept beside it (PLAN §6.2).
+        const [lo, hi] = p.bounds ?? [NaN, NaN];
+        expect(p.value !== null && p.value >= lo && p.value <= hi, p.name).toBe(true);
         expect(p.calibratedAgainst, p.name).toBeTruthy();
-        // Until calibration, a provisional value stands in (PLAN §6.2).
         expect(Number.isFinite(p.provisional), p.name).toBe(true);
       } else {
         expect(p.value !== null || Boolean(p.rule), p.name).toBe(true);
