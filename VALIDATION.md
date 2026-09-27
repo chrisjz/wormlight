@@ -4,13 +4,13 @@ How Wormlight's behaviour compares with the real worm's, by the checkpoints PLAN
 
 ## Where it stands
 
-| Checkpoint          | Result      | Status                                                                                                   |
-| ------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, on the provisional parameters; runs again after track R          |
-| 1: crawling         | **Fail**    | Calibrated, the planned model is led by its head switch and barely advances; track R continues (PLAN §9) |
-| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)                       |
+| Checkpoint          | Result      | Status                                                                                                          |
+| ------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
+| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, on the provisional parameters; runs again after track R                 |
+| 1: crawling         | **Fail**    | Calibrated, the planned model is led by its head switch and barely advances; R's model awaits its fit (PLAN §9) |
+| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)                              |
 
-Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26). Track R's first step calibrated the planned model as it stands (PLAN §7.3, §9; DECISIONS.md, 2026-09-27), and checkpoint 1 now runs on those parameters. Checkpoint 0 last ran on the provisional ones, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again after whichever fit ends track R. While the intact model doesn't crawl, checkpoint 0's crawling clause can't fail for lack of wiring, so its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it can't while it barely moves, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait for track R.
+Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26). Track R's first step calibrated the planned model as it stands (PLAN §7.3, §9; DECISIONS.md, 2026-09-27), and checkpoint 1's section below is its run on those parameters, the baseline track R is measured against. R's own model is now built and runs on provisional values until its fit, on which it barely moves (DECISIONS.md, 2026-09-27); checkpoint 1 runs again on the fit. Checkpoint 0 last ran on the provisional ones, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again after whichever fit ends track R. While the intact model doesn't crawl, checkpoint 0's crawling clause can't fail for lack of wiring, so its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it can't while it barely moves, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait for track R.
 
 ## How the trials run
 

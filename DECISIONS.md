@@ -1300,3 +1300,36 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 **What it sets aside,** on the run that found it: 14 of the 87 loop states, up from 4, 3 of them R's (16%, under the quarter); and 2 of the 21 brain states, up from 1, adding t = 5.0 s at 0.0073. Safari's t = 11.0 s is among them. No state graded under the new rule fails, and the largest graded voltage error is 0.69 of the threshold.
 
 **Status.** Rule set; the code follows in the same pull request.
+
+## 2026-09-27 — Track R's model, as built
+
+**Why.** The planned model's calibration left checkpoint 1 failing (above), so track R goes on to its model, step 2 of its first round (PLAN §9), as approved and revised after review. The maintainer chose to build it in one pull request and fit it in the next, and to have the registry describe R's model from now on, the planned model kept beside it.
+
+**Built** on the CPU reference and the GPU, applied to every brain:
+
+- **Relative drive** (`src/sim/muscles.ts`). Each muscle's rest and range come once from the intact neuromuscular map, with κ_SMD applied: its rest has every presynaptic activation at the midpoint, 1/11, and its most every excitatory one at 1/6 and every inhibitory one at 0. The weights are divided by the range, and the rest over the range becomes an offset the activation subtracts, so `g_nmj` and `θ_nmj` act on (u − u_rest)/(u_max − u_rest). Lesions keep the intact ranges. Over the 95 muscles the range runs from 0.67 to 11.0 EM sections, with a median of 4.41; the median rest is 3.45.
+- **κ_gap,B** (`scaleGap`, `src/sim/brain/network.ts`) scales the 92 gap junctions with a VB or DB neuron on either side, both directions of each, before the thresholds are set.
+- **κ_SMD** scales the SMDs' 32 junctions onto muscles starting 0.3 body lengths along or beyond, 312 of their 582 sections.
+- **g_osc,B.** Each oscillator carries its own gain, its class's; at 0 the B-types have none.
+- **On the GPU.** The kernel's oscillator flag became each neuron's gain. The muscle stage subtracts each muscle's offset, stored after the neuromuscular weights, into which the range folds. The parameter block grew to 60 words.
+- **The planned model stays as a switch.** Left out of the loop's parameters, each of R's settings takes the value that gives the planned model, which still runs bit for bit as before: eight worlds, four seeds intact and silenced, stepped for 10 s on its provisional values, end in the same state as on `main`, hashed. `plannedParams` maps the planned model's values, and `src/science/planned.ts` records them, its provisional ones and its fit's, which a test holds to `data/calibration/planned.json`. The go/no-go's tests and the harness's run on it.
+- **The registry** (`src/science/params.ts`) is R's: eleven calibrated parameters, their values null until R's fit, within the bounds approved; the neuromuscular gain and threshold per unit of relative drive and in it, with bounds of 2 to 40 and −0.3 to 0.8; the budget at 17. `FIDELITY.md` shows each as not yet calibrated, with its provisional value. `npm run calibrate` now fits R, writing `data/calibration/r1.json`.
+
+**Provisional values,** set before any run of R's model and to three significant figures. R's model runs on them until its fit, never taken for calibrated (PLAN §6.2):
+
+- the planned model's calibrated values for the parameters it shares: g_osc and g_osc,B 2140 pS, τ_w 2.51 s, θ_osc −12.9 mV, g_sw 371 pA, g_p 0.308 pA, σ_n 0.0834 pA·√s;
+- κ_gap,B and κ_SMD at 1, which change nothing;
+- g_nmj and θ_nmj mapped onto relative drive through the median muscle: 5 × 4.41 = 22.0, and (3.74 − 3.45)/4.41 = 0.0642. A first mapping gave 22.2 and 0.0638, from medians taken without the muscles whose rest is 0; it was corrected before any run, and a test now derives both values from the data.
+
+With these, R's model differs from the planned model's fit only in taking each muscle's drive relative to its own range rather than the median muscle's.
+
+**What it does.** On checkpoint 1's twenty trials, for a look, not recorded in VALIDATION.md, R's model on its provisional values barely moves. Over the trials it is forward 15–25% of the time, paused 65–73% and backward 8–12%. Its mean velocity is 0.005 to 0.008 body lengths per second, and its longest forward run 3.2 s. It reverses 143 times, 3.9 a minute, every reversal within 3 s after a flip of the head switch. The mid-body curvature's spectrum peaks at 0.082 Hz, with 22% of its power between 0.2 and 0.45 Hz. The planned model's fit moved forward 62–75% of the time at 0.030. So relative drive costs the planned fit most of its forward motion; R's fit is what tests the model. Until then the app and the harness run it as it stands.
+
+**Parity** (Chrome 153 on an M5 Max, Metal). The loop's parity gains a set of R's states (the entry above). Every check passes under the one-second rule as changed there:
+
+- one step: all 11 of R's states, the voltage's worst error 0.008 of its tolerance and the muscles' 3 × 10⁻⁴ of theirs, and every other state as before;
+- one second: 73 of 87 loop states graded and 19 of 21 brain states, with none failing.
+
+The brain steps at 29.9× real time and the whole loop at 25.0×, as before. CI runs the same checks on SwiftShader.
+
+**Status.** Built; R's fit is the next pull request.
