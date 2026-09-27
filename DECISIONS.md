@@ -965,3 +965,16 @@ Three choices PLAN left open were put to the maintainer and settled before any t
 - **Smaller things.** `GpuBrain.restore` clears the pulses, which share the neurons' state, and says so; a parity run without `--long` no longer deletes the last long runs' results, as one did Safari's for AWC, whose numbers survive in this entry.
 
 **Status.** Built as revised; GPU parity passes in Chrome and, but for the state recorded before, in Safari.
+
+## 2026-09-27 — Dropping food
+
+**Decision.** Milestone 4's last feature is the spec's "Food: click to drop or drag an odour source" (spec §6). PLAN §5.2 already fixed the field's physics and that the app would step it on the GPU in explicit sub-steps of at most 4 ms once it could change. Four choices it left open were put to the maintainer and settled before any food was built:
+
+- **What a dropped source is.** A lawn like the app's first: a 1 cm disc releasing at the assay spot's total rate. Up to eight in all, the first among them. The field changes only by stepping: dropping a lawn starts its release; moving or removing one stops its release there, and what it released diffuses and decays, falling by e in about 100 s, λ²/D. Considered: point sources like the assay's spot, sharper near a drop but unlike the app's lawn; and re-solving the field's steady state at each change, instant but not physical, odour appearing and vanishing across the dish at once.
+- **Placing food.** "Add food" arms placing: the next click on the dish drops a lawn there, Enter drops it at the view's centre, and Escape cancels. Dragging a lawn moves it, dragging it off the dish removes it, and "Clear food" removes them all. Other clicks pan or touch as before. Considered: a click on bare agar dropping a lawn at once, fewer steps but a stray click drops food.
+- **GPU parity for the field.** The GPU's stepped field against `OdourField.step`, from the app's steady lawn field with a second lawn just dropped at the dish's centre. After one 4 ms sub-step, every cell within 10⁻⁵ of the field's largest concentration; after one simulated second, 250 sub-steps, every cell within 10⁻⁴ of it, and the change in the total odour within 10⁻⁴ of the CPU's, which the explicit scheme makes exactly what the sources released less the loss. Run in CI with the rest. Considered: the one-second comparison alone.
+- **Food in the URL, now.** `?food=x,y;…` in millimetres from the dish's centre: the setup a link reproduces, its field starting steady for those lawns. The rest of the shareable URL, lesions, the brain and the versions, comes with milestone 5. Considered: leaving the URL for one piece with the rest.
+
+The worm senses the field as it stood when each of its dispatches began, at most 128 steps, 0.32 s, before; the app draws the field it steps. The harness keeps its fixed fields: trials drop no food.
+
+**Status.** Set before any food was built; built next.
