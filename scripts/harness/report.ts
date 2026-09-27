@@ -328,7 +328,7 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
     `### Checkpoint 1: crawling — ${GRADE[result.grade]}`,
     runLine(info, result.trials),
     table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], result.clauses.map(clauseRow)),
-    `${kinematics} The eigenworm clause pools ${grouped(result.postures)} postures sampled at 4 Hz; ${left} left out. The kinematic clauses are calibration targets, but the parameters are provisional, not calibrated.`,
+    `${kinematics} The eigenworm clause pools ${grouped(result.postures)} postures sampled at 4 Hz; ${left} left out. The kinematic clauses are calibration targets, ${isCalibrated() ? 'which the parameters were tuned against (PLAN §7.3), on trials of their own' : 'but the parameters are provisional, not calibrated'}.`,
     trialTable(result.trials),
   ].join('\n\n');
 }

@@ -160,6 +160,7 @@ describe('the harness report', () => {
     expect(section).toContain('| Posture variance the four eigenworms capture | unmeasured: too few postures |');
     expect(section).toContain('crossed its mean 0 times, 0.0 a bout');
     expect(section).toContain('0 self-intersecting postures were left out');
+    expect(section).toContain('which the parameters were tuned against (PLAN §7.3), on trials of their own');
   });
 
   it('refuses options that would run no trial', () => {
