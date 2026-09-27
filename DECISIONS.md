@@ -1330,6 +1330,8 @@ With these, R's model differs from the planned model's fit only in taking each m
 - one step: all 11 of R's states, the voltage's worst error 0.008 of its tolerance and the muscles' 3 × 10⁻⁴ of theirs, and every other state as before;
 - one second: 73 of 87 loop states graded and 19 of 21 brain states, with none failing.
 
-The brain steps at 29.9× real time and the whole loop at 25.0×, as before. CI runs the same checks on SwiftShader.
+The brain steps at 29.9× real time and the whole loop at 25.0×, as before. On CI's SwiftShader every check passes too, the same states not graded.
+
+**Safari** (26.6, `npm run gpu:parity:safari`). Every check passes, the first full pass in Safari since AWC-ON's entry. The state at t = 11.0 s that failed there, its reference at 0.993, is no longer graded; 13 of 87 loop states and 2 of 21 brain states are not. The whole loop ran at 9.6× and 13.8× real time in two runs, below the 17.9× recorded before. `main`, run the same way the same day, gave 9.4× and 13.6×, so the difference isn't R's; its cause wasn't looked into.
 
 **Status.** Built; R's fit is the next pull request.
