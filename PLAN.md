@@ -409,6 +409,12 @@ The reversal rate is from Gray, Hill & Bargmann 2005, Fig. 1E, read from the fig
 - **Bout clause.** At the calibrated reversal rate, a simulation with exponentially distributed runs and 5–10 s reversals puts about 99% of trials above a 20 s bout. The clause therefore fails only a model that can't sustain forward crawling at all.
 - **Starting postures.** Each trial starts from a real posture: one of the 6,655 in the OIST Physics of Behavior tutorials' `shapes.csv` (pinned in `data/sources.json`), which the tutorial introduces as coming from Stephens et al.'s experiment, drawn by the trial's seed, head first and turned to a heading drawn uniformly. Trials use seeds 1 to 20, and checkpoint 0 the same seeds, so it silences the network on the same postures.
 - **Kinematics**, over forward bouts of 10 s or more, pooled over all trials. Speed is the mean forward velocity (§7.1). Frequency is half the mid-body curvature's crossings of each bout's mean, over the bouts' total duration. Wavelength is the distance between two rods over the frequency times the lag at which their curvatures correlate best, the correlations summed over bouts. **Changed after results (2026-09-26, DECISIONS.md):** the rods were 0.3125 body lengths apart, about half a wavelength, where forward, backward and standing waves read alike. They are now 0.125 apart, at 0.29 and 0.42 body lengths; lags are searched both ways, within half a period and 5 s, and a peak anywhere but strictly inside the search on the rear's side is no head-to-tail wave, which fails the clause. The checkpoint passes if every clause passes and is partial if every clause is at least partial; with no bout of 10 s, the kinematic clauses fail.
+- **Diagnostics, reported and not graded** (set 2026-09-27, before track R's fit, DECISIONS.md). The planned model's calibration met its reversal and frequency targets partly through the head switch's mechanics. So checkpoint 1's report shows, beside its grades:
+  - the mid-body curvature's spectral peak above 0.02 Hz, from the periodogram of each trial's κL from its first 10 s, less its mean, summed over the trials, and the share of that power between 0.2 and 0.45 Hz;
+  - the share of reversals whose first backward sample lies within 3 s after a flip of the head switch;
+  - the mean change in AVA's activation, averaged over AVAL and AVAR, from 1 s before each reversal to its end, beside the activation's standard deviation over the measured windows.
+
+  None changes a grade.
 
 **Checkpoint 0's touch and chemotaxis clauses** (set 2026-09-27, before either ran, DECISIONS.md). A silenced network doesn't crawl, so checkpoints 2 and 3's "during forward crawling" can't apply; its reflexes are sought in its own trials instead.
 
@@ -580,6 +586,7 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
 - Each brain's gains are tuned, so a tuned null's gap junctions and neuromuscular weights differ from the real wiring's, as its g_nmj and θ_nmj do. That is intended: spec §4 holds a null's gap junctions and neuromuscular map unrewired, and the class gains are calibrated parameters.
 - κ_SMD is a gain on one class's junctions split by where its muscles lie, a class-level parameter of a new kind (spec §1.2).
 - The real wiring gets two fits and the choice between them; each null gets the procedure of the one that ends R.
+- **Open, to settle before any null is tuned** (DECISIONS.md, 2026-09-27): the calibration's reversal term can be met by the head switch's slips in any wiring, which would blunt checkpoint 6 on it.
 - Weakening AVB's junctions with the B-types, inside κ_gap,B, may weaken checkpoint 5's held-out AVB + PVC lesion effect. That is noted now, before any lesion runs.
 
 ## 10. Risks and the fallback menu

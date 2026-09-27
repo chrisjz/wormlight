@@ -1242,3 +1242,23 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 **Also changed.** The app and the harness run on the calibrated values. `FIDELITY.md` shows them to three significant figures, and the harness's report names them. Checkpoint 0's section still describes its run on the provisional parameters, and it runs again after whichever fit ends R.
 
 **Status.** Run; checkpoint 1 fails, and track R goes on to its model.
+
+## 2026-09-27 — After review: what the planned model's calibration found, and checkpoint 1's diagnostics
+
+**Why.** Three reviews of the calibration found that the fit ran correctly and as pre-registered, but that its first reading, in the entry above, misdescribed the calibrated worm. The findings were reproduced before this entry was written:
+
+- **The reversals are the head switch's slips.** Over seeds 1 to 8 on the calibrated parameters, all 29 reversals began between 1 s before and 3 s after a flip of the head switch to one side, and none near a flip to the other. AVA's activation changed by 0.0007 on average over them, against a standard deviation of 0.006. In a review's sweep the reversal rate fell and rose irregularly with the noise: the calibration's 1.8 a minute was met by the noise sparing some flips their slip, not by the network reversing.
+- **The frequency and wavelength mix two waves.** The mid-body curvature's spectrum over checkpoint 1's trials peaks at 0.073 Hz, the head switch's slow cycle, with 61% of the power below 0.12 Hz and 19% between 0.2 and 0.45 Hz. The measured 0.185 Hz and 0.58 body lengths average that slow wave with a weaker ripple near 0.37 Hz, so neither describes one wave.
+- **The speed deficit is structural.** The neuromuscular gain is the slope of the muscles' response, not the strength of their pull. Raised past its bound to 20, it lifted the frequency (0.41 Hz on four fresh seeds) and not the speed (0.034). The speed never exceeded 0.035 in 2,000 evaluations. Proprioception is inert: at 0.001 pA the pick behaves as at 0.31. The bouts break once per cycle of the head switch, every 10 to 14 s, not by jitter at the motion floor.
+- **The search settled against two bounds; it didn't converge on the objective.**
+  - From generation 100 its mean lay beyond the neuromuscular gain's upper bound, so every one of the last 800 candidates ran at 5. From generation 120 it sat on the head-switch gain's.
+  - The speed term, 0.74 of the pick's 0.87, never moved.
+  - The objective is rugged: on four seeds of their own the pick made no forward bout of 10 s and scored 8.85, against 0.87 on sixteen.
+
+**Decision** (PLAN §7.4, §9), agreed by the maintainer, the recommendation first each time:
+
+- **Checkpoint 1's report adds diagnostics, reported and not graded,** set before track R's fit: the mid-body curvature's spectral peak and its share of power in 0.2–0.45 Hz; the share of reversals starting within 3 s after a head-switch flip; and AVA's activation change over reversals. R's model is then judged on whether it crawls, not only on whether it scores. Considered: also stopping head-switch slips from counting toward the calibration's reversal rate, a change to the objective after results that would need a rule reading network state; and neither.
+- **Checkpoint 6's reversal term is an open question,** to settle before any null is tuned, with R's fit in hand. R's own fit doesn't depend on it. Considered: settling it now, with less evidence.
+- **Everything else, as recommended:** the entry above's reading is corrected in DECISIONS, VALIDATION, PLAN and README; the runner is made robust; a compact summary of the fit is committed, with a test that the registry matches it; CMA-ES gains guards that can't change this fit's replay. The fit isn't rerun: none of this changes its result.
+
+**Status.** The diagnostics are set before R's fit; the rest follows in this PR.
