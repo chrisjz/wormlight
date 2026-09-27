@@ -30,22 +30,24 @@ describe('citations', () => {
 });
 
 describe('parameters', () => {
-  it('keep within the free-parameter budget: eight calibrated and six fixed in advance', () => {
+  it("keep within the free-parameter budget: track R's eleven calibrated and six fixed in advance", () => {
     const free = freeParams();
-    expect(free).toHaveLength(14);
+    expect(free).toHaveLength(17);
     expect(free.length).toBeLessThanOrEqual(FREE_PARAMETER_BUDGET);
-    expect(free.filter((id) => PARAMS[id].level === 1)).toHaveLength(8);
+    expect(free.filter((id) => PARAMS[id].level === 1)).toHaveLength(11);
     expect(free.filter((id) => PARAMS[id].level === 0)).toHaveLength(6);
   });
 
   it('say how every free value is set', () => {
     for (const p of params.filter((q) => isFree(q.level))) {
       if (p.level === 1) {
-        // Calibrated within its bounds (PLAN §7.3), the provisional value kept beside it (PLAN §6.2).
+        // Uncalibrated until R's fit (PLAN §9), or calibrated within its bounds (PLAN §7.3); its provisional
+        // value, within them too, stands in until then and stays beside it after (PLAN §6.2).
         const [lo, hi] = p.bounds ?? [NaN, NaN];
-        expect(p.value !== null && p.value >= lo && p.value <= hi, p.name).toBe(true);
+        expect(p.value === null || (p.value >= lo && p.value <= hi), p.name).toBe(true);
         expect(p.calibratedAgainst, p.name).toBeTruthy();
-        expect(Number.isFinite(p.provisional), p.name).toBe(true);
+        const provisional = p.provisional ?? NaN;
+        expect(provisional >= lo && provisional <= hi, p.name).toBe(true);
       } else {
         expect(p.value !== null || Boolean(p.rule), p.name).toBe(true);
       }

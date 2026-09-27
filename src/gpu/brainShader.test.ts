@@ -4,6 +4,7 @@ import {
   LOOP_SCALARS,
   LOOP_SCALARS_AT,
   NEURON_WORDS,
+  NM_OFFSET_AT,
   PARAM_WORDS,
   STATE_WORDS,
   STATUS_WORDS,
@@ -24,6 +25,10 @@ describe("the kernel's layout", () => {
     expect(params[20]).toBe('rods');
     expect(params.slice(30, 32)).toEqual(['awc_on', 'awc_rod']);
     expect(params.slice(LOOP_SCALARS_AT, LOOP_SCALARS_AT + LOOP_SCALARS.length)).toEqual([...LOOP_SCALARS]);
+    // GpuBrain writes where the muscles' offsets start after the scalars, and the block is whole 16 bytes.
+    expect(params[NM_OFFSET_AT]).toBe('nm_offset_at');
+    expect(PARAM_WORDS % 4).toBe(0);
+    expect(fields('NeuronConstants')[2]).toBe('osc_gain');
     expect(fields('State')).toHaveLength(STATE_WORDS);
     expect(fields('NeuronConstants')).toHaveLength(NEURON_WORDS);
     // GpuBrain writes a touch receptor's pulse into its neuron's state at words 6 and 7, its tap's current into

@@ -34,10 +34,13 @@ export interface RunInfo {
 // The parameters a run used: the calibrated ones, to three significant figures, as FIDELITY.md shows them, or
 // the provisional ones.
 export function parameterText(calibrated: boolean): string {
+  if (calibrated && CALIBRATED.some((id) => PARAMS[id].value === null)) {
+    throw new Error("a run on calibrated parameters, but the registry's aren't calibrated");
+  }
   const values = CALIBRATED.map((id) => {
     const p: Param = PARAMS[id];
     const v = calibrated ? Number((p.value as number).toPrecision(3)) : (p.provisional as number);
-    return `${p.symbol} = ${formatNumber(v)} ${p.unit}`;
+    return `${p.symbol} = ${formatNumber(v)}${p.unit ? ` ${p.unit}` : ''}`;
   });
   return calibrated
     ? `the calibrated parameters (PLAN §7.3), here to three significant figures: ${values.join(', ')}`

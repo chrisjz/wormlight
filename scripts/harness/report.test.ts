@@ -2,11 +2,25 @@ import { describe, expect, it } from 'vitest';
 import type { ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import { checkpoint0, checkpoint1, touchSchedule } from '../../src/validation/checkpoints.ts';
 import { emptySums } from '../../src/validation/posture.ts';
+import { PARAMS } from '../../src/science/params.ts';
+import { CALIBRATED } from '../../src/sim/world.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, scientific, shares } from './report.ts';
 import { parseArgs } from './run.ts';
 
-const info = { date: '2026-09-26', commit: 'abc1234', calibrated: true, trials: 1, seconds: 70 };
+const info = { date: '2026-09-26', commit: 'abc1234', calibrated: false, trials: 1, seconds: 70 };
+
+// The registry as R's fit will leave it, for the length of `run`: each calibrated value its provisional one
+// nudged off its three figures, so the report must round it.
+function asIfCalibrated<T>(run: () => T): T {
+  const registry = PARAMS as unknown as Record<string, { value: number | null; provisional: number }>;
+  for (const id of CALIBRATED) registry[id].value = registry[id].provisional * (1 + 1e-4) + 1e-9;
+  try {
+    return run();
+  } finally {
+    for (const id of CALIBRATED) registry[id].value = null;
+  }
+}
 // A trial that backs up for 2 s of its 60 measured, then lies still.
 const velocity = [...Array<number>(20).fill(-0.05), ...Array<number>(580).fill(0)];
 const zeros = velocity.map(() => 0);
@@ -72,13 +86,17 @@ describe('the harness report', () => {
   });
 
   it('names the parameters it ran on: the calibrated, to three significant figures, or the provisional', () => {
-    expect(parameterText(true)).toContain('the calibrated parameters (PLAN §7.3)');
-    expect(parameterText(true)).toContain('g_osc = 2140 pS');
-    expect(parameterText(true)).toContain('θ_osc = −12.9 mV');
-    expect(parameterText(true)).toContain('σ_n = 0.0834 pA·√s');
+    // Track R's model, uncalibrated until its fit (PLAN §9): its provisional values.
     expect(parameterText(false)).toContain('the provisional parameters, not calibrated (PLAN §6.2)');
-    expect(parameterText(false)).toContain('g_osc = 798 pS');
-    expect(parameterText(false)).toContain('σ_n = 0 pA·√s');
+    expect(parameterText(false)).toContain('g_osc = 2140 pS');
+    expect(parameterText(false)).toContain('g_osc,B = 2140 pS');
+    expect(parameterText(false)).toContain('κ_gap,B = 1, g_nmj = 22 per unit of relative drive');
+    expect(parameterText(false)).toContain('σ_n = 0.0834 pA·√s');
+    expect(() => parameterText(true)).toThrow(/aren't calibrated/);
+    const calibrated = asIfCalibrated(() => parameterText(true));
+    expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');
+    expect(calibrated).toContain('g_osc = 2140 pS');
+    expect(calibrated).toContain('θ_nmj = 0.0642 relative drive');
   });
 
   it("writes checkpoint 0's verdict, each clause's, and its backward activity", () => {
@@ -165,15 +183,16 @@ describe('the harness report', () => {
     expect(section).toContain('| Posture variance the four eigenworms capture | unmeasured: too few postures |');
     expect(section).toContain('crossed its mean 0 times, 0.0 a bout');
     expect(section).toContain('0 self-intersecting postures were left out');
-    expect(section).toContain(
-      'which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020',
-    );
+    expect(section).toContain('but the parameters are provisional, not calibrated');
     expect(section).toContain('Diagnostics, reported and not graded (PLAN §7.4): ');
     expect(section).toContain(
       'the mid-body curvature has no spectrum to report; 0 of 0 reversals started within 3 s after a flip of the head switch',
     );
-    expect(checkpoint1Section(checkpoint1([record], [[1]]), { ...info, calibrated: false })).toContain(
-      'but the parameters are provisional, not calibrated',
+    const calibrated = asIfCalibrated(() =>
+      checkpoint1Section(checkpoint1([record], [[1]]), { ...info, calibrated: true }),
+    );
+    expect(calibrated).toContain(
+      'which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020',
     );
   });
 

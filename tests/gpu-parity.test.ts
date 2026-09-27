@@ -134,6 +134,24 @@ describe("the loop's parity", () => {
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
+  it("includes track R's model, whose muscles move and whose B-types oscillate apart from the A-types", () => {
+    const r = LOOP_SETUPS[3];
+    expect(r.params).toMatchObject({ relativeDrive: true, oscillatorGainB: 1, gapGainB: 0.5, smdGain: 0.5 });
+    const cases = loopCases(data, r);
+    expect(cases).toHaveLength(r.states + 1);
+    const world = cpuWorld(data, cases[1].state, undefined, r);
+    expect(Array.from(world.muscles.offset).some((o) => o !== 0)).toBe(true);
+    expect(new Set(world.brain.oscillators?.gain).size).toBe(2);
+    // The GPU gets each muscle's offset, and the weights its range folds into, as the CPU uses them.
+    const packed = packLoop(world);
+    expect(packed.nmOffset).toEqual(Float32Array.from(world.muscles.offset));
+    expect(packed.nmWeight).toEqual(Float32Array.from(world.muscles.weight));
+    expect(packed.nmOffset).toHaveLength(world.muscles.names.length);
+    // The muscles aren't pinned off or on in relative units: their activations spread.
+    const a = cases[cases.length - 1].state.muscles;
+    expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.05);
+  });
+
   it("puts every world in the assay's odour field, with each AWC ON in some, and T above and below the odour", () => {
     const sides = new Set<string>();
     for (const setup of LOOP_SETUPS) {

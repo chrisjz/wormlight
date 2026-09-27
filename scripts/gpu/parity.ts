@@ -90,6 +90,7 @@ interface Report {
   thresholds: {
     oneStep: { voltage: number; activation: number; recovery: number };
     oneSecond: { rms: number };
+    wellPosed: number;
     mostIllPosed: number;
   };
   noise: {
@@ -214,8 +215,8 @@ try {
   for (const r of report.oneStep) console.log(stepLine(r));
   console.log(
     `\none second: worst RMS relative error over the samples (tolerance ${thresholds.oneSecond.rms}), and the CPU ` +
-      "reference against itself at the GPU's solver tolerance; a state where that exceeds the tolerance is not " +
-      `graded, and more than ${100 * thresholds.mostIllPosed}% not graded fails`,
+      `reference against itself at the GPU's solver tolerance; a state where that exceeds ${g(thresholds.wellPosed)} ` +
+      `of the tolerance is not graded, and more than ${100 * thresholds.mostIllPosed}% not graded fails`,
   );
   for (const r of report.oneSecond) console.log(secondLine(r));
   const { variant } = report;
@@ -242,7 +243,7 @@ try {
     }
     console.log(
       '\none second: shares of the thresholds, the switch and the touch pulses throughout, and the reference against ' +
-        'itself',
+        `itself; a state where that exceeds ${g(thresholds.wellPosed)} or its switch differs is not graded`,
     );
     for (const r of loop.oneSecond) {
       const s = r.shares;

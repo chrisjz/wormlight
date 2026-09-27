@@ -17,7 +17,7 @@ Only these layers. Each must be the same for every cell of a class, cited, share
 1. **Sensory transduction and adaptation:** environment to sensory-neuron input.
 2. **Proprioception:** local body curvature to input in the neuron classes the literature names: B-type motor neurons (Wen et al. 2012), SMDD head motor neurons (Yeon et al. 2018), and A-type motor neurons as a hypothesis (Gao et al. 2018).
 3. **Intrinsic dynamics per neuron class**, only where a source documents them (for example the intrinsic oscillation of A-type motor neurons, Gao et al. 2018).
-4. **Neuromuscular transfer and muscle dynamics:** synaptic drive onto muscles to muscle activation.
+4. **Neuromuscular transfer and muscle dynamics:** synaptic drive onto muscles to muscle activation. Research track R's model takes each muscle's drive relative to its own range before one shared transfer: one rule sets every range, but each muscle's drive is scaled by its own. That deviation was signed off on 2026-09-27 (PLAN §9, DECISIONS.md).
 5. **Noise:** independent, seeded per-neuron noise.
 
 The brain interface sits on this boundary: every brain receives the same sensory and proprioceptive input and drives the same muscles through the same neuromuscular map. Neuromodulation and extrasynaptic signalling are out of scope (§2.4). Adding any other layer is a major deviation (§10).

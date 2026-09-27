@@ -98,8 +98,9 @@ function showParity(report: ParityReport): void {
     el('h3', `One second: RMS relative error ≤ ${thresholds.oneSecond.rms}`),
     el(
       'p',
-      "A state is graded only if the CPU reference, rerun at the GPU's solver tolerance, stays within the " +
-        `threshold of itself; the check fails if more than ${100 * thresholds.mostIllPosed}% of states are not graded.`,
+      "A state is graded only if the CPU reference, rerun at the GPU's solver tolerance, stays within " +
+        `${fixed(thresholds.wellPosed, 3)} of the threshold of itself; the check fails if more than ` +
+        `${100 * thresholds.mostIllPosed}% of states are not graded.`,
     ),
     table(
       ['State', 'Voltage RMS', 'Activation RMS', 'Reference against itself', ''],

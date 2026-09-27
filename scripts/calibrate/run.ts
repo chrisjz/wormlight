@@ -1,14 +1,17 @@
 // npm run calibrate -- [--budget N] [--jobs N] [--resume]
 //
-// PLAN §7.3's calibration of the planned model's eight parameters, research track R's first step (PLAN §9):
-// CMA-ES over the parameters mapped onto [0, 1], each candidate scored on 4 trials of 120 s on the CPU
+// PLAN §7.3's calibration of track R's model's eleven parameters, R's fit (PLAN §9). The planned model's fit, R's
+// first step, is data/calibration/planned.json.
+//
+// CMA-ES over the parameters mapped onto [0, 1], starting from their provisional values, each candidate scored on
+// 4 trials of 120 s on the CPU
 // reference, seeds 1001 to 1004, in parallel worker processes, one per core by default. At the budget's end,
 // the ten best candidates and the final mean are run again on 16 fresh seeds, and the best there is final.
 //
-// Everything goes to harness-out/calibration-planned.json (calibration-planned-<budget>.json for a shortened
+// Everything goes to harness-out/calibration-r1.json (calibration-r1-<budget>.json for a shortened
 // run), rewritten after every generation, so --resume can take a stopped run up again, replaying the
 // generations it had. A full run also writes its summary, without the evaluations, to
-// data/calibration/planned.json, which is committed: the registry's values must match its final ones.
+// data/calibration/r1.json, which is committed: the registry's values must match its final ones.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,6 +29,7 @@ import {
   calibrate,
   measure,
   objective,
+  provisionalValues,
   type Evaluated,
   type KinematicRecord,
   type Values,
@@ -51,7 +55,7 @@ interface Result {
 }
 
 const DATA = join(ROOT, 'public/data/wormlight.v1.json');
-export const SUMMARY = join(ROOT, 'data/calibration/planned.json');
+export const SUMMARY = join(ROOT, 'data/calibration/r1.json');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
 
@@ -139,9 +143,10 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
 // What a run was: the settings a reader needs to interpret its units and scores.
 export function settings(budget: number): Record<string, unknown> {
   return {
-    model: 'planned',
+    model: 'track R, round 1',
     budget,
     calibration: CALIBRATION,
+    start: provisionalValues(),
     bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id)])),
     mapping: MAPPING,
     targets: TARGETS,
@@ -165,11 +170,7 @@ if (process.argv.includes('--worker')) {
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
   const full = options.budget === CALIBRATION.budget;
-  const file = join(
-    ROOT,
-    'harness-out',
-    full ? 'calibration-planned.json' : `calibration-planned-${options.budget}.json`,
-  );
+  const file = join(ROOT, 'harness-out', full ? 'calibration-r1.json' : `calibration-r1-${options.budget}.json`);
   let previous: Evaluated[] = [];
   if (options.resume) {
     if (!existsSync(file)) throw new Error(`there is no run to resume at ${file}`);

@@ -2,8 +2,8 @@
 // join the brain. Both sides take one step, then one second, running every layer, from whole-world states in
 // the assay's odour field: the rest world and twenty from the trial values' closed loop; copies of them moved
 // across the dish and turned, which the CPU doesn't notice and the GPU must not; copies pressed against the
-// dish's wall, which both push back; copies tapped front and back; and states from two variants that make the
-// head switch flip and gate.
+// dish's wall, which both push back; copies tapped front and back; states from two variants that make the head
+// switch flip and gate; and states from track R's model.
 // The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
 // 2026-09-26), and AWC-ON's threshold's, set before any results (2026-09-27); the brain's are as before. Long
 // runs, LONG_SEEDS a side for 60 s, compare the body wave's statistics by Welch's two one-sided tests while the
@@ -38,6 +38,7 @@ import {
   rms,
   SAMPLES,
   SECOND,
+  WELL_POSED,
   seededWorld,
   TAP_COPIES,
   ENDING_COPIES,
@@ -147,7 +148,7 @@ export interface LoopSecondResult {
   // graded or not.
   touchSame: boolean;
   // The same for the CPU reference rerun at the GPU's solver tolerance, against itself: the state is graded
-  // only if every share is at most 1 and its switch agreed throughout.
+  // only if every share is at most WELL_POSED and its switch agreed throughout.
   referenceShare: number;
   referenceSwitchSame: boolean;
   graded: boolean;
@@ -235,7 +236,7 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
     referenceSwitchSame &&= cpu.headSwitch.h === loose.headSwitch.h && cpu.switchCurrent === loose.switchCurrent;
   }
   const referenceShare = Math.max(...Object.values(reference));
-  const graded = referenceShare <= 1 && referenceSwitchSame;
+  const graded = referenceShare <= WELL_POSED && referenceSwitchSame;
   return {
     label: c.label,
     shares,

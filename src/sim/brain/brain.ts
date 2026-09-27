@@ -15,11 +15,22 @@ import { ConjugateGradient, type Solve } from './solver.ts';
 // v₀ = 1/(2β) and θ is the drive threshold for B-types and 0 for A-types.
 export interface Oscillators {
   neurons: Int32Array;
-  // θ for each, in mV.
+  // θ for each, in mV, and g_osc for each, in nS: one per class, as track R splits the A- and B-types' (PLAN §9).
   shift: Float64Array;
-  // g_osc in nS and τ_w in s.
-  gain: number;
+  gain: Float64Array;
+  // τ_w in s.
   recovery: number;
+}
+
+// Oscillators both brains can run alike: one shift and one gain for each, every gain above 0. The GPU takes a
+// gain of 0 for no oscillator, so a class without one is left out instead (World does).
+export function checkOscillators(oscillators: Oscillators | null): void {
+  if (!oscillators) return;
+  const { neurons, shift, gain } = oscillators;
+  if (shift.length !== neurons.length || gain.length !== neurons.length) {
+    throw new Error('oscillators need one shift and one gain for each');
+  }
+  if (!gain.every((g) => g > 0)) throw new Error('an oscillator needs a gain above 0; leave one out instead');
 }
 
 // FitzHugh's textbook constants.
@@ -169,6 +180,7 @@ export class Brain {
 
   // Attach oscillators, each starting on its w-nullcline at the neuron's present voltage.
   setOscillators(oscillators: Oscillators | null): void {
+    checkOscillators(oscillators);
     this.oscillators = oscillators;
     const count = oscillators?.neurons.length ?? 0;
     this.recovery = new Float64Array(count);
@@ -262,9 +274,9 @@ export class Brain {
     if (osc) {
       osc.neurons.forEach((i, k) => {
         const x = (v[i] - this.threshold[i] - osc.shift[k]) / v0;
-        const stabilising = osc.gain * Math.max(x * x - 1, 0);
+        const stabilising = osc.gain[k] * Math.max(x * x - 1, 0);
         d[i] += stabilising;
-        b[i] += osc.gain * v0 * (x - (x * x * x) / 3 - this.recovery[k]) + stabilising * v[i];
+        b[i] += osc.gain[k] * v0 * (x - (x * x * x) / 3 - this.recovery[k]) + stabilising * v[i];
       });
     }
     const next = this.next;

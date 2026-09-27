@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      'Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl (DECISIONS.md)',
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration (DECISIONS.md); track R's model awaits its fit",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -293,6 +293,21 @@ export const COMPONENTS: readonly Component[] = [
       { check: 'checkpoint6' },
     ],
   },
+  {
+    name: "The B-types' gap-junction gain (track R)",
+    subsystem: 'strengths',
+    levels: [1],
+    basis:
+      "κ_gap,B, calibrated from 0.1 to 1, on every gap junction with a VB or DB neuron on either side, before thresholds are set: in the go/no-go's ladder these junctions halved the B-type chain's speed (PLAN §9; DECISIONS.md, 2026-09-26)",
+    caveats:
+      "It weakens AVB's junctions with the B-types too, which may weaken checkpoint 5's AVB + PVC lesion effect (PLAN §9)",
+    upgrade: 'Measured coupling between B-type motor neurons',
+    sources: [],
+    testedBy: [
+      { check: 'unit', detail: 'it scales every junction with a B-type on either side, and nothing else' },
+      { check: 'checkpoint1' },
+    ],
+  },
 
   // Neuron dynamics.
   {
@@ -377,7 +392,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Fouad et al. 2018; Xu et al. 2018 (abstract only); AVB needed for forward movement (Chalfie et al. 1985)',
     caveats:
-      'Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1)',
+      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator",
     upgrade: 'A parameterised model of the B-type rhythm',
     sources: ['fouad2018', 'xu2018', 'chalfie1985', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [
@@ -525,13 +540,33 @@ export const COMPONENTS: readonly Component[] = [
   {
     name: 'Neuromuscular transfer and muscle activation',
     subsystem: 'body',
-    levels: [3, 1],
-    basis: 'Time constant 100 ms (Boyle et al. 2012; also Ji et al. 2021); gain and threshold calibrated',
-    caveats: 'Muscle action potentials are not modelled',
+    levels: [3, 1, 0],
+    basis:
+      "Time constant 100 ms (Boyle et al. 2012; also Ji et al. 2021); gain and threshold calibrated, on each muscle's drive relative to its range (track R's model)",
+    caveats:
+      "Muscle action potentials are not modelled. The range, from the model's own rest to the most its excitatory inputs reach, is ours (0), and a signed-off deviation from the spec's one transfer for every muscle (PLAN §9)",
     upgrade: '',
     sources: ['boyle2012', 'ji2021'],
     testedBy: [
-      { check: 'unit', detail: 'drive from the signed map, activation with the 100 ms time constant' },
+      {
+        check: 'unit',
+        detail: "drive from the signed map, relative to each muscle's range, activation with the 100 ms time constant",
+      },
+      { check: 'checkpoint1' },
+    ],
+  },
+  {
+    name: "The SMDs' junction gain past the head (track R)",
+    subsystem: 'body',
+    levels: [1],
+    basis:
+      "κ_SMD, calibrated from 0.1 to 1, on the SMDs' junctions onto muscles starting 0.3 body lengths along or beyond: at their full reach they took the go/no-go's B-type chain out of the partial band (PLAN §9; DECISIONS.md, 2026-09-26)",
+    caveats:
+      "Split by where the muscles lie, since the data don't mark which of the SMDs' edges Cook et al. extrapolated: a class-level parameter of a new kind (PLAN §9)",
+    upgrade: 'Observed, not extrapolated, neuromuscular junctions for the sublateral motor neurons',
+    sources: [],
+    testedBy: [
+      { check: 'unit', detail: "it scales only the SMDs' junctions onto muscles 0.3 body lengths along or beyond" },
       { check: 'checkpoint1' },
     ],
   },

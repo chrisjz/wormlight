@@ -84,6 +84,8 @@ export interface LoopLayout {
   nmStart: Uint32Array;
   nmPre: Uint32Array;
   nmWeight: Float32Array;
+  // Each muscle's offset: relative drive's rest over its range, or 0 (Muscles.offset).
+  nmOffset: Float32Array;
   // Per segment, the muscles covering it: dorsal left, dorsal right, ventral left, ventral right.
   cover: Uint32Array;
   // Per rod its radius, rotational drag and W² for the wall (ROD_CONSTANTS); per segment its lateral and
@@ -181,6 +183,7 @@ export function packLoop(world: World): LoopLayout {
     nmStart: Uint32Array.from(muscles.start),
     nmPre: Uint32Array.from(muscles.pre),
     nmWeight: Float32Array.from(muscles.weight),
+    nmOffset: Float32Array.from(muscles.offset),
     cover: Uint32Array.from([...cover.DL, ...cover.DR, ...cover.VL, ...cover.VR]),
     rodConstants: Float32Array.from({ length: ROD_CONSTANTS * rods }, (_, k) => {
       const i = Math.floor(k / ROD_CONSTANTS);

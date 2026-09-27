@@ -5,6 +5,7 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
+import type { PlannedValues } from '../science/planned.ts';
 import { Body, boyleBody } from './body/body.ts';
 import {
   Brain,
@@ -14,7 +15,7 @@ import {
   type Oscillators,
   type SolverOptions,
 } from './brain/brain.ts';
-import { cookNetwork, lesion, type Network } from './brain/network.ts';
+import { cookNetwork, lesion, scaleGap, type Network } from './brain/network.ts';
 import { hash } from './brain/rng.ts';
 import { Muscles } from './muscles.ts';
 import { AWC_JUMP, NEURAL_STEP } from './numerics.ts';
@@ -31,24 +32,41 @@ export interface LoopParams {
   // g_sw and g_p (pA per unit of scaled curvature).
   switchGain: number;
   proprioceptiveGain: number;
-  // g_nmj (per EM section) and θ_nmj (EM sections).
+  // g_nmj (per EM section) and θ_nmj (EM sections), or with relativeDrive per unit of relative drive and in it.
   neuromuscularGain: number;
   neuromuscularThreshold: number;
   // σ_n (pA·√s).
   noise: number;
+  // Track R's model (PLAN §9): g_osc for the B-types, apart from the A-types' (nS); κ_gap,B on every gap junction
+  // with a B-type on either side; κ_SMD on the SMDs' neuromuscular junctions past the head; and drive relative to
+  // each muscle's range, in whose units g_nmj and θ_nmj then are. Left out, each is the planned model's: the
+  // A-types' g_osc, gains of 1, and raw drive.
+  oscillatorGainB?: number;
+  gapGainB?: number;
+  smdGain?: number;
+  relativeDrive?: boolean;
 }
 
-// The registry's calibrated values, in the registry's units, as LoopParams.
-export function loopParams(values: {
-  oscillatorExcitability: number; // pS
-  oscillatorRecoveryTime: number; // s
-  oscillatorDriveThreshold: number; // mV
-  headSwitchGain: number; // pA
-  proprioceptiveGain: number; // pA
-  neuromuscularGain: number; // per EM section
-  neuromuscularThreshold: number; // EM sections
-  noiseIntensity: number; // pA·√s
-}): LoopParams {
+// The values of track R's model, the registry's (PLAN §9), in the registry's units, as LoopParams.
+// oscillatorExcitability is the A-types' alone here, and g_nmj and θ_nmj are on relative drive.
+export interface RValues extends PlannedValues {
+  oscillatorExcitabilityB: number; // pS
+  gapGainB: number;
+  smdGain: number;
+}
+export function loopParams(values: RValues): LoopParams {
+  return {
+    ...plannedParams(values),
+    oscillatorGainB: values.oscillatorExcitabilityB / 1000, // pS → nS
+    gapGainB: values.gapGainB,
+    smdGain: values.smdGain,
+    relativeDrive: true,
+  };
+}
+
+// The planned model's values (src/science/planned.ts), as LoopParams: one oscillator gain, no class gains and
+// raw drive, g_nmj per EM section and θ_nmj in EM sections.
+export function plannedParams(values: PlannedValues): LoopParams {
   return {
     oscillatorGain: values.oscillatorExcitability / 1000, // pS → nS
     recoveryTime: values.oscillatorRecoveryTime,
@@ -61,15 +79,18 @@ export function loopParams(values: {
   };
 }
 
-// The calibrated parameters' ids in the registry.
+// The calibrated parameters' ids in the registry: track R's eleven (PLAN §9).
 export const CALIBRATED = [
   'oscillatorExcitability',
+  'oscillatorExcitabilityB',
   'oscillatorRecoveryTime',
   'oscillatorDriveThreshold',
   'headSwitchGain',
   'proprioceptiveGain',
+  'gapGainB',
   'neuromuscularGain',
   'neuromuscularThreshold',
+  'smdGain',
   'noiseIntensity',
 ] as const;
 
@@ -77,14 +98,12 @@ export const CALIBRATED = [
 export function calibratedParams(): LoopParams {
   const values = Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].value as number | null]));
   if (Object.values(values).some((v) => v === null)) throw new Error('the loop parameters are not calibrated yet');
-  return loopParams(values as Parameters<typeof loopParams>[0]);
+  return loopParams(values as unknown as RValues);
 }
 
 // The registry's provisional values, which the simulation runs on until calibration (PLAN §6.2).
 export function provisionalParams(): LoopParams {
-  return loopParams(
-    Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].provisional])) as Parameters<typeof loopParams>[0],
-  );
+  return loopParams(Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].provisional])) as unknown as RValues);
 }
 
 // Whether calibration has set every calibrated parameter's value.
@@ -178,7 +197,9 @@ export class World {
   constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
     this.params = params;
     const seed = options.seed ?? 0;
-    const whole = options.network ?? cookNetwork(data);
+    // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
+    const bTypes = new Set(data.neurons.flatMap((n, i) => (n.oscillator === 'B' ? [i] : [])));
+    const whole = scaleGap(options.network ?? cookNetwork(data), bTypes, params.gapGainB ?? 1);
     const thresholds = equilibrium(whole, midpointActivation(whole));
     const lesioned = new Set(options.lesions ?? []);
     const cut = options.silenced ? whole.names : [...lesioned];
@@ -187,15 +208,17 @@ export class World {
     this.brain.noise = params.noise;
     this.brain.seed = seed;
     const alive = (name: string): boolean => !lesioned.has(name);
-    const oscillating = data.neurons.flatMap((n, i) =>
-      (n.oscillator === 'A' || n.oscillator === 'B') && alive(n.name)
-        ? [[i, n.oscillator === 'B' ? params.driveThreshold : 0]]
-        : [],
-    );
+    // Each A- and B-type neuron's oscillator, with its class's gain; one with a gain of 0 has none.
+    const gainB = params.oscillatorGainB ?? params.oscillatorGain;
+    const oscillating = data.neurons.flatMap((n, i) => {
+      if ((n.oscillator !== 'A' && n.oscillator !== 'B') || !alive(n.name)) return [];
+      const [shift, gain] = n.oscillator === 'B' ? [params.driveThreshold, gainB] : [0, params.oscillatorGain];
+      return gain > 0 ? [[i, shift, gain]] : [];
+    });
     const oscillators: Oscillators = {
       neurons: Int32Array.from(oscillating, ([i]) => i),
       shift: Float64Array.from(oscillating, ([, shift]) => shift),
-      gain: params.oscillatorGain,
+      gain: Float64Array.from(oscillating, ([, , gain]) => gain),
       recovery: params.recoveryTime,
     };
     this.brain.setOscillators(oscillators);
@@ -211,6 +234,8 @@ export class World {
         gain: params.neuromuscularGain,
         threshold: params.neuromuscularThreshold,
         timeConstant: PARAMS.muscleTimeConstant.value / 1000,
+        relative: params.relativeDrive ?? false,
+        smdGain: params.smdGain ?? 1,
       },
       this.body.params.segments,
       lesioned,

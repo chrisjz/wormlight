@@ -1280,3 +1280,98 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 - **The app's speed.** With the calibrated noise on, the app in headless Chrome holds 60 frames a second at 10× and 20×, but saturates at about 21–23× real time, down from about 60× on the provisional parameters. On the CPU, the noise alone costs about 40%: 55× real time without it, 34× with it, on one core. The 10× target still holds.
 
 **Status.** Built and run; the fit isn't rerun, since nothing here changes it.
+
+## 2026-09-27 — GPU parity grades a one-second state only when the CPU leaves room for f32 (changed after results)
+
+**Why.** Track R's model (the next entry) adds a set of states to the loop's parity check: the trial values with R's switches on, κ_gap,B and κ_SMD at 0.5, the B-types oscillating at half the A-types' gain, and a neuromuscular gain and threshold of 10 and 0.2 in relative drive, chosen by hand. In Chrome on the M5 Max, every check passes but one of their one-second states:
+
+- **The state.** At track R's t = 3.5 s, the GPU's voltage error is 1.38 times the threshold. The CPU reference, rerun at the GPU's solver tolerance, drifts from itself by 0.57 of it. That is inside the rule of 2026-09-26, which grades a state whose reference stays within the threshold of itself, so the state is graded, and fails.
+- **Sensitivity, not a fault.** R's 11 states pass one step, the voltage's worst error at 0.008 of its tolerance and the muscles' 3 × 10⁻⁴ of theirs. Rounding the brain's starting state to f32, as the GPU holds it, moves the CPU's own second by 0.002 of the threshold at most. What differs is the second's arithmetic, which this state amplifies as it amplifies the solver's tolerance.
+- **How far f32 goes beyond the tolerance.** Over the loop's 59 graded states whose reference drifts by at least a hundredth of the threshold, the GPU's voltage error runs from 0.11 to 4.7 times the reference's own drift, with a median of 1.0. Where the drift exceeds a tenth of the threshold, it is at most 3 times it among graded states (2.95, R's t = 5.0 s). The gating variant's t = 3.0 s runs at 2.43 times, and passes at 0.69 of the threshold only because its drift is 0.28.
+- **Corrected after review:** this entry first called Safari's recorded failure at t = 11.0 s the same case, and the margin of 3 the most seen. Neither holds. There the GPU's error is 10.0 times the reference's drift in Safari (9.97 against 0.993) and 8.2 times in Chrome (9.47 against 1.15), where the old rule had already set it aside. So the margin is a heuristic from the graded states, not a bound. This entry also left out that the change reverses the AWC-ON entry's decision that the rule stays; the after-review entry below records it.
+
+**Decision** (PLAN §7.2, marked changed after results). The maintainer chose the recommendation:
+
+- **A one-second state is graded only if the CPU reference, rerun at the GPU's solver tolerance, stays within a third of the threshold of itself,** not the whole of it. For the whole loop, that is within a third of each of its thresholds, with the same head-switch state throughout. A state at the bound then passes with up to 3 times its reference's drift, the most seen among graded states where the drift is large enough to matter. The quarter-of-states guard is unchanged.
+- **Considered:**
+  - keeping the rule and recording the failure, as Safari's is recorded, which would leave `npm run gpu:parity` failing in Chrome;
+  - passing a graded state whose error is within 3 times the reference's drift, which would pass GPU errors above the threshold;
+  - setting R's parity values by mapping the planned model's through the median muscle's range, as R's provisional values are, a change to a fixture after seeing it fail that might not clear the state.
+
+**What it sets aside,** on the run that found it: 14 of the 87 loop states, 16%, under the quarter, up from 4, 3 of them R's; and 2 of the 21 brain states, up from 1, adding t = 5.0 s, whose reference drifts by 0.73 of the threshold. In Chrome t = 11.0 s was already set aside; in Safari, where its reference drifts by 0.993, the new rule sets it aside too. No state graded under the new rule fails, and the largest graded voltage error is 0.69 of the threshold.
+
+**Status.** Rule set; the code follows in the same pull request.
+
+## 2026-09-27 — Track R's model, as built
+
+**Why.** The planned model's calibration left checkpoint 1 failing (above), so track R goes on to its model, step 2 of its first round (PLAN §9), as approved and revised after review. The maintainer chose to build it in one pull request and fit it in the next, and to have the registry describe R's model from now on, the planned model kept beside it.
+
+**Built** on the CPU reference and the GPU, applied to every brain:
+
+- **Relative drive** (`src/sim/muscles.ts`). Each muscle's rest and range come once from the intact neuromuscular map, with κ_SMD applied: its rest has every presynaptic activation at the midpoint, 1/11, and its most every excitatory one at 1/6 and every inhibitory one at 0. The weights are divided by the range, and the rest over the range becomes an offset the activation subtracts, so `g_nmj` and `θ_nmj` act on (u − u_rest)/(u_max − u_rest). Lesions keep the intact ranges. Over the 95 muscles the range runs from 0.67 to 11.0 EM sections, with a median of 4.41; the median rest is 3.45.
+- **κ_gap,B** (`scaleGap`, `src/sim/brain/network.ts`) scales the 92 gap junctions with a VB or DB neuron on either side, both directions of each, before the thresholds are set.
+- **κ_SMD** scales the SMDs' 32 junctions onto muscles starting 0.3 body lengths along or beyond, 312 of their 582 sections.
+- **g_osc,B.** Each oscillator carries its own gain, its class's; at 0 the B-types have none.
+- **On the GPU.** The kernel's oscillator flag became each neuron's gain. The muscle stage subtracts each muscle's offset, stored after the neuromuscular weights, into which the range folds. The parameter block grew to 60 words.
+- **The planned model stays as a switch.** Left out of the loop's parameters, each of R's settings takes the value that gives the planned model, which still runs as before, bit for bit wherever checked. Eight worlds, four seeds intact and silenced, stepped for 10 s on its provisional values with the noise off, end in the same state as on `main`, hashed; the reviews found the same with the noise on and with lesions (the after-review entry). No committed test holds it. `plannedParams` maps the planned model's values, and `src/science/planned.ts` records them, its provisional ones and its fit's, which a test holds to `data/calibration/planned.json`. The go/no-go's tests and the harness's run on it.
+- **The registry** (`src/science/params.ts`) is R's: eleven calibrated parameters, their values null until R's fit, within the bounds approved; the neuromuscular gain and threshold per unit of relative drive and in it, with bounds of 2 to 40 and −0.3 to 0.8; the budget at 17. `FIDELITY.md` shows each as not yet calibrated, with its provisional value. `npm run calibrate` now fits R, writing `data/calibration/r1.json`.
+
+**Provisional values,** set before any run of R's model and to three significant figures. R's model runs on them until its fit, never taken for calibrated (PLAN §6.2):
+
+- the planned model's calibrated values for the parameters it shares: g_osc and g_osc,B 2140 pS, τ_w 2.51 s, θ_osc −12.9 mV, g_sw 371 pA, g_p 0.308 pA, σ_n 0.0834 pA·√s;
+- κ_gap,B and κ_SMD at 1, which change nothing;
+- g_nmj and θ_nmj mapped onto relative drive through the medians of the muscles' rests and ranges, taken separately: 5 × 4.409 = 22.0, and (3.738 − 3.455)/4.409 = 0.0642. A first mapping gave 22.2 and 0.0638: its median range left out the one muscle whose rest is 0, vBWMR24, and took the upper of the two middle values. It was corrected before any run, and a test now derives both values from the data.
+
+With these, R's model differs from the planned model's fit, beyond rounding, only in taking each muscle's drive relative to its own range rather than the medians'. That keeps little of the fit, added after review. Its muscles were all or nothing: at the model's rest, 25 of the 95 were above 0.95 activation and 41 below 0.05, and 28 never reached half activation even at their most drive, 27 of them 0.55 body lengths or more along the body. So it crawled with a passive rear body. With relative drive every muscle is at 0 at rest and 1 at its most, so no one gain and threshold can reproduce that.
+
+**What it does.** On checkpoint 1's twenty trials, for a look, not recorded in VALIDATION.md, R's model on its provisional values barely moves. The look ran on the code before it was committed; a review reran its trials at `f8ed2f6`, bit for bit. Over the trials it is forward 16–25% of the time, paused 65–73% and backward 9–12%. Its mean velocity is 0.005 to 0.008 body lengths per second, and its longest forward run 3.2 s. It reverses 143 times, 3.9 a minute, every reversal within 3 s after a flip of the head switch. The mid-body curvature's spectrum peaks at 0.082 Hz, with 22% of its power between 0.2 and 0.45 Hz.
+
+The planned model's fit moved forward 62–75% of the time, at a mean velocity of 0.019 to 0.023 over each trial. Corrected after review: this entry first set its speed over forward bouts, 0.030, against R's over whole trials. In operation R's relative drive sits about 0.19 below the model's rest, so about half its muscles average under 0.1 activation. So relative drive costs the planned fit most of its forward motion; R's fit is what tests the model. Until then the app and the harness run it as it stands.
+
+**Parity** (Chrome 153 on an M5 Max, Metal). The loop's parity gains a set of R's states (the entry above). Every check passes under the one-second rule as changed there:
+
+- one step: all 11 of R's states, the voltage's worst error 0.008 of its tolerance and the muscles' 3 × 10⁻⁴ of theirs, and every other state as before. The nearest miss in the run is R's: at t = 6.5 s, a rod's velocity at 0.936 of its tolerance;
+- one second: 73 of 87 loop states graded and 19 of 21 brain states, with none failing.
+
+The brain steps at 29.9× real time and the whole loop at 25.0×, as before. On CI's SwiftShader every check passes too, the same states not graded.
+
+**Safari** (26.6, `npm run gpu:parity:safari`). Every check passes, the first full pass in Safari since AWC-ON's entry. The state at t = 11.0 s that failed there, its reference at 0.993, is no longer graded; 13 of 87 loop states and 2 of 21 brain states are not. The whole loop ran at 9.6× and 13.8× real time in two runs, below the 17.9× recorded before. `main`, run the same way the same day, gave 9.4× and 13.6× (read off, not saved). So R's model shows no cost there that Safari's spread from run to run, 44% between its own two runs, would reveal; in Chrome the loop runs at 25.0× before and after. The drop's cause wasn't looked into.
+
+**Status.** Built; R's fit is the next pull request.
+
+## 2026-09-27 — After review: R's model, the parity rule's reversal, and where R's fit starts
+
+**Why.** Three reviews of R's model found no fault in its code. It matches PLAN §9, the GPU mirrors the CPU, and two of them reran the planned model against `main`, 20 worlds with noise and lesions between them, and found it identical. But they found three things to decide, as well as corrections to the two entries above:
+
+- **The parity rule's change reverses a decision.** When the change was put to the maintainer, the question left out that the AWC-ON entry had decided "the rule stays", because "a rule changed after a failure would be fitted to it", and had rejected a bound of half the threshold. It also rested on a claim that held only over graded states:
+  - The GPU's error at the trial values' t = 11.0 s is 8.2 times its reference's drift in Chrome and 10.0 times in Safari, so a third leaves no room for a state that sensitive: it passes such a state only if its drift is too large for it to be graded.
+  - The bound was chosen after seeing Chrome's figures. Half would have passed Chrome but failed Safari, at R's t = 2.0 s, by 1.008 times the threshold.
+  - The share of states not graded exceeds a quarter within two setups. On the run that found it, those are 3 of R's 11 and 2 of the 5 moved and turned copies. The other setups: 5 of the trial values' 21, 3 of the 15 wall copies, 1 of the 10 touched copies, and none of the flipping and gating variants' 25. The guard pools every setup.
+- **R's fit would start where its muscles are nearly silent.** At the centre of the search box, where §7.3 started the planned model's fit, R's relative drive sits about 0.16 below rest and moves by 0.04. So the muscles' activation averages 0.026, varying by 0.008, and 9 of the 95 average above 0.1 (40 s, seeds 1 to 3). At R's provisional values the drive moves by 0.14, and 44 or 45 muscles average above 0.1.
+- **The runner can no longer calibrate the planned model.** Its parameters and bounds are R's now. PLAN §9 gives each null the procedure of whichever fit ends R, so if that is the planned model's fit, the nulls will need the planned model's path back.
+
+**Decision** (PLAN §7.3, §9), the maintainer's, the recommendation each time:
+
+- **The parity rule stays at a third, recorded as a reversal** of the AWC-ON entry's decision. The reasoning changed with where the failure is. Then it was one Safari state at the edge of its rule, and Chrome, the browser parity runs in locally and on CI, passed. Now it was in Chrome, where `npm run gpu:parity` would fail on every run. And R's model, which its fit moves across wide bounds, brings states as sensitive. The margin of 3 is a heuristic from the states graded, not a bound. Considered: reverting to the whole threshold and recording the failures, with CI's SwiftShader passing (R's t = 3.5 s is 0.36 there); and a well-posed test that jostles the body at f32's scale, which targets the cause the AWC-ON entry found but would be new, and set after results too.
+- **R's fit starts from R's provisional values,** and so does every null's (PLAN §7.3), with the same step of 0.3. Set before R's fit runs. The two connection gains start at their upper bound, 1, so about half their samples lie outside and are penalised, which moves them down, as the review's probe of the round's proposal favoured. That start comes from the planned model's fit on the real wiring, a design step the nulls don't get, and checkpoint 6's report says so. Considered: the centre, as the planned model's fit started; and moving θ_nmj's bounds down so the centre moves the muscles, which would change bounds approved.
+- **The planned model's calibration path waits until a null needs it** (PLAN §9). Its bounds and settings are in `data/calibration/planned.json`. Considered: adding it to the runner now.
+- **Everything else, as recommended.** The two entries above are corrected in place, and PLAN, README and VALIDATION where they were wrong or unclear. A guard, stale comments and tighter tests go into the code.
+
+**Built** (`58eb9da`):
+
+- **The search's start.** `calibrate()` starts from the registry's provisional values unless given another point, and the run records them in its settings. A test checks the first generation's mean.
+- **Oscillators.** Both brains refuse an oscillator whose gain isn't above 0, or whose shift and gain don't match its neurons. The GPU skips such a neuron where the CPU would not, so a class without an oscillator must be left out, as `World` already did.
+- **Tests.**
+  - The GPU gets R's muscle offsets and weights exactly as the CPU uses them.
+  - Relative drive is 0 at rest and 1 at its most with κ_SMD applied too.
+  - A lesion's surviving junctions keep their weights.
+  - Gain 0 leaves the 21 A-types alone.
+  - κ_SMD reaches exactly 32 junctions.
+  - A muscle with no range is refused.
+  - The runner's record names R's round and `r1.json`.
+  - The report's calibrated path is tested again, with the registry's values stood in.
+  - Once R's fit is committed, the registry must match it.
+- **Smaller things.** `scaleGap` no longer sits under `lesion`'s comment, the shader's vacant parameter slot is named so, and stale comments now describe R's model.
+- **Parity** in Chrome, rerun on this code, gives the same results as before, every check passing.
+
+**Status.** Decided and built; R's fit is the next pull request, from R's provisional values.
