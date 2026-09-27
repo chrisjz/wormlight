@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PITCH_LIMIT } from '../render/camera';
-import { applyTarget, readParams, readPlateParams } from './params';
+import { applyTarget, readFood, readParams, readPlateParams, writeFood } from './params';
 
 describe('readParams', () => {
   it('reads nothing from an empty query', () => {
@@ -57,6 +57,7 @@ describe('readPlateParams', () => {
       span: null,
       centre: null,
       stats: false,
+      food: null,
     });
   });
 
@@ -70,6 +71,7 @@ describe('readPlateParams', () => {
       span: 0.11,
       centre: [0.045, -0.002],
       stats: true,
+      food: null,
     });
     expect(readPlateParams('?cx=45').centre).toEqual([0.045, 0]);
     expect(readPlateParams('?cy=-2.5').centre).toEqual([0, -0.0025]);
@@ -89,11 +91,45 @@ describe('readPlateParams', () => {
       span: null,
       centre: null,
       stats: false,
+      food: null,
     });
     expect(readPlateParams('?seed=4294967296').seed).toBeNull();
     expect(readPlateParams('?seed=1e3').seed).toBeNull();
     expect(readPlateParams('?t=100000').time).toBe(600);
     for (const t of ['0x10', '1e2', '-5', ' ']) expect(readPlateParams(`?t=${t}`).time).toBe(0);
     expect(readPlateParams('?speed=1000').speed).toBe(100);
+  });
+});
+
+describe('the food in the URL', () => {
+  it('places lawns at x,y pairs in millimetres from the dish centre, and none for an empty list', () => {
+    expect(readFood(null)).toBeNull();
+    expect(readFood('')).toEqual([]);
+    expect(readFood('45,0')).toEqual([[0.045, 0]]);
+    expect(readFood(' 45,0 ; -20.5,10 ')).toEqual([
+      [0.045, 0],
+      [-0.0205, 0.01],
+    ]);
+    expect(readPlateParams('?food=0,0').food).toEqual([[0, 0]]);
+  });
+
+  it('ignores a list it cannot use whole: off the dish, malformed, or more than eight lawns', () => {
+    for (const bad of ['45,0;60,0', '50,0', 'x,1', '1,2,3', '1e1,0', '1;2', Array(9).fill('0,0').join(';')]) {
+      expect(readFood(bad), bad).toBeNull();
+    }
+    expect(readFood(Array(8).fill('0,0').join(';'))).toHaveLength(8);
+  });
+
+  it('writes lawns to a tenth of a millimetre, as it reads them', () => {
+    const lawns: [number, number][] = [
+      [0.045, 0],
+      [-0.02051, 0.0100004],
+    ];
+    expect(writeFood(lawns)).toBe('45,0;-20.5,10');
+    expect(readFood(writeFood(lawns))).toEqual([
+      [0.045, 0],
+      [-0.0205, 0.01],
+    ]);
+    expect(writeFood([])).toBe('');
   });
 });

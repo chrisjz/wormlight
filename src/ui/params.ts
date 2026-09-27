@@ -2,6 +2,7 @@
 // ?neuron=AVAL selects a neuron; yaw, pitch (degrees) and dist place the camera, and tx, ty, tz its target.
 // ?norender=1 draws nothing to the screen, leaving the GPU to snapshots (the visual tests on CI).
 
+import { inDish, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 import { PITCH_LIMIT, type Vec3 } from '../render/camera.ts';
 
 export interface ViewParams {
@@ -52,7 +53,8 @@ export function applyTarget(base: Vec3, target: ViewParams['target']): Vec3 {
 // many seconds before the first frame (up to 600); ?paused=1 starts it paused; ?speed= sets how many times
 // real time it runs (up to 100, for benchmarks); ?span= sets the plate's field of view across its shorter
 // side, in millimetres; ?cx= and ?cy= centre the plate's camera there, in millimetres from the dish's centre,
-// instead of on the worm; ?stats=1 shows the frame rate and the simulation's speed.
+// instead of on the worm; ?stats=1 shows the frame rate and the simulation's speed; ?food= places the lawns
+// (readFood), the app's first lawn without it.
 export type Layout = 'split' | 'plate' | 'graph';
 
 // How far from the dish's centre a URL may centre the camera: as far as the plate's widest view reaches.
@@ -67,6 +69,33 @@ export interface PlateParams {
   span: number | null;
   centre: [number, number] | null;
   stats: boolean;
+  food: Lawn[] | null;
+}
+
+// ?food= places the lawns (PLAN §5.2): x,y pairs in millimetres from the dish's centre, as plain decimals,
+// separated by semicolons, at most MAX_LAWNS and each inside the dish; empty for none. Anything else is
+// ignored, and the app starts with its first lawn.
+export function readFood(value: string | null): Lawn[] | null {
+  if (value === null) return null;
+  const text = value.trim();
+  if (text === '') return [];
+  const decimal = String.raw`-?\d+(\.\d+)?`;
+  const pair = new RegExp(`^(${decimal}),(${decimal})$`);
+  const lawns: Lawn[] = [];
+  for (const part of text.split(';')) {
+    const m = pair.exec(part.trim());
+    if (!m) return null;
+    const lawn: Lawn = [Number(m[1]) / 1000, Number(m[3]) / 1000];
+    if (!inDish(...lawn)) return null;
+    lawns.push(lawn);
+  }
+  return lawns.length <= MAX_LAWNS ? lawns : null;
+}
+
+// The lawns as ?food= carries them, to a tenth of a millimetre.
+export function writeFood(lawns: readonly Lawn[]): string {
+  const mm = (v: number): string => String(Math.round(v * 1e4) / 10);
+  return lawns.map(([x, y]) => `${mm(x)},${mm(y)}`).join(';');
 }
 
 export function readPlateParams(search: string): PlateParams {
@@ -98,5 +127,6 @@ export function readPlateParams(search: string): PlateParams {
         ? [Number.isFinite(centre[0]) ? centre[0] : 0, Number.isFinite(centre[1]) ? centre[1] : 0]
         : null,
     stats: p.get('stats') === '1',
+    food: readFood(p.get('food')),
   };
 }
