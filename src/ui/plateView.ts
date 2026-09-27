@@ -1,7 +1,8 @@
 // The plate view (spec §5, §6): the worm on a 10 cm agar dish, its whole loop, brain and body, stepped on the
 // GPU and drawn from the GPU's own body buffer. The camera follows the worm at body scale, with the whole
 // dish in an inset. The worm starts straight at the dish's centre, heading where its seed says.
-// - Mouse: click the worm to touch it, drag to pan, scroll to zoom, double-click to follow the worm again.
+// - Mouse: click the worm to touch it, drag to pan, scroll to zoom, double-click to follow the worm again (on
+//   the worm, a double-click touches it once and follows).
 // - Touch: tap the worm to touch it, drag to pan, pinch to zoom, double-tap to follow.
 // - Keyboard, with the plate focused: space pauses and resumes, arrows pan, + and − zoom, F follows the worm,
 //   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser. "Touch front" and "Touch
@@ -11,13 +12,21 @@ import type { WormlightData } from '../data/schema.ts';
 import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
 import { GpuWorld } from '../gpu/world.ts';
 import { PlateRenderer, type PlateFrame, type PlateScene } from '../render/plate.ts';
-import { halfExtent, metresPerPixel, scaleBar, zoomAbout, type PlateCamera } from '../render/plateCamera.ts';
+import {
+  halfExtent,
+  metresPerPixel,
+  scaleBar,
+  toScreen,
+  toWorld,
+  zoomAbout,
+  type PlateCamera,
+} from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
-import { between } from '../sim/body/body.ts';
+import { between, nearestOnMidline } from '../sim/body/body.ts';
 import { LAWN_RADIUS, SPOT, steadyField } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
-import { BACK, covers, FRONT } from '../sim/touch.ts';
+import { BACK, FRONT } from '../sim/touch.ts';
 import { Pacer, Rates } from './pacing.ts';
 import type { PlateParams } from './params.ts';
 import { plateScene } from './scene.ts';
@@ -154,7 +163,7 @@ export async function startPlate(
 
   const controls = el('div', 'plate-controls');
   controls.setAttribute('role', 'group');
-  controls.setAttribute('aria-label', 'Time');
+  controls.setAttribute('aria-label', 'Controls');
   const play = button('plate-play', 'Pause');
   const speeds = el('div', 'plate-speeds');
   speeds.setAttribute('role', 'radiogroup');
@@ -171,8 +180,8 @@ export async function startPlate(
   const touches = el('div', 'plate-touches');
   touches.setAttribute('role', 'group');
   touches.setAttribute('aria-label', 'Touch');
-  const touchFront = button('plate-button', 'Touch front', 'Touch the front of the worm, where ALM and AVM sense');
-  const touchBack = button('plate-button', 'Touch back', 'Touch the back of the worm, where PLM senses');
+  const touchFront = button('plate-button', 'Touch front', 'Touch front, where ALM and AVM sense');
+  const touchBack = button('plate-button', 'Touch back', 'Touch back, where PLM senses');
   touches.append(touchFront, touchBack);
   const time = el('span', 'plate-time');
   const timeValue = el('span');
@@ -269,6 +278,8 @@ export async function startPlate(
     showSeed();
     live.textContent = `Restarted with seed ${seed}.`;
     dirty = true;
+    // Paused, no step reads the body back, and a tap needs it.
+    readBody();
   };
   setSpeed(params.speed);
   setRunning(running, false);
@@ -328,21 +339,28 @@ export async function startPlate(
   // Touching the worm (PLAN §4.2): a tap at body coordinate s, marked by a ring where it lands and announced
   // with the receptors it reaches.
   const touchAt = (s: number): void => {
-    const count = gpu.touch(s).length;
-    const reached = [...new Set(gpu.layout.touch.filter((r) => covers(r, s)).map((r) => r.name.replace(/[LR]$/, '')))];
-    live.textContent =
+    const reached = [...new Set(gpu.touch(s).map((r) => r.name.replace(/[LR]$/, '')))];
+    const text =
       `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
-      `${count > 0 ? reached.join(', ') : 'no touch receptor there'}.`;
+      `${reached.length > 0 ? reached.join(', ') : 'no touch receptor there'}.`;
+    // The same words again are cleared first, or a screen reader may not read them twice.
+    if (live.textContent === text) {
+      live.textContent = '';
+      setTimeout(() => {
+        live.textContent = text;
+      }, 50);
+    } else live.textContent = text;
     if (!bodyKnown) return;
     const [k, f] = between(s, rods - 1);
-    const wx = bodyAt[2 * k] + f * (bodyAt[2 * k + 2] - bodyAt[2 * k]);
-    const wy = bodyAt[2 * k + 1] + f * (bodyAt[2 * k + 3] - bodyAt[2 * k + 1]);
-    const [w, h] = size();
-    const m = metresPerPixel(camera, w, h);
+    const point: [number, number] = [
+      bodyAt[2 * k] + f * (bodyAt[2 * k + 2] - bodyAt[2 * k]),
+      bodyAt[2 * k + 1] + f * (bodyAt[2 * k + 3] - bodyAt[2 * k + 1]),
+    ];
+    const [x, y] = toScreen(camera, point, ...size());
     const mark = el('span', 'plate-ring');
     mark.setAttribute('aria-hidden', 'true');
-    mark.style.left = `${canvas.offsetLeft + w / 2 + (wx - camera.centre[0]) / m}px`;
-    mark.style.top = `${canvas.offsetTop + h / 2 - (wy - camera.centre[1]) / m}px`;
+    mark.style.left = `${canvas.offsetLeft + x}px`;
+    mark.style.top = `${canvas.offsetTop + y}px`;
     pane.append(mark);
     setTimeout(() => mark.remove(), 800);
   };
@@ -350,23 +368,18 @@ export async function startPlate(
   touchBack.addEventListener('click', () => touchAt(BACK));
   // A click or tap on the body touches its nearest point: within the body's radius there, or the pointer's slop
   // outside it, of the midline read back a frame or two ago.
+  // A second tap soon after the first and close by is a double-click's or double-tap's, which follows instead.
+  let lastTap = { time: -Infinity, x: 0, y: 0 };
+  const DOUBLE = 500; // ms
   const tapAt = (x: number, y: number, slop: number): void => {
-    if (!bodyKnown) return;
+    const now = performance.now();
+    const second = now - lastTap.time < DOUBLE && Math.hypot(x - lastTap.x, y - lastTap.y) <= 2 * slop;
+    lastTap = second ? { time: -Infinity, x: 0, y: 0 } : { time: now, x, y };
+    if (second || !bodyKnown) return;
     const [w, h] = size();
-    const m = metresPerPixel(camera, w, h);
-    const px = camera.centre[0] + (x - w / 2) * m;
-    const py = camera.centre[1] - (y - h / 2) * m;
-    let best = { distance: Infinity, s: 0, radius: 0 };
-    for (let i = 0; i + 1 < rods; i++) {
-      const [ax, ay] = [bodyAt[2 * i], bodyAt[2 * i + 1]];
-      const [dx, dy] = [bodyAt[2 * i + 2] - ax, bodyAt[2 * i + 3] - ay];
-      const t = Math.min(Math.max(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0), 1);
-      const distance = Math.hypot(px - ax - t * dx, py - ay - t * dy);
-      if (distance < best.distance) {
-        best = { distance, s: (i + t) / (rods - 1), radius: radii[i] + t * (radii[i + 1] - radii[i]) };
-      }
-    }
-    if (best.distance <= best.radius + slop * m) touchAt(best.s);
+    const [px, py] = toWorld(camera, x, y, w, h);
+    const nearest = nearestOnMidline(bodyAt, radii, px, py);
+    if (nearest.distance <= nearest.radius + slop * metresPerPixel(camera, w, h)) touchAt(nearest.s);
   };
 
   // Pointers: one pans once it has moved past the slop, so a click or a tap on the worm touches it and elsewhere
@@ -425,8 +438,14 @@ export async function startPlate(
   });
   canvas.addEventListener('pointerup', (e) => {
     const pointer = pointers.get(e.pointerId);
+    // Only a primary press taps: not a right-click, a Ctrl-click (a right-click on a Mac) or a pen's barrel button.
     const tap =
-      pointer && pointers.size === 1 && !dragging && !pinched && (e.pointerType !== 'mouse' || e.button === 0);
+      pointer &&
+      pointers.size === 1 &&
+      !dragging &&
+      !pinched &&
+      e.button === 0 &&
+      !(e.pointerType === 'mouse' && e.ctrlKey);
     release(e);
     if (tap) tapAt(e.offsetX, e.offsetY, pointer.slop);
   });
