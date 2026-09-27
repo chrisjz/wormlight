@@ -24,7 +24,7 @@ import {
   STATE_WORDS,
   STATUS_WORDS,
 } from './brainShader.ts';
-import { packOdour, type LoopLayout, type OdourGrid } from './loopLayout.ts';
+import { checkOdour, packOdour, type AwcLayout, type LoopLayout, type OdourGrid } from './loopLayout.ts';
 
 // FitzHugh's constants, as brain.ts has them: a neuron's recovery starts on its w-nullcline.
 const FHN_A = 0.7;
@@ -54,13 +54,15 @@ export interface GpuBrainOptions {
 export type LoopState = Omit<WorldState, 'brain'>;
 
 // The solver's record: the last solve's iterations, and since the state was last set, the most in one solve,
-// the total, and the solves that stopped at the iteration cap or met a residual that isn't finite.
+// the total, and the solves that stopped at the iteration cap or met a residual that isn't finite. And while
+// looping, the odour AWC-ON sensed on the last step (µM), which parity reports.
 export interface GpuBrainStatus {
   steps: number;
   iterations: number;
   peakIterations: number;
   totalIterations: number;
   unconverged: number;
+  smell: number;
 }
 
 // The wiring in the shader's layout. Topology holds the gap rows' starts, the chemical rows' starts, the gap
@@ -216,6 +218,7 @@ export class GpuBrain {
       if (loop.muscles > MAX_MUSCLES) throw new Error(`the GPU holds at most ${MAX_MUSCLES} muscles`);
       const perNeuron = [loop.fieldSide, loop.fieldFrom, loop.fieldTo, loop.switchSide];
       if (perNeuron.some((a) => a.length !== n)) throw new Error(`the loop's layout isn't for ${n} neurons`);
+      checkOdour(loop.odour, device.limits.maxTextureDimension2D);
     }
     // The scope is popped whatever happens, so a failure can't leave it open on the device.
     device.pushErrorScope('validation');
@@ -313,7 +316,7 @@ export class GpuBrain {
   }
 
   // Set the loop's state: the body, each coordinate split into a coarse part on its grid and a remainder, the
-  // muscles and the head switch.
+  // muscles, the head switch and AWC-ON's threshold.
   restoreLoop(state: LoopState): void {
     this.alive();
     this.checkLoopState(state);
@@ -355,6 +358,7 @@ export class GpuBrain {
     this.alive();
     const loop = this.loop;
     if (!loop) throw new Error('this GPU brain has no loop');
+    checkOdour(grid, this.device.limits.maxTextureDimension2D);
     const texture = this.odourTexture(grid);
     // Work already queued keeps the old texture until it is done.
     this.odour.destroy();
@@ -362,6 +366,16 @@ export class GpuBrain {
     this.bindGroup = this.bind();
     loop.odour = grid;
     loop.scalars.odour_cell = grid.cell;
+  }
+
+  // Which AWC is ON from the next step on, with its gain and where it senses, as another seed draws it.
+  setAwc(awc: AwcLayout): void {
+    this.alive();
+    const loop = this.loop;
+    if (!loop) throw new Error('this GPU brain has no loop');
+    loop.awcOn = awc.awcOn;
+    loop.awcRod = awc.awcRod;
+    Object.assign(loop.scalars, awc.scalars);
   }
 
   // Make the next step implicit Euler, as after a jump in the input.
@@ -511,6 +525,7 @@ export class GpuBrain {
         unconverged: record[3],
         peakIterations: record[4],
         totalIterations: record[5],
+        smell: new Float32Array(record.buffer, record.byteOffset + 4 * 13, 1)[0],
       },
     };
   }
@@ -562,12 +577,9 @@ export class GpuBrain {
     if (this.destroyed) throw new Error('the GPU brain has been destroyed');
   }
 
-  // An odour grid as an r32float texture, row j at texture row j.
+  // An odour grid, checked, as an r32float texture, row j at texture row j.
   private odourTexture(grid: OdourGrid): GPUTexture {
     const { cells, values } = grid;
-    if (values.length !== cells * cells) {
-      throw new Error(`an odour grid of ${cells} × ${cells} cells has ${cells * cells} values, not ${values.length}`);
-    }
     const texture = this.device.createTexture({
       size: [cells, cells],
       format: 'r32float',

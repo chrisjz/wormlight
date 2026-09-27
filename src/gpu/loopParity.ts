@@ -32,10 +32,12 @@ import {
   MOST_ILL_POSED,
   movedAndTurned,
   ONE_SECOND,
+  OTHER_SEED,
   rms,
   SAMPLES,
   SECOND,
   seededWorld,
+  assayField,
   velocityFloors,
   type LoopCase,
   type LoopSetup,
@@ -48,8 +50,10 @@ export interface LoopStepResult extends StepResult {
   centreShares: [number, number, number];
   endShares: [number, number];
   muscleShare: number;
-  // AWC-ON's threshold's error as a share of its tolerance.
+  // AWC-ON's threshold's error as a share of its tolerance; and reported, the relative error of the odour it
+  // sensed.
   thresholdShare: number;
+  smellError: number;
   switchSame: boolean;
 }
 
@@ -74,6 +78,7 @@ const sameSwitch = (cpu: World, gpu: WorldState): boolean =>
 async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): Promise<LoopStepResult> {
   const cpu = cpuWorld(data, c.state, CG_TOLERANCE_GPU, c.setup);
   const reference = cpuWorld(data, c.state, undefined, c.setup);
+  const smelt = cpu.smell();
   cpu.step();
   reference.step();
   gpu.restore(c.state);
@@ -106,6 +111,7 @@ async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): P
     endShares,
     muscleShare: muscle,
     thresholdShare,
+    smellError: Math.abs(status.smell - smelt) / Math.max(smelt, AWC_FLOOR),
     switchSame,
     pass: brain.pass && centreShares.every((v) => v <= 1) && muscle <= 1 && thresholdShare <= 1 && switchSame,
   };
@@ -280,11 +286,9 @@ export interface LoopReport {
   seconds: number;
 }
 
-// The copies a check runs: the trial values' states as they are and, for one step, moved and turned; for one
-// second, every fifth moved and turned at once; each variant's as they are.
 // The trial values' states and their copies: moved across the dish and turned, which the CPU's arithmetic
 // doesn't notice; and pressed against the dish's wall, which it pushes back. One step takes every state's
-// copies; one second, every fifth state's. The variants take their states alone.
+// copies; one second, every fifth state's. A variant takes its states alone, and moved as well if it asks.
 function withCopies(
   cases: LoopCase[],
   setup: LoopSetup,
@@ -292,7 +296,17 @@ function withCopies(
   radii: ArrayLike<number>,
   wall: number,
 ): LoopCase[] {
-  if (setup.name !== LOOP_SETUPS[0].name) return cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
+  if (setup.name !== LOOP_SETUPS[0].name) {
+    const named = cases.map((c) => ({ ...c, label: `${setup.name} ${c.label}` }));
+    if (!setup.moved) return named;
+    const [copy] = COPIES;
+    const moved = (second ? named.filter((_, k) => k % 5 === 0) : named).map((c) => ({
+      ...c,
+      label: `${c.label}, ${copy.label}`,
+      state: movedAndTurned(c.state, copy.dx, copy.dy, copy.turns),
+    }));
+    return [...named, ...moved];
+  }
   const pressed = (c: LoopCase): LoopCase[] =>
     WALL_COPIES.map((copy) => ({
       ...c,
@@ -321,6 +335,82 @@ function withCopies(
   ];
 }
 
+// AWC-ON's part of the API. Loaded into a GPU world, another seed's world runs as one built from it; an odour
+// set after building runs as one built with it; and a lesioned AWC-ON's odour reaches no neuron, where an
+// intact one's does. `home` is the world `gpu` was built from, which it takes back at the end.
+async function checkAwcApi(device: GPUDevice, data: WormlightData, gpu: GpuWorld, home: World): Promise<ApiResult[]> {
+  const steps = 150;
+  const other = seededWorld(data, OTHER_SEED);
+  const state = other.snapshot();
+  const lesionedWorld = seededWorld(data, OTHER_SEED, { lesions: [other.awcSide] });
+  const run = async (world: GpuWorld, from: WorldState): Promise<WorldState> => {
+    world.restore(from);
+    world.run(steps);
+    return (await world.read()).state;
+  };
+  const identical = (a: ArrayLike<number>, b: ArrayLike<number>): boolean =>
+    a.length === b.length && Array.from(a).every((x, i) => x === b[i]);
+  // The brain, body, muscles and switch, all but AWC-ON's threshold.
+  const sameWorm = (a: WorldState, b: WorldState): boolean =>
+    identical(a.brain.voltage, b.brain.voltage) &&
+    identical(a.brain.activation, b.brain.activation) &&
+    identical(a.x, b.x) &&
+    identical(a.y, b.y) &&
+    identical(a.theta, b.theta) &&
+    identical(a.muscles, b.muscles) &&
+    a.h === b.h &&
+    a.switchCurrent === b.switchCurrent;
+  const made: GpuWorld[] = [];
+  const create = async (world: World): Promise<GpuWorld> => {
+    const created = await GpuWorld.create(device, world);
+    made.push(created);
+    return created;
+  };
+  try {
+    const built = await create(other);
+    const fresh = await run(built, state);
+    gpu.load(other);
+    const loaded = await run(gpu, state);
+    gpu.load(home);
+    const blank = await create(seededWorld(data, OTHER_SEED, { odour: undefined }));
+    blank.setOdour(assayField());
+    const set = await run(blank, state);
+    built.setOdour(null);
+    const intactWithout = await run(built, state);
+    const lesioned = await create(lesionedWorld);
+    const lesionedState = lesionedWorld.snapshot();
+    const lesionedWith = await run(lesioned, lesionedState);
+    lesioned.setOdour(null);
+    const lesionedWithout = await run(lesioned, lesionedState);
+    return [
+      {
+        name: "another seed's world, loaded, runs as one built from it",
+        detail:
+          `seed ${OTHER_SEED} puts ${other.awcSide} ON where seed ${home.brain.seed} puts ${home.awcSide}; ` +
+          `${steps} steps identical, AWC-ON's threshold included`,
+        pass: other.awcSide !== home.awcSide && sameWorm(loaded, fresh) && loaded.awcThreshold === fresh.awcThreshold,
+      },
+      {
+        name: 'an odour set after building runs as one built with it',
+        detail: `${steps} steps identical, AWC-ON's threshold included`,
+        pass: sameWorm(set, fresh) && set.awcThreshold === fresh.awcThreshold,
+      },
+      {
+        name: "a lesioned AWC-ON's odour reaches no neuron",
+        detail:
+          `with ${other.awcSide} lesioned, ${steps} steps with and without odour differ only in its threshold; ` +
+          'intact, the worm differs',
+        pass:
+          sameWorm(lesionedWith, lesionedWithout) &&
+          lesionedWith.awcThreshold !== lesionedWithout.awcThreshold &&
+          !sameWorm(fresh, intactWithout),
+      },
+    ];
+  } finally {
+    for (const world of made) world.destroy();
+  }
+}
+
 export async function runLoopParity(device: GPUDevice, data: WormlightData): Promise<LoopReport> {
   const started = performance.now();
   const api: ApiResult[] = [];
@@ -330,7 +420,10 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const cases = loopCases(data, setup);
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
-      if (setup === LOOP_SETUPS[0]) api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
+      if (setup === LOOP_SETUPS[0]) {
+        api.push(...(await checkLoopApi(gpu, cases[cases.length - 1])));
+        api.push(...(await checkAwcApi(device, data, gpu, cpuWorld(data, cases[0].state, undefined, setup))));
+      }
       const { radii, wall } = boyleBody();
       for (const c of withCopies(cases, setup, false, radii, wall)) oneStep.push(await checkLoopStep(gpu, data, c));
       for (const c of withCopies(cases, setup, true, radii, wall)) oneSecond.push(await checkLoopSecond(gpu, data, c));
@@ -400,8 +493,8 @@ export async function runLongParity(
   try {
     for (let seed = 1; seed <= seeds; seed++) {
       const world = seed === 1 ? first : seededWorld(data, seed);
-      gpu.brain.seed = seed;
-      gpu.restore(world.snapshot());
+      // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
+      gpu.load(world);
       const cpuSamples: number[] = [];
       const gpuSamples: number[] = [];
       let gpuUnconverged = 0;

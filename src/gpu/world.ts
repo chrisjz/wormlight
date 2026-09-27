@@ -5,7 +5,7 @@ import { NEURAL_STEP } from '../sim/numerics.ts';
 import type { Odour } from '../sim/sensing.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
-import { packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
+import { awcLayout, packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
 
 // A whole World on the GPU: its brain and its loop, stepped together at the neural step.
 export class GpuWorld {
@@ -43,6 +43,17 @@ export class GpuWorld {
     this.brain.checkLoopState(state);
     this.brain.restore(state.brain);
     this.brain.restoreLoop(state);
+  }
+
+  // Take on another world made the same way, perhaps with another seed: its seed and noise, which AWC is ON and
+  // so its gain, and its state. Its odour isn't taken; setOdour changes that.
+  load(world: World): void {
+    const state = world.snapshot();
+    this.brain.checkLoopState(state);
+    this.brain.setAwc(awcLayout(world));
+    this.brain.seed = world.brain.seed;
+    this.brain.noise = world.brain.noise;
+    this.restore(state);
   }
 
   // The odour AWC-ON senses from the next step on, an OdourField or none, as a CPU World would sense it.

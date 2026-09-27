@@ -52,14 +52,14 @@ export function ellipseRadii(segments: number, radius: number): Float64Array {
   );
 }
 
-// The body from the registry: Boyle et al.'s Table 1, with each rod taking the whole worm's drag divided by
-// 2(M + 1), and resisting rotation with 4πR_i² times its tangential coefficient, as their code does.
 // Rod i sits at body coordinate i/M: the rod before coordinate s, and how far s lies from it towards the next.
 export function between(s: number, segments: number): [number, number] {
   const k = Math.min(Math.max(Math.floor(s * segments), 0), segments - 1);
   return [k, s * segments - k];
 }
 
+// The body from the registry: Boyle et al.'s Table 1, with each rod taking the whole worm's drag divided by
+// 2(M + 1), and resisting rotation with 4πR_i² times its tangential coefficient, as their code does.
 export function boyleBody(radii?: Float64Array): BodyParams {
   const p = PARAMS;
   const segments = p.bodyUnits.value;

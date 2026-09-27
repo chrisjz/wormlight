@@ -58,16 +58,19 @@ export class AwcSensor {
     return this.current(held);
   }
 
-  // g_AWC·(T − C)/(T + C), and none with neither odour nor threshold.
+  // g_AWC·(T − C)/(T + C), and none with neither odour nor threshold. The ratio is taken first, so it is exactly
+  // 1 with no odour and never more than 1 in size: the current is then exactly g_AWC, and never passes it.
   current(c: number): number {
     const sum = this.threshold + c;
-    return sum > 0 ? (this.gain * (this.threshold - c)) / sum : 0;
+    return sum > 0 ? this.gain * ((this.threshold - c) / sum) : 0;
   }
 }
 
 // The current, found by bisection, that raises the named neuron AWC_RISE mV at steady state on the connectome
 // alone: Cook's network at its rest thresholds, with no oscillators, no noise and nothing outside the brain.
-// With the current bounded, removing odour gives exactly g_AWC whatever T was adapted to, so this is the gain.
+// Removing odour gives exactly g_AWC whatever T was adapted to, so this is the gain. The rise is measured from
+// rest, the limit of weak odour, where the adapted current is zero; adapted to stronger odour, AWC-ON starts
+// lower and rises further, 16.6 mV from the assay's start at the dish's centre.
 export function awcGain(data: WormlightData, name: string, seconds = 30, dt = 0.01): number {
   const network = cookNetwork(data);
   const thresholds = equilibrium(network, midpointActivation(network));

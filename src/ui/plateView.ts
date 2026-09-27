@@ -119,12 +119,11 @@ export async function startPlate(
   const gpu = await creating;
   const rods = gpu.layout.rods;
   const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[ROD_CONSTANTS * i]);
-  // The worm smells the lawn's odour, adapted to it where it starts.
-  let world = appWorld(data, seed, field);
   let renderer: PlateRenderer;
   try {
+    // The worm smells the lawn's odour, adapted to it where it starts.
     gpu.setOdour(field);
-    gpu.restore(world.snapshot());
+    gpu.restore(appWorld(data, seed, field).snapshot());
     renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH, scene);
   } catch (e) {
     gpu.destroy();
@@ -243,10 +242,8 @@ export async function startPlate(
   };
   const restartWith = (next: number): void => {
     seed = next;
-    world = appWorld(data, seed, field);
-    gpu.restore(world.snapshot());
-    gpu.brain.seed = world.brain.seed;
-    gpu.brain.noise = world.brain.noise;
+    // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
+    gpu.load(appWorld(data, seed, field));
     steps = 0;
     run++;
     points.length = 0;

@@ -11,7 +11,7 @@ import { hash, uniform } from '../sim/brain/rng.ts';
 import { steadyField } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
-import { World, type LoopParams, type WorldState } from '../sim/world.ts';
+import { World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
 
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
 // B-types' drive threshold is in the range where they cycle (DECISIONS.md, 2026-09-26), and the noise, about
@@ -205,19 +205,29 @@ export function assayField(): OdourField {
 // The worlds the loop's parity runs: the trial values, and two variants that exercise the head switch, which
 // with the trial values latches before the first state and never flips again. Lowering P_th to 0.5 makes it
 // flip about forty times a minute; putting θ_osc at −1 mV, within the SMDs' drive, makes its gate turn on and
-// off as well. The gating variant's seed makes AWCR AWC-ON, where the others' makes AWCL.
+// off as well. The gating variant's seed makes AWCR AWC-ON, where the others' makes AWCL, and its states are
+// also taken moved, so AWCR senses odour its threshold never adapted to.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
   switchThreshold?: number;
   seed?: number;
+  // Whether its states are also taken moved, as the trial values' are.
+  moved?: boolean;
   // States after the rest world's.
   states: number;
 }
 export const LOOP_SETUPS: readonly LoopSetup[] = [
   { name: 'trial', params: PARITY_LOOP, states: STATES },
   { name: 'flipping', params: PARITY_LOOP, switchThreshold: 0.5, states: 10 },
-  { name: 'gating', params: { ...PARITY_LOOP, driveThreshold: -1 }, switchThreshold: 0.5, seed: 4, states: 10 },
+  {
+    name: 'gating',
+    params: { ...PARITY_LOOP, driveThreshold: -1 },
+    switchThreshold: 0.5,
+    seed: 4,
+    moved: true,
+    states: 10,
+  },
 ];
 
 export interface LoopCase {
@@ -262,15 +272,18 @@ export function cpuWorld(
   return world;
 }
 
-// A world for long-run parity: the trial values, from its seed's start in the assay's field.
-export function seededWorld(data: WormlightData, seed: number): World {
-  return new World(data, PARITY_LOOP, { seed, odour: assayField() });
+// A world for long-run parity: the trial values, from its seed's start in the assay's field, or as the options
+// say instead.
+export function seededWorld(data: WormlightData, seed: number, options: WorldOptions = {}): World {
+  return new World(data, PARITY_LOOP, { seed, odour: assayField(), ...options });
 }
+// A seed that puts AWCR ON, where SEED puts AWCL.
+export const OTHER_SEED = 3;
 
 // A state moved across the dish and turned by whole turns, which the CPU's arithmetic doesn't notice: the GPU
-// must not either, so parity checks copies of its states moved 3 cm and turned 50 times. They move away from
-// the spot, where the odour is weaker than at the centre and AWC-ON's threshold sits above it; the copy
-// pressed against the wall at bearing 0 lies beside the spot, where the threshold sits below.
+// must not either, so parity checks copies of its states moved 3 cm along each axis and turned 50 times. They
+// move away from the spot, where the odour is weaker than at the centre and AWC-ON's threshold sits above it;
+// the copy pressed against the wall at bearing 0 lies beside the spot, where the threshold sits below.
 export function movedAndTurned(state: WorldState, dx: number, dy: number, turns: number): WorldState {
   return {
     ...state,
@@ -280,7 +293,7 @@ export function movedAndTurned(state: WorldState, dx: number, dy: number, turns:
   };
 }
 export const COPIES: readonly { label: string; dx: number; dy: number; turns: number }[] = [
-  { label: 'moved 3 cm', dx: -0.03, dy: -0.03, turns: 0 },
+  { label: 'moved 3 cm each way', dx: -0.03, dy: -0.03, turns: 0 },
   { label: 'turned 50 times', dx: 0, dy: 0, turns: 50 },
 ];
 

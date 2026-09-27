@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PARAMS } from '../science/params.ts';
-import { AwcSensor } from './sensing.ts';
+import { AWC_GAIN, AwcSensor } from './sensing.ts';
 
 const K = PARAMS.awcAdaptationScale.value;
 const TAU = PARAMS.awcAdaptationTime.value;
@@ -65,11 +65,21 @@ describe("AWC-ON's current", () => {
     }
   });
 
-  it('gives exactly g when the odour is removed, whatever it was adapted to', () => {
-    for (const c of [1e-6, 0.3, 5.5, 100]) {
-      const sensor = new AwcSensor(3.7);
-      sensor.adapt(c);
-      expect(sensor.step(0, DT)).toBe(3.7);
+  it('gives exactly g when the odour is removed, whatever it was adapted to, and never more', () => {
+    // The real gains, whose products with a ratio near 1 don't round back to them.
+    for (const gain of Object.values(AWC_GAIN)) {
+      for (let k = 0; k < 2000; k++) {
+        const sensor = new AwcSensor(gain);
+        sensor.adapt(1e-3 * 1.01 ** k);
+        expect(sensor.step(0, DT)).toBe(gain);
+      }
+      const sensor = new AwcSensor(gain);
+      for (let k = 0; k < 20000; k++) {
+        sensor.threshold = Math.abs(Math.sin(k)) * 10 ** ((k % 7) - 3);
+        const c = Math.abs(Math.cos(1.7 * k)) * 10 ** ((k % 5) - 2);
+        expect(Math.abs(sensor.current(c))).toBeLessThanOrEqual(gain);
+        expect(Math.abs(sensor.current(0))).toBe(sensor.threshold > 0 ? gain : 0);
+      }
     }
   });
 

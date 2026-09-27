@@ -14,6 +14,7 @@ import {
   LOOP_SETUPS,
   loopCases,
   movedAndTurned,
+  OTHER_SEED,
   paritySetup,
   WALL_COPIES,
   seededWorld,
@@ -21,7 +22,7 @@ import {
   VARIANT_LESIONS,
 } from '../src/gpu/parityCases.ts';
 import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
-import { packLoop, packOdour } from '../src/gpu/loopLayout.ts';
+import { awcLayout, checkOdour, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
 import { World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
 import { readJson } from './checks.ts';
@@ -120,10 +121,11 @@ describe("the loop's parity", () => {
     }
   });
 
-  it('includes variants whose head switch flips and gates', () => {
+  it('includes variants whose head switch flips and gates, the second with AWCR ON and moved', () => {
     const [, flipping, gating] = LOOP_SETUPS;
     expect(flipping.switchThreshold).toBe(0.5);
     expect(gating.params.driveThreshold).toBe(-1);
+    expect(gating.moved).toBe(true);
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
@@ -227,6 +229,28 @@ describe("the loop's parity", () => {
     expect(blank.awcOn).toBe(NO_NEURON);
     expect(Array.from(blank.odour.values)).toEqual([OUTSIDE, OUTSIDE, OUTSIDE, OUTSIDE]);
     expect(() => packOdour({ sample: () => 1 })).toThrow(/OdourField/);
+  });
+
+  it("differs from seed to seed only in AWC-ON, which GpuWorld.load takes with the seed's world", () => {
+    const a = seededWorld(data, 1);
+    const b = seededWorld(data, OTHER_SEED);
+    expect(a.awcSide).not.toBe(b.awcSide);
+    const [la, lb] = [packLoop(a), packLoop(b)];
+    const awc = awcLayout(b);
+    expect([lb.awcOn, lb.awcRod]).toEqual([awc.awcOn, awc.awcRod]);
+    expect(lb.scalars).toMatchObject(awc.scalars);
+    expect(la.scalars.awc_gain).not.toBe(lb.scalars.awc_gain);
+    // With AWC-ON's fields taken from the other seed, the layouts are the same.
+    expect({ ...la, awcOn: awc.awcOn, awcRod: awc.awcRod, scalars: { ...la.scalars, ...awc.scalars } }).toEqual(lb);
+  });
+
+  it('refuses odour grids the kernel could not read', () => {
+    const grid = packOdour(null);
+    expect(() => checkOdour(grid)).not.toThrow();
+    expect(() => checkOdour({ ...grid, cells: 1, values: new Float32Array(1) })).toThrow(/2 to/);
+    expect(() => checkOdour({ ...grid, values: new Float32Array(3) })).toThrow(/4 values, not 3/);
+    expect(() => checkOdour({ ...grid, cell: 0 })).toThrow(/cells are not/);
+    expect(() => checkOdour(packOdour(assayField()), 128)).toThrow(/2 to 128/);
   });
 
   it("reports each rod's end points' velocities: how its dorsal and ventral points move", () => {

@@ -69,7 +69,8 @@ export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
 // iterations in one solve and the iterations in all; then the head switch (its state, the head's last
-// curvature, whether there is one, and its current), and AWC-ON's adaptive threshold.
+// curvature, whether there is one, and its current), AWC-ON's adaptive threshold, and the odour it sensed on the
+// last step, which parity reports.
 export const STATUS_WORDS = 16;
 // Per rod in the body buffer: x, y and θ, each as a coarse part on its grid and a remainder, then ẋ, ẏ, θ̇,
 // the whole turns taken out of θ, and two words of padding; the muscles' activations follow.
@@ -216,7 +217,7 @@ struct Status {
   has_previous: u32,
   switch_current: f32,
   awc_threshold: f32,
-  _pad3: f32,
+  smell: f32,
   _pad4: f32,
   _pad5: f32,
 }
@@ -805,7 +806,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       let settled = params.awc_scale * one_less_exp(held / params.awc_scale);
       awc_threshold += (settled - awc_threshold) * one_less_exp(dt / params.awc_time);
       let awc_sum = awc_threshold + held;
-      let awc_current = select(0.0, params.awc_gain * (awc_threshold - held) / awc_sum, awc_sum > 0.0);
+      let awc_current = select(0.0, params.awc_gain * ((awc_threshold - held) / awc_sum), awc_sum > 0.0);
 
       // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current and the switch's.
       ${own(`
@@ -1021,6 +1022,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       status.has_previous = has_previous;
       status.switch_current = switch_current;
       status.awc_threshold = awc_threshold;
+      status.smell = smelt;
     }
     status.steps = steps;
     status.history = bitcast<u32>(history);

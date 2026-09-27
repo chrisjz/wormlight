@@ -144,17 +144,18 @@ function showLoop(report: LoopReport | { error: string }): void {
       'p',
       "One step: the brain as above, each rod's centre's velocity within 10⁻² of the largest (x, y and θ), each " +
         "muscle within 10⁻⁴, AWC-ON's threshold T within 10⁻⁴ of itself (or of 0.01 µM), the same head switch; the " +
-        "rods' end points are reported. One second: shares of the thresholds and the switch throughout, graded " +
-        'under the well-posed rule.',
+        "rods' end points and the relative error of the odour AWC-ON sensed, C, are reported. One second: shares of " +
+        'the thresholds and the switch throughout, graded under the well-posed rule.',
     ),
     table(
-      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'T', 'Switch', ''],
+      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'T', 'C', 'Switch', ''],
       report.oneStep.map((r) => [
         ...stepRow(r).slice(0, -1),
         ...r.centreShares.map((v) => fixed(v, 3)),
         r.endShares.map((v) => fixed(v, 2)).join(', '),
         fixed(r.muscleShare, 3),
         fixed(r.thresholdShare, 3),
+        fixed(r.smellError, 2),
         r.switchSame ? 'same' : 'differs',
         verdict(r.pass),
       ]),
