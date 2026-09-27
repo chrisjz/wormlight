@@ -1,9 +1,9 @@
 // The app's starting world (src/ui/start.ts): the worm straight at the dish's centre, heading where its seed
-// says, on the provisional parameters.
+// says, on the parameters the app runs on.
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { provisionalParams } from '../src/sim/world.ts';
+import { currentParams } from '../src/sim/world.ts';
 import { appWorld, startingHeading } from '../src/ui/start.ts';
 import { readJson } from './checks.ts';
 
@@ -21,7 +21,7 @@ describe("the app's starting world", () => {
       const heading = Math.atan2(y[0] - y[n - 1], x[0] - x[n - 1]);
       const off = heading - startingHeading(seed);
       expect(Math.abs(Math.atan2(Math.sin(off), Math.cos(off)))).toBeLessThan(1e-12);
-      expect(world.params).toEqual(provisionalParams());
+      expect(world.params).toEqual(currentParams());
       expect(world.brain.seed).toBe(seed);
     }
   });

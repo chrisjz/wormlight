@@ -4,7 +4,7 @@
 import { grouped } from '../../src/science/facts.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CAPTURE_RADIUS, SPOT } from '../../src/sim/env/dish.ts';
-import { CALIBRATED } from '../../src/sim/world.ts';
+import { CALIBRATED, isCalibrated } from '../../src/sim/world.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
   CHECKPOINT_0_TOUCH,
@@ -27,12 +27,18 @@ export interface RunInfo {
   wormSeconds?: number;
 }
 
+// The parameters a run used: the calibrated ones, to three significant figures, or the provisional ones until
+// calibration.
 export function parameterText(): string {
+  const calibrated = isCalibrated();
   const values = CALIBRATED.map((id) => {
     const p: Param = PARAMS[id];
-    return `${p.symbol} = ${String(p.provisional).replace('-', '−')} ${p.unit}`;
+    const v = calibrated ? Number((p.value as number).toPrecision(3)) : (p.provisional as number);
+    return `${p.symbol} = ${String(v).replace('-', '−')} ${p.unit}`;
   });
-  return `the provisional parameters, not calibrated (PLAN §6.2): ${values.join(', ')}`;
+  return calibrated
+    ? `the calibrated parameters (PLAN §7.3), here to three significant figures: ${values.join(', ')}`
+    : `the provisional parameters, not calibrated (PLAN §6.2): ${values.join(', ')}`;
 }
 
 // "1 trial", "2 trials".

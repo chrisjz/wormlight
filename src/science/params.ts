@@ -4,7 +4,8 @@
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
 // bounds set here before it runs (PLAN.md §7.3), which research track R's first round starts with (PLAN.md
-// §9); until then their value is null, and the simulation runs on their provisional values (PLAN.md §6.2). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
+// §9); until then their value is null, and the simulation runs on their provisional values (PLAN.md §6.2).
+// The values are the calibration's, unrounded (DECISIONS.md, 2026-09-27). A parameter fixed in advance (level 0) either has a value or is set by a stated rule. Every
 // parameter says what new data or research would raise it (spec §1.3).
 
 import type { CitationId } from './citations.ts';
@@ -164,7 +165,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: null,
+    value: 0.08342308722948755,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -282,7 +283,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch current gain',
     symbol: 'g_sw',
-    value: null,
+    value: 371.2328520506383,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -296,7 +297,7 @@ export const PARAMS = {
   oscillatorExcitability: {
     name: 'Oscillator excitability',
     symbol: 'g_osc',
-    value: null,
+    value: 2135.222828203875,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -310,7 +311,7 @@ export const PARAMS = {
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: null,
+    value: 2.5061031374385916,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -324,7 +325,7 @@ export const PARAMS = {
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: null,
+    value: -12.882325367708441,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -349,7 +350,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: null,
+    value: 0.3083730736997604,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -365,7 +366,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: null,
+    value: 5,
     unit: 'per EM section',
     level: 1,
     subsystem: 'muscle',
@@ -379,7 +380,7 @@ export const PARAMS = {
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: null,
+    value: 3.7377259379130763,
     unit: 'EM sections',
     level: 1,
     subsystem: 'muscle',

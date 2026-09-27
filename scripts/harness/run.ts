@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
-import { provisionalParams } from '../../src/sim/world.ts';
+import { currentParams } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
@@ -75,7 +75,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: provisionalParams(),
+    params: currentParams(),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
   };

@@ -10,7 +10,7 @@ import { hash } from '../src/sim/brain/rng.ts';
 import { Muscles } from '../src/sim/muscles.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean } from '../src/sim/proprio.ts';
-import { calibratedParams, loopParams, World, type LoopParams } from '../src/sim/world.ts';
+import { calibratedParams, currentParams, isCalibrated, loopParams, World, type LoopParams } from '../src/sim/world.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -126,8 +126,10 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it('needs calibrated parameters to use the registry', () => {
-    expect(() => calibratedParams()).toThrow(/not calibrated/);
+  it('runs on the calibrated parameters once calibration has set them', () => {
+    expect(isCalibrated()).toBe(true);
+    expect(currentParams()).toEqual(calibratedParams());
+    expect(calibratedParams().oscillatorGain).toBeCloseTo(PARAMS.oscillatorExcitability.value / 1000, 15);
   });
 
   it('feeds curvature to the motor neurons with the sign of their side', () => {

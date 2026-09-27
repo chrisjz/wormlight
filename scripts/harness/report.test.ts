@@ -69,10 +69,11 @@ describe('the harness report', () => {
     expect(() => replaceSection('Prose.', 0, 'x')).toThrow(/no markers/);
   });
 
-  it('names the provisional parameters it ran on', () => {
-    expect(parameterText()).toContain('g_osc = 798 pS');
-    expect(parameterText()).toContain('θ_osc = −11.5 mV');
-    expect(parameterText()).toContain('σ_n = 0 pA·√s');
+  it('names the calibrated parameters it ran on, to three significant figures', () => {
+    expect(parameterText()).toContain('the calibrated parameters (PLAN §7.3)');
+    expect(parameterText()).toContain('g_osc = 2140 pS');
+    expect(parameterText()).toContain('θ_osc = −12.9 mV');
+    expect(parameterText()).toContain('σ_n = 0.0834 pA·√s');
   });
 
   it("writes checkpoint 0's verdict, each clause's, and its backward activity", () => {
