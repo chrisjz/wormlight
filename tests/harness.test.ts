@@ -68,6 +68,12 @@ describe('a trial', () => {
     expect(world.brain.network.gap.weight).toEqual(direct.brain.network.gap.weight);
     const intact = startingWorld(data, { seed: 2, params: MECHANICS, postures: POSTURES }).world;
     expect(world.brain.network.gap.weight).not.toEqual(intact.brain.network.gap.weight);
+    // A name that isn't a neuron is refused, silenced or not.
+    for (const silenced of [false, true]) {
+      expect(() =>
+        startingWorld(data, { seed: 2, params: MECHANICS, postures: POSTURES, lesions: ['AVAX'], silenced }),
+      ).toThrow(/unknown neuron AVAX/);
+    }
   });
 
   it('runs the silenced network, which stays still', () => {

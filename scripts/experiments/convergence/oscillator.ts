@@ -1,8 +1,10 @@
 // The convergence study's oscillator alone (DECISIONS.md, 2026-09-28): a lone neuron with its leak and one
 // oscillator, integrated by the CPU reference's Brain at each step and measured against an RK4 solution at 10 µs.
 //
-// Held by a constant current where it cycles, its period and its voltage's course over the first cycles; with the
-// fitted noise and no current, the rate of the excursions noise excites from rest.
+// Held by a constant current where it cycles, its period and its voltage's course over its first cycles; with the
+// fitted noise and no current, the rate of the excursions noise excites from rest. The design counted those as
+// upward crossings of x = 0, which a noise-driven voltage makes more often the finer the step, without limit; after
+// review they are counted with hysteresis, from below x = −1 to above +1, and the crossings are kept beside them.
 
 import { Brain } from '../../../src/sim/brain/brain.ts';
 import { chemicalRows, gapRows, type Network } from '../../../src/sim/brain/network.ts';
@@ -31,6 +33,15 @@ export const RECOVERIES = [1.36, 2.51]; // s: R's fit's τ_w and the planned fit
 const DRIVE = 0.8;
 const NOISE = 0.1266; // pA·√s, R's fit's σ_n to three figures
 const CYCLES = 3;
+// The lone neuron's settings, for the summary.
+export const LONE_SETTINGS = {
+  capacitance: LONE.capacitance,
+  leak: LONE.leak,
+  drive: DRIVE,
+  noise: NOISE,
+  cycles: CYCLES,
+  reference: 'RK4 at 10 µs',
+};
 
 function lone(gain: number, recovery: number): Brain {
   const brain = new Brain(LONE, Float64Array.of(THRESHOLD));
@@ -38,24 +49,33 @@ function lone(gain: number, recovery: number): Brain {
   return brain;
 }
 
-// x = (V − V_th)/v₀ over `seconds`, sampled every `sample` s, and the times x crosses 0 upwards.
+// x = (V − V_th)/v₀ over `seconds` from `start`, sampled every `sample` s; the times x crosses 0 upwards; and the
+// excursions, rises from below −1 to above +1.
 interface Course {
   x: number[];
   up: number[];
+  excursions: number;
 }
 
-function course(next: () => number, dt: number, seconds: number, sample: number): Course {
+function course(next: () => number, start: number, dt: number, seconds: number, sample: number): Course {
   const every = Math.round(sample / dt);
   const x: number[] = [];
   const up: number[] = [];
-  let previous = next();
+  let excursions = 0;
+  let low = start < -1;
+  let previous = start;
   for (let k = 1; k <= Math.round(seconds / dt); k++) {
     const now = next();
     if (previous < 0 && now >= 0) up.push(k * dt);
+    if (now < -1) low = true;
+    else if (now > 1 && low) {
+      excursions++;
+      low = false;
+    }
     if (k % every === 0) x.push(now);
     previous = now;
   }
-  return { x, up };
+  return { x, up, excursions };
 }
 
 // The same neuron as an ODE in x and w, by RK4: C v₀ dx/dt = −G_c v₀ x + I + g v₀ (x − x³/3 − w),
@@ -78,6 +98,7 @@ function reference(gain: number, recovery: number, current: number, seconds: num
       w += (dt / 6) * (k1w + 2 * k2w + 2 * k3w + k4w);
       return x;
     },
+    0,
     dt,
     seconds,
     sample,
@@ -106,7 +127,7 @@ export function held(gain: number, recovery: number): Held[] {
   const seconds = Math.min(60, probe.up[1] + 10 * cycle);
   const ref = reference(gain, recovery, current, seconds, STEPS[0]);
   const referencePeriod = period(ref.up);
-  // The first CYCLES cycles after the first upstroke.
+  // From the start through CYCLES cycles after the second upstroke, the first from rest being slower.
   const n = Math.round((ref.up[1] + CYCLES * cycle) / STEPS[0]);
   const range = Math.max(...ref.x.slice(0, n)) - Math.min(...ref.x.slice(0, n));
   return STEPS.map((step) => {
@@ -117,6 +138,7 @@ export function held(gain: number, recovery: number): Held[] {
         brain.step(step);
         return (brain.voltage[0] - THRESHOLD) / V0;
       },
+      0,
       step,
       seconds,
       STEPS[0],
@@ -140,8 +162,10 @@ export interface Excited {
   gain: number;
   recovery: number;
   step: number;
-  // Upward crossings of x = 0 a minute, from rest with no current, driven by the noise alone.
+  // A minute, from rest with no current, driven by the noise alone: excursions from below x = −1 to above +1, and
+  // upward crossings of x = 0, which have no limit as the step shrinks.
   perMinute: number;
+  crossingsPerMinute: number;
 }
 
 export function excited(gain: number, recovery: number, step: number, seconds = 600): Excited {
@@ -155,9 +179,11 @@ export function excited(gain: number, recovery: number, step: number, seconds = 
       brain.step(step);
       return (brain.voltage[0] - THRESHOLD) / V0;
     },
+    (brain.voltage[0] - THRESHOLD) / V0,
     step,
     seconds,
     STEPS[0],
   );
-  return { gain, recovery, step, perMinute: run.up.length / (seconds / 60) };
+  const minutes = seconds / 60;
+  return { gain, recovery, step, perMinute: run.excursions / minutes, crossingsPerMinute: run.up.length / minutes };
 }

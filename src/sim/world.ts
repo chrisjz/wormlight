@@ -202,6 +202,7 @@ export class World {
     const whole = scaleGap(options.network ?? cookNetwork(data), bTypes, params.gapGainB ?? 1);
     const thresholds = equilibrium(whole, midpointActivation(whole));
     const lesioned = new Set(options.lesions ?? []);
+    for (const name of lesioned) if (!whole.names.includes(name)) throw new Error(`unknown neuron ${name} to lesion`);
     const cut = options.silenced ? whole.names : [...lesioned];
     const network = cut.length > 0 ? lesion(whole, cut) : whole;
     this.brain = new Brain(network, thresholds, options.solver);
