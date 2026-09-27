@@ -454,6 +454,7 @@ export const COMPONENTS: readonly Component[] = [
         check: 'unit',
         detail: 'bounded by g_AWC, the sign of T − C, exactly g_AWC when the odour is removed, into AWC-ON alone',
       },
+      { check: 'checkpoint0', detail: 'no chemotaxis without the network' },
       { check: 'checkpoint4' },
     ],
   },
@@ -501,6 +502,7 @@ export const COMPONENTS: readonly Component[] = [
         detail:
           "each set's currents hold all its receptors 10 mV up together, for exactly 200 steps, restarting the integrator whenever a current changes",
       },
+      { check: 'checkpoint0', detail: 'no touch reflex without the network' },
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
     ],

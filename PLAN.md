@@ -527,6 +527,8 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 3's outcome (2026-09-26): done.** The body runs on the GPU and matches the CPU reference on the Mac and in Safari, long-run parity included, and on CI's software GPU by the short checks, with two thresholds changed after results (§7.2). Checkpoint 1 runs in the harness, a fail until track R, and checkpoint 0's crawling clause passes. The plate view shows the worm beside the connectome, at 120 frames a second in Chrome and 60 in Safari at up to 10×, Safari with a few dips to 50, and the full step clears the 10× target with rendering and readback (DECISIONS.md).
 
+**Milestone 4's outcome (2026-09-27): done.** The odour field, AWC-ON's sensing, touch, dropped food and the dish's wall run on the CPU reference and on the GPU, which match by parity in Chrome and on CI's software GPU, and in Safari at every check but one one-second state recorded at the edge of its rule (DECISIONS.md). Checkpoint 0 passes in full: its touch and chemotaxis clauses, set before either ran (§7.4), find no reflex and no chemotaxis in the silenced network, which barely moves. Checkpoints 2 to 4 are not reached: they need forward crawling, which checkpoint 1's crawl gate guards until track R (VALIDATION.md).
+
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 
 - the classes and parameters, and the free-parameter budget raise they need (§6.2);

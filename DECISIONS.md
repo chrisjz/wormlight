@@ -1025,4 +1025,20 @@ The worm senses the field as it stood when each of its dispatches began, at most
 
 Checkpoints 2 to 4 stay "not reached": they need forward crawling, which checkpoint 1's crawl gate guards until research track R brings checkpoint 1 to at least partial (PLAN §7.4, §9).
 
-**Status.** Set before either clause ran.
+**Built.**
+
+- **Touched trials** (`src/validation/trial.ts`). A trial takes touches, each starting with the step after its time, and records the receptors each reached.
+- **The assay** (`src/validation/chemotaxis.ts`). A worm's trial posture, moved so its centroid sits at the dish's centre, with AWC-ON adapted there, on the assay's steady field; the run stops when any rod's centre comes within 0.5 cm of a spot's centre.
+- **The grading** (`src/validation/checkpoints.ts`). The touch schedule, the reversal and speed windows, the two tests and the CI; checkpoint 0 passes if all three clauses pass. Fisher's exact test and the exact signed-rank test, both one-sided, are in `src/sim/stats.ts`, checked against SciPy 1.18.1 and, for ties and zeros, against every sign flip.
+- **The harness** runs checkpoint 0's 20 trials untouched and touched and its 30 worms, the longest first, each worker solving the assay's field once: about 100 s on 18 cores. The untouched trials are unchanged, and the eight fingerprinted worlds step bit for bit as on `main`.
+
+**Results** (run at `67dbcda`, VALIDATION.md). Checkpoint 0 passes every clause:
+
+- **Crawling**, as before: no forward bout, and no reversal.
+- **Anterior touch.** No reversal followed any of the 50 anterior touches, and none started in the 50 matched windows; p = 1.
+- **Posterior touch.** p = 0.051: over the 50 posterior touches, the speed rose after 31, by 4 × 10⁻⁶ body lengths per second on average. The untouched twins give the same rank sum, 808, over the same windows, so the near-significance is the silenced worm's creep at those moments. No receptor either touch reaches has a neuromuscular junction. A touch reaches the body only through the integrator's restarts at the pulse's edges: with the restarts off, a touched world steps bit for bit as its twin. It moves no velocity sample by more than 2.7 × 10⁻⁷ body lengths per second. The twins' test and that largest change were added to the report after the first run, at `b38277c`, as context, not graded. The grading is unchanged, and the run repeated at the commit that added them gave the same results.
+- **Chemotaxis.** None of the 30 worms reached either spot: CI 0. No centroid moved more than 0.17 mm from its start in the hour, and no body came nearer than 44.44 mm to either spot's centre.
+
+**An observation for the maintainer, not acted on.** The posterior test compares a worm with itself before and after, with no control for its own trend, and the silenced worm's creep alone brought it within 0.001 of α. Checkpoint 3 uses the same test during crawling, where a worm's speed can trend too. Whether to grade it against matched windows, as checkpoint 2 grades reversals, is for the maintainer to decide before checkpoint 3 runs.
+
+**Status.** Set before either clause ran; built and run, and checkpoint 0 passes.
