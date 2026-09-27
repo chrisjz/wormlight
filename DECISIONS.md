@@ -1447,3 +1447,38 @@ Five of the eleven ended on a bound: g_osc, g_sw and g_nmj on their upper ones, 
 **The app.** On R's fit it holds 60 frames a second at 10× and 20× real time and saturates at about 21–24×, as before (`npm run plate:bench`, headless Chrome on an M5 Max).
 
 **Status.** R's fit run and chosen; R's first round ends with checkpoint 1 failing on its bout clause. Checkpoint 0 runs again on R's fit next, with the sham twins' harness code (PLAN §9, step 4).
+
+## 2026-09-28 — After review: R's fit depends on the time step, and R is suspended
+
+**Why.** Three reviews of R's fit found that it ran as pre-registered and reproduces bit for bit, on the fresh seeds and on all 20 of checkpoint 1's trials. But two of the entry above's findings don't hold.
+
+- **Checkpoint 1's grade depends on the time step.** Checkpoint 1's 20 trials were run again for both fits with the neural step halved and quartered. At 2.5 ms both reproduce their recorded grades exactly. No solve failed to converge at any step.
+
+  | Step     | R's fit                                                                  | Planned fit                                                                   |
+  | -------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+  | 2.5 ms   | **Fail**: 20 s bouts in 40% of trials; 78 reversals                      | **Fail**: no 20 s bout; 73 reversals                                          |
+  | 1.25 ms  | **Partial**: 20 s bouts in 85%, graded pass; 14 reversals                | **Fail**: no 20 s bout; 171 reversals                                         |
+  | 0.625 ms | **Partial**: 20 s bouts in all; frequency 0.185 Hz, partial; 2 reversals | **Fail**: no 20 s bout; frequency 0.230 Hz, wavelength partial; 103 reversals |
+  - The fit's A-types' oscillators sit at 5 nS, whose fast time scale, C/g_osc = 1 pF / 5 nS, is 0.2 ms, twelve times shorter than the step. With the A-types lesioned, a review found the model barely depends on the step.
+  - So the fit's reversals, which met the calibration's reversal target, are largely made by the step. So is the bout clause's failure, which would have ended R.
+  - PLAN §7.2's comparison at dt and dt/2 would have caught this, but it waited until checkpoint 1 reached partial.
+
+- **The mechanism reading was wrong.** Probes on seeds 1 to 8 show that the B-types carry the crawl, and the A-types and AVA make the reversals:
+  - with the A-types lesioned, the worm makes 25 bouts against the fit's 12 and never reverses; with the B-types lesioned it makes none;
+  - with AVAL and AVAR lesioned, it reverses 0.34 times a minute against 2.26.
+
+  The entry above said the forward rhythm came from the A-types' oscillators. Its probes gave the B-types an oscillator at the fit's θ_osc of −28 mV, which pins them far below threshold. At −12.9 mV, a B-type oscillator of 0.5 nS keeps the crawl. The split the fit shows matches the literature cited. Fouad et al. 2018 found that ablating the A- and VC-type motor neurons did not prevent the secondary rhythm they induced by paralysing the neck, and that ablating DB and VB together virtually eliminated it.
+
+- **Smaller corrections** follow in the entry above: the body's cycle, the flip rates, the frequency and the bounds.
+- **For checkpoint 0's rerun.** On R's fit the silenced network's head switch stays gated, its drive at −28.49 mV, 0.49 mV below θ_osc. But the silenced worm now moves: noise excites the A-types, and a review counted 18 reversals over the 20 silenced trials. And its B-types, left with only their leak, swing by about ±480 mV under proprioceptive current, the review found, which is unphysiological.
+
+**Decision** (PLAN §7.2, marked changed after results; PLAN §9). The maintainer chose the recommendation each time:
+
+- **R is suspended, not ended.** The fit and checkpoint 1 at 2.5 ms stand as run, with the step comparison beside them.
+  - Next comes a convergence study of both fits and of the oscillator alone, then a fix set as a rules decision: a smaller step, a stably treated oscillator, or a bound on g_osc.
+  - R's fit then runs again under the fixed numerics, a refit forced by a defect, and checkpoint 1 grades it.
+  - PLAN §7.2's comparison at dt and dt/2 runs now, not after checkpoint 1 reaches partial.
+  - Considered: recording R as ended at 2.5 ms, the rule applied at the step the model runs at; and grading at 1.25 ms now, which isn't converged either, and would choose the step after seeing results.
+- **This pull request lands, corrected,** keeping the fit, its record and the choice between the fits. The numerics study and the refit come in their own pull requests. Considered: holding it until the refit.
+- **The app's notice is corrected in this pull request,** with its visual baselines refreshed from CI. Considered: leaving it until the numerics change the worm anyway.
+- **Everything else, as recommended.** The entry above and PLAN, VALIDATION and README are corrected where they were wrong. The GPU parity check gains the registry's own values as a setup. The inspector no longer calls the B-types oscillators when the fit leaves them out. The tests read the fit's values from the registry rather than pinning them.
