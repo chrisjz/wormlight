@@ -1280,3 +1280,23 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 - **The app's speed.** With the calibrated noise on, the app in headless Chrome holds 60 frames a second at 10× and 20×, but saturates at about 21–23× real time, down from about 60× on the provisional parameters. On the CPU, the noise alone costs about 40%: 55× real time without it, 34× with it, on one core. The 10× target still holds.
 
 **Status.** Built and run; the fit isn't rerun, since nothing here changes it.
+
+## 2026-09-27 — GPU parity grades a one-second state only when the CPU leaves room for f32 (changed after results)
+
+**Why.** Track R's model (the next entry) adds a set of states to the loop's parity check: the trial values with R's switches on, κ_gap,B and κ_SMD at 0.5, the B-types oscillating at half the A-types' gain, and a neuromuscular gain and threshold of 10 and 0.2 in relative drive, chosen by hand. In Chrome on the M5 Max, every check passes but one of their one-second states:
+
+- **The state.** At track R's t = 3.5 s, the GPU's voltage error is 1.38 times the threshold. The CPU reference, rerun at the GPU's solver tolerance, drifts from itself by 0.57 of it. That is inside the rule of 2026-09-26, which grades a state whose reference stays within the threshold of itself, so the state is graded, and fails.
+- **Sensitivity, not a fault.** R's ten states pass one step, the voltage's worst error at 0.008 of its tolerance and the muscles' about 10⁻⁴ of theirs. Rounding the brain's starting state to f32, as the GPU holds it, moves the CPU's own second by 0.002 of the threshold at most. What differs is the second's arithmetic, which this state amplifies as it amplifies the solver's tolerance.
+- **How far f32 goes beyond the tolerance.** Over the 59 graded states whose reference drifts by more than a hundredth of the threshold, the GPU's voltage error runs from 0.11 to 4.7 times the reference's own drift, with a median of 1.0. Where the drift exceeds a tenth of the threshold, it is at most 3 times it (2.95, R's t = 5.0 s). The gating variant's t = 3.0 s runs at 2.43 times and passes only because its reference drifts by 0.28. Safari's recorded failure at t = 11.0 s (9.97 times the threshold, reference 0.993) is the same case.
+
+**Decision** (PLAN §7.2, marked changed after results), the maintainer's choice, the recommendation:
+
+- **A one-second state is graded only if the CPU reference, rerun at the GPU's solver tolerance, stays within a third of the threshold of itself,** not the whole of it. For the whole loop, that is within a third of each of its thresholds, with the same head-switch state throughout. A state at the bound then passes with up to 3 times its reference's drift, the most seen where the drift is large enough to matter. The quarter-of-states guard is unchanged.
+- **Considered:**
+  - keeping the rule and recording the failure, as Safari's is recorded, which would leave `npm run gpu:parity` failing in Chrome;
+  - passing a graded state whose error is within 3 times the reference's drift, which would pass GPU errors above the threshold;
+  - setting R's parity values by mapping the planned model's through the median muscle's range, as R's provisional values are, a change to a fixture after seeing it fail that might not clear the state.
+
+**What it sets aside,** on the run that found it: 14 of the 87 loop states, up from 4, 3 of them R's (16%, under the quarter); and 2 of the 21 brain states, up from 1, adding t = 5.0 s at 0.0073. Safari's t = 11.0 s is among them. No state graded under the new rule fails, and the largest graded voltage error is 0.69 of the threshold.
+
+**Status.** Rule set; the code follows in the same pull request.
