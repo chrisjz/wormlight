@@ -977,4 +977,25 @@ Three choices PLAN left open were put to the maintainer and settled before any t
 
 The worm senses the field as it stood when each of its dispatches began, at most 128 steps, 0.32 s, before; the app draws the field it steps. The harness keeps its fixed fields: trials drop no food.
 
-**Status.** Set before any food was built; built next.
+**Built.**
+
+- **The field on the GPU** (`src/gpu/field.ts`, `fieldShader.ts`). One dispatch a sub-step, OdourField.step's scheme in its order, between two r32float textures that take turns; cells beyond the wall hold −1 in both, as the brain's texture has them, and the sources are a third texture. Time is split into sub-steps by the rule OdourField.step now shares, `substeps`, so both sides take the same ones.
+- **The worm senses it.** The brain binds whichever texture holds the field, lent by the field and kept bound per texture, and the app runs each of the worm's dispatches, then steps the field through the same time. The worm reads the field as it stood when each dispatch began, at most 0.32 s before.
+- **The plate draws it.** The agar shader reads the field's concentrations, interpolating between the cells inside the dish with their weights renormalised, as the brain's sampling does, and takes log₂(C/K) itself. This replaces the level texture the CPU built once, and the rings it copied past the wall to keep the isolines from crowding there. It draws up to eight lawns.
+- **The lawns** (`src/sim/env/dish.ts`). Each is a lawn source at the spot's rate; `OdourField.setSources` replaces the sources and keeps what the old ones released. The app's startup, and Restart and New worm, solve the steady field for the lawns in place, the setup a link reproduces.
+- **The app.** "Add food" arms placing, shown pressed, and focuses the dish: a click drops a lawn, Enter drops it at the view's centre, Escape cancels. A lawn pressed on drags, its release following it while it is over the dish, and is removed if let go off it. "Clear food" removes them all, and both buttons disable themselves when there is nothing for them to do. A live region says what happened. `?food=` follows the lawns, left out while they are the app's first alone.
+
+**Parity** (Chrome on an M5 Max). Every check passes. The field's, from the app's steady lawn field with a second lawn dropped at the centre: after one sub-step, the worst cell is 0.005 of its tolerance, 5 × 10⁻⁸ of the largest concentration; after one second, 8.4 × 10⁻⁴ of it, and the total odour's change 0.013 of its. With the kernel made to ignore its sources, the same checks fail at 67 and 1,317 times their tolerances. A new API check: 150 steps sensing a field's texture lent to the brain are identical to 150 sensing the brain's own copy. The worm's checks are as before, and the whole step runs at 25.0× real time. Safari (`npm run gpu:parity:safari`) passes everything but the one-second state at t = 11.0 s recorded in the AWC entry, the field's numbers the same.
+
+**The app's speed.** With the field stepping, the plate holds 60 frames a second at 1×, 10× and 20× real time, and the worm keeps the speed asked (`npm run plate:bench`, Chrome on an M5 Max).
+
+**Visual tests.** The eight views still match their baselines: the renormalised interpolation moves no line far enough to count. A ninth view, `food`, shows three lawns from the URL and their steady field; its baseline comes from CI's capture.
+
+**Left as they are.** The notes the AWC entry left for this piece:
+
+- **The AWC current where T and C reach zero.** With every lawn gone, the concentration falls by e in about 100 s but never reaches zero within any run: f32 reaches its smallest normal numbers only after about 2.4 hours. The current stays bounded throughout.
+- **No restart when AWC's current jumps.** The field is held over each of the worm's dispatches, so AWC-ON's current changes a little at each dispatch's start without restarting the integrator, a local loss of order there. No CPU run mirrors an app run whose food changes, and parity's fields are fixed, so parity is unaffected.
+
+**The harness.** Trials drop no food and read their fixed fields, so checkpoints 0 and 1 are unchanged.
+
+**Status.** Built; GPU parity passes in Chrome and, but for the state recorded before, in Safari.
