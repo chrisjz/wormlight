@@ -1206,4 +1206,39 @@ Checkpoint 2 is now marked as changed too, and its "at least 10 s apart", empty 
 
 **Cost.** A short run of 20 evaluations took 90 s on 18 cores, final check included. With the noise on, a trial of 120 s takes about 5.4 CPU-seconds, about 22× real time: slower than the 1.4 CPU-minutes per worm-hour measured on the provisional parameters, whose noise is off. The full fit takes about 45 minutes.
 
-**Status.** Built and tested; the fit runs next, at the commit that has this entry.
+**Results.** The fit ran at `4b17c57` and took 59 minutes: 2,000 evaluations over 200 generations, and the final check.
+
+- **The search converged.**
+  - The best objective on the fit's seeds fell from about 10 in the first generation to 1.15 by the 400th evaluation.
+  - It reached 0.81 at generation 120, and didn't improve after.
+  - The step size fell from 0.3 to about 0.01.
+- **The final check mattered.**
+  - The best candidate on the fit's seeds, 0.81, scored 0.90 on the 16 fresh ones.
+  - The final pick came from generation 180: 0.83 on the fit's seeds, and the lowest on the fresh ones, 0.87.
+- **The calibrated values,** to three significant figures:
+  - g_osc = 2140 pS, τ_w = 2.51 s and θ_osc = −12.9 mV;
+  - g_sw = 371 pA and g_p = 0.308 pA;
+  - g_nmj = 5 per EM section and θ_nmj = 3.74 EM sections;
+  - σ_n = 0.0834 pA·√s.
+- **The neuromuscular gain ended on its upper bound,** so it is reported as limited by it: the fit wanted more muscle drive than the bounds allow. Every other value ended inside its bounds, the noise at about half its ceiling.
+- **On the 16 fresh seeds** the pick bends at 0.200 Hz, with a wavelength of 0.56 body lengths, and reverses 1.85 times a minute. It moves at 0.031 body lengths per second, against a target of 0.22.
+- **Checkpoint 1, on seeds 1 to 20** (`4a5c087`, VALIDATION.md), fails. The provisional parameters' run of 2026-09-26 is given for comparison:
+
+  | Clause                             | Calibrated | Grade       | Provisional |
+  | ---------------------------------- | ---------- | ----------- | ----------- |
+  | Frequency (Hz)                     | 0.185      | **Partial** | 0.045       |
+  | Wavelength (body lengths)          | 0.58       | **Pass**    | 5.82        |
+  | Speed (body lengths/s)             | 0.030      | **Fail**    | 0.029       |
+  | Posture variance, four eigenworms  | 95.1%      | **Pass**    | 99.5%       |
+  | Trials with a forward bout of 20 s | 0%         | **Fail**    | 0%          |
+  - The worm moves forward 62–75% of the time and reverses about 2.0 times a minute.
+  - At 0.03 body lengths per second its velocity keeps dipping under the motion floor, and each dip ends a bout: no forward run lasted longer than 13.6 s.
+
+- **What it means for track R.** Calibration alone doesn't bring checkpoint 1 to partial, so R goes on to its model (PLAN §9, step 2). This fit is the baseline R is measured against.
+  - The calibrated planned model now undulates, with a head-to-tail wave in the pass band. What it lacks is speed.
+  - The fit pushed the neuromuscular gain as high as the bounds let it.
+- **Cost.** The fit took 59 minutes on 18 cores, so R's fit, on eleven parameters, will take about as long. So will each null's.
+
+**Also changed.** The app and the harness run on the calibrated values. `FIDELITY.md` shows them to three significant figures, and the harness's report names them. Checkpoint 0's section still describes its run on the provisional parameters, and it runs again after whichever fit ends R.
+
+**Status.** Run; checkpoint 1 fails, and track R goes on to its model.

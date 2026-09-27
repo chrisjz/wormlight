@@ -7,10 +7,10 @@ How Wormlight's behaviour compares with the real worm's, by the checkpoints PLAN
 | Checkpoint          | Result      | Status                                                                                       |
 | ------------------- | ----------- | -------------------------------------------------------------------------------------------- |
 | 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, run in full once milestone 4 brought touch and odour |
-| 1: crawling         | **Fail**    | A fail until research track R succeeds                                                       |
+| 1: crawling         | **Fail**    | Calibrated, the planned model undulates but barely advances; track R continues (PLAN §9)     |
 | 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)           |
 
-Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26), and calibration waits for track R. Until then the harness runs on provisional parameters: the best of the planned model's 96 go/no-go draws, draw 46, with the noise off (PLAN §6.2). Its results describe that draw, not a calibrated model. While the intact model doesn't crawl, checkpoint 0's crawling clause can't fail for lack of wiring, so its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it can't while it barely moves, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait for track R.
+Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26). Track R's first step calibrated the planned model as it stands (PLAN §7.3, §9; DECISIONS.md, 2026-09-27), and checkpoint 1 now runs on those parameters. Checkpoint 0 last ran on the provisional ones, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again after whichever fit ends track R. While the intact model doesn't crawl, checkpoint 0's crawling clause can't fail for lack of wiring, so its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it can't while it barely moves, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait for track R.
 
 ## How the trials run
 
@@ -23,14 +23,15 @@ Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26), and
 
 ## Reading the results
 
-- **The model doesn't crawl.** From every starting posture it falls into one cycle: its bend deepens over about a minute as it creeps to a halt, then flips, and it moves forward for about 25 s while the bend swings to the other side and back (DECISIONS.md, 2026-09-26).
-- **Its bouts are half-episodes.** Each 25 s forward episode dips once to 0.00945 body lengths per second, just under the floor, so it counts as two bouts of about 11 s. At a floor of 0.009 the bout clause would pass; the floor was fixed before the trials and is kept.
-- **Its frequency is a swing's timing.** The mid-body curvature crosses its mean once a bout, so the frequency and the wavelength computed from it don't describe an undulation.
+- **The calibrated model undulates but barely advances.** Its mid-body bends at 0.185 Hz, in checkpoint 1's partial band against a real worm's 0.30, in a wave running from head to tail 0.58 body lengths long, in the pass band. But it moves at 0.030 body lengths per second, a seventh of a real worm's 0.22.
+- **Its bouts break up.** It moves forward 62–75% of the time, and reverses about 2.0 times a minute, close to the calibration's 1.8. But at its speed the velocity keeps dipping under the motion floor of 0.01, and each dip ends a bout: its longest forward run in any trial lasted 13.6 s.
+- **The fit wanted more muscle.** The neuromuscular gain ended on its upper bound, 5 per EM section, so the bounds, not the fit, limited it there (DECISIONS.md, 2026-09-27). Every other parameter ended inside its bounds, the noise at 0.083 pA·√s against its ceiling of 0.169.
+- **On the provisional parameters** (DECISIONS.md, 2026-09-26), the model fell into one slow cycle instead: its bend deepened over about a minute as it crept to a halt, then flipped, and it moved forward for about 25 s. Checkpoint 0's section below still describes that model.
 - **The silenced worm barely moves.** In the 120 s trials it never passes the motion floor, and over an hour in the assay no centroid got more than 0.17 mm from its start, against 40 mm to either spot's capture circle.
 - **The touches reach no muscle.** Neither place's receptors, ALML, ALMR and AVM at the front and PLML and PLMR at the back, has a neuromuscular junction, so with their synapses cut a touch reaches the body only through the numerics: chiefly the integrator's restarts at its pulse's edges, and at rounding level the voltage solve's sums over every neuron. It moves no velocity sample by more than 2.7 × 10⁻⁷ body lengths per second; with the restarts switched off, 11 of the 20 touched trials still part from their twins, by up to 1.7 × 10⁻⁹. This page first said that with the restarts off a touched world stepped bit for bit as its twin, which held only for the seed first tried (DECISIONS.md).
 - **The posterior clause passed at p = 0.051.** Its test compares the speeds before and after each touch, and the silenced worm creeps. In 30 of the 50 windows before a posterior touch it crept backward, and its speed rose after 26 of them: backward creep dying away. Over the same windows the untouched twins give the same rank sum, 808, and the same p, so the near-significance is the creep's, not the touch's. The test has no control for a worm's own trend, so checkpoint 0's reruns, and checkpoints 2 and 3, grade each touch against a sham-touched twin instead (PLAN §7.4).
 - **The chemotaxis band is loose for a worm that moves.** A worm that moves but has no bias fails ±0.1 over 30 worms by chance 15% of the time if each worm has a one-in-five chance of reaching a spot, and 58% if every worm reaches one. The silenced worm doesn't move, so this run isn't affected; reruns grade the clause instead by a two-sided exact binomial test on arrivals (PLAN §7.4; DECISIONS.md, 2026-09-27).
-- **The eigenworm clause passes a worm that doesn't crawl.** Smooth bends are shapes the four eigenworms capture almost entirely; the clause measures how worm-like the postures are, not whether the worm moves.
+- **The eigenworm clause passes a worm that barely moves.** Smooth bends are shapes the four eigenworms capture almost entirely; the clause measures how worm-like the postures are, not whether the worm moves.
 
 ## Results
 
@@ -146,39 +147,39 @@ Each worm ran alone in checkpoint 4's assay: the butanone spot's steady field, t
 
 ### Checkpoint 1: crawling — **Fail**
 
-Run on 2026-09-26 at `a4c48dd`: 20 trials of 120 s, seeds 1 to 20, on the provisional parameters, not calibrated (PLAN §6.2): g_osc = 798 pS, τ_w = 1.53 s, θ_osc = −11.5 mV, g_sw = 258 pA, g_p = 16.7 pA, g_nmj = 2.45 per EM section, θ_nmj = 3.48 EM sections, σ_n = 0 pA·√s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
+Run on 2026-09-27 at `4a5c087`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 2140 pS, τ_w = 2.51 s, θ_osc = −12.9 mV, g_sw = 371 pA, g_p = 0.308 pA, g_nmj = 5 per EM section, θ_nmj = 3.74 EM sections, σ_n = 0.0834 pA·√s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
 
-| Clause                                       | Measured | Pass      | Partial   | Grade    | Kind               |
-| -------------------------------------------- | -------- | --------- | --------- | -------- | ------------------ |
-| Frequency (Hz)                               | 0.045    | 0.20–0.45 | 0.10–0.60 | **Fail** | Calibration target |
-| Wavelength (body lengths)                    | 5.82     | 0.50–0.80 | 0.40–1.00 | **Fail** | Calibration target |
-| Speed (body lengths/s)                       | 0.029    | 0.12–0.30 | 0.06–0.50 | **Fail** | Calibration target |
-| Posture variance the four eigenworms capture | 99.5%    | ≥ 85%     | ≥ 70%     | **Pass** | Predicted          |
-| Trials with a forward bout of 20 s or more   | 0%       | ≥ 80%     | ≥ 50%     | **Fail** | Predicted          |
+| Clause                                       | Measured | Pass      | Partial   | Grade       | Kind               |
+| -------------------------------------------- | -------- | --------- | --------- | ----------- | ------------------ |
+| Frequency (Hz)                               | 0.185    | 0.20–0.45 | 0.10–0.60 | **Partial** | Calibration target |
+| Wavelength (body lengths)                    | 0.58     | 0.50–0.80 | 0.40–1.00 | **Pass**    | Calibration target |
+| Speed (body lengths/s)                       | 0.030    | 0.12–0.30 | 0.06–0.50 | **Fail**    | Calibration target |
+| Posture variance the four eigenworms capture | 95.1%    | ≥ 85%     | ≥ 70%     | **Pass**    | Predicted          |
+| Trials with a forward bout of 20 s or more   | 0%       | ≥ 80%     | ≥ 50%     | **Fail**    | Predicted          |
 
-The kinematics come from 47 forward bouts of 10 s or more, 527.2 s in all. Over them the mid-body curvature crossed its mean 47 times, 1.0 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 0.48 s (correlation 0.96). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, but the parameters are provisional, not calibrated.
+The kinematics come from 14 forward bouts of 10 s or more, 162.2 s in all. Over them the mid-body curvature crossed its mean 60 times, 4.3 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 1.17 s (correlation 0.91). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, which the parameters were tuned against (PLAN §7.3), on trials of their own.
 
 | Seed | Posture | Forward / paused / backward | Longest forward run (s) | Reversals | Mean velocity (body lengths/s) | Self-intersecting postures |
 | ---- | ------- | --------------------------- | ----------------------- | --------- | ------------------------------ | -------------------------- |
-| 1    | 247     | 23% / 77% / 0%              | 11.6                    | 0         | 0.0081                         | 0                          |
-| 2    | 5745    | 30% / 70% / 0%              | 11.6                    | 0         | 0.0110                         | 0                          |
-| 3    | 2081    | 31% / 69% / 0%              | 11.6                    | 0         | 0.0111                         | 0                          |
-| 4    | 2260    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0075                         | 0                          |
-| 5    | 6605    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0074                         | 0                          |
-| 6    | 2621    | 28% / 72% / 0%              | 11.6                    | 0         | 0.0098                         | 0                          |
-| 7    | 394     | 24% / 76% / 0%              | 11.6                    | 0         | 0.0083                         | 0                          |
-| 8    | 874     | 30% / 70% / 0%              | 11.6                    | 0         | 0.0110                         | 0                          |
-| 9    | 2169    | 31% / 69% / 0%              | 11.6                    | 0         | 0.0109                         | 0                          |
-| 10   | 4026    | 25% / 75% / 0%              | 11.6                    | 0         | 0.0084                         | 0                          |
-| 11   | 162     | 29% / 71% / 0%              | 11.6                    | 0         | 0.0103                         | 0                          |
-| 12   | 1032    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0074                         | 0                          |
-| 13   | 4410    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0075                         | 0                          |
-| 14   | 4877    | 30% / 70% / 0%              | 11.6                    | 0         | 0.0107                         | 0                          |
-| 15   | 4679    | 36% / 64% / 0%              | 11.6                    | 0         | 0.0116                         | 0                          |
-| 16   | 1398    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0078                         | 0                          |
-| 17   | 3516    | 21% / 79% / 0%              | 11.6                    | 0         | 0.0075                         | 0                          |
-| 18   | 3956    | 31% / 69% / 0%              | 11.6                    | 0         | 0.0112                         | 0                          |
-| 19   | 6488    | 30% / 70% / 0%              | 11.6                    | 0         | 0.0110                         | 0                          |
-| 20   | 5323    | 29% / 71% / 0%              | 11.6                    | 0         | 0.0105                         | 0                          |
+| 1    | 247     | 68% / 24% / 7%              | 7.0                     | 4         | 0.0213                         | 0                          |
+| 2    | 5745    | 73% / 20% / 6%              | 12.9                    | 4         | 0.0232                         | 0                          |
+| 3    | 2081    | 71% / 23% / 6%              | 6.7                     | 3         | 0.0227                         | 0                          |
+| 4    | 2260    | 72% / 23% / 4%              | 9.0                     | 2         | 0.0222                         | 0                          |
+| 5    | 6605    | 72% / 22% / 5%              | 11.4                    | 3         | 0.0234                         | 0                          |
+| 6    | 2621    | 66% / 26% / 7%              | 11.3                    | 4         | 0.0203                         | 0                          |
+| 7    | 394     | 67% / 24% / 8%              | 10.1                    | 5         | 0.0201                         | 0                          |
+| 8    | 874     | 70% / 22% / 7%              | 9.3                     | 4         | 0.0214                         | 0                          |
+| 9    | 2169    | 65% / 26% / 8%              | 13.6                    | 4         | 0.0200                         | 0                          |
+| 10   | 4026    | 64% / 27% / 8%              | 12.7                    | 5         | 0.0204                         | 0                          |
+| 11   | 162     | 63% / 26% / 11%             | 6.8                     | 6         | 0.0192                         | 0                          |
+| 12   | 1032    | 62% / 28% / 10%             | 5.7                     | 5         | 0.0196                         | 0                          |
+| 13   | 4410    | 72% / 24% / 4%              | 12.6                    | 2         | 0.0230                         | 0                          |
+| 14   | 4877    | 72% / 20% / 8%              | 11.7                    | 5         | 0.0213                         | 0                          |
+| 15   | 4679    | 73% / 22% / 4%              | 10.6                    | 2         | 0.0231                         | 0                          |
+| 16   | 1398    | 67% / 24% / 8%              | 6.5                     | 4         | 0.0209                         | 0                          |
+| 17   | 3516    | 69% / 24% / 6%              | 11.9                    | 3         | 0.0225                         | 0                          |
+| 18   | 3956    | 66% / 26% / 7%              | 5.9                     | 3         | 0.0207                         | 0                          |
+| 19   | 6488    | 74% / 21% / 4%              | 10.2                    | 3         | 0.0228                         | 0                          |
+| 20   | 5323    | 75% / 21% / 4%              | 7.9                     | 2         | 0.0227                         | 0                          |
 
 <!-- /harness:checkpoint-1 -->
