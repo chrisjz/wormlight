@@ -1,4 +1,4 @@
-// The planned model's parameters (PLAN §6.2, §9), kept since track R's model took the registry's place: its
+// The planned model's parameters (PLAN §6.2, §9), kept since track R's model took its place in the registry: its
 // provisional values, the best of the go/no-go's draws of it, draw 46, to three significant figures with the noise
 // off (DECISIONS.md, 2026-09-26); and its calibrated values, the final ones of its fit, which
 // data/calibration/planned.json records and a test holds them to (DECISIONS.md, 2026-09-27). In the registry's
