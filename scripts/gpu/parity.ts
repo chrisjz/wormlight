@@ -112,7 +112,10 @@ const long = args.includes('--long');
 const safari = args.includes('--safari');
 const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? (safari ? 'gpu-out/safari' : 'gpu-out'));
 mkdirSync(outDir, { recursive: true });
-for (const file of ['parity.json', 'bench.json', 'long.json']) rmSync(join(outDir, file), { force: true });
+// A run without --long leaves the last long runs' results where they are.
+for (const file of ['parity.json', 'bench.json', ...(long ? ['long.json'] : [])]) {
+  rmSync(join(outDir, file), { force: true });
+}
 
 const mark = (pass: boolean): string => (pass ? '✓' : '✗');
 const g = (x: number, digits = 3): string =>
