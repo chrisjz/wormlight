@@ -5,7 +5,7 @@
 // layout (loopLayout.ts), each step is a whole World's instead: the brain, and the loop outside it.
 
 import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
-import { midpointActivation } from '../sim/brain/brain.ts';
+import { checkOscillators, midpointActivation } from '../sim/brain/brain.ts';
 import type { Network } from '../sim/brain/network.ts';
 import { CG_MAX_ITERATIONS, CG_TOLERANCE_GPU } from '../sim/numerics.ts';
 import { TOUCH_STEPS } from '../sim/touch.ts';
@@ -264,6 +264,7 @@ export class GpuBrain {
   // elsewhere.
   setOscillators(oscillators: Oscillators | null): void {
     this.alive();
+    checkOscillators(oscillators);
     this.oscillators = oscillators;
     this.writeNeurons();
     this.rest();

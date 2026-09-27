@@ -5,7 +5,7 @@
 // units; the neuromuscular gain and threshold are per EM section and in EM sections, the planned model's raw drive.
 
 export interface PlannedValues {
-  oscillatorExcitability: number; // pS, the A- and B-types' both
+  oscillatorExcitability: number; // pS, shared by the A- and B-types in the planned model
   oscillatorRecoveryTime: number; // s
   oscillatorDriveThreshold: number; // mV
   headSwitchGain: number; // pA

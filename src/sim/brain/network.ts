@@ -135,9 +135,6 @@ export function connections(network: Network): {
   return { gap, chemical };
 }
 
-// The same network with every chemical and gap connection of the named neurons removed, as laser ablation
-// removes them (PLAN §3.5); the body lesions their neuromuscular connections. Thresholds are not
-// recomputed: the caller keeps the intact network's.
 // The network with every gap junction that has one of the chosen neurons on either side scaled by a gain: a
 // class-level gain (track R's κ_gap,B, PLAN §9). Both directions of each junction scale alike, so the solve
 // stays symmetric; any gain above 0 keeps it positive definite.
@@ -153,6 +150,9 @@ export function scaleGap(network: Network, chosen: ReadonlySet<number>, gain: nu
   return { ...network, gap: { start, index, weight: scaled } };
 }
 
+// The same network with every chemical and gap connection of the named neurons removed, as laser ablation
+// removes them (PLAN §3.5); the body lesions their neuromuscular connections. Thresholds are not
+// recomputed: the caller keeps the intact network's.
 export function lesion(network: Network, lesioned: readonly string[]): Network {
   const n = network.names.length;
   const cut = new Set(lesioned.map((name) => network.names.indexOf(name)));

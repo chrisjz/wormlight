@@ -32,7 +32,7 @@ export interface LoopParams {
   // g_sw and g_p (pA per unit of scaled curvature).
   switchGain: number;
   proprioceptiveGain: number;
-  // g_nmj (per EM section) and θ_nmj (EM sections).
+  // g_nmj (per EM section) and θ_nmj (EM sections), or with relativeDrive per unit of relative drive and in it.
   neuromuscularGain: number;
   neuromuscularThreshold: number;
   // σ_n (pA·√s).
@@ -48,6 +48,7 @@ export interface LoopParams {
 }
 
 // The values of track R's model, the registry's (PLAN §9), in the registry's units, as LoopParams.
+// oscillatorExcitability is the A-types' alone here, and g_nmj and θ_nmj are on relative drive.
 export interface RValues extends PlannedValues {
   oscillatorExcitabilityB: number; // pS
   gapGainB: number;

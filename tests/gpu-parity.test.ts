@@ -142,6 +142,11 @@ describe("the loop's parity", () => {
     const world = cpuWorld(data, cases[1].state, undefined, r);
     expect(Array.from(world.muscles.offset).some((o) => o !== 0)).toBe(true);
     expect(new Set(world.brain.oscillators?.gain).size).toBe(2);
+    // The GPU gets each muscle's offset, and the weights its range folds into, as the CPU uses them.
+    const packed = packLoop(world);
+    expect(packed.nmOffset).toEqual(Float32Array.from(world.muscles.offset));
+    expect(packed.nmWeight).toEqual(Float32Array.from(world.muscles.weight));
+    expect(packed.nmOffset).toHaveLength(world.muscles.names.length);
     // The muscles aren't pinned off or on in relative units: their activations spread.
     const a = cases[cases.length - 1].state.muscles;
     expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.05);

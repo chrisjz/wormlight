@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PARAMS } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { emptySums } from './posture.ts';
 import {
@@ -13,6 +14,7 @@ import {
   measure,
   objective,
   outside,
+  provisionalValues,
   toUnit,
   type Evaluated,
   type KinematicRecord,
@@ -21,12 +23,22 @@ import {
 } from './calibration.ts';
 
 describe("the calibration's settings", () => {
+  it('start from the provisional values, the connection gains at their upper bound', () => {
+    const values = provisionalValues();
+    for (const id of CALIBRATED) expect(values[id], id).toBe(PARAMS[id].provisional);
+    const unit = toUnit(values);
+    expect(unit.every((u) => u >= 0 && u <= 1)).toBe(true);
+    expect([unit[CALIBRATED.indexOf('gapGainB')], unit[CALIBRATED.indexOf('smdGain')]]).toEqual([1, 1]);
+    const back = fromUnit(unit);
+    for (const id of CALIBRATED) expect(back[id], id).toBeCloseTo(values[id], 9);
+  });
+
   it("are PLAN §7.3's", () => {
     expect(CALIBRATION).toMatchObject({
       budget: 2000,
       trialSeconds: 120,
       rechecked: 10,
-      start: 0.5,
+      start: 'provisional',
       sigma: 0.3,
       seed: 1,
     });
@@ -175,6 +187,10 @@ describe('the search', () => {
     const calls: { seeds: readonly number[] }[] = [];
     const fit = await calibrate(synthetic(calls), { budget: 25 });
     expect(fit.evaluated).toHaveLength(25);
+    // From the provisional values, unless told otherwise.
+    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues()));
+    const centre = new Array<number>(CALIBRATED.length).fill(0.5);
+    expect((await calibrate(synthetic(), { budget: 11, start: centre })).generations[0].mean).toEqual(centre);
     // Eleven parameters: generations of 11.
     expect(fit.generations.map((g) => g.evaluations)).toEqual([11, 22, 25]);
     expect(fit.evaluated.map((e) => e.generation)).toEqual([

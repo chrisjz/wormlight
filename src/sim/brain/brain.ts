@@ -22,6 +22,17 @@ export interface Oscillators {
   recovery: number;
 }
 
+// Oscillators both brains can run alike: one shift and one gain for each, every gain above 0. The GPU takes a
+// gain of 0 for no oscillator, so a class without one is left out instead (World does).
+export function checkOscillators(oscillators: Oscillators | null): void {
+  if (!oscillators) return;
+  const { neurons, shift, gain } = oscillators;
+  if (shift.length !== neurons.length || gain.length !== neurons.length) {
+    throw new Error('oscillators need one shift and one gain for each');
+  }
+  if (!gain.every((g) => g > 0)) throw new Error('an oscillator needs a gain above 0; leave one out instead');
+}
+
 // FitzHugh's textbook constants.
 const FHN_A = 0.7;
 const FHN_B = 0.8;
@@ -169,6 +180,7 @@ export class Brain {
 
   // Attach oscillators, each starting on its w-nullcline at the neuron's present voltage.
   setOscillators(oscillators: Oscillators | null): void {
+    checkOscillators(oscillators);
     this.oscillators = oscillators;
     const count = oscillators?.neurons.length ?? 0;
     this.recovery = new Float64Array(count);

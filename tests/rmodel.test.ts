@@ -12,7 +12,6 @@ import { World, type LoopParams } from '../src/sim/world.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
-const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
 const bTypes = new Set(data.neurons.flatMap((n, i) => (n.oscillator === 'B' ? [i] : [])));
 
 // Trial values in R's units, as tests/loop.test.ts uses its own.
@@ -66,7 +65,20 @@ describe('the split oscillator gain', () => {
       expect(osc.gain[k]).toBe(data.neurons[i].oscillator === 'B' ? 0.4 : 1);
     });
     const none = new World(data, { ...R, oscillatorGainB: 0 }).brain.oscillators;
-    expect(Array.from(none?.neurons ?? []).every((i) => data.neurons[i].oscillator === 'A')).toBe(true);
+    const types = Array.from(none?.neurons ?? [], (i) => data.neurons[i].oscillator);
+    // VA1–12 and DA1–9 alone.
+    expect(types).toHaveLength(21);
+    expect(types.every((t) => t === 'A')).toBe(true);
+  });
+
+  it('refuses an oscillator with no gain, which the GPU would take for none', () => {
+    const world = new World(data, R);
+    const osc = world.brain.oscillators;
+    if (!osc) throw new Error('no oscillators');
+    const gain = Float64Array.from(osc.gain);
+    gain[0] = 0;
+    expect(() => world.brain.setOscillators({ ...osc, gain })).toThrow(/above 0/);
+    expect(() => world.brain.setOscillators({ ...osc, gain: gain.subarray(1) })).toThrow(/one shift and one gain/);
   });
 });
 
@@ -80,11 +92,22 @@ describe('relative drive', () => {
   };
 
   it('is 0 with every activation at the midpoint, and 1 with every excitatory one at its most and inhibition off', () => {
-    const muscles = new Muscles(data, { gain: 1, threshold: 0, timeConstant: 0.1, relative: true }, 48);
-    muscles.settle(activation(() => rise / (rise + 2 * decay)));
-    for (let m = 0; m < muscles.names.length; m++) expect(muscles.drive[m] - muscles.offset[m]).toBeCloseTo(0, 12);
-    muscles.settle(activation((sign) => (sign > 0 ? rise / (rise + decay) : 0)));
-    for (let m = 0; m < muscles.names.length; m++) expect(muscles.drive[m] - muscles.offset[m]).toBeCloseTo(1, 12);
+    // With κ_SMD too, since the range is taken with it applied.
+    for (const smdGain of [1, 0.3]) {
+      const muscles = new Muscles(data, { gain: 1, threshold: 0, timeConstant: 0.1, relative: true, smdGain }, 48);
+      muscles.settle(activation(() => rise / (rise + 2 * decay)));
+      for (let m = 0; m < muscles.names.length; m++) expect(muscles.drive[m] - muscles.offset[m]).toBeCloseTo(0, 12);
+      muscles.settle(activation((sign) => (sign > 0 ? rise / (rise + decay) : 0)));
+      for (let m = 0; m < muscles.names.length; m++) expect(muscles.drive[m] - muscles.offset[m]).toBeCloseTo(1, 12);
+    }
+  });
+
+  it('refuses a muscle with no range of drive', () => {
+    const [first] = data.muscles;
+    const cut = { ...data, neuromuscular: data.neuromuscular.filter((j) => j.muscle !== first.name) };
+    expect(() => new Muscles(cut, { gain: 1, threshold: 0, timeConstant: 0.1, relative: true }, 48)).toThrow(
+      `${first.name} has no range of drive`,
+    );
   });
 
   it("keeps each muscle's range through a lesion, so the lesion's lost drive shows", () => {
@@ -96,6 +119,19 @@ describe('relative drive', () => {
       new Set(['DB1', 'VB2']),
     );
     expect(lesioned.offset).toEqual(intact.offset);
+    // Its surviving junctions keep their weights, divided by the intact range.
+    const kept = new Map<string, number>();
+    for (let m = 0; m < intact.names.length; m++) {
+      for (let k = intact.start[m]; k < intact.start[m + 1]; k++) kept.set(`${m} ${intact.pre[k]}`, intact.weight[k]);
+    }
+    let survivors = 0;
+    for (let m = 0; m < lesioned.names.length; m++) {
+      for (let k = lesioned.start[m]; k < lesioned.start[m + 1]; k++) {
+        expect(lesioned.weight[k]).toBe(kept.get(`${m} ${lesioned.pre[k]}`));
+        survivors++;
+      }
+    }
+    expect(survivors).toBeLessThan(kept.size);
   });
 
   it("gives R's provisional gain and threshold as the planned fit's, mapped through the median muscle", () => {
@@ -136,8 +172,8 @@ describe("the SMDs' gain past the head", () => {
         expect(scaled.weight[k]).toBeCloseTo(smd && beyond ? plain.weight[k] * 0.2 : plain.weight[k], 12);
       }
     }
-    expect(far).toBeGreaterThan(0);
-    expect(at('SMDVL')).toBeGreaterThanOrEqual(0);
+    // 32 junctions, 312 of the SMDs' 582 sections.
+    expect(far).toBe(32);
   });
 });
 

@@ -33,7 +33,9 @@ export const CALIBRATION = {
   // The final check: the ten best candidates and the final mean, on 16 fresh seeds.
   checkSeeds: Array.from({ length: 16 }, (_, i) => 1005 + i),
   rechecked: 10,
-  start: 0.5,
+  // The search starts from the calibrated parameters' provisional values, where R's muscles move; the planned
+  // model's fit started at the centre, 0.5 (DECISIONS.md, 2026-09-27).
+  start: 'provisional',
   sigma: 0.3,
   seed: 1,
 } as const;
@@ -53,6 +55,17 @@ export function bounds(id: CalibratedId): readonly [number, number] {
 }
 
 const clip = (u: number): number => Math.min(1, Math.max(0, u));
+
+// The calibrated parameters' provisional values (PLAN §6.2), where the search starts.
+export function provisionalValues(): Values {
+  return Object.fromEntries(
+    CALIBRATED.map((id) => {
+      const v = PARAMS[id].provisional;
+      if (v === undefined) throw new Error(`${id} has no provisional value`);
+      return [id, v];
+    }),
+  ) as Values;
+}
 
 // A point in [0, 1]ⁿ, in CALIBRATED's order, as parameter values in the registry's units; a coordinate
 // outside [0, 1] is taken at the nearest point inside.
@@ -217,20 +230,23 @@ export interface Fit {
   final: Finalist;
 }
 
-// PLAN §7.3's search, from CALIBRATION's start, up to `budget` evaluations, then the final check. A run
+// PLAN §7.3's search, from the provisional values or `start`, up to `budget` evaluations, then the final check. A run
 // resumes from the evaluations of an earlier one with the same settings: CMA-ES replays them, and each
 // candidate must come out as recorded, bit for bit. `progress` sees each generation as it ends.
 export async function calibrate(
   score: Scorer,
   options: {
     budget: number;
+    // A point in [0, 1]ⁿ to start from instead of the provisional values.
+    start?: readonly number[];
     previous?: readonly Evaluated[];
     progress?: (fit: Omit<Fit, 'checked' | 'final'>) => void;
   },
 ): Promise<Fit> {
-  const n = CALIBRATED.length;
+  const mean = [...(options.start ?? toUnit(provisionalValues()))];
+  if (mean.length !== CALIBRATED.length) throw new Error(`the start needs ${CALIBRATED.length} coordinates`);
   const es = new Cmaes({
-    mean: new Array<number>(n).fill(CALIBRATION.start),
+    mean,
     sigma: CALIBRATION.sigma,
     seed: CALIBRATION.seed,
   });

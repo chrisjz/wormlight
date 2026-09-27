@@ -31,8 +31,8 @@ export interface Param {
   // What a calibrated parameter is tuned against (PLAN.md §7.3), and the range it may move within.
   calibratedAgainst?: string;
   bounds?: readonly [number, number] | null;
-  // The value a calibrated parameter takes until calibration sets one: the go/no-go's best draw of the
-  // planned model, to three significant figures, with the noise off (PLAN.md §6.2, DECISIONS.md 2026-09-26).
+  // The value a calibrated parameter takes until calibration sets one, and where the calibration starts: for
+  // track R's model, the planned model's fit carried over (PLAN.md §6.2, §7.3; DECISIONS.md 2026-09-27).
   provisional?: number;
 }
 

@@ -1,8 +1,10 @@
 // npm run calibrate -- [--budget N] [--jobs N] [--resume]
 //
-// PLAN §7.3's calibration of track R's model's eleven parameters, R's fit (PLAN §9); the planned model's, R's first
-// step, is data/calibration/planned.json:
-// CMA-ES over the parameters mapped onto [0, 1], each candidate scored on 4 trials of 120 s on the CPU
+// PLAN §7.3's calibration of track R's model's eleven parameters, R's fit (PLAN §9). The planned model's fit, R's
+// first step, is data/calibration/planned.json.
+//
+// CMA-ES over the parameters mapped onto [0, 1], starting from their provisional values, each candidate scored on
+// 4 trials of 120 s on the CPU
 // reference, seeds 1001 to 1004, in parallel worker processes, one per core by default. At the budget's end,
 // the ten best candidates and the final mean are run again on 16 fresh seeds, and the best there is final.
 //
@@ -27,6 +29,7 @@ import {
   calibrate,
   measure,
   objective,
+  provisionalValues,
   type Evaluated,
   type KinematicRecord,
   type Values,
@@ -143,6 +146,7 @@ export function settings(budget: number): Record<string, unknown> {
     model: 'track R, round 1',
     budget,
     calibration: CALIBRATION,
+    start: provisionalValues(),
     bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id)])),
     mapping: MAPPING,
     targets: TARGETS,

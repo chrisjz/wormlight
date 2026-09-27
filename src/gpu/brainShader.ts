@@ -66,8 +66,8 @@ export type LoopScalar = (typeof LOOP_SCALARS)[number];
 // Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and the touch current
 // it took on the last step.
 export const STATE_WORDS = 8;
-// Per neuron: threshold, oscillator shift θ, its oscillator's gain g_osc (0 for none), its proprioceptive field's side and
-// rods, the side the head switch drives it on, and the current of its touch pulse, which each tap sets.
+// Per neuron: threshold, oscillator shift θ, its oscillator's gain g_osc (0 for none), its proprioceptive field's
+// side and rods, the side the head switch drives it on, and the current of its touch pulse, which each tap sets.
 export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
@@ -141,7 +141,7 @@ struct Params {
   decay: f32,
   slope: f32,
   noise: f32,
-  _pad1: f32,
+  _vacant: f32,
   osc_recovery: f32,
   tolerance: f32,
   _pad0: f32,
