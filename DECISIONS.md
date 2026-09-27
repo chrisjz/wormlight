@@ -1387,12 +1387,13 @@ The brain steps at 29.9× real time and the whole loop at 25.0×, as before. On 
 
 **Status.** Set before R's fit.
 
-## 2026-09-27 — Track R's fit: closer, still failing, and R's first round ends
+## 2026-09-27 — Track R's fit: closer, still failing at the 2.5 ms step (corrected after review)
 
 **The fit** (`npm run calibrate` at `8d00b76`; `data/calibration/r1.json`). 2,000 evaluations from R's provisional values took 60 minutes on 18 cores, and no solve failed to converge.
 
-- **On the fit's seeds,** the best objective fell from 9.00 in the first generation to 0.78 by the 20th and 0.56 by the 60th. It reached 0.510 at the 114th, and stayed there.
-- **On the 16 fresh seeds,** the pick is generation 114's candidate 0, the lowest of the eleven rechecked, at 0.591; the final mean scored 0.595 and the planned fit 0.865. It makes 27 forward bouts of 10 s or more, at 0.247 Hz, 0.55 body lengths, 0.060 body lengths per second and 1.98 reversals a minute. Its speed term, 0.73² of the 0.59, dominates again.
+- **On the fit's seeds,** the best objective fell from 9.00 in generation 0 to 0.78 by generation 20 and 0.56 by generation 60. It reached 0.510 in generation 114, and stayed there.
+- **On the 16 fresh seeds,** the pick is generation 114's candidate 0, the lowest of the eleven rechecked, at 0.591; the final mean scored 0.595 and the planned fit 0.865. It makes 27 forward bouts of 10 s or more, at 0.247 Hz, 0.55 body lengths, 0.060 body lengths per second and 1.98 reversals a minute. Its speed term, 0.53 of the 0.59, dominates again.
+- **A narrow pick,** added after review. It beat three other candidates by 0.003 to 0.008, and made the fewest forward bouts of the eleven, 27 against 32 to 50. Generation 114's candidate 7 scored 0.899, its reversals at 0.75 a minute. The objective moves with the reversal rate more than the fit's precision can resolve.
 
 **The values,** to three significant figures:
 
@@ -1401,7 +1402,7 @@ The brain steps at 29.9× real time and the whole loop at 25.0×, as before. On 
 - κ_gap,B 0.228, g_nmj 40, θ_nmj −0.172 and κ_SMD 0.158;
 - σ_n 0.127 pA·√s.
 
-Five of the eleven ended on a bound: g_osc, g_sw and g_nmj on their upper ones, g_osc,B and θ_osc on their lower. Each is reported as limited by it.
+Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper ones, g_osc,B and θ_osc on their lower. Corrected after review: the search's mean ended beyond only two of them, g_osc,B and g_nmj, and the pick's other three come from a sample clipped into the box. And θ_osc does nothing in the intact worm, whose head-switch drive stays above it: at −12.9 mV the probes' trials are identical.
 
 **Checkpoint 1** (`7c8ff61`, VALIDATION.md) fails, closer than the planned fit:
 
@@ -1416,37 +1417,40 @@ Five of the eleven ended on a bound: g_osc, g_sw and g_nmj on their upper ones, 
 - **Its motion.** It moves forward 43–83% of the time, and its mean velocity over each trial is 0.022 to 0.049 body lengths per second. Its longest forward runs last 11 to 44 s.
 - **The diagnostics,** reported and not graded. The mid-body curvature's spectrum peaks at 0.155 Hz, with 30% of its power between 0.2 and 0.45 Hz; the planned fit's peaked at 0.073 Hz, with 19%. All 78 reversals started within 3 s after a flip of the head switch. AVA's activation changed by −4.1 × 10⁻⁴ over them on average, against a standard deviation of 3.7 × 10⁻³.
 
-**The choice** (PLAN §9, step 3, set before the fit). Both fits fail checkpoint 1. R's has three clauses graded pass against the planned fit's two, so it is the real wiring's final fit, and the app and the harness keep running it. The choice used checkpoint 1's own trials.
+**The choice** (PLAN §9, step 3, set before the fit). Both fits fail checkpoint 1. R's has three clauses graded pass against the planned fit's two, so it is the real wiring's final fit, and the app and the harness keep running it. The choice used checkpoint 1's own trials. The alternative considered, the objective on the fresh seeds, would choose it too, 0.591 against 0.865, and it grades at least as well on every clause.
 
-**R's first round ends.** Checkpoint 1 stays below partial, on its bout clause alone: 40% of trials against the partial band's 50%. A further round needs a new proposal the maintainer approves. Checkpoints 2 to 6 stay not reached behind the crawl gate.
+**At the 2.5 ms step R's first round would end.** Checkpoint 1 stays below partial, on its bout clause alone: 40% of trials against the partial band's 50%. **Suspended after review** (the entry below): at half the step the same fit reaches partial, so R is suspended, not ended. Checkpoints 2 to 6 stay not reached behind the crawl gate.
 
-**What carries it.** Probes on checkpoint 1's seeds 1 to 8, 120 s each, measured as the calibration measures them, reported and not graded:
+**What carries it** (corrected after review). This section first read the A-types' oscillators as the source of the forward rhythm. Its probes gave the B-types an oscillator at the fit's θ_osc of −28 mV, which pins them far below threshold, and they counted the head switch's flips over 120 s but divided by 110 s. Rerun with lesions, on checkpoint 1's seeds 1 to 8, 120 s each, measured as the calibration measures them, with the flips and the mid-body curvature's spectral peak taken over the measured windows. Reported, not graded:
 
-| Change from the fit         | Bouts | f (Hz) | λ (body lengths) | v (body lengths/s) | Reversals a minute | Switch flips a minute |
-| --------------------------- | ----- | ------ | ---------------- | ------------------ | ------------------ | --------------------- |
-| None                        | 12    | 0.225  | 0.62             | 0.067              | 2.26               | 19.6                  |
-| g_p 0.001 pA                | 0     | —      | —                | 0.016              | 0.21               | 26.7                  |
-| A-types' g_osc 0.3 nS       | 0     | —      | —                | 0.002              | 11.0               | 23.5                  |
-| B-types' g_osc,B 0.5 nS     | 0     | —      | —                | 0.010              | 0.14               | 44.4                  |
-| B-types' g_osc,B 2.14 nS    | 0     | —      | —                | 0.009              | 0.34               | 45.3                  |
-| g_sw 200 pA                 | 24    | 0.245  | 0.53             | 0.059              | 0.07               | 17.5                  |
-| Noise off                   | 11    | 0.138  | 1.06             | 0.080              | 3.28               | 20.0                  |
-| κ_gap,B 1                   | 22    | 0.102  | 0.71             | 0.037              | 0                  | 4.2                   |
-| κ_SMD 1                     | 27    | 0.125  | 1.40             | 0.061              | 2.26               | 15.8                  |
-| g_nmj 80, past its bound    | 12    | 0.204  | 0.69             | 0.065              | 4.58               | 19.4                  |
-| g_sw 800 pA, past its bound | 8     | 0.176  | 0.76             | 0.091              | 0                  | 22.7                  |
-| g_osc 10 nS, past its bound | 22    | 0.174  | 0.80             | 0.071              | 0.62               | 19.5                  |
+| Change from the fit            | Bouts | f (Hz) | λ (body lengths) | v (body lengths/s) | Reversals a minute | Flips a minute | Peak (Hz) |
+| ------------------------------ | ----- | ------ | ---------------- | ------------------ | ------------------ | -------------- | --------- |
+| None                           | 12    | 0.225  | 0.62             | 0.067              | 2.26               | 17.9           | 0.15      |
+| A-types lesioned               | 25    | 0.169  | 0.59             | 0.042              | 0                  | 19.8           | 0.16      |
+| B-types lesioned               | 0     | —      | —                | 0.010              | 0                  | 42.7           | 0.35      |
+| AVAL and AVAR lesioned         | 28    | 0.167  | 0.71             | 0.063              | 0.34               | 19.6           | 0.16      |
+| g_p 0.001 pA                   | 0     | —      | —                | 0.016              | 0.21               | 24.9           | 0.20      |
+| A-types' g_osc 0.3 nS          | 0     | —      | —                | 0.002              | 11.0               | 22.5           | 0.19      |
+| g_osc,B 0.5 nS                 | 0     | —      | —                | 0.010              | 0.14               | 40.9           | 0.34      |
+| g_osc,B 0.5 nS, θ_osc −12.9 mV | 19    | 0.269  | 0.61             | 0.057              | 0                  | 26.4           | 0.22      |
+| θ_osc −12.9 mV                 | 12    | 0.225  | 0.62             | 0.067              | 2.26               | 17.9           | 0.15      |
+| g_sw 200 pA                    | 24    | 0.245  | 0.53             | 0.059              | 0.07               | 16.0           | 0.13      |
+| Noise off                      | 11    | 0.138  | 1.06             | 0.080              | 3.28               | 18.4           | 0.15      |
+| κ_gap,B 1                      | 22    | 0.102  | 0.71             | 0.037              | 0                  | 3.9            | 0.06      |
+| κ_SMD 1                        | 27    | 0.125  | 1.40             | 0.061              | 2.26               | 14.4           | 0.12      |
+| g_nmj 80, past its bound       | 12    | 0.204  | 0.69             | 0.065              | 4.58               | 17.7           | 0.15      |
+| g_sw 800 pA, past its bound    | 8     | 0.176  | 0.76             | 0.091              | 0                  | 20.9           | 0.17      |
+| g_osc 10 nS, past its bound    | 22    | 0.174  | 0.80             | 0.071              | 0.62               | 17.8           | 0.15      |
 
-- **Proprioception carries the crawl.** At 0.001 pA the worm makes no bout. In the planned fit it was inert.
-- **The forward crawl rests on the A-types' oscillators,** at their upper bound, with the B-types' removed. With the A-types' gain at 0.3 nS the worm makes no bout and reverses 11 times a minute. With any B-type oscillator, at 0.5 or 2.14 nS, it barely moves, and its head switch flips about 45 times a minute. So in this fit the forward rhythm doesn't come from the cells PLAN §4.3 cites for forward crawling, the B-types (Fouad et al. 2018; Xu et al. 2018). It comes from those Gao et al. 2018 document for backward. That is a reading of the model, not a claim about the worm.
-- **The body's slow cycle is the head switch's.** It flips about 20 times a minute, a cycle near 0.16 Hz, where the spectrum peaks.
+- **The B-types carry the crawl,** without the oscillator the fit took from them, through proprioception: with them lesioned, or proprioception at 0.001 pA, the worm makes no bout. With the A-types lesioned it still crawls. A B-type oscillator of 0.5 nS keeps the crawl at θ_osc −12.9 mV; at the fit's −28 mV it pins the B-types below threshold, as a lesion does.
+- **The A-types and AVA make the reversals.** With the A-types lesioned the worm never reverses, and with AVAL and AVAR lesioned it reverses 0.34 times a minute against 2.26. With the A-types' gain at 0.3 nS it reverses 11 times a minute. Those reversals depend on the time step (the entry below).
+- **The body undulates at the head switch's cycle.** It flips 17.9 times a minute, a cycle at 0.15 Hz, where the spectrum peaks, and a harmonic near 0.30 Hz carries about a third of the peak's power. Checkpoint 1's frequency, 0.232 Hz, counts crossings of that waveform and falls between the two, so it describes no one wave, as with the planned fit. Without noise the harmonic weakens, and the crossing count falls to 0.14 Hz while the peak stays at 0.15.
 - **Its reversals are the head switch's slips,** as in the planned fit. With the switch's gain at 200 pA the worm crawls about as fast with almost none. So the calibration's reversal term is met by slips again: the open question for checkpoint 6 (PLAN §9).
-- **The noise and κ_SMD shape the wave.** Without noise, or with κ_SMD at 1, the wave slows to 0.14 or 0.13 Hz and lengthens past a body length.
-- **The bounds didn't hold back a crawler.** Past them the worm moves at 0.065 to 0.091 body lengths per second, short of the pass band's 0.12, with fewer bouts or more reversals.
+- **Pushed one at a time past three of its bounds,** g_nmj, g_sw and g_osc, on seeds 1 to 8, the worm moves no faster than 0.091 body lengths per second, short of the pass band's 0.12, and each scores worse on the objective (1.12 to 2.99, against the fit's 0.61). The bout clause wasn't measured there.
 
 **The app.** On R's fit it holds 60 frames a second at 10× and 20× real time and saturates at about 21–24×, as before (`npm run plate:bench`, headless Chrome on an M5 Max).
 
-**Status.** R's fit run and chosen; R's first round ends with checkpoint 1 failing on its bout clause. Checkpoint 0 runs again on R's fit next, with the sham twins' harness code (PLAN §9, step 4).
+**Status.** R's fit run and chosen. At the 2.5 ms step R's first round would end with checkpoint 1 failing on its bout clause; after review, R is suspended instead, since the grade depends on the step (the entry below).
 
 ## 2026-09-28 — After review: R's fit depends on the time step, and R is suspended
 
@@ -1482,3 +1486,14 @@ Five of the eleven ended on a bound: g_osc, g_sw and g_nmj on their upper ones, 
 - **This pull request lands, corrected,** keeping the fit, its record and the choice between the fits. The numerics study and the refit come in their own pull requests. Considered: holding it until the refit.
 - **The app's notice is corrected in this pull request,** with its visual baselines refreshed from CI. Considered: leaving it until the numerics change the worm anyway.
 - **Everything else, as recommended.** The entry above and PLAN, VALIDATION and README are corrected where they were wrong. The GPU parity check gains the registry's own values as a setup. The inspector no longer calls the B-types oscillators when the fit leaves them out. The tests read the fit's values from the registry rather than pinning them.
+
+**Built** (`e6b693b`):
+
+- **GPU parity** gains a setup on the registry's own values, so whatever a fit sets is checked on the GPU. On R's fit its 22 checks pass in Chrome, none ungraded.
+- **The app** stops saying what the fit made untrue.
+  - The inspector calls a B-type an oscillator only when the parameters give it one.
+  - The notice says the worm crawls in bouts, slowly, and that how well depends on the time step. The plate views' baselines come from CI's captures.
+- **The ledger's caveats** say the B-types run without oscillators, and that the A-types' reversals depend on the step. The fidelity page counts the values on a bound instead of naming a number.
+- **The tests** read the fit's values from the registry instead of pinning them, and give the report a stand-in registry instead of changing the real one. They also hold the committed fit to the settings the code has now: its procedure, start, search space, objective and a clean commit.
+
+**Status.** R suspended; the convergence study is next.
