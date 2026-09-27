@@ -3,12 +3,47 @@
 // frame holds, so f32 keeps sub-micrometre detail anywhere in the dish.
 
 import { OUTSIDE, ROD_WORDS } from '../gpu/brainShader.ts';
-import { MAX_LAWNS } from '../sim/env/dish.ts';
+import { PARAMS } from '../science/params.ts';
+import { LAWN_RADIUS, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 
 // The frame: the camera's centre, split into a coarse part and a remainder as the body's coordinates are,
 // the half extent shown (m), metres per device pixel, the dish's radius (m), K (µM), the width of the odour
 // field's grid (m), how many lawns there are and their radius (m), and the lawns' centres (m).
 export const FRAME_WORDS = 12 + 4 * MAX_LAWNS;
+
+// A frame's words in the order the struct declares them: the centre's coarse part as f32 and its remainder, the
+// half extent, metres per pixel, the dish's radius, K, the field's width `extent`, the lawns' count and radius,
+// then each lawn's centre in a vec4 of its own.
+export function packFrame(
+  frame: {
+    centre: readonly [number, number];
+    half: readonly [number, number];
+    pixel: number;
+    dish: number;
+    lawns: readonly Lawn[];
+  },
+  extent: number,
+  out = new Float32Array(FRAME_WORDS),
+): Float32Array {
+  if (frame.lawns.length > MAX_LAWNS) throw new Error(`the plate draws at most ${MAX_LAWNS} lawns`);
+  const high = frame.centre.map((v) => Math.fround(v));
+  out.fill(0);
+  out.set([
+    high[0],
+    high[1],
+    frame.centre[0] - high[0],
+    frame.centre[1] - high[1],
+    ...frame.half,
+    frame.pixel,
+    frame.dish,
+    PARAMS.awcAdaptationScale.value,
+    extent,
+    frame.lawns.length,
+    LAWN_RADIUS,
+  ]);
+  frame.lawns.forEach(([x, y], k) => out.set([x, y], 12 + 4 * k));
+  return out;
+}
 const FRAME = /* wgsl */ `
 struct Frame {
   centre_high: vec2<f32>,

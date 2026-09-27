@@ -8,11 +8,13 @@
 //   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser. "Touch front" and "Touch
 //   back" touch the worm from anywhere (PLAN §4.2).
 // - Food (PLAN §5.2): "Add food" arms placing, and the next click on the dish drops a lawn there, or Enter at
-//   the view's centre; Escape cancels. A lawn drags, and dragged off the dish is removed; "Clear food" removes
-//   them all. The URL's ?food= follows the lawns. The odour field is stepped on the GPU with the worm.
+//   the view's centre; Escape cancels. A lawn that looks small on screen drags, and dragged off the dish is
+//   removed; a click on one picks it up and the next puts it down, Escape leaves it and Delete removes it.
+//   Delete alone removes the lawn nearest the view's centre, and "Clear food" removes them all. The URL
+//   carries the seed and the lawns. The odour field is stepped on the GPU with the worm, in fixed blocks.
 
 import type { WormlightData } from '../data/schema.ts';
-import { dispatches } from '../gpu/brain.ts';
+import { MAX_STEPS_PER_DISPATCH } from '../gpu/brain.ts';
 import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
 import { GpuField } from '../gpu/field.ts';
 import { packOdour } from '../gpu/loopLayout.ts';
@@ -34,7 +36,7 @@ import { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
 import { Pacer, Rates } from './pacing.ts';
-import { writeFood, type PlateParams } from './params.ts';
+import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
 
 const DISH = PARAMS.dishDiameter.value / 200; // cm → m, radius
@@ -47,6 +49,10 @@ const TRAIL_EVERY = 0.5; // s of worm time between the inset's trail points
 const TRAIL_MAX = 7200;
 const STAGING = 3; // readback buffers in flight
 const SLOP = { mouse: 4, touch: 10 }; // px a press may move and still not pan
+// A lawn is grabbed by a press only while its radius on screen is under this, so a zoomed-in view pans.
+const GRAB = 60; // px
+// The worm and its odour field advance together in blocks of this many steps, 0.16 s (PLAN §5.2).
+const COUPLING = 64;
 const VALIDATION = 'https://github.com/chrisjz/wormlight/blob/main/VALIDATION.md';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -112,10 +118,11 @@ export async function startPlate(
   canvas.setAttribute(
     'aria-label',
     'The worm on its agar dish, seen from above. Clicking the worm touches it; with Add food on, clicking the ' +
-      'dish drops a lawn there, and a lawn can be dragged, or dragged off the dish to remove it. With the dish ' +
-      'focused, space pauses and resumes, the arrow keys pan, plus and minus zoom, F or a double-click follows ' +
-      "the worm, Home resets the view, and with Add food on, Enter drops a lawn at the view's centre and Escape " +
-      'cancels.',
+      'dish drops a lawn there. Zoomed out, a lawn can be dragged, or dragged off the dish to remove it; ' +
+      'clicking one picks it up and the next click puts it down. With the dish focused, space pauses and ' +
+      'resumes, the arrow keys pan, plus and minus zoom, F or a double-click follows the worm, Home resets the ' +
+      "view, Enter drops a lawn at the view's centre while placing or puts a carried one down there, Escape " +
+      "cancels, and Delete removes the carried lawn or the one nearest the view's centre.",
   );
 
   let seed = params.seed ?? randomSeed();
@@ -160,7 +167,8 @@ export async function startPlate(
   const lede = el(
     'p',
     'plate-lede',
-    'A C. elegans on a 10 cm agar dish, its body moved through its muscles by its connectome.',
+    'A C. elegans on a 10 cm agar dish, its body moved through its muscles by its connectome. It smells food ' +
+      "but won't slow on it or dwell there: those need neuromodulation, which the model leaves out.",
   );
   const notice = el('p', 'plate-notice');
   const why = el('a', undefined, 'Why');
@@ -235,6 +243,16 @@ export async function startPlate(
   bottom.append(controls, map);
   const live = el('p', 'sr-only');
   live.setAttribute('aria-live', 'polite');
+  // Say something in the live region; the same words again are cleared first, or a screen reader may not read
+  // them twice.
+  const say = (text: string): void => {
+    if (live.textContent === text) {
+      live.textContent = '';
+      setTimeout(() => {
+        live.textContent = text;
+      }, 50);
+    } else live.textContent = text;
+  };
   pane.replaceChildren(canvas, header, follow, bottom, live);
 
   // State.
@@ -284,9 +302,14 @@ export async function startPlate(
     seed = next;
     // The setup a link reproduces: these lawns, their field steady, as the page began.
     cancelDrag();
-    field = lawnField(lawns);
+    carrying = null;
+    canvas.style.cursor = cursor();
+    field = steadyFor(lawns);
     stepped.set(packOdour(field).values);
     stepped.setSources(field.source);
+    sourcesStale = false;
+    refreshFood();
+    writeUrl();
     // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
     gpu.load(appWorld(data, seed, field));
     steps = 0;
@@ -299,7 +322,7 @@ export async function startPlate(
     if (following) camera = { ...camera, centre: [0, 0] };
     pacer.reset();
     showSeed();
-    live.textContent = `Restarted with seed ${seed}.`;
+    say(`Restarted with seed ${seed}.`);
     dirty = true;
     // Paused, no step reads the body back, and a tap needs it.
     readBody();
@@ -366,13 +389,7 @@ export async function startPlate(
     const text =
       `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
       `${reached.length > 0 ? reached.join(', ') : 'no touch receptor there'}.`;
-    // The same words again are cleared first, or a screen reader may not read them twice.
-    if (live.textContent === text) {
-      live.textContent = '';
-      setTimeout(() => {
-        live.textContent = text;
-      }, 50);
-    } else live.textContent = text;
+    say(text);
     if (!bodyKnown) return;
     const [k, f] = between(s, rods - 1);
     const point: [number, number] = [
@@ -394,21 +411,41 @@ export async function startPlate(
   // A second tap soon after the first and close by is a double-click's or double-tap's, which follows instead.
   let lastTap = { time: -Infinity, x: 0, y: 0 };
   const DOUBLE = 500; // ms
-  const tapAt = (x: number, y: number, slop: number): void => {
+  // Returns whether the tap was taken: it touched the worm, or it was a double-click's second.
+  const tapAt = (x: number, y: number, slop: number): boolean => {
     const now = performance.now();
     const second = now - lastTap.time < DOUBLE && Math.hypot(x - lastTap.x, y - lastTap.y) <= 2 * slop;
     lastTap = second ? { time: -Infinity, x: 0, y: 0 } : { time: now, x, y };
-    if (second || !bodyKnown) return;
+    if (second) return true;
+    if (!bodyKnown) return false;
     const [w, h] = size();
     const [px, py] = toWorld(camera, x, y, w, h);
     const nearest = nearestOnMidline(bodyAt, radii, px, py);
-    if (nearest.distance <= nearest.radius + slop * metresPerPixel(camera, w, h)) touchAt(nearest.s);
+    if (nearest.distance > nearest.radius + slop * metresPerPixel(camera, w, h)) return false;
+    touchAt(nearest.s);
+    return true;
   };
 
   // The food (PLAN §5.2). Each lawn releases while it is in place, the one being dragged where it is while that
-  // is on the dish; the field's sources follow them, and what a lawn released stays to diffuse and decay.
+  // is on the dish; the field's sources follow them, and what a lawn released stays to diffuse and decay. A lawn
+  // picked up by a click stays where it is until the next click puts it down.
   let drag: { index: number; at: Lawn } | null = null;
+  let carrying: number | null = null;
   let placing = false;
+  // Pointers down, and for each the lawn it took hold of and where on the lawn.
+  const pointers = new Map<
+    number,
+    {
+      x: number;
+      y: number;
+      startX: number;
+      startY: number;
+      slop: number;
+      lawn: { index: number; offset: [number, number] } | null;
+    }
+  >();
+  const cursor = (): string => (placing || carrying !== null ? 'crosshair' : '');
+  const mm = (at: Lawn): number => Math.round(Math.hypot(...at) * 1000);
   const placed = (): Lawn[] => {
     const moving = drag;
     if (moving === null) return lawns;
@@ -416,9 +453,9 @@ export async function startPlate(
   };
   const drawLawns = (now: readonly Lawn[]): void => {
     lawnMarks.replaceChildren(
-      ...now.map(([x, y]) =>
+      ...now.map(([x, y], k) =>
         svg('circle', {
-          class: 'plate-lawn',
+          class: k === carrying ? 'plate-lawn plate-carried' : 'plate-lawn',
           cx: (x / DISH).toFixed(4),
           cy: (-y / DISH).toFixed(4),
           r: (LAWN_RADIUS / DISH).toFixed(4),
@@ -426,64 +463,126 @@ export async function startPlate(
       ),
     );
   };
+  // The sources are worked out when the lawns change, and sent to the GPU once a frame, before it steps.
+  const scratch = new OdourField(field.geometry);
+  const upload = new Float32Array(scratch.source.length);
+  let sourcesStale = false;
+  const uploadFood = (): void => {
+    if (!sourcesStale) return;
+    sourcesStale = false;
+    scratch.setSources(lawnSources(placed()));
+    upload.set(scratch.source);
+    stepped.setSources(upload);
+  };
   const refreshFood = (): void => {
-    const now = placed();
-    const sources = new OdourField(field.geometry);
-    sources.setSources(lawnSources(now));
-    stepped.setSources(sources.source);
-    drawLawns(now);
+    drawLawns(placed());
     addFood.disabled = lawns.length >= MAX_LAWNS;
     clearFood.disabled = lawns.length === 0;
+    sourcesStale = true;
     dirty = true;
   };
-  // The URL follows the lawns, leaving ?food= out while they are the app's first alone.
+  // The lawns' steady field, kept while they stay as they are, so Restart needn't solve it again.
+  let solved = { key: writeFood(lawns), field };
+  const steadyFor = (now: readonly Lawn[]): OdourField => {
+    const key = writeFood(now);
+    if (solved.key !== key) solved = { key, field: lawnField(now) };
+    return solved.field;
+  };
   const writeUrl = (): void => {
-    const url = new URL(location.href);
-    const first = lawns.length === 1 && lawns[0][0] === FIRST_LAWN[0] && lawns[0][1] === FIRST_LAWN[1];
-    if (first) url.searchParams.delete('food');
-    else url.searchParams.set('food', writeFood(lawns));
-    history.replaceState(history.state, '', url);
+    history.replaceState(history.state, '', plateUrl(location.href, seed, lawns));
   };
   const setLawns = (next: Lawn[]): void => {
     lawns = next;
     refreshFood();
     writeUrl();
   };
+  // A drag given up, as by a lost release or a restart: the lawn goes back, and no pointer holds one.
   const cancelDrag = (): void => {
+    for (const p of pointers.values()) p.lawn = null;
     if (drag === null) return;
     drag = null;
     refreshFood();
   };
   const setPlacing = (on: boolean): void => {
     placing = on && lawns.length < MAX_LAWNS;
+    if (placing) carrying = null;
     addFood.setAttribute('aria-pressed', String(placing));
-    canvas.style.cursor = placing ? 'crosshair' : '';
+    canvas.style.cursor = cursor();
     if (placing) {
       canvas.focus();
-      live.textContent =
-        "Placing food: click the dish, or press Enter to drop it at the view's centre. Escape cancels.";
+      say("Placing food: click the dish, or press Enter to drop it at the view's centre. Escape cancels.");
     }
   };
-  const drop = (at: Lawn): void => {
-    if (!inDish(...at)) {
-      live.textContent = 'That is off the dish; food goes on the agar.';
-      return;
-    }
-    setLawns([...lawns, at]);
+  const offDish = (): void => say('That is off the dish; food goes on the agar.');
+  const drop = (at: readonly [number, number]): void => {
+    const spot = snapLawn(at);
+    if (!spot) return offDish();
+    setLawns([...lawns, spot]);
     setPlacing(false);
-    live.textContent = `Dropped a lawn ${Math.round(Math.hypot(...at) * 1000)} mm from the dish's centre.`;
+    say(
+      `Dropped a lawn ${mm(spot)} mm from the dish's centre.` +
+        (lawns.length >= MAX_LAWNS ? ` That makes ${MAX_LAWNS}, the most a dish holds.` : ''),
+    );
   };
-  // The lawn under a pointer, within its radius or the pointer's slop outside it, the nearest if several.
-  const lawnAt = (x: number, y: number, slop: number): number | null => {
-    const [w, h] = size();
-    const point = toWorld(camera, x, y, w, h);
-    const reach = LAWN_RADIUS + slop * metresPerPixel(camera, w, h);
+  // Carrying a lawn: picked up by a click, put down by the next, left where it was by Escape.
+  const pickUp = (index: number): void => {
+    carrying = index;
+    canvas.style.cursor = cursor();
+    refreshFood();
+    say(
+      `Picked up the lawn ${mm(lawns[index])} mm from the dish's centre: click the dish to put it down. ` +
+        'Escape leaves it; Delete removes it.',
+    );
+  };
+  const putDown = (at: readonly [number, number]): void => {
+    const index = carrying;
+    if (index === null) return;
+    const spot = snapLawn(at);
+    if (!spot) return offDish();
+    carrying = null;
+    canvas.style.cursor = cursor();
+    setLawns(lawns.map((lawn, k) => (k === index ? spot : lawn)));
+    say(`Put the lawn down ${mm(spot)} mm from the dish's centre.`);
+  };
+  const leave = (): void => {
+    carrying = null;
+    canvas.style.cursor = cursor();
+    refreshFood();
+    say('Left the lawn where it was.');
+  };
+  const remove = (index: number): void => {
+    const at = lawns[index];
+    carrying = null;
+    canvas.style.cursor = cursor();
+    setLawns(lawns.filter((_, k) => k !== index));
+    say(`Removed the lawn ${mm(at)} mm from the dish's centre. Its odour fades over a few minutes.`);
+  };
+  // The lawn nearest the view's centre, for Delete.
+  const nearestLawn = (): number | null => {
     let best: number | null = null;
     let nearest = Infinity;
-    lawns.forEach(([lx, ly], k) => {
-      const d = Math.hypot(point[0] - lx, point[1] - ly);
-      if (d <= reach && d < nearest) {
+    lawns.forEach(([x, y], k) => {
+      const d = Math.hypot(x - camera.centre[0], y - camera.centre[1]);
+      if (d < nearest) {
         best = k;
+        nearest = d;
+      }
+    });
+    return best;
+  };
+  // The lawn a press takes hold of: one that looks small on screen, pressed within its radius or the pointer's
+  // slop outside it, the nearest if several; and where on it, so it doesn't jump to the pointer.
+  const lawnAt = (x: number, y: number, slop: number): { index: number; offset: [number, number] } | null => {
+    const [w, h] = size();
+    const m = metresPerPixel(camera, w, h);
+    if (LAWN_RADIUS / m > GRAB) return null;
+    const point = toWorld(camera, x, y, w, h);
+    let best: { index: number; offset: [number, number] } | null = null;
+    let nearest = Infinity;
+    lawns.forEach(([lx, ly], index) => {
+      const d = Math.hypot(point[0] - lx, point[1] - ly);
+      if (d <= LAWN_RADIUS + slop * m && d < nearest) {
+        best = { index, offset: [lx - point[0], ly - point[1]] };
         nearest = d;
       }
     });
@@ -491,21 +590,21 @@ export async function startPlate(
   };
   addFood.addEventListener('click', () => {
     setPlacing(!placing);
-    if (!placing) live.textContent = 'Placing cancelled.';
+    if (!placing) say('Placing cancelled.');
   });
   clearFood.addEventListener('click', () => {
     cancelDrag();
+    carrying = null;
     setLawns([]);
-    live.textContent = 'Food cleared. Its odour fades over a few minutes.';
+    // The button disables itself; keep the keyboard's place on its neighbour.
+    addFood.focus();
+    say('Food cleared. Its odour fades over a few minutes.');
   });
   refreshFood();
 
-  // Pointers: one pans once it has moved past the slop, or drags the lawn it was pressed on; a click or a tap
-  // drops a lawn while placing, touches the worm if it is on it, and elsewhere only focuses; two pinch to zoom.
-  const pointers = new Map<
-    number,
-    { x: number; y: number; startX: number; startY: number; slop: number; lawn: number | null }
-  >();
+  // Pointers: one pans once it has moved past the slop, or drags the lawn it took hold of; a click or a tap drops
+  // a lawn while placing, puts down one carried, touches the worm if it is on it, picks up a lawn it is on, and
+  // elsewhere only focuses; two pinch to zoom.
   let dragging = false;
   let pinch: { span: number } | null = null;
   // Whether the gesture under way has had two pointers down, so its release is no tap.
@@ -514,7 +613,7 @@ export async function startPlate(
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
     const slop = e.pointerType === 'mouse' ? SLOP.mouse : SLOP.touch;
-    const lawn = placing || pointers.size > 0 ? null : lawnAt(e.offsetX, e.offsetY, slop);
+    const lawn = placing || carrying !== null || pointers.size > 0 ? null : lawnAt(e.offsetX, e.offsetY, slop);
     pointers.set(e.pointerId, { x: e.offsetX, y: e.offsetY, startX: e.offsetX, startY: e.offsetY, slop, lawn });
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
@@ -530,7 +629,7 @@ export async function startPlate(
       dragging = false;
       pinched = false;
     }
-    canvas.style.cursor = '';
+    canvas.style.cursor = cursor();
   };
   canvas.addEventListener('pointermove', (e) => {
     const last = pointers.get(e.pointerId);
@@ -538,6 +637,7 @@ export async function startPlate(
     // A mouse whose buttons are all up has lost its release, as behind a context menu.
     if (e.pointerType === 'mouse' && e.buttons === 0) {
       release(e);
+      cancelDrag();
       return;
     }
     const dx = e.offsetX - last.x;
@@ -553,12 +653,13 @@ export async function startPlate(
     }
     if (pointers.size !== 1) return;
     if (!dragging && Math.hypot(e.offsetX - last.startX, e.offsetY - last.startY) <= last.slop) return;
-    // Past the slop, a lawn pressed on follows the pointer.
+    // Past the slop, a lawn taken hold of follows the pointer, held where it was pressed.
     if (last.lawn !== null && !pinched) {
       dragging = true;
       canvas.style.cursor = 'grabbing';
       const [w, h] = size();
-      drag = { index: last.lawn, at: toWorld(camera, e.offsetX, e.offsetY, w, h) };
+      const [px, py] = toWorld(camera, e.offsetX, e.offsetY, w, h);
+      drag = { index: last.lawn.index, at: [px + last.lawn.offset[0], py + last.lawn.offset[1]] };
       refreshFood();
       return;
     }
@@ -581,22 +682,21 @@ export async function startPlate(
     release(e);
     const moving = drag;
     if (moving !== null && pointers.size === 0) {
-      // A lawn dropped on the dish stays there; dragged off it, it goes.
+      // A lawn let go on the dish stays there; dragged off it, it goes.
       drag = null;
-      if (inDish(...moving.at)) {
-        setLawns(lawns.map((lawn, k) => (k === moving.index ? moving.at : lawn)));
-        live.textContent = `Moved a lawn to ${Math.round(Math.hypot(...moving.at) * 1000)} mm from the dish's centre.`;
-      } else {
-        setLawns(lawns.filter((_, k) => k !== moving.index));
-        live.textContent = 'Removed a lawn. Its odour fades over a few minutes.';
-      }
+      const spot = snapLawn(moving.at);
+      if (spot) {
+        setLawns(lawns.map((lawn, k) => (k === moving.index ? spot : lawn)));
+        say(`Moved a lawn to ${mm(spot)} mm from the dish's centre.`);
+      } else remove(moving.index);
       return;
     }
     if (!tap) return;
-    if (placing) {
-      const [w, h] = size();
-      drop(toWorld(camera, e.offsetX, e.offsetY, w, h));
-    } else tapAt(e.offsetX, e.offsetY, pointer.slop);
+    const [w, h] = size();
+    const at = toWorld(camera, e.offsetX, e.offsetY, w, h);
+    if (placing) drop(at);
+    else if (carrying !== null) putDown(at);
+    else if (!tapAt(e.offsetX, e.offsetY, pointer.slop) && pointer.lawn !== null) pickUp(pointer.lawn.index);
   });
   canvas.addEventListener('pointercancel', (e) => {
     release(e);
@@ -649,15 +749,27 @@ export async function startPlate(
         camera = { centre: centroid, span: homeSpan };
         setFollowing(true);
         break;
+      // Held down, Enter repeats; only its first press drops or puts down.
       case 'Enter':
-        if (!placing) return;
-        drop([camera.centre[0], camera.centre[1]]);
+        if (e.repeat || (!placing && carrying === null)) return;
+        if (placing) drop(camera.centre);
+        else putDown(camera.centre);
         break;
       case 'Escape':
-        if (!placing) return;
-        setPlacing(false);
-        live.textContent = 'Placing cancelled.';
+        if (placing) {
+          setPlacing(false);
+          say('Placing cancelled.');
+        } else if (carrying !== null) leave();
+        else return;
         break;
+      case 'Delete':
+      case 'Backspace': {
+        if (e.repeat) break;
+        const index = carrying ?? nearestLawn();
+        if (index === null) say('There is no food to remove.');
+        else remove(index);
+        break;
+      }
       default:
         return;
     }
@@ -767,22 +879,25 @@ export async function startPlate(
     }
   };
 
-  // The worm and its odour field advance together: each of the worm's dispatches senses the field as it stood
-  // when the dispatch began, and the field then steps through the same time (PLAN §5.2).
+  // The worm and its odour field advance together, in blocks of COUPLING steps at multiples of the step count:
+  // the worm senses the field as it stood when the block began, and at the block's end the field steps through
+  // the block's time. So a run depends only on its steps, not on how frames divide them (PLAN §5.2).
   const advance = (count: number): void => {
-    for (const n of dispatches(count)) {
+    uploadFood();
+    for (let left = count; left > 0;) {
+      const n = Math.min(left, COUPLING - (steps % COUPLING), MAX_STEPS_PER_DISPATCH);
       gpu.useField(stepped);
       gpu.run(n);
-      stepped.step(n * NEURAL_STEP);
+      steps += n;
+      left -= n;
+      if (steps % COUPLING === 0) stepped.step(COUPLING * NEURAL_STEP);
     }
   };
 
   // Before the first frame, run the worm to the time the URL asks for.
-  const warm = Math.round(params.time / NEURAL_STEP);
-  if (warm > 0) {
-    advance(warm);
-    steps = warm;
-  }
+  advance(Math.round(params.time / NEURAL_STEP));
+  writeUrl();
+  if (params.foodIgnored) say("The link's food couldn't be read, so the dish starts with its usual lawn.");
   readBody();
 
   let first: (() => void) | null = null;
@@ -798,9 +913,9 @@ export async function startPlate(
     // Busy while two frames' work is still on the GPU. The rates count steps as they are submitted, which
     // this bounds to at most two frames ahead of the steps done.
     const n = pacer.advance(wall, speed, running, pending >= 2);
+    uploadFood();
     if (n > 0) {
       advance(n);
-      steps += n;
       dirty = true;
     }
     if (n > 0 || first) readBody();

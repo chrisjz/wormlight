@@ -885,6 +885,13 @@ button.inspector-row:focus-visible .row-name {
   vector-effect: non-scaling-stroke;
 }
 
+/* A lawn picked up, waiting to be put down. */
+.plate-lawn.plate-carried {
+  fill: none;
+  stroke: var(--fg);
+  stroke-dasharray: 2 2;
+}
+
 .plate-trail {
   fill: none;
   stroke: var(--muted);

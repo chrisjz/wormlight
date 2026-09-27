@@ -2,7 +2,7 @@
 // ?neuron=AVAL selects a neuron; yaw, pitch (degrees) and dist place the camera, and tx, ty, tz its target.
 // ?norender=1 draws nothing to the screen, leaving the GPU to snapshots (the visual tests on CI).
 
-import { inDish, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
+import { FIRST_LAWN, inDish, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 import { PITCH_LIMIT, type Vec3 } from '../render/camera.ts';
 
 export interface ViewParams {
@@ -70,6 +70,8 @@ export interface PlateParams {
   centre: [number, number] | null;
   stats: boolean;
   food: Lawn[] | null;
+  // Whether the URL held food it couldn't read, so the app starts with its first lawn instead.
+  foodIgnored: boolean;
 }
 
 // ?food= places the lawns (PLAN §5.2): x,y pairs in millimetres from the dish's centre, as plain decimals,
@@ -96,6 +98,28 @@ export function readFood(value: string | null): Lawn[] | null {
 export function writeFood(lawns: readonly Lawn[]): string {
   const mm = (v: number): string => String(Math.round(v * 1e4) / 10);
   return lawns.map(([x, y]) => `${mm(x)},${mm(y)}`).join(';');
+}
+
+// Where a lawn is placed: to a tenth of a millimetre, as the URL holds it exactly, and inside the dish, rounding
+// towards its centre where rounding to the nearest tenth would push it past the wall. Null if it lies off the
+// dish altogether.
+export function snapLawn(at: readonly [number, number]): Lawn | null {
+  if (!inDish(at[0], at[1])) return null;
+  const nearest: Lawn = [Math.round(at[0] * 1e4) / 1e4, Math.round(at[1] * 1e4) / 1e4];
+  if (inDish(...nearest)) return nearest;
+  const inward: Lawn = [Math.trunc(at[0] * 1e4) / 1e4, Math.trunc(at[1] * 1e4) / 1e4];
+  return inDish(...inward) ? inward : null;
+}
+
+// The page's URL with the setup a link reproduces: the worm's seed, and the lawns, left out while they are the
+// app's first alone (PLAN §5.2). Its other parameters stay as they are.
+export function plateUrl(href: string, seed: number, lawns: readonly Lawn[]): string {
+  const url = new URL(href);
+  url.searchParams.set('seed', String(seed));
+  // Compared as the URL writes them: the first lawn's own place isn't a tenth of a millimetre exactly.
+  if (writeFood(lawns) === writeFood([FIRST_LAWN])) url.searchParams.delete('food');
+  else url.searchParams.set('food', writeFood(lawns));
+  return url.toString();
 }
 
 export function readPlateParams(search: string): PlateParams {
@@ -127,6 +151,7 @@ export function readPlateParams(search: string): PlateParams {
         ? [Number.isFinite(centre[0]) ? centre[0] : 0, Number.isFinite(centre[1]) ? centre[1] : 0]
         : null,
     stats: p.get('stats') === '1',
-    food: readFood(p.get('food')),
+    food: readFood(p.get('food'))?.map((lawn) => snapLawn(lawn) ?? lawn) ?? null,
+    foodIgnored: p.get('food') !== null && readFood(p.get('food')) === null,
   };
 }

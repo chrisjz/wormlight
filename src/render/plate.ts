@@ -2,9 +2,8 @@
 // from the simulation's body buffer, into a 4× multisampled target resolved to the canvas. Like the graph's
 // renderer, it can render one frame into a texture of its own and read it back for the visual tests.
 
-import { PARAMS } from '../science/params.ts';
-import { LAWN_RADIUS, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
-import { AGAR_SHADER, FRAME_WORDS, wormShader } from './plateShaders.ts';
+import type { Lawn } from '../sim/env/dish.ts';
+import { AGAR_SHADER, FRAME_WORDS, packFrame, wormShader } from './plateShaders.ts';
 import { snapshot } from './snapshot.ts';
 
 const SAMPLES = 4;
@@ -149,24 +148,8 @@ export class PlateRenderer {
   // canvas.
   render(frame: PlateFrame, field: GPUTexture, target?: GPUTextureView): void {
     if (!this.colour) return;
-    if (frame.lawns.length > MAX_LAWNS) throw new Error(`the plate draws at most ${MAX_LAWNS} lawns`);
-    const high = frame.centre.map((v) => Math.fround(v));
+    packFrame(frame, this.extent, this.uniforms);
     const u = this.uniforms;
-    u.fill(0);
-    u.set([
-      high[0],
-      high[1],
-      frame.centre[0] - high[0],
-      frame.centre[1] - high[1],
-      ...frame.half,
-      frame.pixel,
-      frame.dish,
-      PARAMS.awcAdaptationScale.value,
-      this.extent,
-      frame.lawns.length,
-      LAWN_RADIUS,
-    ]);
-    frame.lawns.forEach(([x, y], k) => u.set([x, y], 12 + 4 * k));
     let agarGroup = this.agarGroups.get(field);
     if (!agarGroup) {
       agarGroup = this.device.createBindGroup({
