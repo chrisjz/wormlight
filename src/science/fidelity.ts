@@ -479,7 +479,11 @@ export const COMPONENTS: readonly Component[] = [
     caveats: '',
     upgrade: '',
     sources: ['gleeson2018', 'chalfie1985'],
-    testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint3' }],
+    testedBy: [
+      { check: 'unit', detail: "AWC-ON reads the odour at its dendrite's tip, between the first two rods" },
+      { check: 'checkpoint2' },
+      { check: 'checkpoint3' },
+    ],
   },
   {
     name: 'Touch stimulus',

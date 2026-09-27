@@ -208,8 +208,8 @@ export const PARAMS = {
     level: 0,
     subsystem: 'sensing',
     sources: [],
-    note: 'Never tuned against chemotaxis. The rule gives 3.73 pA when AWCL is AWC-ON and 5.52 pA when AWCR is, which a test holds.',
-    rule: 'Set once, on the intact real wiring, so that removing odour from the adapted start concentration depolarises AWC-ON by 16 mV (2/β): measured on the connectome alone, at its rest thresholds without the oscillators or the loop, at steady state, for each side as AWC-ON.',
+    note: "Never tuned against chemotaxis. The rule gives 3.73 pA when AWCL is AWC-ON and 5.52 pA when AWCR is, which a test holds; adapted to the assay's start, AWC-ON rises 16.6 mV when the odour is removed.",
+    rule: "Set once, on the intact real wiring, so that removing odour depolarises AWC-ON by 16 mV (2/β) from rest, the limit of weak odour: measured on the connectome alone, at its rest thresholds without the oscillators or the loop, at steady state, for each side as AWC-ON: one rule for the class, each cell's value from its own wiring, as touch's currents are.",
     upgrade: 'Current-clamp recordings from AWC',
   },
   touchAmplitude: {
