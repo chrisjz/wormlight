@@ -4,11 +4,11 @@ How Wormlight's behaviour compares with the real worm's, by the checkpoints PLAN
 
 ## Where it stands
 
-| Checkpoint          | Result      | Status                                                                                       |
-| ------------------- | ----------- | -------------------------------------------------------------------------------------------- |
-| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, run in full once milestone 4 brought touch and odour |
-| 1: crawling         | **Fail**    | Calibrated, the planned model undulates but barely advances; track R continues (PLAN §9)     |
-| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)           |
+| Checkpoint          | Result      | Status                                                                                                   |
+| ------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, on the provisional parameters; runs again after track R          |
+| 1: crawling         | **Fail**    | Calibrated, the planned model is led by its head switch and barely advances; track R continues (PLAN §9) |
+| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)                       |
 
 Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26). Track R's first step calibrated the planned model as it stands (PLAN §7.3, §9; DECISIONS.md, 2026-09-27), and checkpoint 1 now runs on those parameters. Checkpoint 0 last ran on the provisional ones, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again after whichever fit ends track R. While the intact model doesn't crawl, checkpoint 0's crawling clause can't fail for lack of wiring, so its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it can't while it barely moves, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait for track R.
 
@@ -23,10 +23,11 @@ Crawling does not yet emerge from the connectome (DECISIONS.md, 2026-09-26). Tra
 
 ## Reading the results
 
-- **The calibrated model undulates but barely advances.** Its mid-body bends at 0.185 Hz, in checkpoint 1's partial band against a real worm's 0.30, in a wave running from head to tail 0.58 body lengths long, in the pass band. But it moves at 0.030 body lengths per second, a seventh of a real worm's 0.22.
-- **Its bouts break up.** It moves forward 62–75% of the time, and reverses about 2.0 times a minute, close to the calibration's 1.8. But at its speed the velocity keeps dipping under the motion floor of 0.01, and each dip ends a bout: its longest forward run in any trial lasted 13.6 s.
-- **The fit wanted more muscle.** The neuromuscular gain ended on its upper bound, 5 per EM section, so the bounds, not the fit, limited it there (DECISIONS.md, 2026-09-27). Every other parameter ended inside its bounds, the noise at 0.083 pA·√s against its ceiling of 0.169.
-- **On the provisional parameters** (DECISIONS.md, 2026-09-26), the model fell into one slow cycle instead: its bend deepened over about a minute as it crept to a halt, then flipped, and it moved forward for about 25 s. Checkpoint 0's section below still describes that model.
+- **The calibrated model is led by its head switch.** The mid-body curvature's spectrum peaks at 0.073 Hz, the head switch's slow cycle, with 19% of its power between 0.2 and 0.45 Hz, where a crawling worm's lies. Over its 14 forward bouts of 10 s or more, 162 s in all, a bend travels from head to tail, and checkpoint 1 measures 0.185 Hz and 0.58 body lengths: both average the slow wave with a weaker ripple near 0.37 Hz, so neither describes one wave (DECISIONS.md, 2026-09-27).
+- **Its reversals are the switch's slips.** All 73 began within 3 s after a flip of the head switch, and AVA's activation changed by 1.2 × 10⁻³ over them on average, against a standard deviation of 8.3 × 10⁻³. They meet §7.1's definition, about 2.0 a minute against the calibration target of 1.8, without the network reversing.
+- **It barely advances, and its bouts break with the switch.** It moves at 0.030 body lengths per second, about a seventh of a real worm's 0.22, forward 62–75% of the time. Its forward runs are cut by the head switch's cycle, about 13.7 s at the spectrum's peak: the longest in any trial lasted 13.6 s.
+- **Its speed doesn't respond to the parameters.** The neuromuscular gain ended on its upper bound, 5 per EM section, and the head-switch gain near its own, 371 of 400 pA. Raised past its bound, the neuromuscular gain lifts the frequency, not the speed, and proprioception is inert: at 0.001 pA the worm behaves as at 0.31 (DECISIONS.md, 2026-09-27).
+- **On the provisional parameters** (DECISIONS.md, 2026-09-26), the model fell into one slow cycle instead: its bend deepened over about a minute as it crept to a halt, then flipped, and it moved forward for about 25 s. Checkpoint 0's section below ran the silenced network on those parameters.
 - **The silenced worm barely moves.** In the 120 s trials it never passes the motion floor, and over an hour in the assay no centroid got more than 0.17 mm from its start, against 40 mm to either spot's capture circle.
 - **The touches reach no muscle.** Neither place's receptors, ALML, ALMR and AVM at the front and PLML and PLMR at the back, has a neuromuscular junction, so with their synapses cut a touch reaches the body only through the numerics: chiefly the integrator's restarts at its pulse's edges, and at rounding level the voltage solve's sums over every neuron. It moves no velocity sample by more than 2.7 × 10⁻⁷ body lengths per second; with the restarts switched off, 11 of the 20 touched trials still part from their twins, by up to 1.7 × 10⁻⁹. This page first said that with the restarts off a touched world stepped bit for bit as its twin, which held only for the seed first tried (DECISIONS.md).
 - **The posterior clause passed at p = 0.051.** Its test compares the speeds before and after each touch, and the silenced worm creeps. In 30 of the 50 windows before a posterior touch it crept backward, and its speed rose after 26 of them: backward creep dying away. Over the same windows the untouched twins give the same rank sum, 808, and the same p, so the near-significance is the creep's, not the touch's. The test has no control for a worm's own trend, so checkpoint 0's reruns, and checkpoints 2 and 3, grade each touch against a sham-touched twin instead (PLAN §7.4).
@@ -147,7 +148,7 @@ Each worm ran alone in checkpoint 4's assay: the butanone spot's steady field, t
 
 ### Checkpoint 1: crawling — **Fail**
 
-Run on 2026-09-27 at `4a5c087`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 2140 pS, τ_w = 2.51 s, θ_osc = −12.9 mV, g_sw = 371 pA, g_p = 0.308 pA, g_nmj = 5 per EM section, θ_nmj = 3.74 EM sections, σ_n = 0.0834 pA·√s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
+Run on 2026-09-27 at `4bed119`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 2140 pS, τ_w = 2.51 s, θ_osc = −12.9 mV, g_sw = 371 pA, g_p = 0.308 pA, g_nmj = 5 per EM section, θ_nmj = 3.74 EM sections, σ_n = 0.0834 pA·√s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
 
 | Clause                                       | Measured | Pass      | Partial   | Grade       | Kind               |
 | -------------------------------------------- | -------- | --------- | --------- | ----------- | ------------------ |
@@ -157,7 +158,9 @@ Run on 2026-09-27 at `4a5c087`: 20 trials of 120 s, seeds 1 to 20, on the calibr
 | Posture variance the four eigenworms capture | 95.1%    | ≥ 85%     | ≥ 70%     | **Pass**    | Predicted          |
 | Trials with a forward bout of 20 s or more   | 0%       | ≥ 80%     | ≥ 50%     | **Fail**    | Predicted          |
 
-The kinematics come from 14 forward bouts of 10 s or more, 162.2 s in all. Over them the mid-body curvature crossed its mean 60 times, 4.3 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 1.17 s (correlation 0.91). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, which the parameters were tuned against (PLAN §7.3), on trials of their own.
+The kinematics come from 14 forward bouts of 10 s or more, 162.2 s in all. Over them the mid-body curvature crossed its mean 60 times, 4.3 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 1.17 s (correlation 0.91). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020.
+
+Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spectrum peaks at 0.073 Hz, with 19% of its power between 0.2 and 0.45 Hz; 73 of 73 reversals started within 3 s after a flip of the head switch; over reversals AVA's activation changed by 1.2 × 10⁻³ on average, against a standard deviation of 8.3 × 10⁻³.
 
 | Seed | Posture | Forward / paused / backward | Longest forward run (s) | Reversals | Mean velocity (body lengths/s) | Self-intersecting postures |
 | ---- | ------- | --------------------------- | ----------------------- | --------- | ------------------------------ | -------------------------- |
