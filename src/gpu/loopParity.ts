@@ -38,6 +38,7 @@ import {
   rms,
   SAMPLES,
   SECOND,
+  WELL_POSED,
   seededWorld,
   TAP_COPIES,
   ENDING_COPIES,
@@ -147,7 +148,7 @@ export interface LoopSecondResult {
   // graded or not.
   touchSame: boolean;
   // The same for the CPU reference rerun at the GPU's solver tolerance, against itself: the state is graded
-  // only if every share is at most 1 and its switch agreed throughout.
+  // only if every share is at most WELL_POSED and its switch agreed throughout.
   referenceShare: number;
   referenceSwitchSame: boolean;
   graded: boolean;
@@ -235,7 +236,7 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
     referenceSwitchSame &&= cpu.headSwitch.h === loose.headSwitch.h && cpu.switchCurrent === loose.switchCurrent;
   }
   const referenceShare = Math.max(...Object.values(reference));
-  const graded = referenceShare <= 1 && referenceSwitchSame;
+  const graded = referenceShare <= WELL_POSED && referenceSwitchSame;
   return {
     label: c.label,
     shares,

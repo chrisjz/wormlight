@@ -21,7 +21,12 @@ const RECOVERY = 1; // s
 
 function oscillator(shift: number, bias: number): Brain {
   const brain = new Brain(lone, Float64Array.of(-35));
-  brain.setOscillators({ neurons: Int32Array.of(0), shift: Float64Array.of(shift), gain: GAIN, recovery: RECOVERY });
+  brain.setOscillators({
+    neurons: Int32Array.of(0),
+    shift: Float64Array.of(shift),
+    gain: Float64Array.of(GAIN),
+    recovery: RECOVERY,
+  });
   brain.input[0] = bias;
   return brain;
 }
@@ -102,7 +107,7 @@ describe('the oscillators', () => {
     brain.setOscillators({
       neurons: Int32Array.from({ length: n }, (_, i) => i),
       shift: Float64Array.from({ length: n }, (_, i) => -6 - (i % 3)),
-      gain: GAIN,
+      gain: new Float64Array(n).fill(GAIN),
       recovery: RECOVERY,
     });
     const diagonal = (brain as unknown as { d: Float64Array }).d;
@@ -133,7 +138,7 @@ describe('the oscillators', () => {
     brain.setOscillators({
       neurons: Int32Array.of(2, 0),
       shift: Float64Array.of(shift, 0),
-      gain: GAIN,
+      gain: Float64Array.of(GAIN, GAIN),
       recovery: RECOVERY,
     });
     brain.input[2] = bias;
@@ -207,7 +212,7 @@ describe('the oscillators', () => {
       brain.setOscillators({
         neurons: Int32Array.of(0),
         shift: Float64Array.of(shift),
-        gain: GAIN,
+        gain: Float64Array.of(GAIN),
         recovery: RECOVERY,
       });
       return upCrossings(() => (brain.step(0.0025), (brain.voltage[0] + 35 - shift) / V0), 0.0025, 30).length;

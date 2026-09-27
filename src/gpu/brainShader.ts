@@ -31,8 +31,10 @@ export const MAX_RODS = BCR_ROWS;
 export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
-// loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS.
-export const PARAM_WORDS = 56;
+// loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS, and where in the weights the muscles' offsets
+// start, padded to a whole 16 bytes.
+export const PARAM_WORDS = 60;
+export const NM_OFFSET_AT = 56;
 export const LOOP_SCALARS_AT = 32;
 export const LOOP_SCALARS = [
   'proprio_gain',
@@ -64,7 +66,7 @@ export type LoopScalar = (typeof LOOP_SCALARS)[number];
 // Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and the touch current
 // it took on the last step.
 export const STATE_WORDS = 8;
-// Per neuron: threshold, oscillator shift θ, whether it oscillates, its proprioceptive field's side and
+// Per neuron: threshold, oscillator shift θ, its oscillator's gain g_osc (0 for none), its proprioceptive field's side and
 // rods, the side the head switch drives it on, and the current of its touch pulse, which each tap sets.
 export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
@@ -139,7 +141,7 @@ struct Params {
   decay: f32,
   slope: f32,
   noise: f32,
-  osc_gain: f32,
+  _pad1: f32,
   osc_recovery: f32,
   tolerance: f32,
   _pad0: f32,
@@ -180,12 +182,16 @@ struct Params {
   awc_time: f32,
   awc_along: f32,
   odour_cell: f32,
+  nm_offset_at: u32,
+  _pad2: u32,
+  _pad3: u32,
+  _pad4: u32,
 }
 
 struct NeuronConstants {
   threshold: f32,
   shift: f32,
-  oscillates: f32,
+  osc_gain: f32,
   field_side: f32,
   field_from: u32,
   field_to: u32,
@@ -871,11 +877,11 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
           current += conductance * synapse.y;
         }
         let constants = neurons[i];
-        if (constants.oscillates > 0.0) {
+        if (constants.osc_gain > 0.0) {
           let xo = (v[k] - constants.threshold - constants.shift) / v0;
-          let stabilising = params.osc_gain * max(xo * xo - 1.0, 0.0);
+          let stabilising = constants.osc_gain * max(xo * xo - 1.0, 0.0);
           g += stabilising;
-          current += params.osc_gain * v0 * (xo - xo * xo * xo / 3.0 - w[k]) + stabilising * v[k];
+          current += constants.osc_gain * v0 * (xo - xo * xo * xo / 3.0 - w[k]) + stabilising * v[k];
         }
         d[k] = g;
         b[k] = current;
@@ -943,7 +949,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         s[k] = (s_history + dt * params.rise * phi) / (a + dt * (params.rise * phi + params.decay));
         v_prev[k] = v[k];
         v[k] = x[k];
-        if (constants.oscillates > 0.0) {
+        if (constants.osc_gain > 0.0) {
           let xo = (v[k] - constants.threshold - constants.shift) / v0;
           let hr = dt / params.osc_recovery;
           let w_history = select(w[k], 2.0 * w[k] - 0.5 * w_prev[k], bdf2);
@@ -962,7 +968,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         for (var e = topology[params.nm_start_at + lid]; e < topology[params.nm_start_at + lid + 1u]; e++) {
           u += weights[params.nm_weight_at + e] * pool[${POOL.s}u + topology[params.nm_pre_at + e]];
         }
-        let goal = logistic(params.muscle_gain * (u - params.muscle_threshold));
+        // Relative drive's offset (0 for the planned model), the muscle's weights already over its range.
+        let goal = logistic(params.muscle_gain * (u - weights[params.nm_offset_at + lid] - params.muscle_threshold));
         activation = goal + (activation - goal) * exp(-dt / params.muscle_tau);
         muscle_a[lid] = activation;
       }

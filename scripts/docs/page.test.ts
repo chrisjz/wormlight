@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { countFacts } from '../../src/science/facts.ts';
 import { ROOT } from '../data/sources.ts';
-import { PARAMS } from '../../src/science/params.ts';
+import { PARAMS, type Param } from '../../src/science/params.ts';
 import { fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
 
 const facts = countFacts(
@@ -79,15 +79,19 @@ describe('fidelityPage', () => {
   });
 
   it('states the free-parameter count against the budget', () => {
-    expect(page).toContain('There are 14 free parameters, 8 calibrated and 6 fixed in advance, against a budget of 14');
+    expect(page).toContain(
+      'There are 17 free parameters, 11 calibrated and 6 fixed in advance, against a budget of 17',
+    );
   });
 });
 
 describe('calibrated values on the page', () => {
-  it('are shown to three significant figures, the registry keeping them unrounded', () => {
-    expect(PARAMS.oscillatorExcitability.value).not.toBe(2140);
-    expect(formatValue(PARAMS.oscillatorExcitability)).toBe('2140');
-    expect(formatValue(PARAMS.oscillatorDriveThreshold)).toBe('−12.9');
+  it('are shown to three significant figures, the registry keeping them unrounded, or as provisional', () => {
+    const fitted = (value: number): Param => ({ ...PARAMS.oscillatorDriveThreshold, value });
+    expect(formatValue(fitted(-12.882325367708441))).toBe('−12.9');
+    expect(formatValue({ ...PARAMS.oscillatorExcitability, value: 2135.222828203875 })).toBe('2140');
+    // Until R's fit, the page shows the provisional value.
+    expect(formatValue(PARAMS.oscillatorExcitability)).toBe('not yet calibrated; provisionally 2140');
     expect(formatValue(PARAMS.membraneCapacitance)).toBe('1');
   });
 });

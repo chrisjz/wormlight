@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { CAPTURE_RADIUS, CONTROL, SPOT, steadyField } from '../src/sim/env/dish.ts';
 import { BACK, FRONT } from '../src/sim/touch.ts';
-import { provisionalParams, World } from '../src/sim/world.ts';
+import { PLANNED } from '../src/science/planned.ts';
+import { plannedParams, World } from '../src/sim/world.ts';
 import { runChemotaxis } from '../src/validation/chemotaxis.ts';
 import { SEEDS } from '../src/validation/checkpoints.ts';
 import { resample, tangentAngles } from '../src/validation/posture.ts';
@@ -13,6 +14,8 @@ import { runTrial, startingPosture, startingWorld } from '../src/validation/tria
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
+// The trial's mechanics, on the planned model's go/no-go values, whose noise is off.
+const MECHANICS = plannedParams(PLANNED.provisional);
 
 // Stand-ins for the real postures, which unit tests don't download: sinusoids of different phases.
 const POSTURES = Array.from({ length: 7 }, (_, p) =>
@@ -38,7 +41,7 @@ describe('a trial', () => {
     for (const seed of [1, 5, 9]) {
       const { world, start } = startingWorld(data, {
         seed,
-        params: provisionalParams(),
+        params: MECHANICS,
         postures: POSTURES,
       });
       expect(start).toEqual(startingPosture(seed, POSTURES.length));
@@ -51,17 +54,17 @@ describe('a trial', () => {
       const off = head - (posture[0] + start.turn);
       expect(Math.abs(Math.atan2(Math.sin(off), Math.cos(off)))).toBeLessThan(0.05);
     }
-    expect(() => new World(data, provisionalParams(), { posture: POSTURES[0], heading: 0 })).toThrow(/not both/);
+    expect(() => new World(data, MECHANICS, { posture: POSTURES[0], heading: 0 })).toThrow(/not both/);
   });
 
   it('runs the silenced network, which stays still', () => {
-    const r = runTrial(data, { seed: 3, seconds: 12, params: provisionalParams(), postures: POSTURES, silenced: true });
+    const r = runTrial(data, { seed: 3, seconds: 12, params: MECHANICS, postures: POSTURES, silenced: true });
     expect(r.finite).toBe(true);
     for (const v of r.velocity) expect(Math.abs(v)).toBeLessThan(0.01);
   });
 
   it('records aligned samples from 10 s, and postures at 4 Hz', () => {
-    const r = runTrial(data, { seed: 2, seconds: 12, params: provisionalParams(), postures: POSTURES });
+    const r = runTrial(data, { seed: 2, seconds: 12, params: MECHANICS, postures: POSTURES });
     expect(r.finite).toBe(true);
     // Velocity from 10 s to the last sample whose second-long window ends by 12 s: 10.0 to 11.5 s.
     expect(r.velocity.length).toBe(16);
@@ -73,7 +76,7 @@ describe('a trial', () => {
 });
 
 describe('a touched trial', () => {
-  const options = { seed: 2, seconds: 13, params: provisionalParams(), postures: POSTURES };
+  const options = { seed: 2, seconds: 13, params: MECHANICS, postures: POSTURES };
 
   it('is its untouched twin until the touch, and records the receptors each touch reached', () => {
     const plain = runTrial(data, options);
@@ -99,7 +102,7 @@ describe('a touched trial', () => {
     // Touched front and back, then 3 s on: with every synapse cut, no receptor either touch reaches has a way to
     // the muscles, and the integrator's restarts and the voltage solve's sums leave only rounding.
     const apart = (silenced: boolean, seed: number): number => {
-      const make = (): World => new World(data, provisionalParams(), { seed, silenced, posture: POSTURES[seed] });
+      const make = (): World => new World(data, MECHANICS, { seed, silenced, posture: POSTURES[seed] });
       const [plain, touched] = [make(), make()];
       for (let k = 0; k < 2000; k++) {
         if (k === 400) touched.touch(FRONT);
@@ -141,7 +144,7 @@ describe('a touched trial', () => {
 
 describe('a worm in the chemotaxis assay', () => {
   const odour = steadyField('assay');
-  const options = { seed: 4, seconds: 1, params: provisionalParams(), postures: POSTURES, silenced: true, odour };
+  const options = { seed: 4, seconds: 1, params: MECHANICS, postures: POSTURES, silenced: true, odour };
 
   it("starts from its trial's posture with its centroid at the dish's centre", () => {
     const r = runChemotaxis(data, options);

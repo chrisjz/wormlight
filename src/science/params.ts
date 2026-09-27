@@ -3,9 +3,9 @@
 //
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
-// bounds set here before it runs (PLAN.md §7.3). Their values are the last fit's final ones, unrounded,
-// which data/calibration/planned.json records and a test holds them to; their provisional values, which
-// the simulation ran on before calibration, stay beside them (PLAN.md §6.2). A parameter fixed in advance
+// bounds set here before it runs (PLAN.md §7.3). They are track R's model's (PLAN.md §9), whose values stay
+// null until its fit, R's round 1; until then the simulation runs on their provisional values, the planned
+// model's fit carried over, which src/science/planned.ts records (PLAN.md §6.2). A parameter fixed in advance
 // (level 0) either has a value or is set by a stated rule. Every parameter says what new data or research
 // would raise it (spec §1.3).
 
@@ -36,7 +36,7 @@ export interface Param {
   provisional?: number;
 }
 
-export const FREE_PARAMETER_BUDGET = 14;
+export const FREE_PARAMETER_BUDGET = 17;
 const CALIBRATION_TARGETS =
   'undulation frequency, wavelength, speed and the spontaneous reversal rate, by one CMA-ES procedure (PLAN §7.3)';
 
@@ -166,7 +166,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: 0.08342308722948755,
+    value: null,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -175,7 +175,21 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
     bounds: [0, 0.169],
-    provisional: 0,
+    provisional: 0.0834,
+  },
+  gapGainB: {
+    name: 'B-type gap junction gain',
+    symbol: 'κ_gap,B',
+    value: null,
+    unit: '',
+    level: 1,
+    subsystem: 'neural',
+    sources: [],
+    note: 'A gain on every gap junction with a VB or DB neuron on either side, applied before thresholds are set (PLAN §9).',
+    calibratedAgainst: CALIBRATION_TARGETS,
+    upgrade: 'Measured coupling between B-type motor neurons',
+    bounds: [0.1, 1],
+    provisional: 1,
   },
 
   // Sensing (PLAN §4.1, §4.2).
@@ -284,7 +298,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch current gain',
     symbol: 'g_sw',
-    value: 371.2328520506383,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -293,26 +307,40 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Recordings of the head rhythm generator',
     bounds: [20, 400],
-    provisional: 258,
+    provisional: 371,
   },
   oscillatorExcitability: {
-    name: 'Oscillator excitability',
+    name: 'A-type oscillator excitability',
     symbol: 'g_osc',
-    value: 2135.222828203875,
+    value: null,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
     sources: [],
-    note: 'Shared by the A- and B-type oscillators.',
+    note: "The A-types' own; the B-types' is g_osc,B (track R, PLAN §9).",
     calibratedAgainst: CALIBRATION_TARGETS,
-    upgrade: 'A parameterised model of the A- and B-type rhythms',
+    upgrade: 'A parameterised model of the A-type rhythm',
     bounds: [300, 5000],
-    provisional: 798,
+    provisional: 2140,
+  },
+  oscillatorExcitabilityB: {
+    name: 'B-type oscillator excitability',
+    symbol: 'g_osc,B',
+    value: null,
+    unit: 'pS',
+    level: 1,
+    subsystem: 'rhythm',
+    sources: [],
+    note: "Track R splits it from the A-types' g_osc; at 0 the B-types have no oscillator (PLAN §9).",
+    calibratedAgainst: CALIBRATION_TARGETS,
+    upgrade: 'A parameterised model of the B-type rhythm',
+    bounds: [0, 5000],
+    provisional: 2140,
   },
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: 2.5061031374385916,
+    value: null,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -321,12 +349,12 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'A parameterised model of the A- and B-type rhythms',
     bounds: [0.2, 3],
-    provisional: 1.53,
+    provisional: 2.51,
   },
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: -12.882325367708441,
+    value: null,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -335,7 +363,7 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured AVB drive at the onset of B-type oscillation',
     bounds: [-28, 5],
-    provisional: -11.5,
+    provisional: -12.9,
   },
   proprioceptiveReach: {
     name: 'Proprioceptive reach',
@@ -351,7 +379,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: 0.3083730736997604,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -360,37 +388,51 @@ export const PARAMS = {
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Identified stretch receptors and their gain',
     bounds: [0.1, 30],
-    provisional: 16.7,
+    provisional: 0.308,
   },
 
   // Neuromuscular transfer and muscles (PLAN §4.4).
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: 5,
-    unit: 'per EM section',
+    value: null,
+    unit: 'per unit of relative drive',
     level: 1,
     subsystem: 'muscle',
     sources: [],
-    note: '',
+    note: "On drive relative to each muscle's range, track R's rule (PLAN §9).",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: [0.2, 5],
-    provisional: 2.45,
+    bounds: [2, 40],
+    provisional: 22,
   },
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: 3.7377259379130763,
-    unit: 'EM sections',
+    value: null,
+    unit: 'relative drive',
     level: 1,
     subsystem: 'muscle',
     sources: [],
-    note: '',
+    note: "In units of each muscle's range of drive above its rest (PLAN §9).",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured transfer from motor neuron activity to muscle activation',
-    bounds: [0.5, 8],
-    provisional: 3.48,
+    bounds: [-0.3, 0.8],
+    provisional: 0.0642,
+  },
+  smdGain: {
+    name: 'SMD junction gain past the head',
+    symbol: 'κ_SMD',
+    value: null,
+    unit: '',
+    level: 1,
+    subsystem: 'muscle',
+    sources: [],
+    note: "A gain on the SMDs' neuromuscular junctions onto each quadrant's muscles from the ninth on, those starting 0.3 body lengths or more along; Cook et al. extrapolated nearly half the neuromuscular edges, and the data don't mark which (PLAN §9).",
+    calibratedAgainst: CALIBRATION_TARGETS,
+    upgrade: 'Observed, not extrapolated, neuromuscular junctions for the sublateral motor neurons',
+    bounds: [0.1, 1],
+    provisional: 1,
   },
   muscleTimeConstant: {
     name: 'Muscle time constant',

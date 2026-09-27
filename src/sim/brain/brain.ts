@@ -15,10 +15,10 @@ import { ConjugateGradient, type Solve } from './solver.ts';
 // v₀ = 1/(2β) and θ is the drive threshold for B-types and 0 for A-types.
 export interface Oscillators {
   neurons: Int32Array;
-  // θ for each, in mV.
+  // θ for each, in mV, and g_osc for each, in nS: one per class, as track R splits the A- and B-types' (PLAN §9).
   shift: Float64Array;
-  // g_osc in nS and τ_w in s.
-  gain: number;
+  gain: Float64Array;
+  // τ_w in s.
   recovery: number;
 }
 
@@ -262,9 +262,9 @@ export class Brain {
     if (osc) {
       osc.neurons.forEach((i, k) => {
         const x = (v[i] - this.threshold[i] - osc.shift[k]) / v0;
-        const stabilising = osc.gain * Math.max(x * x - 1, 0);
+        const stabilising = osc.gain[k] * Math.max(x * x - 1, 0);
         d[i] += stabilising;
-        b[i] += osc.gain * v0 * (x - (x * x * x) / 3 - this.recovery[k]) + stabilising * v[i];
+        b[i] += osc.gain[k] * v0 * (x - (x * x * x) / 3 - this.recovery[k]) + stabilising * v[i];
       });
     }
     const next = this.next;

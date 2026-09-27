@@ -221,7 +221,7 @@ export function runVariant(original: WormlightData, p: Draw, v: Variant = {}, se
   brain.setOscillators({
     neurons: Int32Array.from(oscillating),
     shift: Float64Array.from(oscillating, (i) => (isB(original, i) ? p.theta : 0)),
-    gain: p.gOsc,
+    gain: new Float64Array(oscillating.length).fill(p.gOsc),
     recovery: p.tauW,
   });
   const bistable = oscillating.flatMap((i, k) => (isB(original, i) && bMode === 'bistable' ? [k] : []));

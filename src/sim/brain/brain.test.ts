@@ -145,7 +145,12 @@ describe('the step', () => {
   it('continues exactly from a snapshot: history, oscillators and noise included', () => {
     const make = (): Brain => {
       const brain = new Brain(three, restThreshold);
-      brain.setOscillators({ neurons: Int32Array.of(0, 2), shift: Float64Array.of(-5, 0), gain: 2, recovery: 0.5 });
+      brain.setOscillators({
+        neurons: Int32Array.of(0, 2),
+        shift: Float64Array.of(-5, 0),
+        gain: Float64Array.of(2, 2),
+        recovery: 0.5,
+      });
       brain.noise = 0.01;
       brain.seed = 4;
       brain.input.set([30, -20, 10]);

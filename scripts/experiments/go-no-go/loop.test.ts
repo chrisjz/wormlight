@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../../src/sim/numerics.ts';
-import { provisionalParams, World, type WorldOptions } from '../../../src/sim/world.ts';
+import { PLANNED } from '../../../src/science/planned.ts';
+import { plannedParams, World, type WorldOptions } from '../../../src/sim/world.ts';
 import { ROOT } from '../../data/sources.ts';
 import { Recorder, runVariant, type Draw, type Metrics, type Variant } from './loop.ts';
 import { draw } from './variants.ts';
@@ -65,7 +66,7 @@ describe('the provisional parameters', () => {
   it("are the planned model's best go/no-go draw, 46, to three significant figures, with the noise off", () => {
     const d = draw(46, false);
     const round = (x: number): number => Number(x.toPrecision(3));
-    expect(provisionalParams()).toEqual({
+    expect(plannedParams(PLANNED.provisional)).toEqual({
       oscillatorGain: round(d.gOsc),
       recoveryTime: round(d.tauW),
       driveThreshold: round(d.theta),

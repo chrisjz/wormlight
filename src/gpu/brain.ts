@@ -16,6 +16,7 @@ import {
   LOOP_SCALARS,
   LOOP_SCALARS_AT,
   MAX_MUSCLES,
+  NM_OFFSET_AT,
   MAX_NEURONS,
   MAX_RODS,
   NEURON_WORDS,
@@ -138,6 +139,7 @@ export class GpuBrain {
     nmWeight: number;
     rodConstants: number;
     segmentConstants: number;
+    nmOffset: number;
   };
   private readonly tolerance: number;
   private readonly maxIterations: number;
@@ -185,12 +187,19 @@ export class GpuBrain {
       nmWeight: weightEnd,
       rodConstants: weightEnd + (loop?.nmWeight.length ?? 0),
       segmentConstants: weightEnd + (loop ? loop.nmWeight.length + loop.rodConstants.length : 0),
+      nmOffset: weightEnd + (loop ? loop.nmWeight.length + loop.rodConstants.length + loop.segmentConstants.length : 0),
     };
     const topology = loop
       ? Uint32Array.from([...this.wiring.topology, ...loop.nmStart, ...loop.nmPre, ...loop.cover])
       : this.wiring.topology;
     const weights = loop
-      ? Float32Array.from([...this.wiring.gapWeight, ...loop.nmWeight, ...loop.rodConstants, ...loop.segmentConstants])
+      ? Float32Array.from([
+          ...this.wiring.gapWeight,
+          ...loop.nmWeight,
+          ...loop.rodConstants,
+          ...loop.segmentConstants,
+          ...loop.nmOffset,
+        ])
       : this.wiring.gapWeight;
     const upload = (data: Uint32Array | Float32Array): GPUBuffer => {
       const b = device.createBuffer({ size: data.byteLength, usage: storage() });
@@ -488,6 +497,7 @@ export class GpuBrain {
           LOOP_SCALARS.map((name) => loop.scalars[name]),
           LOOP_SCALARS_AT,
         );
+        new Uint32Array(words).set([at.nmOffset], NM_OFFSET_AT);
       }
       new Float32Array(words).set(
         [
@@ -499,7 +509,7 @@ export class GpuBrain {
           network.decay,
           network.slope,
           this.noise,
-          oscillators?.gain ?? 0,
+          0, // each oscillator's gain is its neuron's own (NeuronConstants)
           oscillators?.recovery ?? 1,
           this.tolerance,
         ],
@@ -680,7 +690,7 @@ export class GpuBrain {
     const oscillators = this.oscillators;
     oscillators?.neurons.forEach((i, k) => {
       f[NEURON_WORDS * i + 1] = oscillators.shift[k];
-      f[NEURON_WORDS * i + 2] = 1;
+      f[NEURON_WORDS * i + 2] = oscillators.gain[k];
     });
     this.device.queue.writeBuffer(this.neurons, 0, bytes);
   }

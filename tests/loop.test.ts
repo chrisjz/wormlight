@@ -10,7 +10,16 @@ import { hash } from '../src/sim/brain/rng.ts';
 import { Muscles } from '../src/sim/muscles.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean } from '../src/sim/proprio.ts';
-import { calibratedParams, currentParams, isCalibrated, loopParams, World, type LoopParams } from '../src/sim/world.ts';
+import {
+  calibratedParams,
+  currentParams,
+  isCalibrated,
+  loopParams,
+  plannedParams,
+  provisionalParams,
+  World,
+  type LoopParams,
+} from '../src/sim/world.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -126,10 +135,11 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it('runs on the calibrated parameters once calibration has set them', () => {
-    expect(isCalibrated()).toBe(true);
-    expect(currentParams()).toEqual(calibratedParams());
-    expect(calibratedParams().oscillatorGain).toBeCloseTo(PARAMS.oscillatorExcitability.value / 1000, 15);
+  it("runs track R's model on its provisional values until R's fit calibrates them (PLAN §9)", () => {
+    expect(isCalibrated()).toBe(false);
+    expect(() => calibratedParams()).toThrow(/not calibrated/);
+    expect(currentParams()).toEqual(provisionalParams());
+    expect(currentParams()).toMatchObject({ relativeDrive: true, gapGainB: 1, smdGain: 1, oscillatorGainB: 2.14 });
   });
 
   it('feeds curvature to the motor neurons with the sign of their side', () => {
@@ -176,7 +186,8 @@ describe('the world', () => {
     expect([...shifts.keys()].sort()).toEqual([...types('A'), ...types('B')].sort());
     for (const name of types('A')) expect(shifts.get(name)).toBe(0);
     for (const name of types('B')) expect(shifts.get(name)).toBe(TRIAL.driveThreshold);
-    expect([osc.gain, osc.recovery]).toEqual([TRIAL.oscillatorGain, TRIAL.recoveryTime]);
+    expect(osc.gain.every((g) => g === TRIAL.oscillatorGain)).toBe(true);
+    expect(osc.recovery).toBe(TRIAL.recoveryTime);
   });
 
   it("matches its layers composed by hand in the plan's order, restarts included", () => {
@@ -191,7 +202,7 @@ describe('the world', () => {
     brain.setOscillators({
       neurons: Int32Array.from(oscillating),
       shift: Float64Array.from(oscillating, (i) => (data.neurons[i].oscillator === 'B' ? TRIAL.driveThreshold : 0)),
-      gain: TRIAL.oscillatorGain,
+      gain: new Float64Array(oscillating.length).fill(TRIAL.oscillatorGain),
       recovery: TRIAL.recoveryTime,
     });
     const body = new Body(boyleBody());
@@ -351,9 +362,9 @@ describe('the world', () => {
     expect(world.brain.threshold).toEqual(equilibrium(other, midpointActivation(other)));
   });
 
-  it("maps the registry's units onto the loop's", () => {
+  it("maps the registry's units onto the loop's, for either model", () => {
     expect(
-      loopParams({
+      plannedParams({
         oscillatorExcitability: 1500,
         oscillatorRecoveryTime: 2,
         oscillatorDriveThreshold: -6,
@@ -373,6 +384,21 @@ describe('the world', () => {
       neuromuscularThreshold: 4,
       noise: 0.01,
     });
+    expect(
+      loopParams({
+        oscillatorExcitability: 1500,
+        oscillatorExcitabilityB: 500,
+        oscillatorRecoveryTime: 2,
+        oscillatorDriveThreshold: -6,
+        headSwitchGain: 40,
+        proprioceptiveGain: 7,
+        gapGainB: 0.3,
+        neuromuscularGain: 20,
+        neuromuscularThreshold: 0.1,
+        smdGain: 0.5,
+        noiseIntensity: 0.01,
+      }),
+    ).toMatchObject({ oscillatorGain: 1.5, oscillatorGainB: 0.5, gapGainB: 0.3, smdGain: 0.5, relativeDrive: true });
     // The registry's units are the ones loopParams assumes.
     expect([PARAMS.oscillatorExcitability.unit, PARAMS.headSwitchGain.unit, PARAMS.proprioceptiveGain.unit]).toEqual([
       'pS',

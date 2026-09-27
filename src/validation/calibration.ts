@@ -13,6 +13,9 @@ export type Values = Record<CalibratedId, number>;
 // go/no-go drew it.
 export const MAPPING: Record<CalibratedId, 'log' | 'linear'> = {
   oscillatorExcitability: 'log',
+  oscillatorExcitabilityB: 'linear',
+  gapGainB: 'log',
+  smdGain: 'log',
   oscillatorRecoveryTime: 'log',
   oscillatorDriveThreshold: 'linear',
   headSwitchGain: 'log',
