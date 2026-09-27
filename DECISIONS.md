@@ -926,3 +926,15 @@ Three choices it left open were put to the maintainer and settled before any sen
 - **Safari's long runs: not yet done**, as the maintainer decided. The script's first attempt stopped after five minutes of the long runs, because Node's `fetch` gives up waiting for a response's headers after five minutes; the driver now uses `node:http`, which doesn't. The second attempt stalled: for the rest of the runner's hour, Safari's page and GPU processes used no CPU. The display hadn't slept; the likeliest cause, unconfirmed, is that Safari's automation window was covered while the maintainer worked, and Safari paused a page it wasn't showing. Safari was already slow in that session: parity took 34 s, against 9.3 s in the first run, and the CPU reference ran at 20.4× real time, against 48.8× in Chrome. The next attempt should keep the window uncovered, the display awake and the Mac otherwise idle.
 
 **Status.** Built and revised after review. GPU parity passes in Chrome, the long runs included, and on CI's SwiftShader. In Safari it fails the one state above, and the long runs are not yet done.
+
+## 2026-09-27 — Touch
+
+**Decision.** Milestone 4's third part is touch (PLAN §4.2), on the CPU and the GPU alike, with a way to tap the worm in the app. PLAN already fixes where a tap acts, the receptive fields from the c302 morphologies, and how strong it is: a 500 ms step holding each receptor 10 mV above rest, its current computed once from the receptor's input conductance in the intact wiring. That linear estimate holds: on the connectome alone, each receptor's current raises it 10.02 to 10.12 mV at steady state, and within the 500 ms.
+
+Three choices PLAN left open were put to the maintainer and settled before any touch ran:
+
+- **Repeated taps.** A receptor's stimulus is on or off, never stronger: a tap turns it on for 500 ms from that step, so a second tap on a receptor already stimulated restarts its 500 ms. Considered: ignoring taps on a receptor while it is stimulated, and adding each tap's step, which would drive a receptor 20 mV or more above rest, beyond the stimulus PLAN fixes.
+- **In the app.** A click on the worm's body without dragging taps its nearest point; "Touch front" and "Touch back" buttons tap the middle of the ALM and PLM fields, s = 0.2 and 0.8, so touch works by keyboard and screen reader too; a brief ring marks each tap. Considered: tapping only.
+- **GPU parity for touch.** The GPU times each pulse itself, so both sides switch the current on and off at the same step and restart BDF2 there, as at the head switch. Under the loop's thresholds, unchanged: copies of the trial values' states with an anterior and a posterior tap starting at the state, graded one step and one second, and an API check that a pulse ends at its 200th step on both sides. Considered: the API check alone.
+
+**Status.** Set before any touch ran; built next.
