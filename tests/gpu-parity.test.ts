@@ -27,7 +27,7 @@ import {
 } from '../src/gpu/parityCases.ts';
 import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
 import { awcLayout, checkOdour, checkRing, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
-import { World } from '../src/sim/world.ts';
+import { currentParams, World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
 import { TOUCH_STEPS } from '../src/sim/touch.ts';
 import { readJson } from './checks.ts';
@@ -150,6 +150,17 @@ describe("the loop's parity", () => {
     // The muscles aren't pinned off or on in relative units: their activations spread.
     const a = cases[cases.length - 1].state.muscles;
     expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.05);
+  });
+
+  it("includes the values the app runs, the registry's, whatever a fit sets", () => {
+    const registry = LOOP_SETUPS.find((s) => s.name === 'registry');
+    if (!registry) throw new Error('no registry setup');
+    expect(registry.params).toEqual(currentParams());
+    // Its oscillators are the fit's: a class at gain 0 has none.
+    const world = cpuWorld(data, loopCases(data, registry)[1].state, undefined, registry);
+    const withB = (currentParams().oscillatorGainB ?? 1) > 0;
+    const expected = data.neurons.filter((n) => n.oscillator === 'A' || (withB && n.oscillator === 'B'));
+    expect(world.brain.oscillators?.neurons).toHaveLength(expected.length);
   });
 
   it("puts every world in the assay's odour field, with each AWC ON in some, and T above and below the odour", () => {

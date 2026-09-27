@@ -5,22 +5,17 @@ import { emptySums } from '../../src/validation/posture.ts';
 import { PARAMS } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
+import { formatNumber } from '../docs/page.ts';
 import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, scientific, shares } from './report.ts';
 import { parseArgs } from './run.ts';
 
 const info = { date: '2026-09-26', commit: 'abc1234', calibrated: false, trials: 1, seconds: 70 };
 
-// The registry as it was before R's fit, its calibrated values unset, for the length of `run`.
-function asIfUncalibrated<T>(run: () => T): T {
-  const registry = PARAMS as unknown as Record<string, { value: number | null }>;
-  const values = CALIBRATED.map((id) => registry[id].value);
-  for (const id of CALIBRATED) registry[id].value = null;
-  try {
-    return run();
-  } finally {
-    CALIBRATED.forEach((id, k) => (registry[id].value = values[k]));
-  }
-}
+// The registry with its calibrated values unset, as before a fit.
+const uncalibrated = { ...PARAMS, ...Object.fromEntries(CALIBRATED.map((id) => [id, { ...PARAMS[id], value: null }])) };
+// A calibrated value as the report shows it, to three significant figures.
+const shown = (id: (typeof CALIBRATED)[number]): string =>
+  formatNumber(Number((PARAMS[id].value as number).toPrecision(3)));
 // A trial that backs up for 2 s of its 60 measured, then lies still.
 const velocity = [...Array<number>(20).fill(-0.05), ...Array<number>(580).fill(0)];
 const zeros = velocity.map(() => 0);
@@ -86,18 +81,20 @@ describe('the harness report', () => {
   });
 
   it('names the parameters it ran on: the calibrated, to three significant figures, or the provisional', () => {
-    // Track R's model, uncalibrated until its fit (PLAN §9): its provisional values.
+    // Track R's model's provisional values, where its fit started (PLAN §9).
     expect(parameterText(false)).toContain('the provisional parameters, not calibrated (PLAN §6.2)');
     expect(parameterText(false)).toContain('g_osc = 2140 pS');
     expect(parameterText(false)).toContain('g_osc,B = 2140 pS');
     expect(parameterText(false)).toContain('κ_gap,B = 1, g_nmj = 22 per unit of relative drive');
     expect(parameterText(false)).toContain('σ_n = 0.0834 pA·√s');
-    asIfUncalibrated(() => expect(() => parameterText(true)).toThrow(/aren't calibrated/));
+    expect(() => parameterText(true, uncalibrated)).toThrow(/aren't calibrated/);
     // R's fit, to three significant figures.
     const calibrated = parameterText(true);
     expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');
-    expect(calibrated).toContain('g_osc = 5000 pS, g_osc,B = 0 pS');
-    expect(calibrated).toContain('θ_nmj = −0.172 relative drive');
+    expect(calibrated).toContain(
+      `g_osc = ${shown('oscillatorExcitability')} pS, g_osc,B = ${shown('oscillatorExcitabilityB')} pS`,
+    );
+    expect(calibrated).toContain(`θ_nmj = ${shown('neuromuscularThreshold')} relative drive`);
   });
 
   it("writes checkpoint 0's verdict, each clause's, and its backward activity", () => {

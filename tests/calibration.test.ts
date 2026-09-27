@@ -7,13 +7,23 @@ import { describe, expect, it } from 'vitest';
 import { PARAMS, type Param } from '../src/science/params.ts';
 import { PLANNED } from '../src/science/planned.ts';
 import { CALIBRATED, isCalibrated } from '../src/sim/world.ts';
+import { CALIBRATION, ERROR_CAP, MAPPING, TARGETS, provisionalValues } from '../src/validation/calibration.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { readJson } from './checks.ts';
 
 interface Record {
   model: string;
+  commit: string;
+  complete: boolean;
+  budget: number;
+  calibration: unknown;
+  start: { [id: string]: number };
+  mapping: unknown;
+  targets: unknown;
+  errorCap: number;
   bounds: { [id: string]: [number, number] };
-  final: { values: { [id: string]: number } };
+  checked: { value: number; from: string }[];
+  final: { values: { [id: string]: number }; value: number; from: string };
 }
 
 describe("the planned model's calibrated values", () => {
@@ -37,5 +47,21 @@ describe("track R's calibrated values", () => {
       expect(p.value, id).toBe(fit.final.values[id]);
       expect(p.bounds, id).toEqual(fit.bounds[id]);
     }
+  });
+
+  it('was a whole run from a clean commit, under the settings the code has now', () => {
+    if (!isCalibrated()) return;
+    const fit = readJson<Record>('data/calibration/r1.json');
+    expect(fit.complete).toBe(true);
+    expect(fit.budget).toBe(CALIBRATION.budget);
+    expect(fit.commit).not.toMatch(/uncommitted/);
+    // So the committed code can run it again: the same procedure, start, search space and objective.
+    expect(fit.calibration).toEqual(JSON.parse(JSON.stringify(CALIBRATION)));
+    expect(fit.start).toEqual(provisionalValues());
+    expect(fit.mapping).toEqual(MAPPING);
+    expect(fit.targets).toEqual(TARGETS);
+    expect(fit.errorCap).toBe(ERROR_CAP);
+    // Its final pick is the lowest on the fresh seeds.
+    expect(fit.final.value).toBe(Math.min(...fit.checked.map((c) => c.value)));
   });
 });

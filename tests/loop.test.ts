@@ -138,9 +138,11 @@ describe('the world', () => {
   it("runs track R's model on its fit's values (PLAN §9), its provisional values kept beside them", () => {
     expect(isCalibrated()).toBe(true);
     expect(currentParams()).toEqual(calibratedParams());
-    // The fit left the B-types without an oscillator.
-    expect(currentParams()).toMatchObject({ relativeDrive: true, oscillatorGainB: 0, oscillatorGain: 5 });
-    expect(new World(data, currentParams()).brain.oscillators?.neurons).toHaveLength(21);
+    expect(currentParams()).toMatchObject({
+      relativeDrive: true,
+      oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,
+      oscillatorGainB: (PARAMS.oscillatorExcitabilityB.value as number) / 1000,
+    });
     expect(provisionalParams()).toMatchObject({ gapGainB: 1, smdGain: 1, oscillatorGainB: 2.14 });
   });
 
