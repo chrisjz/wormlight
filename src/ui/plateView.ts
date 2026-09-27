@@ -1,10 +1,11 @@
 // The plate view (spec §5, §6): the worm on a 10 cm agar dish, its whole loop, brain and body, stepped on the
 // GPU and drawn from the GPU's own body buffer. The camera follows the worm at body scale, with the whole
 // dish in an inset. The worm starts straight at the dish's centre, heading where its seed says.
-// - Mouse: drag to pan, scroll to zoom, double-click to follow the worm again.
-// - Touch: drag to pan, pinch to zoom, double-tap to follow.
+// - Mouse: click the worm to touch it, drag to pan, scroll to zoom, double-click to follow the worm again.
+// - Touch: tap the worm to touch it, drag to pan, pinch to zoom, double-tap to follow.
 // - Keyboard, with the plate focused: space pauses and resumes, arrows pan, + and − zoom, F follows the worm,
-//   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser.
+//   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser. "Touch front" and "Touch
+//   back" touch the worm from anywhere (PLAN §4.2).
 
 import type { WormlightData } from '../data/schema.ts';
 import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
@@ -12,9 +13,11 @@ import { GpuWorld } from '../gpu/world.ts';
 import { PlateRenderer, type PlateFrame, type PlateScene } from '../render/plate.ts';
 import { halfExtent, metresPerPixel, scaleBar, zoomAbout, type PlateCamera } from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
+import { between } from '../sim/body/body.ts';
 import { LAWN_RADIUS, SPOT, steadyField } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
+import { BACK, covers, FRONT } from '../sim/touch.ts';
 import { Pacer, Rates } from './pacing.ts';
 import type { PlateParams } from './params.ts';
 import { plateScene } from './scene.ts';
@@ -94,8 +97,9 @@ export async function startPlate(
   canvas.setAttribute('role', 'img');
   canvas.setAttribute(
     'aria-label',
-    'The worm on its agar dish, seen from above. With it focused, space pauses and resumes, the arrow keys ' +
-      'pan, plus and minus zoom, F or a double-click follows the worm, and Home resets the view.',
+    'The worm on its agar dish, seen from above. Clicking the worm touches it. With the dish focused, space ' +
+      'pauses and resumes, the arrow keys pan, plus and minus zoom, F or a double-click follows the worm, and ' +
+      'Home resets the view.',
   );
 
   let seed = params.seed ?? randomSeed();
@@ -164,11 +168,17 @@ export async function startPlate(
   });
   const restart = button('plate-button', 'Restart', 'Restart this worm');
   const fresh = button('plate-button', 'New worm', 'Start a new worm with a new seed');
+  const touches = el('div', 'plate-touches');
+  touches.setAttribute('role', 'group');
+  touches.setAttribute('aria-label', 'Touch');
+  const touchFront = button('plate-button', 'Touch front', 'Touch the front of the worm, where ALM and AVM sense');
+  const touchBack = button('plate-button', 'Touch back', 'Touch the back of the worm, where PLM senses');
+  touches.append(touchFront, touchBack);
   const time = el('span', 'plate-time');
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
   const seedText = el('span', 'plate-seed');
-  controls.append(play, speeds, restart, fresh, time, seedText);
+  controls.append(play, speeds, restart, fresh, touches, time, seedText);
 
   const follow = button('plate-follow', 'Follow the worm');
   follow.hidden = true;
@@ -211,6 +221,9 @@ export async function startPlate(
   let camera: PlateCamera = { centre: params.centre ?? [0, 0], span: homeSpan };
   let following = params.centre === null;
   let centroid: [number, number] = [0, 0];
+  // The rods' centres as last read back, [x0, y0, x1, y1, …], once this run has had a reading.
+  const bodyAt = new Float64Array(2 * rods);
+  let bodyKnown = false;
   const points: [number, number][] = [];
   let lastTrail = -Infinity;
   let trailChanged = true;
@@ -250,6 +263,7 @@ export async function startPlate(
     lastTrail = -Infinity;
     trailChanged = true;
     centroid = [0, 0];
+    bodyKnown = false;
     if (following) camera = { ...camera, centre: [0, 0] };
     pacer.reset();
     showSeed();
@@ -311,10 +325,57 @@ export async function startPlate(
     setFollowing(false);
   };
 
-  // Pointers: one pans once it has moved past the slop, so a click or a tap only focuses; two pinch to zoom.
+  // Touching the worm (PLAN §4.2): a tap at body coordinate s, marked by a ring where it lands and announced
+  // with the receptors it reaches.
+  const touchAt = (s: number): void => {
+    const count = gpu.touch(s);
+    const reached = [...new Set(gpu.layout.touch.filter((r) => covers(r, s)).map((r) => r.name.replace(/[LR]$/, '')))];
+    live.textContent =
+      `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
+      `${count > 0 ? reached.join(', ') : 'no touch receptor there'}.`;
+    if (!bodyKnown) return;
+    const [k, f] = between(s, rods - 1);
+    const wx = bodyAt[2 * k] + f * (bodyAt[2 * k + 2] - bodyAt[2 * k]);
+    const wy = bodyAt[2 * k + 1] + f * (bodyAt[2 * k + 3] - bodyAt[2 * k + 1]);
+    const [w, h] = size();
+    const m = metresPerPixel(camera, w, h);
+    const mark = el('span', 'plate-ring');
+    mark.setAttribute('aria-hidden', 'true');
+    mark.style.left = `${canvas.offsetLeft + w / 2 + (wx - camera.centre[0]) / m}px`;
+    mark.style.top = `${canvas.offsetTop + h / 2 - (wy - camera.centre[1]) / m}px`;
+    pane.append(mark);
+    setTimeout(() => mark.remove(), 800);
+  };
+  touchFront.addEventListener('click', () => touchAt(FRONT));
+  touchBack.addEventListener('click', () => touchAt(BACK));
+  // A click or tap on the body touches its nearest point: within the body's radius there, or the pointer's slop
+  // outside it, of the midline read back a frame or two ago.
+  const tapAt = (x: number, y: number, slop: number): void => {
+    if (!bodyKnown) return;
+    const [w, h] = size();
+    const m = metresPerPixel(camera, w, h);
+    const px = camera.centre[0] + (x - w / 2) * m;
+    const py = camera.centre[1] - (y - h / 2) * m;
+    let best = { distance: Infinity, s: 0, radius: 0 };
+    for (let i = 0; i + 1 < rods; i++) {
+      const [ax, ay] = [bodyAt[2 * i], bodyAt[2 * i + 1]];
+      const [dx, dy] = [bodyAt[2 * i + 2] - ax, bodyAt[2 * i + 3] - ay];
+      const t = Math.min(Math.max(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0), 1);
+      const distance = Math.hypot(px - ax - t * dx, py - ay - t * dy);
+      if (distance < best.distance) {
+        best = { distance, s: (i + t) / (rods - 1), radius: radii[i] + t * (radii[i + 1] - radii[i]) };
+      }
+    }
+    if (best.distance <= best.radius + slop * m) touchAt(best.s);
+  };
+
+  // Pointers: one pans once it has moved past the slop, so a click or a tap on the worm touches it and elsewhere
+  // only focuses; two pinch to zoom.
   const pointers = new Map<number, { x: number; y: number; startX: number; startY: number; slop: number }>();
   let dragging = false;
   let pinch: { span: number } | null = null;
+  // Whether the gesture under way has had two pointers down, so its release is no tap.
+  let pinched = false;
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture(e.pointerId);
@@ -323,12 +384,16 @@ export async function startPlate(
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = { span: Math.hypot(a.x - b.x, a.y - b.y) };
+      pinched = true;
     }
   });
   const release = (e: PointerEvent): void => {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
-    if (pointers.size === 0) dragging = false;
+    if (pointers.size === 0) {
+      dragging = false;
+      pinched = false;
+    }
     canvas.style.cursor = '';
   };
   canvas.addEventListener('pointermove', (e) => {
@@ -358,7 +423,13 @@ export async function startPlate(
     canvas.style.cursor = 'grabbing';
     pan(fx, fy);
   });
-  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointerup', (e) => {
+    const pointer = pointers.get(e.pointerId);
+    const tap =
+      pointer && pointers.size === 1 && !dragging && !pinched && (e.pointerType !== 'mouse' || e.button === 0);
+    release(e);
+    if (tap) tapAt(e.offsetX, e.offsetY, pointer.slop);
+  });
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('lostpointercapture', (e) => {
     if (pointers.has(e.pointerId)) release(e);
@@ -437,8 +508,9 @@ export async function startPlate(
     };
   };
 
-  // The rods' centres, read back a frame or two behind for the camera and the inset.
+  // The rods' centres, read back a frame or two behind for the camera, the inset and touching the worm.
   const bytes = 4 * ROD_WORDS * rods;
+  const reading = new Float64Array(2 * rods);
   const staging = Array.from({ length: STAGING }, () => ({
     buffer: device.createBuffer({ size: bytes, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }),
     busy: false,
@@ -461,13 +533,17 @@ export async function startPlate(
         if (from === run) {
           const words = new Float32Array(slot.buffer.getMappedRange());
           for (let i = 0; i < rods; i++) {
-            x += words[ROD_WORDS * i] + words[ROD_WORDS * i + 1];
-            y += words[ROD_WORDS * i + 2] + words[ROD_WORDS * i + 3];
+            reading[2 * i] = words[ROD_WORDS * i] + words[ROD_WORDS * i + 1];
+            reading[2 * i + 1] = words[ROD_WORDS * i + 2] + words[ROD_WORDS * i + 3];
+            x += reading[2 * i];
+            y += reading[2 * i + 1];
           }
         }
         slot.buffer.unmap();
         slot.busy = false;
         if (from !== run || !Number.isFinite(x + y)) return;
+        bodyAt.set(reading);
+        bodyKnown = true;
         centroid = [x / rods, y / rods];
         const t = at * NEURAL_STEP;
         if (t - lastTrail >= TRAIL_EVERY) {
