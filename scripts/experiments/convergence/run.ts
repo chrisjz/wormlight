@@ -48,7 +48,9 @@ function buildTree(step: number): void {
   const dir = tree(step);
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(join(dir, 'data'), { recursive: true });
-  execSync(`git archive HEAD src scripts public/data | tar -x -C ${JSON.stringify(dir)}`, { cwd: ROOT });
+  execSync(`git archive HEAD src scripts public/data data/sources.json | tar -x -C ${JSON.stringify(dir)}`, {
+    cwd: ROOT,
+  });
   symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
   symlinkSync(join(ROOT, 'data', 'cache'), join(dir, 'data', 'cache'));
   const numerics = join(dir, 'src', 'sim', 'numerics.ts');
