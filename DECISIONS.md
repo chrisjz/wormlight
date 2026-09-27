@@ -1516,3 +1516,66 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 **Then.** The results, and the fixes they leave open, go to the maintainer: a smaller step, a stable treatment of the oscillator, or a bound on g_osc. The chosen fix is set as a rule before R's fit runs again.
 
 **Status.** Set before the study runs.
+
+## 2026-09-28 — The convergence study: the A-types' oscillators carry the step
+
+**Run** with `node scripts/experiments/convergence/run.ts`: its designed parts at `5ee256b`, 576 trials in 9 minutes on 18 cores, and a third part, locating the cause, at `a964805`, with the model's code unchanged between them. Its summary is written to `harness-out/convergence/summary.json`.
+
+**The oscillator alone.**
+
+- **Held where it cycles,** its period at 2.5 ms is within 0.8% of RK4's for every gain and τ_w, and converges at first order. Its voltage's course over three cycles is 7–12% off at 2.5 ms, its fast jumps falling a little early or late, and 3–5% off at 0.3125 ms.
+- **The noise measure, as designed, can't converge.** It counts upward crossings of x = 0, and a voltage driven by white noise crosses back and forth near 0 more often the finer the step, without limit: at 0.3 nS, 571 a minute at 2.5 ms and 3,588 at 0.3125 ms. That is a flaw in the design, and its numbers aren't used.
+
+**Both fits in the loop,** on checkpoint 1's 20 trials, with the objective on the 16 fresh seeds. No solve failed to converge.
+
+| Fit, noise      | Step (ms) | Grade       | 20 s bouts | f (Hz) | λ    | v     | Reversals a minute | Objective |
+| --------------- | --------- | ----------- | ---------- | ------ | ---- | ----- | ------------------ | --------- |
+| R's, off        | 2.5       | **Fail**    | 75%        | 0.136  | 1.08 | 0.081 | 3.53               | 2.08      |
+| R's, off        | 1.25      | **Partial** | 100%       | 0.150  | 0.98 | 0.078 | 0.74               | 1.33      |
+| R's, off        | 0.625     | **Fail**    | 0%         | 0.153  | 0.96 | 0.081 | 0.11               | 1.69      |
+| R's, off        | 0.3125    | **Fail**    | 0%         | 0.162  | 0.90 | 0.082 | 0.11               | 1.64      |
+| R's, fitted     | 2.5       | **Fail**    | 40%        | 0.232  | 0.59 | 0.063 | 2.14               | 0.59      |
+| R's, fitted     | 1.25      | **Partial** | 85%        | 0.229  | 0.60 | 0.064 | 0.38               | 1.28      |
+| R's, fitted     | 0.625     | **Partial** | 100%       | 0.185  | 0.73 | 0.072 | 0.05               | 1.56      |
+| R's, fitted     | 0.3125    | **Partial** | 100%       | 0.202  | 0.66 | 0.065 | 0                  | 1.63      |
+| Planned, off    | 2.5       | **Fail**    | 0%         | 0.196  | 0.52 | 0.031 | 4.68               | 3.23      |
+| Planned, off    | 1.25      | **Fail**    | 0%         | 0.280  | 0.36 | 0.030 | 3.89               | 2.63      |
+| Planned, off    | 0.625     | **Fail**    | 0%         | 0.325  | 0.32 | 0.029 | 4.32               | 2.75      |
+| Planned, off    | 0.3125    | **Fail**    | 0%         | 0.342  | 0.32 | 0.029 | 4.30               | 2.65      |
+| Planned, fitted | 2.5       | **Fail**    | 0%         | 0.185  | 0.58 | 0.030 | 2.00               | 0.87      |
+| Planned, fitted | 1.25      | **Fail**    | 0%         | 0.194  | 0.56 | 0.028 | 4.68               | 3.12      |
+| Planned, fitted | 0.625     | **Fail**    | 0%         | 0.230  | 0.44 | 0.030 | 2.82               | 1.20      |
+| Planned, fitted | 0.3125    | **Fail**    | 0%         | 0.244  | 0.40 | 0.029 | 3.31               | 1.67      |
+
+- **How much of that is chance.** Resampling the 20 trials, R's fit without noise moves by only 0.4% in frequency and wavelength, since its trials barely differ. With its noise it moves by 2–4%. The planned fit moves by 5–9%, with or without noise.
+- **Neither fit converges by the criterion,** at any step down to 0.3125 ms. R's fit without noise still moves by 5% in frequency and 7% in wavelength between 0.625 and 0.3125 ms, far beyond its chance. Its bout clause goes from 75% to 100% to 0% as the step shrinks: below 1.25 ms, without noise, its runs end regularly at 15.5 s, so no trial reaches 20 s.
+- **At 2.5 ms, R's fit's reversals are made by the step, noise or not:** 3.53, 0.74, 0.11 and 0.11 a minute without noise. Its objective on the fresh seeds rises with them gone, from 0.59 at 2.5 ms to between 1.28 and 1.63 below.
+
+**The cause,** added after the designed runs, on seeds 1 to 8. R's fit, with its A-types lesioned or their g_osc lowered, at 2.5 and 0.625 ms:
+
+| Variant of R's fit     | Noise  | Step (ms) | Bouts | v      | Reversals a minute |
+| ---------------------- | ------ | --------- | ----- | ------ | ------------------ |
+| A-types lesioned       | off    | 2.5       | 8     | 0.0330 | 0                  |
+| A-types lesioned       | off    | 0.625     | 8     | 0.0330 | 0                  |
+| A-types' g_osc 0.4 nS  | off    | 2.5       | 0     | 0.0020 | 11.02              |
+| A-types' g_osc 0.4 nS  | off    | 0.625     | 0     | 0.0019 | 11.02              |
+| A-types' g_osc 1 nS    | off    | 2.5       | 0     | 0.0023 | 11.09              |
+| A-types' g_osc 1 nS    | off    | 0.625     | 0     | 0.0024 | 11.09              |
+| A-types' g_osc 1 nS    | fitted | 2.5       | 0     | 0.0028 | 10.74              |
+| A-types' g_osc 1 nS    | fitted | 0.625     | 0     | 0.0027 | 10.68              |
+| A-types' g_osc 2.14 nS | off    | 2.5       | 0     | 0.0057 | 10.13              |
+| A-types' g_osc 2.14 nS | off    | 0.625     | 1     | 0.0520 | 10.06              |
+
+- **The rest of the loop is converged at 2.5 ms.** With the A-types lesioned and the noise off, R's fit gives the same measures at both steps, to every figure shown.
+- **The A-types' oscillators are resolved at 2.5 ms up to 1 nS,** whose fast time scale, C/g_osc, is 1 ms. At 0.4 and 1 nS the loop gives the same results at both steps, with or without noise. At 2.14 nS, 0.47 ms, it doesn't, and at R's 5 nS, 0.2 ms, it doesn't either.
+- **At those lower gains,** with the fit's other values, the worm doesn't crawl and reverses about 11 times a minute.
+
+**Cost.** On one CPU core the loop runs at 33.6, 18.2, 9.9 and 5.4 times real time at the four steps. The GPU's cost per step doesn't depend on the step, so its 25× at 2.5 ms would be about 12×, 6× and 3×. The app's 10× target survives only at 1.25 ms or above.
+
+**What it leaves open,** for the maintainer:
+
+- a bound on both oscillator gains at 1 nS, which 2.5 ms resolves, and R's fit run again within it;
+- an accurate treatment of the oscillator at high gain, on the CPU and the GPU with parity, shown to converge, then the fit run again within the bounds as they are;
+- a smaller step, which no step down to 0.3125 ms makes converge at R's gains, and which below 1.25 ms fails the app's 10× target.
+
+**Status.** Run; the fix is the maintainer's to choose.
