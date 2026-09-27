@@ -1492,7 +1492,7 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 - **GPU parity** gains a setup on the registry's own values, so whatever a fit sets is checked on the GPU. On R's fit its 22 checks pass in Chrome, none ungraded.
 - **The app** stops saying what the fit made untrue.
   - The inspector calls a B-type an oscillator only when the parameters give it one.
-  - The notice says the worm crawls in bouts, slowly, and that how well depends on the time step. The plate views' baselines come from CI's captures.
+  - The notice says the worm crawls in bouts, slowly, and that how well depends on the time step. It needed no new baselines, contrary to what the decision above expected: the visual tests capture each pane's canvas alone, and on CI all nine views match their baselines exactly.
 - **The ledger's caveats** say the B-types run without oscillators, and that the A-types' reversals depend on the step. The fidelity page counts the values on a bound instead of naming a number.
 - **The tests** read the fit's values from the registry instead of pinning them, and give the report a stand-in registry instead of changing the real one. They also hold the committed fit to the settings the code has now: its procedure, start, search space, objective and a clean commit.
 
