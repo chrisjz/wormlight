@@ -438,6 +438,7 @@ export const COMPONENTS: readonly Component[] = [
         detail:
           'it relaxes as e^(−t/τ) to K(1 − e^(−C/K)), starts adapted to the odour at the nose, and each side is ON for about half the seeds',
       },
+      { check: 'checkpoint0', detail: 'no chemotaxis without the network' },
       { check: 'checkpoint4' },
     ],
   },
@@ -454,6 +455,7 @@ export const COMPONENTS: readonly Component[] = [
         check: 'unit',
         detail: 'bounded by g_AWC, the sign of T − C, exactly g_AWC when the odour is removed, into AWC-ON alone',
       },
+      { check: 'checkpoint0', detail: 'no chemotaxis without the network' },
       { check: 'checkpoint4' },
     ],
   },
@@ -468,6 +470,7 @@ export const COMPONENTS: readonly Component[] = [
     sources: [],
     testedBy: [
       { check: 'unit', detail: "each side's gain, recomputed from the connectome, is the one the simulation uses" },
+      { check: 'checkpoint0', detail: 'no chemotaxis without the network' },
       { check: 'checkpoint4' },
     ],
   },
@@ -482,6 +485,7 @@ export const COMPONENTS: readonly Component[] = [
     testedBy: [
       { check: 'unit', detail: "AWC-ON reads the odour at its dendrite's tip, between the first two rods" },
       { check: 'unit', detail: 'a tap stimulates exactly the touch receptors whose fields cover it' },
+      { check: 'checkpoint0', detail: 'no touch reflex or chemotaxis without the network' },
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
     ],
@@ -501,6 +505,7 @@ export const COMPONENTS: readonly Component[] = [
         detail:
           "each set's currents hold all its receptors 10 mV up together, for exactly 200 steps, restarting the integrator whenever a current changes",
       },
+      { check: 'checkpoint0', detail: 'no touch reflex without the network' },
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
     ],

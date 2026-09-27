@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { equivalence, incompleteBeta, spreadRatio, studentCdf } from './stats.ts';
+import { equivalence, fisherGreater, incompleteBeta, signedRankGreater, spreadRatio, studentCdf } from './stats.ts';
 
 describe("Student's t", () => {
   it('matches the tables', () => {
@@ -49,5 +49,64 @@ describe('the F test of two spreads', () => {
   it('refuses samples too small to have a spread', () => {
     expect(() => spreadRatio([1], [1, 2])).toThrow(/two values/);
     expect(() => equivalence([1, 2], [3], 0.05)).toThrow(/two values/);
+  });
+});
+
+// Reference p-values from SciPy 1.18.1: stats.fisher_exact([[a, n − a], [b, m − b]], alternative='greater') and
+// stats.wilcoxon(x, alternative='greater', method='exact').
+describe("Fisher's exact test, one-sided", () => {
+  it("matches SciPy's", () => {
+    expect(fisherGreater(12, 50, 3, 50)).toBeCloseTo(0.011302193440961757, 12);
+    expect(fisherGreater(20, 50, 20, 50)).toBeCloseTo(0.5807916780398517, 12);
+    expect(fisherGreater(5, 10, 0, 10)).toBeCloseTo(0.016253869969040248, 12);
+    expect(fisherGreater(3, 7, 9, 12)).toBeCloseTo(0.9708065412399778, 12);
+  });
+
+  it('finds nothing in no successes, and refuses counts outside their samples', () => {
+    expect(fisherGreater(0, 50, 0, 50)).toBe(1);
+    expect(() => fisherGreater(51, 50, 0, 50)).toThrow(/whole counts/);
+    expect(() => fisherGreater(1.5, 50, 0, 50)).toThrow(/whole counts/);
+  });
+});
+
+describe('the Wilcoxon signed-rank test, one-sided', () => {
+  it("matches SciPy's exact p-values", () => {
+    const x = Array.from({ length: 30 }, (_, i) => 0.8 * Math.sin(1.3 * i) + 0.25);
+    const y = Array.from({ length: 50 }, (_, i) => Math.sin(2.1 * (i + 1)) * (1 + 0.01 * (i + 1)));
+    const z = Array.from({ length: 40 }, (_, i) => 0.3 * Math.cos(0.7 * (i + 1)) + 0.12);
+    for (const [d, positive, p] of [
+      [x, 336, 0.016360449604690075],
+      [y, 611, 0.6019345038182218],
+      [z, 625, 0.0016006615369406063],
+    ] as const) {
+      const r = signedRankGreater(d);
+      expect(r.n).toBe(d.length);
+      expect(r.positive).toBe(positive);
+      expect(r.p).toBeCloseTo(p, 12);
+    }
+  });
+
+  it('drops zeros and ranks ties by their average, exactly as every sign flip counts them', () => {
+    const d = [0, 0.5, -0.5, 0.5, 1.25, -2, 0, 3, 0.5, -1.25, 4];
+    const r = signedRankGreater(d);
+    const kept = d.filter((v) => v !== 0);
+    const rank = (v: number): number => {
+      const below = kept.filter((u) => Math.abs(u) < Math.abs(v)).length;
+      const equal = kept.filter((u) => Math.abs(u) === Math.abs(v)).length;
+      return below + (equal + 1) / 2;
+    };
+    const ranks = kept.map(rank);
+    const sum = (signs: number): number => ranks.reduce((s, q, k) => (signs & (1 << k) ? s + q : s), 0);
+    const observed = kept.reduce((s, v, k) => (v > 0 ? s + ranks[k] : s), 0);
+    let atLeast = 0;
+    for (let signs = 0; signs < 1 << kept.length; signs++) if (sum(signs) >= observed) atLeast++;
+    expect(r.n).toBe(9);
+    expect(r.positive).toBe(observed);
+    expect(r.p).toBeCloseTo(atLeast / 2 ** kept.length, 14);
+  });
+
+  it('finds nothing in differences that are all zero', () => {
+    expect(signedRankGreater([0, 0, 0])).toEqual({ n: 0, positive: 0, p: 1 });
+    expect(() => signedRankGreater([1, Number.NaN])).toThrow(/finite/);
   });
 });

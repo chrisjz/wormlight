@@ -1,4 +1,5 @@
-// Statistics for the checks: Student's t distribution and Welch's two one-sided tests of equivalence.
+// Statistics for the checks: Student's t distribution and Welch's two one-sided tests of equivalence, and for the
+// harness, Fisher's exact test and the Wilcoxon signed-rank test (PLAN §7.1), each one-sided.
 
 // ln Γ(x), by Lanczos's approximation (g = 7, nine coefficients), good to about 15 digits for x > 0.
 function logGamma(x: number): number {
@@ -96,4 +97,70 @@ export function spreadRatio(a: readonly number[], b: readonly number[]): SpreadR
   const d2 = a.length - 1;
   const below = incompleteBeta((d1 * ratio) / (d1 * ratio + d2), d1 / 2, d2 / 2);
   return { ratio, p: Math.min(1, 2 * Math.min(below, 1 - below)) };
+}
+
+// ln k! for k = 0 … n.
+function logFactorials(n: number): Float64Array {
+  const out = new Float64Array(n + 1);
+  for (let k = 2; k <= n; k++) out[k] = out[k - 1] + Math.log(k);
+  return out;
+}
+
+// Fisher's exact test, one-sided: is the share of successes in the first sample, a of n, greater than in the
+// second, b of m? The p-value is the chance, with the margins fixed, of a or more successes in the first.
+export function fisherGreater(a: number, n: number, b: number, m: number): number {
+  if (![a, n, b, m].every(Number.isInteger) || a < 0 || b < 0 || a > n || b > m) {
+    throw new Error(`Fisher's test needs whole counts within their samples, not ${a}/${n} and ${b}/${m}`);
+  }
+  const total = n + m;
+  const successes = a + b;
+  const lf = logFactorials(total);
+  const choose = (x: number, y: number): number => lf[x] - lf[y] - lf[x - y];
+  let p = 0;
+  for (let x = a; x <= Math.min(successes, n); x++) {
+    p += Math.exp(choose(successes, x) + choose(total - successes, n - x) - choose(total, n));
+  }
+  return Math.min(1, p);
+}
+
+export interface SignedRank {
+  // The pairs whose difference isn't zero, the sum of the ranks of the positive differences, and the p-value.
+  n: number;
+  positive: number;
+  p: number;
+}
+
+// The Wilcoxon signed-rank test, one-sided: do the differences lean positive? Zero differences are dropped,
+// tied magnitudes share their average rank, and the p-value is exact: the chance, with each difference's sign
+// equally likely either way, of a positive rank sum at least as large.
+export function signedRankGreater(differences: readonly number[]): SignedRank {
+  if (!differences.every(Number.isFinite)) throw new Error('the signed-rank test needs finite differences');
+  const d = differences.filter((x) => x !== 0).sort((x, y) => Math.abs(x) - Math.abs(y));
+  const n = d.length;
+  if (n === 0) return { n, positive: 0, p: 1 };
+  // Twice each rank, so tied ranks' averages stay whole.
+  const twice = new Array<number>(n);
+  for (let i = 0; i < n;) {
+    let j = i;
+    while (j + 1 < n && Math.abs(d[j + 1]) === Math.abs(d[i])) j++;
+    for (let k = i; k <= j; k++) twice[k] = i + j + 2;
+    i = j + 1;
+  }
+  const observed = d.reduce((sum, x, k) => (x > 0 ? sum + twice[k] : sum), 0);
+  // The distribution of twice the positive rank sum, built one difference at a time.
+  const top = twice.reduce((a, b) => a + b, 0);
+  let chance = new Float64Array(top + 1);
+  chance[0] = 1;
+  for (const r of twice) {
+    const next = new Float64Array(top + 1);
+    for (let w = 0; w <= top - r; w++) {
+      if (chance[w] === 0) continue;
+      next[w] += chance[w] / 2;
+      next[w + r] += chance[w] / 2;
+    }
+    chance = next;
+  }
+  let p = 0;
+  for (let w = observed; w <= top; w++) p += chance[w];
+  return { n, positive: observed / 2, p: Math.min(1, p) };
 }
