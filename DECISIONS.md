@@ -1579,3 +1579,20 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 - a smaller step, which no step down to 0.3125 ms makes converge at R's gains, and which below 1.25 ms fails the app's 10× target.
 
 **Status.** Run; the fix is the maintainer's to choose.
+
+## 2026-09-28 — R's refit bounds both oscillator gains at 1 nS (changed after results)
+
+**Why.** The convergence study (above) found that the 2.5 ms step resolves the A-types' oscillators up to 1 nS, whose fast time scale, C/g_osc, is 1 ms, and not at 2.14 nS or above. The rest of the loop is converged at 2.5 ms. R's fit, at 5 nS, and the planned fit, at 2.14 nS, both lie above that, and neither converges.
+
+**Decision** (PLAN §7.3, §9, marked changed after results). The maintainer chose the recommendation:
+
+- **From R's refit on, g_osc and g_osc,B are bounded above at 1 nS,** not 5. Their lower bounds stay at 0.3 and 0 nS, and nothing else changes: the step, the solver, the other bounds, the procedure and its start, R's provisional values carried over and clipped into the new bounds. The bound is set for a numerical reason, not a biological one, and PLAN and the ledger say so.
+- **The choice between fits** admits only a fit whose oscillator gains lie within the bound, so the planned fit, unconverged at 2.14 nS, drops out, and R's refit is the only candidate.
+- **The refit is a new pull request:** the bounds in the registry, R's fit run again (about an hour), checkpoint 1 on it, and the choice. This pull request lands the study and the rule.
+- **Considered:**
+  - an accurate treatment of the oscillator at high gain, on the CPU and the GPU with parity, which doesn't constrain the model for a numerical reason but is substantial work and uncertain until shown to converge;
+  - halving the step to 1.25 ms, at twice the cost everywhere, which the study shows doesn't converge at R's gains.
+
+**What it costs the model.** R's fit found its reversals, and its score, at 5 nS partly through the step's artefact, so the refit loses that. At 1 nS, with the fit's other values, the worm reverses about 11 times a minute and doesn't crawl; the refit will find what the bounded space allows.
+
+**Status.** Set before R's refit.
