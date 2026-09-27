@@ -287,7 +287,8 @@ describe('checkpoint 1', () => {
     expect(checkpoint1([], [[1]]).clauses.every((c) => c.grade === 'fail')).toBe(true);
   });
 
-  it('passes a worm that crawls as the real one does', () => {
+  // Two checkpoint 1 runs over 20 trials, each with its spectrum: about 3 s on CI, so past the default's reach.
+  it('passes a worm that crawls as the real one does', { timeout: 30000 }, () => {
     // 0.30 Hz, 0.65 body lengths and 0.22 body lengths per second, forward throughout, with postures along
     // the first two of an identity basis's modes.
     const lag = 0.125 / (0.3 * 0.65);
