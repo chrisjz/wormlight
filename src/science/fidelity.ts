@@ -481,6 +481,7 @@ export const COMPONENTS: readonly Component[] = [
     sources: ['gleeson2018', 'chalfie1985'],
     testedBy: [
       { check: 'unit', detail: "AWC-ON reads the odour at its dendrite's tip, between the first two rods" },
+      { check: 'unit', detail: 'a tap stimulates exactly the touch receptors whose fields cover it' },
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
     ],
@@ -489,11 +490,20 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Touch stimulus',
     subsystem: 'sensing',
     levels: [0],
-    basis: '10 mV for 500 ms, one current for every brain',
+    basis:
+      '10 mV for 500 ms for every receptor a tap reaches, the currents computed per covered set, the same for every brain; a second tap restarts the 500 ms',
     caveats: '',
     upgrade: 'Recorded receptor currents',
     sources: [],
-    testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint3' }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          "each set's currents hold all its receptors 10 mV up together, for exactly 200 steps, restarting the integrator whenever a current changes",
+      },
+      { check: 'checkpoint2' },
+      { check: 'checkpoint3' },
+    ],
   },
   {
     name: 'Other sensory neurons',

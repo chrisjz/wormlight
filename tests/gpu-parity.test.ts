@@ -16,6 +16,10 @@ import {
   movedAndTurned,
   OTHER_SEED,
   paritySetup,
+  ENDING_COPIES,
+  ending,
+  TAP_COPIES,
+  tapped,
   WALL_COPIES,
   seededWorld,
   variantSetup,
@@ -25,6 +29,7 @@ import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
 import { awcLayout, checkOdour, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
 import { World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
+import { TOUCH_STEPS } from '../src/sim/touch.ts';
 import { readJson } from './checks.ts';
 
 // The shader's Box–Muller as f32 arithmetic with correctly rounded log, sqrt and cos: the best a GPU can do.
@@ -242,6 +247,39 @@ describe("the loop's parity", () => {
     expect(la.scalars.awc_gain).not.toBe(lb.scalars.awc_gain);
     // With AWC-ON's fields taken from the other seed, the layouts are the same.
     expect({ ...la, awcOn: awc.awcOn, awcRod: awc.awcRod, scalars: { ...la.scalars, ...awc.scalars } }).toEqual(lb);
+  });
+
+  it('packs the touch receptors and their sets, and taps copies as World.touch does', () => {
+    const world = cpuWorld(data, loopCases(data)[0].state);
+    const layout = packLoop(world);
+    expect(layout.touch).toEqual(world.receptors);
+    expect(layout.touchSets).toBe(world.touchSets);
+    const state = loopCases(data)[4].state;
+    for (const copy of TAP_COPIES) {
+      const tappedState = tapped(state, world.receptors, world.touchSets, copy.s);
+      const byHand = cpuWorld(data, state);
+      byHand.touch(copy.s);
+      expect(tappedState).toEqual(byHand.snapshot());
+      expect(Array.from(tappedState.touchLeft).some((left) => left > 0)).toBe(true);
+    }
+  });
+
+  it("ends copies' pulses at their first step, as a world tapped 200 steps before", () => {
+    const state = loopCases(data)[4].state;
+    for (const copy of ENDING_COPIES) {
+      const world = cpuWorld(data, state);
+      const ended = ending(state, world.receptors, world.touchSets, copy.s);
+      world.touch(copy.s);
+      for (let k = 0; k < TOUCH_STEPS; k++) world.step();
+      // The same pulses as a world whose tap has just run its course, though the rest has moved on.
+      const after = world.snapshot();
+      expect([ended.touchLeft, ended.touchCurrent, ended.touchApplied]).toEqual([
+        after.touchLeft,
+        after.touchCurrent,
+        after.touchApplied,
+      ]);
+      expect(Array.from(ended.touchApplied).some((c) => c > 0)).toBe(true);
+    }
   });
 
   it('refuses odour grids the kernel could not read', () => {

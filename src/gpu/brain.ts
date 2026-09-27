@@ -8,6 +8,7 @@ import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
 import { midpointActivation } from '../sim/brain/brain.ts';
 import type { Network } from '../sim/brain/network.ts';
 import { CG_MAX_ITERATIONS, CG_TOLERANCE_GPU } from '../sim/numerics.ts';
+import { TOUCH_STEPS } from '../sim/touch.ts';
 import type { WorldState } from '../sim/world.ts';
 import {
   ANGLE_GRID,
@@ -124,6 +125,8 @@ export class GpuBrain {
   private readonly state: GPUBuffer;
   private readonly status: GPUBuffer;
   private readonly body: GPUBuffer;
+  // Per neuron, the current of its touch pulse, as last written to its constants.
+  private readonly touchCurrent: Float32Array;
   private readonly loop: LoopLayout | null;
   // Where the loop's arrays start in the topology and weights buffers.
   private readonly loopAt: {
@@ -154,6 +157,7 @@ export class GpuBrain {
     this.n = n;
     this.network = network;
     this.threshold = Float64Array.from(threshold);
+    this.touchCurrent = new Float32Array(n);
     this.tolerance = options.tolerance ?? CG_TOLERANCE_GPU;
     this.maxIterations = options.maxIterations ?? CG_MAX_ITERATIONS;
     const loop = options.loop ?? null;
@@ -274,7 +278,9 @@ export class GpuBrain {
     });
   }
 
-  // Set the state, history and step count, as the CPU's restore() does, and start the solver's record afresh.
+  // Set the state, history and step count, as the CPU's restore() does, and start the solver's record afresh. The
+  // touch pulses share the neurons' state, so on a loop brain this clears them too, unlike the CPU's Brain;
+  // GpuWorld.restore sets them again after, through restoreLoop.
   restore(state: BrainState): void {
     this.alive();
     const n = this.n;
@@ -313,10 +319,14 @@ export class GpuBrain {
     if (lengths.some((l) => l !== rods) || state.muscles.length !== muscles) {
       throw new Error('the state has another body');
     }
+    if ([state.touchLeft, state.touchCurrent, state.touchApplied].some((a) => a.length !== loop.touch.length)) {
+      throw new Error('the state has other touch receptors');
+    }
   }
 
   // Set the loop's state: the body, each coordinate split into a coarse part on its grid and a remainder, the
-  // muscles, the head switch and AWC-ON's threshold.
+  // muscles, the head switch, AWC-ON's threshold and the touch receptors' pulses, which live in their neurons'
+  // state after restore() has cleared them.
   restoreLoop(state: LoopState): void {
     this.alive();
     this.checkLoopState(state);
@@ -351,6 +361,27 @@ export class GpuBrain {
     f[3] = state.switchCurrent;
     f[4] = state.awcThreshold;
     this.device.queue.writeBuffer(this.status, 4 * 8, bytes);
+    loop.touch.forEach((r, k) => {
+      const at = 4 * (STATE_WORDS * r.neuron + 6);
+      this.device.queue.writeBuffer(this.state, at, Float32Array.of(state.touchLeft[k], state.touchApplied[k]));
+      this.setTouchCurrent(r.neuron, state.touchCurrent[k]);
+    });
+  }
+
+  // Tap a touch receptor at a current (pA): its stimulus is on for the next 500 ms at that current, from the
+  // next step, as World.touch has it.
+  touch(neuron: number, current: number): void {
+    this.alive();
+    if (!this.loop) throw new Error('this GPU brain has no loop, and so no touch');
+    if (!this.loop.touch.some((r) => r.neuron === neuron)) throw new Error(`neuron ${neuron} is no touch receptor`);
+    this.setTouchCurrent(neuron, current);
+    this.device.queue.writeBuffer(this.state, 4 * (STATE_WORDS * neuron + 6), Float32Array.of(TOUCH_STEPS));
+  }
+
+  // A touch receptor's pulse current lives in its constants, and a copy here, which writeNeurons keeps.
+  private setTouchCurrent(neuron: number, current: number): void {
+    this.touchCurrent[neuron] = current;
+    this.device.queue.writeBuffer(this.neurons, 4 * (NEURON_WORDS * neuron + 7), Float32Array.of(current));
   }
 
   // The odour AWC-ON senses from the next step on.
@@ -538,6 +569,7 @@ export class GpuBrain {
     const status = new Float32Array(bytes, stateBytes, STATUS_WORDS);
     const flags = new Uint32Array(bytes, stateBytes, STATUS_WORDS);
     const words = new Float32Array(bytes, stateBytes + 4 * STATUS_WORDS, ROD_WORDS * rods + Math.max(muscles, 1));
+    const neuronWords = new Float32Array(bytes, 0, stateBytes / 4);
     const joined = (offset: number): Float64Array =>
       Float64Array.from({ length: rods }, (_, i) => words[ROD_WORDS * i + offset] + words[ROD_WORDS * i + offset + 1]);
     return {
@@ -553,6 +585,10 @@ export class GpuBrain {
       previousCurvature: flags[10] === 1 ? status[9] : null,
       switchCurrent: status[11],
       awcThreshold: status[12],
+      touchLeft: Int32Array.from(loop.touch, (r) => neuronWords[STATE_WORDS * r.neuron + 6]),
+      // The pulses' currents as last written, which a tap made after this read was queued would show early.
+      touchCurrent: Float64Array.from(loop.touch, (r) => this.touchCurrent[r.neuron]),
+      touchApplied: Float64Array.from(loop.touch, (r) => neuronWords[STATE_WORDS * r.neuron + 7]),
     };
   }
 
@@ -616,6 +652,7 @@ export class GpuBrain {
         f[at + 6] = loop.switchSide[i];
       }
     }
+    for (const r of loop?.touch ?? []) f[NEURON_WORDS * r.neuron + 7] = this.touchCurrent[r.neuron];
     const oscillators = this.oscillators;
     oscillators?.neurons.forEach((i, k) => {
       f[NEURON_WORDS * i + 1] = oscillators.shift[k];

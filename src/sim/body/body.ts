@@ -58,6 +58,30 @@ export function between(s: number, segments: number): [number, number] {
   return [k, s * segments - k];
 }
 
+// The point of a midline, rods' centres as [x0, y0, x1, y1, …], nearest to (x, y): its body coordinate s, from
+// the nose (0) to the tail tip (1), how far (x, y) lies from it, and the body's radius there, interpolated
+// between the rods either side as their centres are.
+export function nearestOnMidline(
+  midline: ArrayLike<number>,
+  radii: ArrayLike<number>,
+  x: number,
+  y: number,
+): { s: number; distance: number; radius: number } {
+  const segments = midline.length / 2 - 1;
+  let best = { s: 0, distance: Infinity, radius: 0 };
+  for (let i = 0; i < segments; i++) {
+    const [ax, ay] = [midline[2 * i], midline[2 * i + 1]];
+    const [dx, dy] = [midline[2 * i + 2] - ax, midline[2 * i + 3] - ay];
+    const length2 = dx * dx + dy * dy;
+    const t = length2 > 0 ? Math.min(Math.max(((x - ax) * dx + (y - ay) * dy) / length2, 0), 1) : 0;
+    const distance = Math.hypot(x - ax - t * dx, y - ay - t * dy);
+    if (distance < best.distance) {
+      best = { s: (i + t) / segments, distance, radius: radii[i] + t * (radii[i + 1] - radii[i]) };
+    }
+  }
+  return best;
+}
+
 // The body from the registry: Boyle et al.'s Table 1, with each rod taking the whole worm's drag divided by
 // 2(M + 1), and resisting rotation with 4πR_i² times its tangential coefficient, as their code does.
 export function boyleBody(radii?: Float64Array): BodyParams {

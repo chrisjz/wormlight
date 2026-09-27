@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PARAMS } from '../../science/params.ts';
 import { WALL_SOFTENING } from '../numerics.ts';
-import { Body, boyleBody, ellipseRadii } from './body.ts';
+import { between, Body, boyleBody, ellipseRadii, nearestOnMidline } from './body.ts';
 
 const LENGTH = PARAMS.bodyLength.value * 1e-3;
 // The registry's whole-worm drag, split over 2(M + 1) = 98 as Boyle et al.'s code does. Tests take these
@@ -574,5 +574,35 @@ describe("the dish's wall", () => {
     free.y.set(body.y);
     free.theta.set(body.theta);
     expect(Math.abs(free.rates()[3 * 24])).toBeLessThan(1e-6 * full);
+  });
+});
+
+describe('points along the midline', () => {
+  it('put rod i at i/M, and a coordinate between the rods either side of it', () => {
+    expect(between(0, 48)).toEqual([0, 0]);
+    expect(between(0.0001, 48)[0]).toBe(0);
+    expect(between(0.0001, 48)[1]).toBeCloseTo(0.0048, 12);
+    expect(between(0.5, 48)).toEqual([24, 0]);
+    // The tail tip is the last segment's far end, not a segment past it.
+    expect(between(1, 48)).toEqual([47, 1]);
+  });
+
+  it("find the nearest point of a midline, its coordinate and the body's radius there", () => {
+    // Three rods along +x, 1 mm apart, radii 0, 40 and 0 µm, y up as the dish's is.
+    const midline = [0, 0, 1e-3, 0, 2e-3, 0];
+    const radii = [0, 4e-5, 0];
+    const above = nearestOnMidline(midline, radii, 0.5e-3, 3e-5);
+    expect(above.s).toBeCloseTo(0.25, 12);
+    expect(above.distance).toBeCloseTo(3e-5, 12);
+    expect(above.radius).toBeCloseTo(2e-5, 12);
+    expect(nearestOnMidline(midline, radii, 1.5e-3, -1e-5).s).toBeCloseTo(0.75, 12);
+    // Beyond the ends, the ends.
+    const past = nearestOnMidline(midline, radii, -1e-3, 0);
+    expect([past.s, past.distance, past.radius]).toEqual([0, 1e-3, 0]);
+    expect(nearestOnMidline(midline, radii, 3e-3, 0).s).toBe(1);
+    // A segment of no length doesn't divide by zero.
+    const folded = nearestOnMidline([0, 0, 0, 0, 1e-3, 0], radii, 0.5e-3, 1e-5);
+    expect(folded.s).toBeCloseTo(0.75, 12);
+    expect(Number.isFinite(folded.distance)).toBe(true);
   });
 });

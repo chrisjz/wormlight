@@ -220,7 +220,7 @@ export const PARAMS = {
     level: 0,
     subsystem: 'sensing',
     sources: [],
-    note: 'Applied as one current per receptor, computed from its input conductance in the intact real wiring, and the same for every brain and lesion.',
+    note: 'Applied as currents computed, for each set of receptors a tap can reach, to hold every receptor in the set that far above rest together in the intact real wiring; the same for every brain and lesion.',
     upgrade: 'Recorded touch receptor currents',
   },
   touchDuration: {

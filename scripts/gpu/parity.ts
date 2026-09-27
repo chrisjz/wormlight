@@ -42,11 +42,13 @@ interface LoopStep extends Step {
   thresholdShare: number;
   smellError: number;
   switchSame: boolean;
+  touchSame: boolean;
 }
 interface LoopSecond {
   label: string;
   shares: { voltage: number; activation: number; curvature: number; centroid: number; threshold: number };
   switchSame: boolean;
+  touchSame: boolean;
   referenceShare: number;
   referenceSwitchSame: boolean;
   graded: boolean;
@@ -110,7 +112,10 @@ const long = args.includes('--long');
 const safari = args.includes('--safari');
 const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? (safari ? 'gpu-out/safari' : 'gpu-out'));
 mkdirSync(outDir, { recursive: true });
-for (const file of ['parity.json', 'bench.json', 'long.json']) rmSync(join(outDir, file), { force: true });
+// A run without --long leaves the last long runs' results where they are.
+for (const file of ['parity.json', 'bench.json', ...(long ? ['long.json'] : [])]) {
+  rmSync(join(outDir, file), { force: true });
+}
 
 const mark = (pass: boolean): string => (pass ? '✓' : '✗');
 const g = (x: number, digits = 3): string =>
@@ -216,24 +221,28 @@ try {
     for (const r of loop.api) console.log(`  ${mark(r.pass)} ${r.name}: ${r.detail}`);
     console.log(
       "\none step: the brain as above, then the rods' centres' velocities ẋ, ẏ, θ̇ (each within 10⁻² of the " +
-        "largest), muscles (10⁻⁴), AWC-ON's threshold T (10⁻⁴) and the head switch; the rods' end points and the " +
-        'relative error of the odour AWC-ON sensed, C, reported',
+        "largest), muscles (10⁻⁴), AWC-ON's threshold T (10⁻⁴), the head switch and the touch pulses; the rods' end " +
+        'points and the relative error of the odour AWC-ON sensed, C, reported',
     );
     for (const r of loop.oneStep) {
       console.log(
         `${stepLine(r)}   centres ${r.centreShares.map((v) => g(v)).join(' ')} (ends ${r.endShares.map((v) => g(v)).join(' ')})` +
           `   A ${g(r.muscleShare)}   T ${g(r.thresholdShare)} (C ${g(r.smellError)})   switch ` +
-          `${r.switchSame ? 'same' : 'DIFFERS'}`,
+          `${r.switchSame ? 'same' : 'DIFFERS'}   touch ${r.touchSame ? 'same' : 'DIFFERS'}`,
       );
     }
-    console.log('\none second: shares of the thresholds and the switch throughout, and the reference against itself');
+    console.log(
+      '\none second: shares of the thresholds, the switch and the touch pulses throughout, and the reference against ' +
+        'itself',
+    );
     for (const r of loop.oneSecond) {
       const s = r.shares;
       console.log(
         `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(32)} V ${g(s.voltage).padStart(7)}  s ` +
           `${g(s.activation).padStart(9)}  κL ${g(s.curvature).padStart(7)}  centroid ${g(s.centroid).padStart(7)}` +
           `  T ${g(s.threshold).padStart(7)}` +
-          `  switch ${r.switchSame ? 'same' : 'DIFFERS'}   reference ${g(r.referenceShare).padStart(7)}` +
+          `  switch ${r.switchSame ? 'same' : 'DIFFERS'}  touch ${r.touchSame ? 'same' : 'DIFFERS'}` +
+          `   reference ${g(r.referenceShare).padStart(7)}` +
           `${r.referenceSwitchSame ? '' : ' (its switch differs)'}${r.graded ? '' : '   not graded'}`,
       );
     }
