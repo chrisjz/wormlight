@@ -1,10 +1,11 @@
 // The loop outside the brain, as the GPU kernel holds it (PLAN §1): a CPU World's proprioceptive fields,
-// AWC-ON and the odour it senses, head switch, neuromuscular layer, body and dish, packed into the shader's
-// layout. Pure data, so tests without WebGPU can check it.
+// AWC-ON and the odour it senses, touch receptors, head switch, neuromuscular layer, body and dish, packed into
+// the shader's layout. Pure data, so tests without WebGPU can check it.
 
 import { between } from '../sim/body/body.ts';
 import { OdourField } from '../sim/env/odour.ts';
 import type { Odour } from '../sim/sensing.ts';
+import type { TouchReceptor } from '../sim/touch.ts';
 import type { World } from '../sim/world.ts';
 import {
   MAX_MUSCLES,
@@ -64,6 +65,8 @@ export interface LoopLayout {
   awcOn: number;
   awcRod: number;
   odour: OdourGrid;
+  // The touch receptors that aren't lesioned, in the world's order: their neurons, fields and currents.
+  touch: readonly TouchReceptor[];
   // The neuromuscular rows: each muscle's first entry, and each entry's presynaptic neuron and signed sections.
   nmStart: Uint32Array;
   nmPre: Uint32Array;
@@ -160,6 +163,7 @@ export function packLoop(world: World): LoopLayout {
     awcOn: awc.awcOn,
     awcRod: awc.awcRod,
     odour,
+    touch: world.receptors.map((r) => ({ ...r })),
     nmStart: Uint32Array.from(muscles.start),
     nmPre: Uint32Array.from(muscles.pre),
     nmWeight: Float32Array.from(muscles.weight),

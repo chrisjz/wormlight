@@ -2,8 +2,8 @@
 // order. The brain (PLAN §3.4) is Brain.step in src/sim/brain/brain.ts: the voltages by BDF2 (implicit Euler
 // without a history), solved by Jacobi-preconditioned conjugate gradients warm-started from the last step;
 // then activation and the oscillators' recovery by BDF2 at the new voltages. With `looping` on, each step is
-// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents, AWC-ON's sensing and the
-// head switch, the brain, the neuromuscular layer, and the body under resistive force theory, whose
+// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents, AWC-ON's sensing, touch
+// and the head switch, the brain, the neuromuscular layer, and the body under resistive force theory, whose
 // block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one
 // workgroup, each invocation holding its neurons' and its rod's state in registers, so a dispatch can take many
 // steps with nothing but barriers between them.
@@ -61,10 +61,11 @@ export const LOOP_SCALARS = [
   'odour_cell',
 ] as const;
 export type LoopScalar = (typeof LOOP_SCALARS)[number];
-// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁ and two words of padding.
+// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and whether it was
+// stimulated on the last step.
 export const STATE_WORDS = 8;
 // Per neuron: threshold, oscillator shift θ, whether it oscillates, its proprioceptive field's side and
-// rods, the side the head switch drives it on, and padding.
+// rods, the side the head switch drives it on, and its touch current (0 for none).
 export const NEURON_WORDS = 8;
 // The status block: steps taken (the noise's counter), the step size of the history as f32 bits (0 for
 // none), the last solve's iterations, and since the state was last set, the unconverged solves, the most
@@ -189,7 +190,7 @@ struct NeuronConstants {
   field_from: u32,
   field_to: u32,
   switch_side: f32,
-  _pad: f32,
+  touch_current: f32,
 }
 
 struct State {
@@ -199,8 +200,8 @@ struct State {
   s_prev: f32,
   w: f32,
   w_prev: f32,
-  _pad0: f32,
-  _pad1: f32,
+  touch_left: f32,
+  touch_on: f32,
 }
 
 struct Status {
@@ -652,6 +653,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var p: array<f32, ${per}>;
   var q: array<f32, ${per}>;
   var drive_in: array<f32, ${per}>;
+  var touch_left: array<f32, ${per}>;
+  var touch_on: array<f32, ${per}>;
   ${own(`
         let here = state[i];
         v[k] = here.v;
@@ -659,7 +662,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         s[k] = here.s;
         s_prev[k] = here.s_prev;
         w[k] = here.w;
-        w_prev[k] = here.w_prev;`)}
+        w_prev[k] = here.w_prev;
+        touch_left[k] = here.touch_left;
+        touch_on[k] = here.touch_on;`)}
 
   // The rod and the muscle this invocation holds, while looping: each coordinate in its coarse part and
   // remainder.
@@ -755,7 +760,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       }
 
       // The network's drive on the SMDs (World.headDrive): for each, the voltage its partners and leak would
-      // hold it at, less its threshold, with links among the SMDs at their rest values.
+      // hold it at, less its threshold, with links among the SMDs at their rest values. The same total counts
+      // the touch receptors whose stimulus switches on or off this step.
       let rest = params.rise / (params.rise + 2.0 * params.decay);
       var term = vec4<f32>(0.0);
       ${own(`
@@ -777,6 +783,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
             current += conductance * synapse.y;
           }
           term += vec4<f32>(current / g - constants.threshold, 1.0, 0.0, 0.0);
+        }
+        if (constants.touch_current != 0.0 && (touch_left[k] > 0.0) != (touch_on[k] == 1.0)) {
+          term.z += 1.0;
         }`)}
       // total() begins after kappa is written and ends on a barrier, so kappa is ready after it.
       let drive = total(lid, term);
@@ -796,8 +805,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         }
       }
       let current = select(0.0, params.switch_gain * (h - 0.5), gated);
-      // The switch current jumps when it flips or is gated on or off; BDF2 across a jump is first order.
-      restart = current != switch_current;
+      // The switch current jumps when it flips or is gated on or off, and a touch current when it switches on
+      // or off; BDF2 across a jump is first order.
+      restart = current != switch_current || drive.z > 0.0;
       switch_current = current;
 
       // AWC-ON's threshold follows the odour (AwcSensor.step), alike in every invocation; the smell was read
@@ -808,7 +818,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       let awc_sum = awc_threshold + held;
       let awc_current = select(0.0, params.awc_gain * ((awc_threshold - held) / awc_sum), awc_sum > 0.0);
 
-      // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current and the switch's.
+      // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current, a touch pulse's and the
+      // switch's.
       ${own(`
         let constants = neurons[i];
         if (constants.field_side != 0.0) {
@@ -816,6 +827,13 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         }
         if (i == params.awc_on) {
           drive_in[k] += awc_current;
+        }
+        if (touch_left[k] > 0.0) {
+          drive_in[k] += constants.touch_current;
+          touch_left[k] -= 1.0;
+          touch_on[k] = 1.0;
+        } else {
+          touch_on[k] = 0.0;
         }
         drive_in[k] += constants.switch_side * current;`)}
     }
@@ -994,7 +1012,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   }
 
   ${own(`
-        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], 0.0, 0.0);`)}
+        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], touch_left[k], touch_on[k]);`)}
   if (looping) {
     if (lid < rods) {
       let at = ${ROD_WORDS}u * lid;

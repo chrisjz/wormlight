@@ -143,12 +143,25 @@ function showLoop(report: LoopReport | { error: string }): void {
     el(
       'p',
       "One step: the brain as above, each rod's centre's velocity within 10⁻² of the largest (x, y and θ), each " +
-        "muscle within 10⁻⁴, AWC-ON's threshold T within 10⁻⁴ of itself (or of 0.01 µM), the same head switch; the " +
-        "rods' end points and the relative error of the odour AWC-ON sensed, C, are reported. One second: shares of " +
-        'the thresholds and the switch throughout, graded under the well-posed rule.',
+        "muscle within 10⁻⁴, AWC-ON's threshold T within 10⁻⁴ of itself (or of 0.01 µM), the same head switch and " +
+        "touch pulses; the rods' end points and the relative error of the odour AWC-ON sensed, C, are reported. One " +
+        'second: shares of the thresholds and the switch throughout, graded under the well-posed rule, and the same ' +
+        'touch pulses at every sample, required of every state.',
     ),
     table(
-      [...STEP_HEAD.slice(0, -1), 'Centres ẋ', 'Centres ẏ', 'θ̇', 'Ends ẋ, ẏ', 'Muscles', 'T', 'C', 'Switch', ''],
+      [
+        ...STEP_HEAD.slice(0, -1),
+        'Centres ẋ',
+        'Centres ẏ',
+        'θ̇',
+        'Ends ẋ, ẏ',
+        'Muscles',
+        'T',
+        'C',
+        'Switch',
+        'Touch',
+        '',
+      ],
       report.oneStep.map((r) => [
         ...stepRow(r).slice(0, -1),
         ...r.centreShares.map((v) => fixed(v, 3)),
@@ -157,11 +170,23 @@ function showLoop(report: LoopReport | { error: string }): void {
         fixed(r.thresholdShare, 3),
         fixed(r.smellError, 2),
         r.switchSame ? 'same' : 'differs',
+        r.touchSame ? 'same' : 'differs',
         verdict(r.pass),
       ]),
     ),
     table(
-      ['State', 'Voltage', 'Activation', 'Curvature', 'Centroid', 'T', 'Switch', 'Reference against itself', ''],
+      [
+        'State',
+        'Voltage',
+        'Activation',
+        'Curvature',
+        'Centroid',
+        'T',
+        'Switch',
+        'Touch',
+        'Reference against itself',
+        '',
+      ],
       report.oneSecond.map((r) => [
         r.label,
         fixed(r.shares.voltage, 3),
@@ -170,6 +195,7 @@ function showLoop(report: LoopReport | { error: string }): void {
         fixed(r.shares.centroid, 3),
         fixed(r.shares.threshold, 3),
         r.switchSame ? 'same' : 'differs',
+        r.touchSame ? 'same' : 'differs',
         `${fixed(r.referenceShare, 3)}${r.referenceSwitchSame ? '' : ', switch differs'}`,
         r.graded ? verdict(r.pass) : 'not graded',
       ]),

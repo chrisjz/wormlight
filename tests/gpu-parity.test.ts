@@ -16,6 +16,8 @@ import {
   movedAndTurned,
   OTHER_SEED,
   paritySetup,
+  TAP_COPIES,
+  tapped,
   WALL_COPIES,
   seededWorld,
   variantSetup,
@@ -242,6 +244,21 @@ describe("the loop's parity", () => {
     expect(la.scalars.awc_gain).not.toBe(lb.scalars.awc_gain);
     // With AWC-ON's fields taken from the other seed, the layouts are the same.
     expect({ ...la, awcOn: awc.awcOn, awcRod: awc.awcRod, scalars: { ...la.scalars, ...awc.scalars } }).toEqual(lb);
+  });
+
+  it('packs the touch receptors, and taps copies front and back as World.touch does', () => {
+    const world = cpuWorld(data, loopCases(data)[0].state);
+    const layout = packLoop(world);
+    expect(layout.touch).toEqual(world.receptors);
+    const state = loopCases(data)[4].state;
+    for (const copy of TAP_COPIES) {
+      const tappedState = tapped(state, world.receptors, copy.s);
+      const byHand = cpuWorld(data, state);
+      byHand.touch(copy.s);
+      expect(Array.from(tappedState.touchLeft)).toEqual(Array.from(byHand.touchLeft));
+      expect(Array.from(tappedState.touchLeft).some((left) => left > 0)).toBe(true);
+      expect(tappedState.brain).toBe(state.brain);
+    }
   });
 
   it('refuses odour grids the kernel could not read', () => {

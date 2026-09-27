@@ -11,6 +11,7 @@ import { hash, uniform } from '../sim/brain/rng.ts';
 import { steadyField } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
+import { BACK, covers, FRONT, TOUCH_STEPS, type TouchReceptor } from '../sim/touch.ts';
 import { World, type LoopParams, type WorldOptions, type WorldState } from '../sim/world.ts';
 
 // Trial values for the loop that supplies the states; calibration (PLAN §7.3) sets the real ones. The
@@ -308,6 +309,20 @@ export interface WallCopy {
   bearing: number; // rad, round the dish from +x
   along: boolean;
 }
+// Copies tapped as the state starts, front and back where the app's buttons tap, so the pulse switches on at
+// the first step and, over one second, off at the 201st (PLAN §7.2, set 2026-09-27 before any touch ran).
+export const TAP_COPIES: readonly { label: string; s: number }[] = [
+  { label: 'tapped front', s: FRONT },
+  { label: 'tapped back', s: BACK },
+];
+
+export function tapped(state: WorldState, receptors: readonly TouchReceptor[], s: number): WorldState {
+  return {
+    ...state,
+    touchLeft: Int32Array.from(state.touchLeft, (left, k) => (covers(receptors[k], s) ? TOUCH_STEPS : left)),
+  };
+}
+
 export const WALL_COPIES: readonly WallCopy[] = [
   { label: 'pressed 2 µm into the wall', depth: 2e-6, bearing: 0, along: false },
   { label: 'along the wall, pressed 2 µm', depth: 2e-6, bearing: Math.PI / 3, along: true },
