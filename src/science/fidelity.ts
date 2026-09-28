@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round has ended, and a second, changing the calibration, is proposed (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found the crawl in one probe search of four but not in its full run, whose fit fails §7.2's comparison, so R has ended (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
