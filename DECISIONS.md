@@ -1765,3 +1765,16 @@ The study reports, for each candidate, the points where it converges and where i
 
 - The coloured noise lands on the CPU reference and the GPU, with parity and its state in snapshots, together with τ_n in the registry and σ_n's new bound.
 - R's fit runs again on twelve parameters, then §7.2's equivalence test, which it must pass before its checkpoint 1 result is final.
+
+## 2026-09-28 — The coloured noise's bounds and start, set before it is built
+
+**Why.** The coloured noise lands in the model before track R's fit runs again (the entries above). Its intensity's bound and both its parameters' provisional values, where the refit starts, are set here first. The maintainer chose the recommendation each time.
+
+- **σ_n's upper bound is 0.472 pA·√s.** By §7.3's rule, derived by the same linear analysis of the intact network at rest that gave white noise's 0.169, which it reproduces to 0.1687. It is the intensity at which the widest neuron, IL2DL, reaches 20 mV with τ_n at its upper bound, 0.2 s. So every τ_n in the range can reach the rule's 20 mV. At τ_n's lower bound, 0.02 s, the same ceiling would let IL2DL reach 43 mV; the rule at that end alone would give 0.219. Considered: 0.219, which would cap IL2DL at about 9 mV when τ_n is 0.2 s; and calibrating the widest neuron's spread in σ_n's place, exact at every τ_n but needing a mapping for each brain.
+- **The provisional values are τ_n = 0.0632 s and σ_n = 0.148 pA·√s.**
+  - τ_n is the geometric middle of its range, where its logarithmic mapping puts the middle of the box.
+  - σ_n gives IL2DL the same voltage spread there, 9.89 mV, that the white noise gave it at the old provisional 0.0834, so the noise's scale carries over as the other provisional values carry the planned fit's. AVA's spread falls from 0.82 to 0.18 mV, since coloured noise moves the network's fast neurons less.
+  - Considered: τ_n = 0.2 s, the study's value, on its upper bound, with σ_n matched the same way at 0.236.
+- **Until R's fit runs again, the app runs R's provisional values.** With τ_n uncalibrated the registry holds R's model uncalibrated, as it did before R's first fit, and at those values the worm doesn't crawl. The refit follows in the next pull request. Considered: building the noise and refitting in one pull request.
+
+**Status.** Set before the coloured noise is built into the model.
