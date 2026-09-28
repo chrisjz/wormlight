@@ -1766,15 +1766,17 @@ The study reports, for each candidate, the points where it converges and where i
 - The coloured noise lands on the CPU reference and the GPU, with parity and its state in snapshots, together with τ_n in the registry and σ_n's new bound.
 - R's fit runs again on twelve parameters, then §7.2's equivalence test, which it must pass before its checkpoint 1 result is final.
 
-## 2026-09-28 — The coloured noise's bounds and start, set before it is built
+## 2026-09-28 — The coloured noise's bounds and start, set before it is built (changed after review)
+
+**Changed after review** the same day, before any use (the last entry below): σ_n's bound is white noise's 0.169, not 0.472, since at 0.472 the silenced network crawls.
 
 **Why.** The coloured noise lands in the model before track R's fit runs again (the entries above). Its intensity's bound and both its parameters' provisional values, where the refit starts, are set here first. The maintainer chose the recommendation each time.
 
 - **σ_n's upper bound is 0.472 pA·√s.** By §7.3's rule, derived by the same linear analysis of the intact network at rest that gave white noise's 0.169, which it reproduces to 0.1687. It is the intensity at which the widest neuron, IL2DL, reaches 20 mV with τ_n at its upper bound, 0.2 s. So every τ_n in the range can reach the rule's 20 mV. At τ_n's lower bound, 0.02 s, the same ceiling would let IL2DL reach 43 mV; the rule at that end alone would give 0.219. Considered: 0.219, which would cap IL2DL at about 9 mV when τ_n is 0.2 s; and calibrating the widest neuron's spread in σ_n's place, exact at every τ_n but needing a mapping for each brain.
 - **The provisional values are τ_n = 0.0632 s and σ_n = 0.148 pA·√s.**
   - τ_n is the geometric middle of its range, where its logarithmic mapping puts the middle of the box.
-  - σ_n gives IL2DL the same voltage spread there, 9.89 mV, that the white noise gave it at the old provisional 0.0834, so the noise's scale carries over as the other provisional values carry the planned fit's. AVA's spread falls from 0.82 to 0.18 mV, since coloured noise moves the network's fast neurons less.
-  - Considered: τ_n = 0.2 s, the study's value, on its upper bound, with σ_n matched the same way at 0.236.
+  - σ_n gives IL2DL the same voltage spread there, 9.89 mV, that the white noise gave it at the old provisional 0.0834, so IL2DL's spread carries over as the other provisional values carry the planned fit's. AVA's spread falls from 0.82 to 0.18 mV, since coloured noise moves the network's fast neurons less. Corrected after review (the last entry below): this first said the noise's scale carries over, but the other neurons spread less and the current's power at low frequencies is 3.15 times white noise's.
+  - Considered: τ_n = 0.2 s, the study's value, on its upper bound, with σ_n matched the same way at 0.233. Corrected after review: this first said 0.236.
 - **Until R's fit runs again, the app runs R's provisional values.** With τ_n uncalibrated the registry holds R's model uncalibrated, as it did before R's first fit, and at those values the worm doesn't crawl. The refit follows in the next pull request. Considered: building the noise and refitting in one pull request.
 
 **Status.** Set before the coloured noise is built into the model.
@@ -1800,3 +1802,35 @@ The study reports, for each candidate, the points where it converges and where i
 - **The worm until the refit.** On R's provisional values with the coloured noise, on 8 of checkpoint 1's seeds, it moves forward 16–22% of the time, with no forward run past 4.5 s and 52 reversals in all. So until the refit, the app's worm barely crawls.
 
 **Status.** Built; R's fit runs again next.
+
+## 2026-09-28 — After review: σ_n keeps white noise's bound, and only a converged fit is chosen
+
+**Why.** Three reviews of the coloured noise found it built as the entries above set it. The model's defaults run bit for bit as on `main`, the GPU's white-noise path is unchanged, and every figure of the bound's derivation reproduces but one. But the bound itself lets the silenced network crawl. Each finding that decides it was reproduced before this entry was written; the reviews' other figures are attributed to them.
+
+- **At 0.472 the silenced network crawls.** §7.3's 20 mV rule looks at the intact network alone. A silenced neuron has only its leak, whose 100 ms is slower than every mode of the intact network, so it keeps far more of a coloured current's variance: at 0.472 a lone neuron's voltage spreads 61 mV with τ_n at 0.2 s and 96 mV at 0.02 s, against 38 mV at white noise's 0.169. With R's first fit's other values, checkpoint 0's silenced trials, 20 of 120 s on its seeds, give these forward bouts of 10 s or more; checkpoint 0 allows none:
+
+  | Noise                                                                                   | Trials with a 10 s bout | Longest bout     |
+  | --------------------------------------------------------------------------------------- | ----------------------- | ---------------- |
+  | White, 0.169                                                                            | 0                       | 7.2 s            |
+  | Coloured, 0.472, τ_n = 0.02 s                                                           | 14                      | 17.1 s           |
+  | Coloured, 0.472, τ_n = 0.2 s                                                            | 7                       | 14.5 s           |
+  | Coloured, a lone neuron held to 38 mV: 0.185, 0.216, 0.293 at τ_n = 0.02, 0.0632, 0.2 s | 0, 0, 1                 | 8.8, 8.8, 10.0 s |
+  | Coloured, 0.169, τ_n = 0.02, 0.0632, 0.2 s                                              | 0, 0, 0                 | 8.9, 4.0, 3.0 s  |
+
+- **The fit could be drawn there.** In R's model the noise lowers the reversal rate rather than raising it. On 20 trials of R's first fit, a review found 3.53 reversals a minute with the noise off, 2.14 at its fitted white noise, 0.63 at white noise's 0.169 and 0.33 at the coloured 0.472 with τ_n at 0.02 s. So §7.3's premise, that noise may not reach the reversal target at any plausible level, runs the other way in R's model.
+- **The start carries IL2DL's spread, not the noise's scale.** At τ_n = 0.0632 s and σ_n = 0.148, a review found the median neuron's spread at 0.36 of what white noise at 0.0834 gave it, AVA's at 0.22 and the other hubs' at 0.19–0.29, while the current's power at low frequencies is 3.15 times white noise's. White noise at the 2.5 ms step gave AVA about 0.39 mV, not the 0.82 of the continuous-time analysis, so its fall is about 2.2-fold. At the provisional values the choice changes nothing: on 20 seeds, with the noise off, white at 0.0834 and coloured at 0.0834 or 0.148, the worm moves forward 20–22% of the time, with no forward run past 4.5 s. None of the 8 trials the entry above ran has a 10 s forward bout, so the refit starts where the frequency and wavelength aren't measured, as R's first fit did.
+- **The planned fit's result can't be final.** §7.2 takes no fit's checkpoint 1 result as final until the loop meets it, and the planned fit's, with white noise, doesn't; yet §9's choice would weigh it against R's refit.
+- **Smaller findings.** The considered σ_n for τ_n = 0.2 s is 0.233, not 0.236. With synapses free rather than held at rest, the network has a slow mode of about 0.24 s, inside τ_n's range, and at 0.472 IL2DL would reach about 22 mV, a review found. Parity's allowance for the noise's rounding still assumed white noise, and the GPU's noise current was never compared with the CPU's. The study scripts would now run R's provisional values where they say R's fit, and the coloured noise where they say white. The app's notice and several comments still describe the white noise or R's first fit, PLAN §9 said the app still runs that fit, and R's status was stated four ways.
+
+**Decision** (PLAN §3.5, §7.3, §9, each marked). The maintainer chose the recommendation each time:
+
+- **σ_n keeps white noise's bound, 0.169 pA·√s, for the coloured noise too.** The coloured current's power at frequency f, σ_n²/(1 + (2πfτ_n)²), lies below white noise's of the same intensity, σ_n², at every frequency. So in the linear analysis no neuron, in any network, intact, silenced, lesioned or a null, spreads more than white noise at its bound let it. The argument doesn't cover the nonlinear dynamics; at 0.169 the silenced trials above found no bout of 10 s at any of τ_n's three points. The 0.472 of the entry above is withdrawn before any use.
+  - Considered: holding a lone neuron to white noise's 38 mV, σ_n ≤ 0.169·√(1 + τ_n/100 ms), from 0.185 to 0.293, which still gave a bout of 10.0 s at τ_n = 0.2 s; keeping 0.472 and grading the finalists on checkpoint 0 before the choice, which would stop checkpoint 0 being independent evidence; and keeping 0.472 with the risk recorded.
+- **The start stays at τ_n = 0.0632 s and σ_n = 0.148**, inside the bound. The entry above is corrected to say that IL2DL's spread carries over, not the noise's scale. Considered: σ_n = 0.0834, white noise's provisional intensity, the same power at low frequencies.
+- **Only a fit that passes §7.2's comparison enters §9's choice.** From R's refit on, a fit's checkpoint 1 result must pass §7.2's comparison at dt and dt/2 before the choice weighs it. The planned fit is tested as it stands, with its white noise, on the harness R's refit needs. A fit that fails it can't be chosen; if neither passes, no choice is made and R stays suspended. Considered: fitting the planned model again with the coloured noise; dropping the planned fit from the choice; and setting the rule in the refit's pull request.
+- **Two risks, noted before either can show.**
+  - Checkpoint 5. A lesion that slows a hub's partners raises their spread more under the coloured noise than white noise did. In a review's linear analysis at rest, lesioning AVA raises the A-types' spread 4.9-fold, against 2.4-fold with white noise, and AVB with PVC the B-types' 3.0-fold, against 1.7-fold. Noise-driven backward activity could then work against the AVA rows.
+  - Checkpoint 6. σ_n's bound is the same for every brain, but each wiring's neurons spread differently under it: in a review's own rewirings, not the project's nulls, the widest neuron's 20 mV intensity at τ_n = 0.2 s ranged from 0.39 to 0.67. Checkpoint 6's report gives each null's widest neuron's spread at its fitted noise. The analysis behind these figures and the bound's first derivation ran in scratch scripts; it is committed as code when that report is built.
+- **Everything else, as recommended.** Parity's allowance for the noise scales with τ_n, the one-step check compares the noise current itself, and the round trip and the long runs use the coloured noise. The study scripts pin R's first fit and white noise, so a rerun reproduces their tables. The app's notice, the comments, R's status across PLAN, README, VALIDATION and the ledger, and the entries above are corrected, and Safari's parity is recorded.
+
+**Status.** Set before the refit, which runs next with σ_n bounded at 0.169.
