@@ -5,7 +5,25 @@ import { execSync, fork } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { hash, uniform } from '../../src/sim/brain/rng.ts';
+import type { LoopParams, RValues } from '../../src/sim/world.ts';
 import { ROOT } from '../data/sources.ts';
+
+type WorldModule = typeof import('../../src/sim/world.ts');
+
+// The points the studies ran at, pinned as they ran, since the registry has moved on to the coloured noise
+// (DECISIONS.md, 2026-09-28): R's first fit, as data/calibration/r1.json records it, and R's provisional values
+// as they were then, each with white noise. `world` is a tree's world module.
+export function firstFit(world: WorldModule): LoopParams {
+  const fit = JSON.parse(readFileSync(join(ROOT, 'data/calibration/r1.json'), 'utf8')) as {
+    final: { values: Omit<RValues, 'noiseCorrelation'> };
+  };
+  return world.loopParams({ ...fit.final.values, noiseCorrelation: 0 });
+}
+export function firstStart(world: WorldModule): LoopParams {
+  return { ...world.provisionalParams(), noise: WHITE_PROVISIONAL, noiseCorrelation: 0 };
+}
+// R's provisional σ_n before the coloured noise, the white noise's (DECISIONS.md, 2026-09-27).
+const WHITE_PROVISIONAL = 0.0834;
 
 // The git trees whose content a trial depends on, less the step: the model's code, the data, the pins and the
 // harness's readers. A change anywhere else, such as to a study or to the docs, leaves records valid.

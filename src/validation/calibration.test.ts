@@ -59,31 +59,32 @@ describe("the calibration's settings", () => {
       neuromuscularThreshold: [-0.3, 0.8, 'linear'],
       smdGain: [0.1, 1, 'log'],
       noiseIntensity: [0, 0.169, 'linear'],
+      noiseCorrelation: [0.02, 0.2, 'log'],
     });
   });
 });
 
 describe('the search space', () => {
   it('maps [0, 1] onto each range, logarithmically or linearly, and back', () => {
-    const lo = fromUnit(new Array<number>(11).fill(0));
-    const hi = fromUnit(new Array<number>(11).fill(1));
-    const mid = fromUnit(new Array<number>(11).fill(0.5));
+    const lo = fromUnit(new Array<number>(CALIBRATED.length).fill(0));
+    const hi = fromUnit(new Array<number>(CALIBRATED.length).fill(1));
+    const mid = fromUnit(new Array<number>(CALIBRATED.length).fill(0.5));
     for (const id of CALIBRATED) {
       expect(lo[id]).toBeCloseTo(bounds(id)[0], 12);
       expect(hi[id]).toBeCloseTo(bounds(id)[1], 12);
       const [a, b] = bounds(id);
       expect(mid[id]).toBeCloseTo(MAPPING[id] === 'log' ? Math.sqrt(a * b) : (a + b) / 2, 12);
     }
-    const u = [0.1, 0.9, 0.3, 0.7, 0.5, 0.2, 0.8, 0.4, 0.6, 0.35, 0.55];
+    const u = [0.1, 0.9, 0.3, 0.7, 0.5, 0.2, 0.8, 0.4, 0.6, 0.35, 0.55, 0.45];
     toUnit(fromUnit(u)).forEach((x, i) => expect(x).toBeCloseTo(u[i], 12));
   });
 
   it('takes a candidate outside at the nearest point inside, and charges it the squared distance', () => {
-    const u = [-0.5, 1.2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+    const u = [-0.5, 1.2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
     expect(fromUnit(u).oscillatorExcitability).toBe(300);
     expect(fromUnit(u).oscillatorExcitabilityB).toBe(5000);
     expect(outside(u)).toBeCloseTo(0.25 + 0.04, 15);
-    expect(outside(new Array<number>(11).fill(0.5))).toBe(0);
+    expect(outside(new Array<number>(CALIBRATED.length).fill(0.5))).toBe(0);
     expect(() => fromUnit([0.5])).toThrow(/coordinates/);
   });
 });
@@ -150,7 +151,7 @@ describe('the measures and the objective', () => {
 
 describe('the final check', () => {
   it('takes the best distinct candidates, the earlier first on a tie', () => {
-    const v = (x: number): Values => fromUnit(new Array<number>(11).fill(x));
+    const v = (x: number): Values => fromUnit(new Array<number>(CALIBRATED.length).fill(x));
     const evaluated = [
       { values: v(0.1), value: 3 },
       { values: v(0.2), value: 1 },
@@ -166,7 +167,8 @@ describe('the final check', () => {
 
 // A synthetic scorer: the objective is the distance from a point, the same on every seed, so the search's
 // bookkeeping can be checked without a trial.
-const target = [0.2, 0.8, 0.5, 0.6, 0.4, 0.7, 0.3, 0.5, 0.45, 0.65, 0.35];
+// One coordinate a parameter.
+const target = [0.2, 0.8, 0.5, 0.6, 0.4, 0.7, 0.3, 0.5, 0.45, 0.65, 0.35, 0.55];
 const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
   return (values, seeds) => {
     calls.push({ seeds });
@@ -191,7 +193,7 @@ describe('the search', () => {
     expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues()));
     const centre = new Array<number>(CALIBRATED.length).fill(0.5);
     expect((await calibrate(synthetic(), { budget: 11, start: centre })).generations[0].mean).toEqual(centre);
-    // Eleven parameters: generations of 11.
+    // Twelve parameters: generations of 4 + ⌊3 ln 12⌋ = 11.
     expect(fit.generations.map((g) => g.evaluations)).toEqual([11, 22, 25]);
     expect(fit.evaluated.map((e) => e.generation)).toEqual([
       ...new Array<number>(11).fill(0),

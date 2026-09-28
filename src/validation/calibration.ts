@@ -23,6 +23,7 @@ export const MAPPING: Record<CalibratedId, 'log' | 'linear'> = {
   neuromuscularGain: 'log',
   neuromuscularThreshold: 'linear',
   noiseIntensity: 'linear',
+  noiseCorrelation: 'log',
 };
 
 // The procedure's settings (PLAN §7.3).

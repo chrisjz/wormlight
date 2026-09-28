@@ -20,10 +20,10 @@ describe("the calibration's options", () => {
 });
 
 describe("the calibration's record", () => {
-  it("names track R's round 1, starts from the provisional values, and is committed as r1.json", () => {
+  it("names track R's refit, starts from the provisional values, and is committed as r2.json", () => {
     const s = settings(20);
-    expect(s.model).toBe('track R, round 1');
+    expect(s.model).toBe('track R, round 1, refit with coloured noise');
     expect(s.start).toEqual(provisionalValues());
-    expect(SUMMARY.endsWith('data/calibration/r1.json')).toBe(true);
+    expect(SUMMARY.endsWith('data/calibration/r2.json')).toBe(true);
   });
 });

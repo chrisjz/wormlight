@@ -35,8 +35,8 @@ export interface LoopParams {
   // g_nmj (per EM section) and θ_nmj (EM sections), or with relativeDrive per unit of relative drive and in it.
   neuromuscularGain: number;
   neuromuscularThreshold: number;
-  // σ_n (pA·√s), and the noise's correlation time τ_n (s): left out or 0, white noise, as the model runs; above 0,
-  // an Ornstein–Uhlenbeck current, a candidate the second numerics study tests (DECISIONS.md, 2026-09-28).
+  // σ_n (pA·√s), and the noise's correlation time τ_n (s): left out or 0, white noise, as the planned model runs;
+  // above 0, an Ornstein–Uhlenbeck current, as track R's model runs from its refit on (DECISIONS.md, 2026-09-28).
   noise: number;
   noiseCorrelation?: number;
   // Track R's model (PLAN §9): g_osc for the B-types, apart from the A-types' (nS); κ_gap,B on every gap junction
@@ -55,6 +55,8 @@ export interface RValues extends PlannedValues {
   oscillatorExcitabilityB: number; // pS
   gapGainB: number;
   smdGain: number;
+  // τ_n (s), the coloured noise's correlation time; σ_n is then the coloured current's intensity.
+  noiseCorrelation: number;
 }
 export function loopParams(values: RValues): LoopParams {
   return {
@@ -63,6 +65,7 @@ export function loopParams(values: RValues): LoopParams {
     gapGainB: values.gapGainB,
     smdGain: values.smdGain,
     relativeDrive: true,
+    noiseCorrelation: values.noiseCorrelation,
   };
 }
 
@@ -81,7 +84,7 @@ export function plannedParams(values: PlannedValues): LoopParams {
   };
 }
 
-// The calibrated parameters' ids in the registry: track R's eleven (PLAN §9).
+// The calibrated parameters' ids in the registry: track R's twelve (PLAN §9).
 export const CALIBRATED = [
   'oscillatorExcitability',
   'oscillatorExcitabilityB',
@@ -94,6 +97,7 @@ export const CALIBRATED = [
   'neuromuscularThreshold',
   'smdGain',
   'noiseIntensity',
+  'noiseCorrelation',
 ] as const;
 
 // The registry's values, once calibrated.

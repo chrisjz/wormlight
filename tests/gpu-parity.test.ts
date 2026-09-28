@@ -1,18 +1,23 @@
-// The CPU side of GPU parity (PLAN §7.2): the Gaussian's error bound and the states both brains start from.
+// The CPU side of GPU parity (PLAN §7.2): the Gaussian's and the coloured current's error bounds, and the states both
+// brains start from.
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { hash, uniform } from '../src/sim/brain/rng.ts';
+import { gaussianFrom, hash, uniform } from '../src/sim/brain/rng.ts';
+import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { MAX_NEURONS } from '../src/gpu/brainShader.ts';
 import {
   againstWall,
   assayField,
+  colouredBounds,
   COPIES,
   cpuWorld,
   endVelocities,
   gaussianBound,
   LOOP_SETUPS,
+  longWorld,
   loopCases,
+  noiseAllowance,
   movedAndTurned,
   OTHER_SEED,
   paritySetup,
@@ -61,6 +66,47 @@ describe("the bound on the shader's Gaussian", () => {
 
   it('is dominated by the 2⁻¹¹ WGSL allows cos, so stays small', () => {
     for (const [h1, h2] of pairs) expect(gaussianBound(h1, h2)).toBeLessThan(6 * 2 ** -11);
+  });
+});
+
+describe("the bound on the shader's coloured current", () => {
+  const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
+  // A state with a current in every neuron, on the registry's values.
+  const world = new World(data, currentParams(), { seed: 1 });
+  for (let k = 0; k < 400; k++) world.step();
+  const before = world.snapshot().brain;
+  const setup = (tau: number) => ({ noise: 0.148, seed: 1, network: world.brain.network, noiseCorrelation: tau });
+
+  // The shader's update as f32 arithmetic with correctly rounded exp, sqrt and division, from the state's current
+  // rounded to f32, as GpuBrain.restore rounds it.
+  function etaF32(eta: number, tau: number, h1: number, h2: number): number {
+    const f = Math.fround;
+    const decay = f(Math.exp(f(-f(NEURAL_STEP) / f(tau))));
+    const spread = f(f(f(0.148) / f(Math.sqrt(f(2 * f(tau))))) * f(Math.sqrt(f(1 - f(decay * decay)))));
+    return f(f(f(eta) * decay) + f(spread * gaussianF32(h1, h2)));
+  }
+
+  it('covers f32 arithmetic across τ_n', () => {
+    expect(before.noise.some((eta) => eta !== 0)).toBe(true);
+    for (const tau of [0.02, 0.0632, 0.2]) {
+      const decay = Math.exp(-NEURAL_STEP / tau);
+      const spread = (0.148 / Math.sqrt(2 * tau)) * Math.sqrt(1 - decay * decay);
+      const bounds = colouredBounds(setup(tau), before.steps, before.noise);
+      before.noise.forEach((eta, i) => {
+        const h1 = hash(1, before.steps, 2 * i);
+        const h2 = hash(1, before.steps, 2 * i + 1);
+        const error = Math.abs(etaF32(eta, tau, h1, h2) - (eta * decay + spread * gaussianFrom(h1, h2)));
+        expect(error).toBeLessThanOrEqual(bounds[i]);
+      });
+    }
+  });
+
+  it("allows the voltage far less than white noise's draw, and nothing to white noise's current", () => {
+    const white = { ...setup(0.0632), noiseCorrelation: 0 };
+    const coloured = noiseAllowance(setup(0.0632), before.steps, before.noise);
+    expect(coloured).toBeGreaterThan(0);
+    expect(coloured).toBeLessThan(noiseAllowance(white, before.steps, before.noise) / 10);
+    expect(colouredBounds(white, before.steps, before.noise).every((b) => b === 0)).toBe(true);
   });
 });
 
@@ -161,6 +207,13 @@ describe("the loop's parity", () => {
     const withB = (currentParams().oscillatorGainB ?? 1) > 0;
     const expected = data.neurons.filter((n) => n.oscillator === 'A' || (withB && n.oscillator === 'B'));
     expect(world.brain.oscillators?.neurons).toHaveLength(expected.length);
+  });
+
+  it("runs its long runs on the registry's values, the coloured noise's among them", () => {
+    const world = longWorld(data, 2);
+    expect(world.brain.noise).toBe(currentParams().noise);
+    expect(world.brain.noiseCorrelation).toBe(currentParams().noiseCorrelation);
+    expect(world.brain.noiseCorrelation).toBeGreaterThan(0);
   });
 
   // Builds every setup's states: about 1.3 s here, and past 5 s on a slow CI runner.

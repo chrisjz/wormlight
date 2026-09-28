@@ -63,9 +63,9 @@ export const LOOP_SCALARS = [
   'odour_cell',
 ] as const;
 export type LoopScalar = (typeof LOOP_SCALARS)[number];
-// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, and while looping the steps left in its touch pulse and the touch current
-// it took on the last step.
-export const STATE_WORDS = 8;
+// Per neuron: v, v₋₁, s, s₋₁, w, w₋₁, while looping the steps left in its touch pulse and the touch current it took
+// on the last step, and its coloured noise current η, 0 throughout with white noise.
+export const STATE_WORDS = 9;
 // Per neuron: threshold, oscillator shift θ, its oscillator's gain g_osc (0 for none), its proprioceptive field's
 // side and rods, the side the head switch drives it on, and the current of its touch pulse, which each tap sets.
 export const NEURON_WORDS = 8;
@@ -141,7 +141,7 @@ struct Params {
   decay: f32,
   slope: f32,
   noise: f32,
-  _vacant: f32,
+  noise_correlation: f32,
   osc_recovery: f32,
   tolerance: f32,
   _pad0: f32,
@@ -208,6 +208,7 @@ struct State {
   w_prev: f32,
   touch_left: f32,
   touch_last: f32,
+  eta: f32,
 }
 
 struct Status {
@@ -641,6 +642,15 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   let c = params.capacitance / dt;
   let v0 = 1.0 / (2.0 * params.slope);
   let noise = params.noise / sqrt(dt);
+  // The coloured noise, an Ornstein–Uhlenbeck current updated exactly each step (noise.ts): its decay over a step
+  // and the spread of each step's draw.
+  let coloured = params.noise_correlation > 0.0;
+  let eta_decay = select(0.0, exp(-dt / max(params.noise_correlation, 1e-30)), coloured);
+  let eta_spread = select(
+    0.0,
+    params.noise / sqrt(2.0 * max(params.noise_correlation, 1e-30)) * sqrt(max(1.0 - eta_decay * eta_decay, 0.0)),
+    coloured,
+  );
   let looping = params.looping == 1u;
   let rods = params.rods;
   let segments = rods - 1u;
@@ -661,6 +671,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var drive_in: array<f32, ${per}>;
   var touch_left: array<f32, ${per}>;
   var touch_last: array<f32, ${per}>;
+  var eta: array<f32, ${per}>;
   ${own(`
         let here = state[i];
         v[k] = here.v;
@@ -670,7 +681,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         w[k] = here.w;
         w_prev[k] = here.w_prev;
         touch_left[k] = here.touch_left;
-        touch_last[k] = here.touch_last;`)}
+        touch_last[k] = here.touch_last;
+        eta[k] = here.eta;`)}
 
   // The rod and the muscle this invocation holds, while looping: each coordinate in its coarse part and
   // remainder.
@@ -865,7 +877,12 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         var g = a * c + params.leak;
         var current = c * select(v[k], 2.0 * v[k] - 0.5 * v_prev[k], bdf2) + params.leak * params.leak_potential + drive_in[k];
         if (params.noise > 0.0) {
-          current += noise * gaussian(params.seed, steps, i);
+          if (coloured) {
+            eta[k] = eta[k] * eta_decay + eta_spread * gaussian(params.seed, steps, i);
+            current += eta[k];
+          } else {
+            current += noise * gaussian(params.seed, steps, i);
+          }
         }
         for (var e = topology[i]; e < topology[i + 1u]; e++) {
           g += weights[e];
@@ -1024,7 +1041,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   }
 
   ${own(`
-        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], touch_left[k], touch_last[k]);`)}
+        state[i] = State(v[k], v_prev[k], s[k], s_prev[k], w[k], w_prev[k], touch_left[k], touch_last[k], eta[k]);`)}
   if (looping) {
     if (lid < rods) {
       let at = ${ROD_WORDS}u * lid;

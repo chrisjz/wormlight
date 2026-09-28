@@ -109,8 +109,10 @@ export class GpuBrain {
   readonly device: GPUDevice;
   readonly n: number;
   readonly network: Network;
-  // White current noise intensity, σ_n in current·√s, and the seed of its hash, as the CPU's Brain has them.
+  // The current noise's intensity, σ_n in current·√s, and the seed of its hash, as the CPU's Brain has them.
   noise = 0;
+  // τ_n, the coloured noise's correlation time: 0 for white noise, as the CPU's Brain has it.
+  noiseCorrelation = 0;
   seed = 0;
 
   private oscillators: Oscillators | null = null;
@@ -285,6 +287,7 @@ export class GpuBrain {
       previousVoltage: new Float64Array(n),
       previousActivation: new Float64Array(n),
       previousRecovery: new Float64Array(count),
+      noise: new Float64Array(n),
       history: 0,
       steps: 0,
     });
@@ -297,7 +300,8 @@ export class GpuBrain {
     this.alive();
     const n = this.n;
     const oscillators = this.oscillators?.neurons ?? new Int32Array(0);
-    const lengths = [state.voltage, state.activation, state.previousVoltage, state.previousActivation];
+    if (!state.noise) throw new Error('the state carries no noise current, so it predates the coloured noise');
+    const lengths = [state.voltage, state.activation, state.previousVoltage, state.previousActivation, state.noise];
     if (lengths.some((a) => a.length !== n)) throw new Error(`the state is not of ${n} neurons`);
     if (state.recovery.length !== oscillators.length || state.previousRecovery.length !== oscillators.length) {
       throw new Error('the state has other oscillators');
@@ -308,6 +312,7 @@ export class GpuBrain {
       words[STATE_WORDS * i + 1] = state.previousVoltage[i];
       words[STATE_WORDS * i + 2] = state.activation[i];
       words[STATE_WORDS * i + 3] = state.previousActivation[i];
+      words[STATE_WORDS * i + 8] = state.noise[i];
     }
     oscillators.forEach((i, k) => {
       words[STATE_WORDS * i + 4] = state.recovery[k];
@@ -510,7 +515,7 @@ export class GpuBrain {
           network.decay,
           network.slope,
           this.noise,
-          0, // each oscillator's gain is its neuron's own (NeuronConstants)
+          this.noiseCorrelation,
           oscillators?.recovery ?? 1,
           this.tolerance,
         ],
@@ -580,6 +585,7 @@ export class GpuBrain {
         previousActivation: field(3),
         recovery: Float64Array.from(oscillators, (i) => words[STATE_WORDS * i + 4]),
         previousRecovery: Float64Array.from(oscillators, (i) => words[STATE_WORDS * i + 5]),
+        noise: field(8),
         // The GPU keeps the history's step as f32; report the step it was taken at.
         history: history !== 0 && history === Math.fround(this.historyStep) ? this.historyStep : history,
         steps: record[0],

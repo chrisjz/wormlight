@@ -30,7 +30,16 @@ import type { TrialRecord } from '../../../src/validation/trial.ts';
 import { ROOT } from '../../data/sources.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned } from '../../harness/pinned.ts';
-import { buildTree, forkPool, prepareSet, resampledChance, treeSource, workersFrom, writeWhole } from '../trees.ts';
+import {
+  buildTree,
+  firstFit,
+  forkPool,
+  prepareSet,
+  resampledChance,
+  treeSource,
+  workersFrom,
+  writeWhole,
+} from '../trees.ts';
 import { GAINS, LONE_SETTINGS, RECOVERIES, STEPS, excited, held } from './oscillator.ts';
 
 const OUT = join(ROOT, 'harness-out', 'convergence');
@@ -81,13 +90,13 @@ async function runJob(job: Job): Promise<void> {
   const { NEURAL_STEP } = await from<typeof import('../../../src/sim/numerics.ts')>('src/sim/numerics.ts');
   if (NEURAL_STEP !== job.manifest.step)
     throw new Error(`${job.tree} steps at ${NEURAL_STEP}, not ${job.manifest.step}`);
-  const { currentParams, plannedParams } = await from<typeof import('../../../src/sim/world.ts')>('src/sim/world.ts');
+  const world = await from<typeof import('../../../src/sim/world.ts')>('src/sim/world.ts');
   const { PLANNED } = await from<typeof import('../../../src/science/planned.ts')>('src/science/planned.ts');
   const { runTrial } = await from<typeof import('../../../src/validation/trial.ts')>('src/validation/trial.ts');
   const { readPostures } = await from<typeof import('../../harness/pinned.ts')>('scripts/harness/pinned.ts');
   const data = validateWormlightData(JSON.parse(readFileSync(join(job.tree, 'public/data/wormlight.v1.json'), 'utf8')));
   const { model, noise, lesions, oscillatorGain } = job.manifest;
-  const fitted = model === 'planned' ? plannedParams(PLANNED.calibrated) : currentParams();
+  const fitted = model === 'planned' ? world.plannedParams(PLANNED.calibrated) : firstFit(world);
   const params = {
     ...fitted,
     ...(noise === 'off' ? { noise: 0 } : {}),
@@ -107,9 +116,9 @@ async function runJob(job: Job): Promise<void> {
 async function runSpeed(treeDir: string): Promise<void> {
   const from = <T>(path: string): Promise<T> => import(join(treeDir, path)) as Promise<T>;
   const { NEURAL_STEP } = await from<typeof import('../../../src/sim/numerics.ts')>('src/sim/numerics.ts');
-  const { World, currentParams } = await from<typeof import('../../../src/sim/world.ts')>('src/sim/world.ts');
+  const module = await from<typeof import('../../../src/sim/world.ts')>('src/sim/world.ts');
   const data = validateWormlightData(JSON.parse(readFileSync(join(treeDir, 'public/data/wormlight.v1.json'), 'utf8')));
-  const world = new World(data, currentParams(), { seed: 1 });
+  const world = new module.World(data, firstFit(module), { seed: 1 });
   for (let k = 0; k < Math.round(2 / NEURAL_STEP); k++) world.step();
   const steps = Math.round(20 / NEURAL_STEP);
   const started = performance.now();

@@ -135,15 +135,18 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it("runs track R's model on its fit's values (PLAN §9), its provisional values kept beside them", () => {
-    expect(isCalibrated()).toBe(true);
-    expect(currentParams()).toEqual(calibratedParams());
+  it("runs track R's model on its provisional values, coloured noise and all, until its refit (PLAN §9)", () => {
+    expect(isCalibrated()).toBe(false);
+    expect(() => calibratedParams()).toThrow(/not calibrated/);
+    expect(currentParams()).toEqual(provisionalParams());
     expect(currentParams()).toMatchObject({
       relativeDrive: true,
-      oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,
-      oscillatorGainB: (PARAMS.oscillatorExcitabilityB.value as number) / 1000,
+      gapGainB: 1,
+      smdGain: 1,
+      oscillatorGainB: 2.14,
+      noise: 0.148,
+      noiseCorrelation: 0.0632,
     });
-    expect(provisionalParams()).toMatchObject({ gapGainB: 1, smdGain: 1, oscillatorGainB: 2.14 });
   });
 
   it('feeds curvature to the motor neurons with the sign of their side', () => {
@@ -401,8 +404,16 @@ describe('the world', () => {
         neuromuscularThreshold: 0.1,
         smdGain: 0.5,
         noiseIntensity: 0.01,
+        noiseCorrelation: 0.1,
       }),
-    ).toMatchObject({ oscillatorGain: 1.5, oscillatorGainB: 0.5, gapGainB: 0.3, smdGain: 0.5, relativeDrive: true });
+    ).toMatchObject({
+      oscillatorGain: 1.5,
+      oscillatorGainB: 0.5,
+      gapGainB: 0.3,
+      smdGain: 0.5,
+      relativeDrive: true,
+      noiseCorrelation: 0.1,
+    });
     // The registry's units are the ones loopParams assumes.
     expect([PARAMS.oscillatorExcitability.unit, PARAMS.headSwitchGain.unit, PARAMS.proprioceptiveGain.unit]).toEqual([
       'pS',

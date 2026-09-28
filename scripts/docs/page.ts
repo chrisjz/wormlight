@@ -124,21 +124,28 @@ function referencedCitations(): CitationId[] {
   return [...usedCitations()].sort(byShort);
 }
 
+// What the status says of the calibrated values: rounded from a fit, with how many it left on a bound, which the
+// page reports as limited by it; or, before the refit, the provisional values the model runs on.
+export function calibratedText(calibrated: readonly Param[]): string {
+  const onBound = calibrated.filter(
+    (p) => p.value !== null && p.bounds != null && (p.value === p.bounds[0] || p.value === p.bounds[1]),
+  ).length;
+  return calibrated.every((p) => p.value !== null)
+    ? `shown below rounded from its fit, ${onBound} of them on a bound`
+    : "not yet calibrated for the coloured noise it runs with: each is shown with the provisional value it runs on, where its refit starts, and R's first fit, with white noise, is recorded in `data/calibration/r1.json`";
+}
+
 export function fidelityPage(facts: Facts): string {
   const subsystems = Object.keys(SUBSYSTEMS) as SubsystemId[];
   const free = freeParams();
   const calibrated = free.filter((id) => PARAMS[id].level === 1);
-  // Calibrated values the fit left on a bound, which the page reports as limited by it.
-  const onBound = calibrated.filter((id) => {
-    const p: Param = PARAMS[id];
-    return p.value !== null && p.bounds != null && (p.value === p.bounds[0] || p.value === p.bounds[1]);
-  }).length;
+  const values = calibratedText(calibrated.map((id): Param => PARAMS[id]));
   const groups = Object.keys(PARAM_GROUPS) as Subsystem[];
   return [
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    `> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling as checkpoint 1 asks for it does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), shown below rounded from its fit, ${onBound} of them on a bound (DECISIONS.md, 2026-09-27). R is suspended while its checkpoint 1 result depends on the time step, until the coloured noise runs on the CPU and the GPU and its fit runs again (DECISIONS.md, 2026-09-28). Checkpoints 0 and 1 have run in the harness (\`VALIDATION.md\`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
+    `> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling as checkpoint 1 asks for it does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), ${values} (DECISIONS.md, 2026-09-28). R is suspended until its fit runs again with the coloured noise and passes §7.2's equivalence test (DECISIONS.md, 2026-09-28). Checkpoints 0 and 1 have run in the harness (\`VALIDATION.md\`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],

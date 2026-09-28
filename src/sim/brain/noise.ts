@@ -1,6 +1,7 @@
-// The noise currents the second numerics study tests (DECISIONS.md, 2026-09-28), drawn from a path on a grid so
-// that runs at different steps, each a multiple of the grid, share their noise. The model itself runs on the
-// Brain's own white noise, drawn each step; the GPU has only that.
+// Each neuron's noise current other than the plain white noise the Brain draws itself each step: the coloured
+// current track R's model runs from its refit on (PLAN §3.5, DECISIONS.md 2026-09-28), which the GPU draws the
+// same way, and the second numerics study's paths on a grid, so that runs at different steps, each a multiple of
+// the grid, share their noise; the GPU has no grid.
 
 import { gaussian } from './rng.ts';
 

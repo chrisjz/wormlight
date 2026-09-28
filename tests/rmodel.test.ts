@@ -186,10 +186,13 @@ describe("R's provisional values", () => {
       'oscillatorDriveThreshold',
       'headSwitchGain',
       'proprioceptiveGain',
-      'noiseIntensity',
     ] as const;
     for (const id of shared) expect(PARAMS[id].provisional).toBe(three(PLANNED.calibrated[id]));
     expect(PARAMS.oscillatorExcitabilityB.provisional).toBe(PARAMS.oscillatorExcitability.provisional);
     expect([PARAMS.gapGainB.provisional, PARAMS.smdGain.provisional]).toEqual([1, 1]);
+    // The coloured noise starts at τ_n's geometric middle, with σ_n giving IL2DL the voltage spread the white noise
+    // gave it at the planned fit's σ_n (DECISIONS.md, 2026-09-28).
+    expect(PARAMS.noiseCorrelation.provisional).toBe(three(Math.sqrt(0.02 * 0.2)));
+    expect(PARAMS.noiseIntensity.provisional).toBe(0.148);
   });
 });

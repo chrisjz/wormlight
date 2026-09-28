@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's fit crawls in bouts but fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until the coloured noise runs on the CPU and the GPU and R's fit runs again (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts but failed checkpoint 1 at the 2.5 ms step and reached partial at half of it, so R is suspended until its fit runs again with the coloured noise and passes §7.2's equivalence test; until then the model runs on provisional values, where the worm doesn't crawl (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -349,11 +349,14 @@ export const COMPONENTS: readonly Component[] = [
     levels: [1],
     basis: 'Calibrated to the spontaneous reversal rate (PLAN §7.3)',
     caveats:
-      "White current noise; its intensity is tuned. From track R's refit it becomes a coloured current, whose correlation time is tuned too (DECISIONS.md)",
+      "A coloured current, an Ornstein–Uhlenbeck process in each neuron; its intensity and correlation time are tuned. White noise before track R's refit (DECISIONS.md)",
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [
-      { check: 'unit', detail: 'its power is the same at any step, and each neuron draws its own' },
+      {
+        check: 'unit',
+        detail: 'its variance settles to σ_n²/2τ_n, its update is exact at any step, and each neuron draws its own',
+      },
       { check: 'checkpoint1', detail: 'bout clause' },
       { check: 'checkpoint5', detail: 'spontaneous-reversal rows' },
     ],
@@ -393,7 +396,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Fouad et al. 2018; Xu et al. 2018 (abstract only); AVB needed for forward movement (Chalfie et al. 1985)',
     caveats:
-      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's fit set it to 0, so they run without one, and still carry the crawl (DECISIONS.md)",
+      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's first fit set it to 0, and the B-types still carried the crawl without one (DECISIONS.md)",
     upgrade: 'A parameterised model of the B-type rhythm',
     sources: ['fouad2018', 'xu2018', 'chalfie1985', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [
@@ -409,7 +412,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Gao et al. 2018 (sufficient for backward locomotion without premotor interneurons)',
     caveats:
-      "As above. With these constants and no drive threshold the A-types don't cycle on their own, even without their premotor interneurons: they are excitable, and noise excites them. At R's fitted 5 nS their fast time scale, 0.2 ms, is shorter than the 2.5 ms step, and the reversals they make depend on the step. The model doesn't yet show the intrinsic rhythm it cites (DECISIONS.md)",
+      "As above. With these constants and no drive threshold the A-types don't cycle on their own, even without their premotor interneurons: they are excitable, and noise excites them. At R's first fit's 5 nS their fast time scale, 0.2 ms, was shorter than the 2.5 ms step, and the reversals they made depended on the step. The model doesn't yet show the intrinsic rhythm it cites (DECISIONS.md)",
     upgrade: 'A parameterised model of the A-type rhythm',
     sources: ['gao2018', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint5', detail: 'AVA and AVA + AVD rows' }],

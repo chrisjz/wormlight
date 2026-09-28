@@ -47,6 +47,8 @@ export interface BrainState {
   previousVoltage: Float64Array;
   previousActivation: Float64Array;
   previousRecovery: Float64Array;
+  // Each neuron's coloured noise current, 0 throughout with white noise.
+  noise: Float64Array;
   history: number;
   steps: number;
 }
@@ -135,14 +137,15 @@ export class Brain {
   readonly threshold: Float64Array;
   // The external current during the next step, applied at its end as the implicit scheme reads it.
   readonly input: Float64Array;
-  // White current noise intensity, σ_n in current·√s: each step adds σ_n/√dt times a standard normal draw.
+  // The current noise's intensity, σ_n in current·√s. As white noise, each step adds σ_n/√dt times a standard
+  // normal draw.
   noise = 0;
   seed = 0;
-  // Two options the second numerics study tests (DECISIONS.md, 2026-09-28), both 0 by default, which leaves the
-  // white noise above bit for bit; the GPU has neither. With a correlation time τ_n above 0, the noise is an
-  // Ornstein–Uhlenbeck current, τ_n dη = −η dt + σ_n dW, updated exactly, starting from 0 when the state is set,
-  // and not carried in a BrainState. With a grid, each step's noise comes from one path drawn on it, so that runs
-  // at different steps, each a multiple of it, share their noise.
+  // Both 0 by default, which leaves the white noise above bit for bit. With a correlation time τ_n above 0, the
+  // noise is an Ornstein–Uhlenbeck current, τ_n dη = −η dt + σ_n dW, updated exactly, as track R's model runs it
+  // from its refit on (DECISIONS.md, 2026-09-28); it starts from 0 when the state is set and is carried in a
+  // BrainState. With a grid, which the second numerics study tests and the GPU lacks, each step's noise comes from
+  // one path drawn on it, so that runs at different steps, each a multiple of it, share their noise.
   noiseCorrelation = 0;
   noiseGrid = 0;
   // Steps taken since the state was set: the noise's counter, and the clock of fixed-step callers.
@@ -182,6 +185,7 @@ export class Brain {
     this.d = new Float64Array(n);
     this.b = new Float64Array(n);
     this.next = new Float64Array(n);
+    this.coloured = new Float64Array(n);
     this.solver = new ConjugateGradient(n);
     this.tolerance = options.tolerance ?? CG_TOLERANCE;
     this.maxIterations = options.maxIterations ?? CG_MAX_ITERATIONS;
@@ -231,6 +235,7 @@ export class Brain {
       previousVoltage: Float64Array.from(this.previousVoltage),
       previousActivation: Float64Array.from(this.previousActivation),
       previousRecovery: Float64Array.from(this.previousRecovery),
+      noise: Float64Array.from(this.coloured),
       history: this.historyStep,
       steps: this.steps,
     };
@@ -238,7 +243,9 @@ export class Brain {
 
   restore(state: BrainState): void {
     if (state.recovery.length !== this.recovery.length) throw new Error('the state has other oscillators');
-    this.coloured.fill(0);
+    if (!state.noise) throw new Error('the state carries no noise current, so it predates the coloured noise');
+    if (state.noise.length !== this.n) throw new Error('the state has another number of neurons');
+    this.coloured.set(state.noise);
     this.voltage.set(state.voltage);
     this.activation.set(state.activation);
     this.recovery.set(state.recovery);
@@ -258,7 +265,6 @@ export class Brain {
   // Each neuron's noise current over the next step, from the grid's path (noise.ts).
   private drawNoise(dt: number): Float64Array {
     if (this.drawn.length !== this.n) this.drawn = new Float64Array(this.n);
-    if (this.coloured.length !== this.n) this.coloured = new Float64Array(this.n);
     const settings = {
       seed: this.seed,
       intensity: this.noise,

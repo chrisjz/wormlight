@@ -1,5 +1,5 @@
 // The calibrated values against the committed records of the fits that set them (PLAN §7.3, §9): the planned
-// model's, and track R's once its fit has run.
+// model's, track R's first fit, and R's refit with the coloured noise once it has run.
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -34,13 +34,24 @@ describe("the planned model's calibrated values", () => {
   });
 });
 
-describe("track R's calibrated values", () => {
-  it("are its fit's final ones, unrounded, within the same bounds, once the fit has run", () => {
-    const committed = existsSync(join(ROOT, 'data/calibration/r1.json'));
-    expect(isCalibrated()).toBe(committed);
-    if (!committed) return;
+describe("track R's first fit, with white noise", () => {
+  it('is kept as its record: a whole run from a clean commit, on the eleven parameters it had', () => {
     const fit = readJson<Record>('data/calibration/r1.json');
     expect(fit.model).toBe('track R, round 1');
+    expect(fit.complete).toBe(true);
+    expect(fit.commit).not.toMatch(/uncommitted/);
+    expect(Object.keys(fit.final.values)).toHaveLength(11);
+    expect(fit.final.values).not.toHaveProperty('noiseCorrelation');
+  });
+});
+
+describe("track R's calibrated values", () => {
+  it("are its refit's final ones, unrounded, within the same bounds, once the refit has run", () => {
+    const committed = existsSync(join(ROOT, 'data/calibration/r2.json'));
+    expect(isCalibrated()).toBe(committed);
+    if (!committed) return;
+    const fit = readJson<Record>('data/calibration/r2.json');
+    expect(fit.model).toBe('track R, round 1, refit with coloured noise');
     expect(Object.keys(fit.final.values).sort()).toEqual([...CALIBRATED].sort());
     for (const id of CALIBRATED) {
       const p: Param = PARAMS[id];
@@ -51,7 +62,7 @@ describe("track R's calibrated values", () => {
 
   it('was a whole run from a clean commit, under the settings the code has now', () => {
     if (!isCalibrated()) return;
-    const fit = readJson<Record>('data/calibration/r1.json');
+    const fit = readJson<Record>('data/calibration/r2.json');
     expect(fit.complete).toBe(true);
     expect(fit.budget).toBe(CALIBRATION.budget);
     expect(fit.commit).not.toMatch(/uncommitted/);

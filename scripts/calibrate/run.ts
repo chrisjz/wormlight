@@ -1,17 +1,18 @@
 // npm run calibrate -- [--budget N] [--jobs N] [--resume]
 //
-// PLAN §7.3's calibration of track R's model's eleven parameters, R's fit (PLAN §9). The planned model's fit, R's
-// first step, is data/calibration/planned.json.
+// PLAN §7.3's calibration of track R's model's twelve parameters with the coloured noise, R's refit (PLAN §9). R's
+// first fit, with white noise, is data/calibration/r1.json, and the planned model's, R's first step,
+// data/calibration/planned.json.
 //
 // CMA-ES over the parameters mapped onto [0, 1], starting from their provisional values, each candidate scored on
-// 4 trials of 120 s on the CPU
-// reference, seeds 1001 to 1004, in parallel worker processes, one per core by default. At the budget's end,
-// the ten best candidates and the final mean are run again on 16 fresh seeds, and the best there is final.
+// 4 trials of 120 s on the CPU reference, seeds 1001 to 1004, in parallel worker processes, one per core by default.
+// At the budget's end, the ten best candidates and the final mean are run again on 16 fresh seeds, and the best
+// there is final.
 //
-// Everything goes to harness-out/calibration-r1.json (calibration-r1-<budget>.json for a shortened
-// run), rewritten after every generation, so --resume can take a stopped run up again, replaying the
-// generations it had. A full run also writes its summary, without the evaluations, to
-// data/calibration/r1.json, which is committed: the registry's values must match its final ones.
+// Everything goes to harness-out/calibration-r2.json (calibration-r2-<budget>.json for a shortened run), rewritten
+// after every generation, so --resume can take a stopped run up again, replaying the generations it had. A full run
+// also writes its summary, without the evaluations, to data/calibration/r2.json, which is committed: the registry's
+// values must match its final ones.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -55,7 +56,7 @@ interface Result {
 }
 
 const DATA = join(ROOT, 'public/data/wormlight.v1.json');
-export const SUMMARY = join(ROOT, 'data/calibration/r1.json');
+export const SUMMARY = join(ROOT, 'data/calibration/r2.json');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
 
@@ -143,7 +144,7 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
 // What a run was: the settings a reader needs to interpret its units and scores.
 export function settings(budget: number): Record<string, unknown> {
   return {
-    model: 'track R, round 1',
+    model: 'track R, round 1, refit with coloured noise',
     budget,
     calibration: CALIBRATION,
     start: provisionalValues(),
@@ -170,7 +171,7 @@ if (process.argv.includes('--worker')) {
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
   const full = options.budget === CALIBRATION.budget;
-  const file = join(ROOT, 'harness-out', full ? 'calibration-r1.json' : `calibration-r1-${options.budget}.json`);
+  const file = join(ROOT, 'harness-out', full ? 'calibration-r2.json' : `calibration-r2-${options.budget}.json`);
   let previous: Evaluated[] = [];
   if (options.resume) {
     if (!existsSync(file)) throw new Error(`there is no run to resume at ${file}`);
