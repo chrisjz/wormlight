@@ -1713,3 +1713,22 @@ The study reports, for each candidate, the points where it converges and where i
 **Cost.** On one CPU core, the loop on R's fit runs at 32.8, 20.2 and 12.1 times real time at k = 1, 2 and 4. The GPU runs no candidate yet. Scaled from the app's 21–24× at k = 1, it would run at about 13–15× at k = 2, keeping the 10× target, and about 8–9× at k = 4, below it.
 
 **Status.** Run. What it leaves for the maintainer: which fix, if any, to adopt, and how PLAN §7.2's criterion should treat runs whose metrics vary by chance more than it allows.
+
+## 2026-09-28 — The noise becomes coloured, and §7.2 judges noisy runs against chance (changed after results)
+
+**Why.** The second numerics study (above) found the coloured noise current the only candidate whose between-step changes at R's fit stay within chance at the model's own step, with its reversals holding. It also found that PLAN §7.2's 2% can't be met by any candidate with the noise on, since 20 trials' pooled metrics vary by 2–5% by chance.
+
+**Decision** (PLAN §3.5, §7.2, §9, marked changed after results). The maintainer chose the recommendation each time:
+
+- **From track R's refit on, the noise is an Ornstein–Uhlenbeck current.** Each neuron's noise follows τ_n dη = −η dt + σ_n dW, updated exactly each step, with τ_n the synapses' decay time, 1/a_d = 0.2 s, taken from Kunert's rates. It supersedes the white noise of 2026-09-25.
+  - τ_n is set by that rule, so it isn't a free parameter, and the budget stays at 17.
+  - σ_n keeps its units and is calibrated again in the refit.
+  - Spec §1.1's noise layer, independent seeded noise for each neuron, is unchanged.
+  - The deterministic error the study found without noise, 10% at R's fit at 2.5 ms, stays, within the noise's chance; the neural sub-steps that would shrink it cost the app its 10× target.
+  - Considered: the coloured noise with 4 neural sub-steps, which would lower the app's target to about 8×; and adopting nothing, with R left suspended.
+- **With the noise on, PLAN §7.2's comparison at dt and dt/2 asks each clause to agree within 2%, or within 1.96 times the two runs' combined chance, whichever is larger.** The chance is taken by resampling each run's trials, and the grades needn't match, since a grade flips at a band's edge by chance. Noise-off runs keep the plain 2%. Considered: keeping 2% with enough trials, 80 to 100 a step, that chance falls below 1%, at about five times the cost of every check; and keeping 2% as it is, which no candidate could meet with the noise on.
+- **Then R resumes,** in two pull requests:
+  - the coloured noise on the CPU reference and the GPU, with parity, and in the registry;
+  - R's fit run again, σ_n included, then §7.2's comparison under the new criterion, which it must pass before its checkpoint 1 result is final.
+
+**Status.** Set before the coloured noise is built into the model.
