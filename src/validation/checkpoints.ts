@@ -152,7 +152,12 @@ export function periodogram(x: ArrayLike<number>): number[] {
   });
 }
 
-export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
+// The mid-body curvature's spectral peak above SPECTRUM.from, and the share of its power in SPECTRUM.band, from the
+// periodograms of the trials that stayed finite, summed on the shortest trial's grid; nulls with no such trial.
+export function spectralPeak(records: readonly { finite: boolean; mid: ArrayLike<number> }[]): {
+  peak: number | null;
+  share: number | null;
+} {
   const finite = records.filter((r) => r.finite && r.mid.length > 1);
   // The trials share one frequency grid: the shortest's.
   const n = Math.min(...finite.map((r) => r.mid.length));
@@ -160,7 +165,9 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
   let share: number | null = null;
   if (finite.length > 0) {
     const power = new Array<number>(Math.floor(n / 2) + 1).fill(0);
-    for (const r of finite) periodogram(r.mid.slice(0, n)).forEach((p, k) => (power[k] += p));
+    for (const r of finite) {
+      periodogram(Array.from({ length: n }, (_, i) => r.mid[i])).forEach((p, k) => (power[k] += p));
+    }
     const freq = (k: number): number => k / (n * MOTION_SAMPLE);
     let best = -1;
     let total = 0;
@@ -174,6 +181,11 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
     peak = best < 0 ? null : freq(best);
     share = total > 0 ? inBand / total : null;
   }
+  return { peak, share };
+}
+
+export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
+  const { peak, share } = spectralPeak(records);
   let count = 0;
   let afterFlip = 0;
   const changes: number[] = [];

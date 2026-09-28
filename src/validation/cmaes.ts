@@ -12,6 +12,9 @@ export interface CmaesOptions {
   seed: number;
   // Candidates per generation; the default is 4 + ⌊3 ln n⌋.
   lambda?: number;
+  // Generations drawn before this search began, so that a restart's samples continue the seed's stream rather
+  // than repeat its start; 0 for a fresh search.
+  drawn?: number;
 }
 
 export const defaultLambda = (n: number): number => 4 + Math.floor(3 * Math.log(n));
@@ -63,6 +66,7 @@ export class Cmaes {
   sigma: number;
   generation = 0;
   private readonly seed: number;
+  private readonly drawn: number;
   private readonly cs: number;
   private readonly ds: number;
   private readonly cc: number;
@@ -91,6 +95,7 @@ export class Cmaes {
     this.mean = [...options.mean];
     this.sigma = options.sigma;
     this.seed = options.seed;
+    this.drawn = options.drawn ?? 0;
     const mueff = this.muEff;
     this.cs = (mueff + 2) / (n + mueff + 5);
     this.ds = 1 + 2 * Math.max(0, Math.sqrt((mueff - 1) / (n + 1)) - 1) + this.cs;
@@ -105,11 +110,12 @@ export class Cmaes {
     this.d = new Array<number>(n).fill(1);
   }
 
-  // This generation's candidates, x = m + σ·B·D·z, z drawn from the seed, the generation and the candidate.
+  // This generation's candidates, x = m + σ·B·D·z, z drawn from the seed, the generation (counted from the stream's
+  // start) and the candidate.
   ask(): number[][] {
     const { n, b, d } = this;
     this.steps = Array.from({ length: this.lambda }, (_, k) => {
-      const z = Array.from({ length: n }, (_, i) => gaussian(this.seed, this.generation, k * n + i));
+      const z = Array.from({ length: n }, (_, i) => gaussian(this.seed, this.drawn + this.generation, k * n + i));
       return Array.from({ length: n }, (_, i) => {
         let y = 0;
         for (let j = 0; j < n; j++) y += b[i][j] * d[j] * z[j];

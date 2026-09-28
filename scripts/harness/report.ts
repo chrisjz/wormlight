@@ -360,7 +360,10 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
 
 // A run of §7.2's comparison with the noise on, as data/equivalence/<fit>.json records it.
 export interface EquivalenceRun {
-  fit: 'refit' | 'planned';
+  fit: 'refit' | 'round-2' | 'planned';
+  // An R fit's values, from its calibration record, so the result stays tied to what ran; null for the planned fit.
+  // Runs before 2026-09-29 didn't record them.
+  values?: Record<string, number> | null;
   date: string;
   commit: string;
   trials: number;
@@ -374,7 +377,11 @@ export interface EquivalenceRun {
   comparison: StepComparison;
 }
 
-const FITS = { refit: "R's refit", planned: "The planned model's fit" } as const;
+const FITS = {
+  refit: "R's refit",
+  'round-2': "R's second round's fit",
+  planned: "The planned model's fit",
+} as const;
 const MEASURED: Record<Measure, { label: string; digits: number }> = {
   frequency: { label: 'Frequency (Hz)', digits: 4 },
   wavelength: { label: 'Wavelength (body lengths)', digits: 4 },

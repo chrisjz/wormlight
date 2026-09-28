@@ -3,8 +3,9 @@
 
 import { PARAMS } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
-import { Cmaes } from './cmaes.ts';
-import { FRONT_ROD, MOTION_SAMPLE, REAR_ROD, bouts, kinematics, reversals } from './motion.ts';
+import { spectralPeak } from './checkpoints.ts';
+import { Cmaes, defaultLambda } from './cmaes.ts';
+import { FRONT_ROD, MOTION_FLOOR, MOTION_SAMPLE, REAR_ROD, bouts, kinematics, reversals } from './motion.ts';
 
 export type CalibratedId = (typeof CALIBRATED)[number];
 export type Values = Record<CalibratedId, number>;
@@ -44,6 +45,26 @@ export const CALIBRATION = {
 // Checkpoint 1's targets (PLAN §7.3): Hz, body lengths, body lengths per second, reversals per minute.
 export const TARGETS = { frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 } as const;
 export type Target = keyof typeof TARGETS;
+export const ALL_TARGETS: readonly Target[] = ['frequency', 'wavelength', 'speed', 'reversalRate'];
+
+// R's second round (PLAN §7.3, set 2026-09-28 before any of it ran): the crawl fitted first on the kinematics
+// alone, then the noise alone on all four targets; each stage's search restarting, its population doubled, when its
+// step falls below `sigma` or its best hasn't fallen for `stall` generations; and a probe of short runs of stage 1,
+// each pick graded on seeds of its own, before the full run.
+export const SECOND_ROUND = {
+  crawl: { targets: ['frequency', 'wavelength', 'speed'] as readonly Target[], budget: 2000 },
+  noise: {
+    ids: ['noiseIntensity', 'noiseCorrelation'] as readonly CalibratedId[],
+    targets: ALL_TARGETS,
+    budget: 200,
+  },
+  restart: { sigma: 0.01, stall: 20 },
+  probe: {
+    budget: 400,
+    seeds: [11, 12, 13, 14],
+    gradeSeeds: Array.from({ length: 20 }, (_, i) => 2001 + i),
+  },
+} as const;
 // Each target's relative error is capped at this, and an unmeasured one takes the cap.
 export const ERROR_CAP = 2;
 
@@ -68,23 +89,25 @@ export function provisionalValues(): Values {
   ) as Values;
 }
 
-// A point in [0, 1]ⁿ, in CALIBRATED's order, as parameter values in the registry's units; a coordinate
-// outside [0, 1] is taken at the nearest point inside.
-export function fromUnit(u: readonly number[]): Values {
-  if (u.length !== CALIBRATED.length) throw new Error(`a candidate needs ${CALIBRATED.length} coordinates`);
-  return Object.fromEntries(
-    CALIBRATED.map((id, i) => {
+// A point in [0, 1]ⁿ, one coordinate for each of `ids` in their order, as parameter values in the registry's
+// units, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point inside.
+export function fromUnit(u: readonly number[], ids: readonly CalibratedId[] = CALIBRATED, fixed?: Values): Values {
+  if (u.length !== ids.length) throw new Error(`a candidate needs ${ids.length} coordinates`);
+  if (ids.length !== CALIBRATED.length && !fixed) throw new Error('a search over some parameters needs the rest');
+  const mapped = Object.fromEntries(
+    ids.map((id, i) => {
       const [lo, hi] = bounds(id);
       const t = clip(u[i]);
       // Held within the bounds, so rounding can't carry a value at a bound past it.
       const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
       return [id, Math.min(hi, Math.max(lo, v))];
     }),
-  ) as Values;
+  );
+  return { ...fixed, ...mapped } as Values;
 }
 
-export function toUnit(values: Values): number[] {
-  return CALIBRATED.map((id) => {
+export function toUnit(values: Values, ids: readonly CalibratedId[] = CALIBRATED): number[] {
+  return ids.map((id) => {
     const [lo, hi] = bounds(id);
     const v = values[id];
     return MAPPING[id] === 'log' ? Math.log(v / lo) / Math.log(hi / lo) : (v - lo) / (hi - lo);
@@ -107,7 +130,8 @@ export interface Measures {
   finite: boolean;
   // Forward bouts of 10 s or more, pooled over the trials.
   bouts: number;
-  // Null when unmeasured: the frequency and wavelength with no bout, the wavelength with no head-to-tail wave.
+  // Null when unmeasured: the wavelength with no bout or no head-to-tail wave, and the frequency with no bout of a
+  // worm that doesn't move forward past the motion floor; with no bout, a forward mover's is its spectrum's peak.
   frequency: number | null;
   wavelength: number | null;
   // Over the bouts, or the mean forward velocity over the measured windows when there is none.
@@ -115,8 +139,10 @@ export interface Measures {
   reversalRate: number;
 }
 
-// The four targets' measures, pooled over the trials (PLAN §7.3).
-export function measure(records: readonly KinematicRecord[]): Measures {
+// The four targets' measures, pooled over the trials (PLAN §7.3). With `spectral`, as R's second round scores
+// (SECOND_ROUND), a worm without a bout that moves forward on average, past the motion floor, has the mid-body
+// spectrum's peak for its frequency; without it, as round 1 and the refit's procedure score, it takes the cap.
+export function measure(records: readonly KinematicRecord[], options: { spectral?: boolean } = {}): Measures {
   const finite = records.length > 0 && records.every((r) => r.finite);
   const withBouts = records.map((r) => ({ ...r, bouts: bouts(r.velocity) }));
   const count = withBouts.reduce((n, r) => n + r.bouts.length, 0);
@@ -126,12 +152,13 @@ export function measure(records: readonly KinematicRecord[]): Measures {
   if (count === 0) {
     let sum = 0;
     for (const r of records) for (let k = 0; k < r.velocity.length; k++) sum += r.velocity[k];
+    const speed = samples > 0 ? sum / samples : 0;
     return {
       finite,
       bouts: 0,
-      frequency: null,
+      frequency: options.spectral && speed > MOTION_FLOOR ? spectralPeak(records).peak : null,
       wavelength: null,
-      speed: samples > 0 ? sum / samples : 0,
+      speed,
       reversalRate,
     };
   }
@@ -152,7 +179,8 @@ export interface Score {
   errors: Record<Target, number>;
 }
 
-export function objective(m: Measures): Score {
+// The errors on every target, and their sum over `targets`: all four, or a stage's (SECOND_ROUND).
+export function objective(m: Measures, targets: readonly Target[] = ALL_TARGETS): Score {
   const error = (x: number | null, target: number): number =>
     x === null || !Number.isFinite(x) ? ERROR_CAP : Math.min(ERROR_CAP, Math.abs((x - target) / target));
   const errors: Record<Target, number> = {
@@ -161,7 +189,7 @@ export function objective(m: Measures): Score {
     speed: error(m.speed, TARGETS.speed),
     reversalRate: error(m.reversalRate, TARGETS.reversalRate),
   };
-  const value = m.finite ? Object.values(errors).reduce((s, e) => s + e * e, 0) : Infinity;
+  const value = m.finite ? targets.reduce((s, t) => s + errors[t] ** 2, 0) : Infinity;
   return { value, errors };
 }
 
@@ -185,6 +213,8 @@ export function best<T extends { values: Values; value: number }>(evaluated: rea
 // One candidate as the search evaluated it: where CMA-ES sampled it, the values it ran at (clipped into the
 // bounds), its objective on the fit's seeds, and the penalty the search added for lying outside.
 export interface Evaluated {
+  // The search's restart, 0 for its first, and the generation within it.
+  restart: number;
   generation: number;
   candidate: number;
   unit: number[];
@@ -198,7 +228,10 @@ export interface Evaluated {
 }
 
 export interface Generation {
+  restart: number;
   generation: number;
+  // Candidates a generation in this restart, and the evaluations so far across all of them.
+  lambda: number;
   evaluations: number;
   // The best objective evaluated so far, without the penalty, and this generation's median with it.
   best: number;
@@ -231,47 +264,81 @@ export interface Fit {
   final: Finalist;
 }
 
-// PLAN §7.3's search, from the provisional values or `start`, up to `budget` evaluations, then the final check. A run
-// resumes from the evaluations of an earlier one with the same settings: CMA-ES replays them, and each
-// candidate must come out as recorded, bit for bit. `progress` sees each generation as it ends.
+// PLAN §7.3's search, from the provisional values or `start`, up to `budget` evaluations, then the final check. It
+// searches `ids`, every calibrated parameter by default, the rest held at `fixed`; with `restarts`, R's second
+// round's (SECOND_ROUND), CMA-ES starts again from the same point with its population doubled whenever its step
+// falls below `restarts.sigma` or its best hasn't fallen for `restarts.stall` generations. A run resumes from the
+// evaluations of an earlier one with the same settings: CMA-ES replays them, and each candidate must come out as
+// recorded, bit for bit. `extra` candidates join the final check, and `progress` sees each generation as it ends.
 export async function calibrate(
   score: Scorer,
   options: {
     budget: number;
-    // A point in [0, 1]ⁿ to start from instead of the provisional values.
+    ids?: readonly CalibratedId[];
+    fixed?: Values;
+    // A point in [0, 1]ⁿ, one coordinate for each of `ids`, to start from instead of the provisional values.
     start?: readonly number[];
+    seed?: number;
+    restarts?: { sigma: number; stall: number };
+    extra?: readonly { from: string; values: Values }[];
     previous?: readonly Evaluated[];
     progress?: (fit: Omit<Fit, 'checked' | 'final'>) => void;
   },
 ): Promise<Fit> {
-  const mean = [...(options.start ?? toUnit(provisionalValues()))];
-  if (mean.length !== CALIBRATED.length) throw new Error(`the start needs ${CALIBRATED.length} coordinates`);
-  const es = new Cmaes({
-    mean,
-    sigma: CALIBRATION.sigma,
-    seed: CALIBRATION.seed,
-  });
+  const ids = options.ids ?? CALIBRATED;
+  const at = (u: readonly number[]): Values => fromUnit(u, ids, options.fixed);
+  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(), ids))];
+  if (start.length !== ids.length) throw new Error(`the start needs ${ids.length} coordinates`);
+  const seed = options.seed ?? CALIBRATION.seed;
+  let restart = 0;
+  let drawn = 0;
+  const search = (): Cmaes =>
+    new Cmaes({
+      mean: start,
+      sigma: CALIBRATION.sigma,
+      seed,
+      lambda: defaultLambda(ids.length) * 2 ** restart,
+      drawn,
+    });
+  let es = search();
+  // The restart's best, and the generations since it last fell.
+  let restartBest = Infinity;
+  let stalled = 0;
+  // The mean after the last generation told, from whichever restart: the final check's "final mean", so that a
+  // restart the budget ends before any update doesn't offer its start.
+  let finalMean = [...es.mean];
   const evaluated: Evaluated[] = [];
   const generations: Generation[] = [];
   const previous = options.previous ?? [];
   while (evaluated.length < options.budget) {
+    const { restarts } = options;
+    if (restarts && es.generation > 0 && (es.sigma < restarts.sigma || stalled >= restarts.stall)) {
+      drawn += es.generation;
+      restart++;
+      es = search();
+      restartBest = Infinity;
+      stalled = 0;
+    }
     const candidates = es.ask();
     const take = Math.min(candidates.length, options.budget - evaluated.length);
     const replayed = previous.slice(evaluated.length, evaluated.length + take);
     const results = await Promise.all(
       candidates.slice(0, take).map(async (u, k): Promise<Evaluated> => {
-        const was = replayed[k] as Evaluated | undefined;
+        const record = replayed[k] as Evaluated | undefined;
+        // JSON writes an infinite objective as null; read back, it must rank last again, not as 0.
+        const was = record && { ...record, value: (record.value as number | null) ?? Infinity };
         if (was) {
           if (was.unit.length !== u.length || was.unit.some((x, i) => x !== u[i])) {
             throw new Error(
-              `the resumed run parts from the recorded one at generation ${es.generation}, candidate ${k}`,
+              `the resumed run parts from the recorded one at restart ${restart}, generation ${es.generation}, candidate ${k}`,
             );
           }
           return was;
         }
-        const values = fromUnit(u);
+        const values = at(u);
         const s = await score(values, CALIBRATION.fitSeeds);
         return {
+          restart,
           generation: es.generation,
           candidate: k,
           unit: u,
@@ -287,8 +354,15 @@ export async function calibrate(
     evaluated.push(...results);
     const ranked = results.map((e) => e.value + e.penalty);
     const sorted = [...ranked].sort((a, b) => a - b);
+    const lowest = Math.min(...results.map((e) => e.value));
+    if (lowest < restartBest) {
+      restartBest = lowest;
+      stalled = 0;
+    } else stalled++;
     generations.push({
+      restart,
       generation: es.generation,
+      lambda: es.lambda,
       evaluations: evaluated.length,
       best: Math.min(...evaluated.map((e) => e.value)),
       median: sorted[Math.floor(sorted.length / 2)],
@@ -297,20 +371,32 @@ export async function calibrate(
     });
     options.progress?.({ generations, evaluated });
     // A generation cut short by the budget doesn't update the search.
-    if (take === candidates.length) es.tell(ranked);
+    if (take === candidates.length) {
+      es.tell(ranked);
+      finalMean = [...es.mean];
+    }
   }
+  // The extra candidates first, so that on a tie they are kept (stage 2 must beat stage 1's values), then the best
+  // in order of their objective, then the final mean; a candidate already listed isn't run again.
+  const seen = new Set<string>();
   const finalists = [
+    ...(options.extra ?? []).map((x) => ({ ...x, fit: null as number | null })),
     ...best(evaluated, CALIBRATION.rechecked).map((e) => ({
-      from: `generation ${e.generation}, candidate ${e.candidate}`,
+      from: `${restart > 0 ? `restart ${e.restart}, ` : ''}generation ${e.generation}, candidate ${e.candidate}`,
       values: e.values,
       fit: e.value,
     })),
-    { from: 'the final mean', values: fromUnit(es.mean), fit: null as number | null },
-  ];
+    { from: 'the final mean', values: at(finalMean), fit: null as number | null },
+  ].filter((f) => {
+    const key = JSON.stringify(CALIBRATED.map((id) => f.values[id]));
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const checked = await Promise.all(
     finalists.map(async (f): Promise<Finalist> => ({ ...f, ...(await score(f.values, CALIBRATION.checkSeeds)) })),
   );
-  // The lowest objective on the fresh seeds, the better on the fit's seeds on a tie.
+  // The lowest objective on the fresh seeds; on a tie, the earlier in the finalists' order.
   const final = checked.reduce((a, b) => (b.value < a.value ? b : a));
   return { generations, evaluated, checked, final };
 }

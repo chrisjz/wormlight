@@ -1933,3 +1933,92 @@ The study reports, for each candidate, the points where it converges and where i
 - **Everything else, as recommended:** the code fixed and tested, and the docs corrected, each correction marked.
 
 **Status.** Set after review; R's second round is proposed next.
+
+## 2026-09-28 — R's second round: its procedure, set before it runs
+
+**Why.** R's first round ended below partial, but a review found R's model reaching partial inside its bounds, where the calibration ranked it below the refit for making no reversal (the entry above). Two things stood in the way. The reversal term let the head switch's slips outrank crawling. Most candidates made no bout of 10 s and sat at the error cap, a plateau the search can't read. The search also never left the regime it started in. The second round changes the calibration, not the model; its rules are set here, before any of it runs.
+
+**Decision** (PLAN §7.3's new bullet and §9, marked changed after results on checkpoints 1 and 6). The maintainer chose the recommendation each time:
+
+- **Two stages.** Stage 1 fits all twelve calibrated parameters on the frequency, wavelength and speed alone. Stage 2 then fits σ_n and τ_n alone on all four targets, the other ten held at stage 1's values, over 200 evaluations, its final check including stage 1's own values. Reversals can then be bought only with the noise, never with the crawl, and if no noise level brings any, the miss is reported. Considered: dropping the reversal term and reporting the rate, which leaves σ_n with no target of its own; and keeping it as a tie-breaker among candidates near the best, which needs a tolerance chosen now.
+- **A worm without a bout is scored by its spectrum.** With no forward bout of 10 s in the 4 trials, the frequency is the mid-body spectrum's peak above 0.02 Hz, as checkpoint 1's diagnostics find it, if the worm moves forward on average above the motion floor; otherwise it takes the cap. The speed stays the mean forward velocity, and the wavelength keeps the cap. Considered: adding a fifth term for the share of trials with a 20 s bout, which would close §7.3's acknowledged gap but make checkpoint 1's bout clause a calibration target rather than a prediction; and keeping the cap.
+- **CMA-ES restarts** with its population doubled when its step falls below 0.01 or its best stalls for 20 generations, from the same start, within the same 2,000 evaluations. The start stays R's provisional values; a start at the gains' floors, where the review's partial draw lies, would be a design choice made on the real wiring, and isn't taken. Considered: the same with 4,000 evaluations; four plain searches of 500 from seeds 1 to 4; and the search unchanged.
+- **A probe first.** Stage 1 runs four times at 400 evaluations, with seeds 11 to 14. The full run goes ahead if any pick grades at least partial on 20 trials of its own, seeds 2001 to 2020, never checkpoint 1's. Otherwise the round stops and reports before spending its budget. Considered: no probe; and eight probe runs needing two partial picks.
+- **Then, as before:** the fit, written to `data/calibration/r3.json`, takes checkpoint 1 and §7.2's comparison. Step 3's choice is made again among the fits that pass the comparison, R's refit and this one. If checkpoint 1 stays below partial, R ends. If this fit is chosen, every null gets its two-stage procedure, so the open item on slips meeting the reversal term is settled for it.
+- **The targets are unchanged,** although the speed target, 0.22 body lengths per second, is faster than a wave at 0.30 Hz and 0.65 body lengths travels, at 0.195. The study for the last review put a real worm's speed on agar at about 0.8 of its wave speed. That citation isn't yet checked against its source, and changing a target would need approval of its own.
+
+**Status.** Set before any of it runs; the code comes next, then the probe.
+
+## 2026-09-29 — R's second round: the probe finds the crawl, the full run doesn't, and the round ends (corrected after review)
+
+**What ran,** by the rules of R's second round (the entry above), each set before it ran.
+
+- **The probe** (`npm run calibrate -- --probe` at 6b387b2, 45 min). Stage 1 ran four times at 400 evaluations, each pick graded by checkpoint 1's grading on 20 trials of its own, seeds 2001 to 2020:
+
+  | CMA-ES seed | Kinematic objective, seeds 1005–1020 | Frequency (Hz), seeds 2001–2020 | Wavelength (body lengths) | Speed (body lengths/s) | 20 s bouts | Grade   |
+  | ----------- | ------------------------------------ | ------------------------------- | ------------------------- | ---------------------- | ---------- | ------- |
+  | 11          | 0.985                                | 0.164                           | 0.73                      | 0.044                  | 0%         | Fail    |
+  | 12          | 1.079                                | 0.138                           | 0.65                      | 0.025                  | 0%         | Fail    |
+  | 13          | 0.813                                | 0.246                           | 0.41                      | 0.038                  | 0%         | Fail    |
+  | 14          | 0.354                                | 0.343                           | 0.50                      | 0.104                  | 100%       | Partial |
+
+  Seed 14's pick lies in the region the review's draw 0 pointed to: the B-types' oscillator off, κ_gap,B at its floor, κ_SMD near its own, g_sw at its top and θ_osc at its floor, with no reversal. By the rule, the full run went ahead. The probe's picks decide only that: none enters the choice or takes checkpoint 1 or §7.2's comparison, since picking one after seeing its grade would select on results.
+
+- **The full run** (`npm run calibrate` at f064b07, seed 1, 55 min) didn't find it.
+  - Stage 1's 2,000 evaluations restarted twice, at populations of 22 and 44, and settled where the refit did, slipping at the head switch: its body follows the switch's 0.082 Hz, as the refit's does, though with θ_osc at −9.1 mV rather than its floor and more slips. Its pick measures 0.169 Hz, 0.036 body lengths per second and 4.8 reversals a minute on the fresh seeds, and scores 0.89 on the kinematics, against seed 14's probe pick's 0.35. Corrected after review: this said it settled in the first round's regime, without the evidence.
+  - Stage 2 couldn't bring the slips down to the target. Its pick, from its second generation, scores 3.02 on all four targets, with 4.4 reversals a minute.
+  - The values are in `data/calibration/r3.json`.
+- **§7.2's comparison fails the round's fit** (`npm run equivalence -- --fit round-2` at 6f52402). The frequency moves from 0.157 Hz at dt to 0.174 at dt/2, the interval −0.0329 to −0.0024 against a margin of ±0.0052. The wavelength moves from 0.666 to 0.594, +0.0161 to +0.1322 against ±0.0178. Both are measured on bouts piled at the 10 s floor, while the body's own rhythm, the switch's 0.082 Hz, doesn't move with the step (the entry below). The speed, the bout share and the reversal rate pass.
+- **Checkpoint 1 fails it.** Its trials, seeds 1 to 20 at 2.5 ms, are the comparison's first 20 at dt, so they were graded from those records by checkpoint 1's grading, not by the harness, and the registry kept the refit. The same route reproduces the refit's harness result to every digit shown, a review found:
+
+  | Clause                            | Measured | Grade   |
+  | --------------------------------- | -------- | ------- |
+  | Frequency (Hz)                    | 0.156    | Partial |
+  | Wavelength (body lengths)         | 0.66     | Pass    |
+  | Speed (body lengths/s)            | 0.036    | Fail    |
+  | Posture variance, four eigenworms | 97.8%    | Pass    |
+  | Trials with a 20 s forward bout   | 0%       | Fail    |
+
+  All 168 of its reversals began within 3 s after a flip of the head switch, and its mid-body spectrum peaks at 0.082 Hz, with 9% of its power between 0.2 and 0.45 Hz.
+
+**Decision,** by the rules set before the round (PLAN §7.3, §9):
+
+- **R's refit stays the real wiring's final fit.** The round's fit fails §7.2's comparison, so it can't enter the choice, though step 3's ranking alone would have preferred it, with a partial clause to none, a frequency measured on bouts at the 10 s floor.
+- **R's second round ends.** The chosen fit's checkpoint 1 result is below partial and final. The round's fit depending on the step doesn't suspend R, as the first fit's did: the refit passes §7.2's gate and is chosen, and at dt/2 the round's fit fails checkpoint 1 too, a review found, at 0.172 Hz, 0.036 body lengths per second and no 20 s bout. A further round needs another proposal, which the maintainer approves; one followed (the entry below).
+- **What the round showed.** The calibration can find R's crawling region: one search in five did, and graded partial on seeds of its own. But which regime a search settles in turns on its seed, and the full run's seed missed. Any further proposal would be designed knowing that, which it would have to say. Review added that the noise and the objective changed the landscape too: R's first fit, from the same start and seed, ended in the crawling corner (the entry below).
+- **The app and the harness run R's refit,** unchanged, and step 4, checkpoint 0 on it, follows.
+
+**Status.** Done: the second round ended below partial; a third, R's last, was chosen after review (the entry below).
+
+## 2026-09-29 — After review: what round 2's fits are, and a last round
+
+**Why.** Three reviews of R's second round, and an evaluation of whether a third is worth running, found the round's rules set before every result they govern, every search replaying bit for bit, and every figure right. The refit stays chosen, and the round ended by its rules. But the explanations need correcting, some code fails in cases no run met, and one probe pick matters more than the record said. Findings reproduced before this entry was written say so; the rest are attributed.
+
+- **Probe 14's pick is a converged partial crawler.** The evaluation ran §7.2's comparison on it over seeds 1 to 200, and it passes: 0.342 Hz at dt and 0.336 at dt/2, the interval +0.0043 to +0.0073 against ±0.0101; 0.501 and 0.505 body lengths; 0.104 and 0.103 body lengths per second; a 20 s bout in every trial, and no reversal, at both steps. On checkpoint 1's own seeds 1 to 20 it grades partial: 0.341 Hz, 0.50 body lengths, 0.103 body lengths per second, 93.6% for the eigenworms and 20 s bouts in every trial. Both were recomputed here from its records, three of which were rerun and match field for field. It can't be chosen: the probe decides only whether the full run goes ahead, and choosing one of its picks after seeing its grade would select on results.
+- **What carries it,** the evaluation found. The head switch paces the body, flipping 40.8 times a minute; the B-types turn that into thrust, and lesioned, the worm moves forward half the time with no bout, at 0.011 body lengths per second. It never reverses: none in 400 trials, AVA's activation above its threshold level in 0.01% of samples. It sits in a corner of the box, with no B-type oscillator, κ_gap,B at its floor, κ_SMD near its own and g_sw at its top. Most nudges of one value by ±0.05 in the mapped units keep it partial, but none of ten random nudges of all of them did. In the evaluation's own untuned rewirings, not the project's nulls, all ten crawled forward, but only one graded partial, their waves shorter.
+- **Round 2's fit has no frequency of its own.** A review found its partial 0.156 Hz, and its §7.2 failure, measured on bouts piled at the 10 s floor, a median of 10.1 s, while its mid-body spectrum peaks at the head switch's 0.082 Hz at both steps, as the refit's does. With the switch removed it moves forward 0.1% of the time; with the B-types lesioned, 77%. So step 3's preference for it, and a frequency that moves with the step, describe the bout floor, not the worm.
+- **Why seed 1 missed.** A review found every candidate in the round that crawled in that corner. The start sits on both connection gains' upper bounds, so a review put the chance of one draw from it landing there near 2 × 10⁻⁵: a restart from the start can't jump there, and a search must drift, as seed 14's did. R's first fit, seed 1 from the same start with white noise, ended in the same corner (`r1.json`), so the noise and the objective changed the landscape, not the seed alone.
+- **The round's new pieces didn't help,** a review found. Every restart came from the stall rule, on a plateau where a candidate without a bout can't score below 4, and none bettered the first search's best; the last restart's final mean was an unconverged point near the start. The spectral score led searches to worms wiggling near 0.3 Hz without crawling. Stage 2's noise has no lever on the slips: all 200 of its candidates reversed 4.4 to 4.9 times a minute, whatever σ_n.
+- **Smaller findings.**
+  - In the code:
+    - a stage-2 candidate tying stage 1's values won the tie, against the rule;
+    - round 1's scoring could no longer run, though the nulls get the refit's procedure;
+    - a resumed run would rank a non-finite candidate first, JSON having turned its Infinity into null;
+    - the probe lost its grades on a failure and couldn't resume, and a resumed run briefly lost stage 2's evaluations from disk;
+    - the probe's committed record gives the full run's budget rather than its own.
+  - In the docs:
+    - PLAN §7.3 still gave the nulls the two-stage procedure;
+    - passages went stale when the comparison's runner began reading R's fits from their records (f735089, committed two minutes into the full run, before any result it governs);
+    - how checkpoint 1 graded the round's fit wasn't said precisely;
+    - 6b387b2's message says round 1's behaviour is untouched, which held for the search but not the scoring.
+
+**Decision.** The maintainer chose the recommendation each time:
+
+- **R gets a third round, its last.** Five independent searches of 400 evaluations each, their starts drawn across the box from a fixed hash, with one final check across them: the same 2,000 evaluations, and the same procedure for every null. It is designed after seeing probe 14 find the corner and the full run miss it, and says so. Its rules come in their own pull request, before any of it runs, and if its fit stays below partial, R ends for good. Considered:
+  - no third round, with probe 14 recorded as exploratory and step 4 next. The evaluation recommended this: the crawlers don't reverse, so checkpoint 5's AVA rows can't pass, and at one search in five, checkpoint 6 would partly measure luck;
+  - estimating how often a search finds the corner first;
+  - ten searches a wiring on double the budget.
+- **Probe 14's pick is recorded as exploratory:** converged, partial, and not choosable.
+- **Everything else, as recommended:** the code fixed and tested, the explanations corrected, and the stale passages brought up to date.
+
+**Status.** Set after review; round 3's rules come next.

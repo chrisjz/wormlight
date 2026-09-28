@@ -3,9 +3,11 @@ import { PARAMS } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { emptySums } from './posture.ts';
 import {
+  ALL_TARGETS,
   CALIBRATION,
   ERROR_CAP,
   MAPPING,
+  SECOND_ROUND,
   TARGETS,
   best,
   bounds,
@@ -136,6 +138,28 @@ describe('the measures and the objective', () => {
     expect(score.errors.speed).toBeCloseTo(1 - 0.005 / 0.22, 12);
   });
 
+  it("score a bout-less worm that moves forward by its spectrum's peak, from R's second round on", () => {
+    // Forward at 0.05 body lengths per second, but pausing each 9 s, so no bout reaches 10 s.
+    const r = crawling(60, 0.05);
+    const paused = { ...r, velocity: Array.from(r.velocity, (v, k) => (k % 90 === 0 ? 0 : v)) };
+    const m = measure([paused, paused], { spectral: true });
+    expect(m.bouts).toBe(0);
+    expect(m.frequency).toBeCloseTo(0.3, 12);
+    expect(m.wavelength).toBeNull();
+    // Below the motion floor, the spectrum doesn't count; and round 1's scoring, for the refit's procedure, caps it.
+    const slow = { ...paused, velocity: paused.velocity.map((v) => v / 10) };
+    expect(measure([slow], { spectral: true }).frequency).toBeNull();
+    expect(measure([paused, paused]).frequency).toBeNull();
+  });
+
+  it("sum a stage's targets alone, keeping every error", () => {
+    const m = { finite: true, bouts: 3, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 0 };
+    expect(objective(m).value).toBe(1);
+    const crawl = objective(m, SECOND_ROUND.crawl.targets);
+    expect(crawl.value).toBe(0);
+    expect(crawl.errors.reversalRate).toBe(1);
+  });
+
   it('cap every error, so no measured wave scores worse than none', () => {
     const score = objective({ finite: true, bouts: 3, frequency: 0.3, wavelength: 4.2, speed: 0.9, reversalRate: 1.8 });
     expect(score.errors).toEqual({ frequency: 0, wavelength: ERROR_CAP, speed: ERROR_CAP, reversalRate: 0 });
@@ -183,6 +207,135 @@ const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
     });
   };
 };
+
+describe("R's second round", () => {
+  it("is PLAN §7.3's: the crawl, then the noise, with restarts and a probe", () => {
+    expect(SECOND_ROUND.crawl).toEqual({ targets: ['frequency', 'wavelength', 'speed'], budget: 2000 });
+    expect(SECOND_ROUND.noise).toEqual({
+      ids: ['noiseIntensity', 'noiseCorrelation'],
+      targets: ALL_TARGETS,
+      budget: 200,
+    });
+    expect(SECOND_ROUND.restart).toEqual({ sigma: 0.01, stall: 20 });
+    expect(SECOND_ROUND.probe.budget).toBe(400);
+    expect(SECOND_ROUND.probe.seeds).toEqual([11, 12, 13, 14]);
+    expect(SECOND_ROUND.probe.gradeSeeds).toEqual(Array.from({ length: 20 }, (_, i) => 2001 + i));
+  });
+
+  it('restarts a stalled search from the same start, its population doubled and its stream continued', async () => {
+    // A flat objective: nothing ever improves on the first generation.
+    const flat: Scorer = () =>
+      Promise.resolve({
+        value: 1,
+        errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+        measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 },
+        unconverged: 0,
+      });
+    const budget = 21 * 11 + 22 + 5;
+    const fit = await calibrate(flat, { budget, restarts: SECOND_ROUND.restart });
+    const first = fit.generations.filter((g) => g.restart === 0);
+    // The first generation sets the best; after 20 more without a fall, the search restarts.
+    expect(first).toHaveLength(21);
+    expect(first.every((g) => g.lambda === 11)).toBe(true);
+    const second = fit.generations.filter((g) => g.restart === 1);
+    expect(second[0]).toMatchObject({ generation: 0, lambda: 22 });
+    expect(second[0].mean).toEqual(toUnit(provisionalValues()));
+    // Its draws continue the seed's stream rather than repeat its start.
+    const a = fit.evaluated.find((e) => e.restart === 0 && e.generation === 0 && e.candidate === 0);
+    const b = fit.evaluated.find((e) => e.restart === 1 && e.generation === 0 && e.candidate === 0);
+    expect(b?.unit).not.toEqual(a?.unit);
+    expect(fit.evaluated).toHaveLength(budget);
+    expect(fit.checked[0].from).toMatch(/^restart 0, generation 0, candidate 0$/);
+    // And a resumed run with restarts replays exactly.
+    const partial = await calibrate(flat, { budget: 240, restarts: SECOND_ROUND.restart });
+    const resumed = await calibrate(flat, { budget, restarts: SECOND_ROUND.restart, previous: partial.evaluated });
+    expect(resumed.evaluated.map((e) => e.unit)).toEqual(fit.evaluated.map((e) => e.unit));
+  });
+
+  it("searches the noise alone, the rest held, and checks stage 1's values beside its own", async () => {
+    const fixed = { ...provisionalValues(), gapGainB: 0.25 };
+    const calls: { seeds: readonly number[] }[] = [];
+    const fit = await calibrate(synthetic(calls), {
+      budget: 12,
+      ids: SECOND_ROUND.noise.ids,
+      fixed,
+      extra: [{ from: "stage 1's final values", values: fixed }],
+    });
+    // Two parameters: generations of 4 + ⌊3 ln 2⌋ = 6, from the held values' noise.
+    expect(fit.generations.map((g) => g.evaluations)).toEqual([6, 12]);
+    expect(fit.generations[0].mean).toEqual(toUnit(fixed, SECOND_ROUND.noise.ids));
+    for (const e of fit.evaluated) {
+      expect(e.unit).toHaveLength(2);
+      for (const id of CALIBRATED) {
+        if (!SECOND_ROUND.noise.ids.includes(id)) expect(e.values[id]).toBe(fixed[id]);
+      }
+    }
+    // Stage 1's values first, so that the noise changes only if it scores better, not on a tie.
+    expect(fit.checked[0].from).toBe("stage 1's final values");
+    expect(fit.checked[fit.checked.length - 1].from).toBe('the final mean');
+    const tie = await calibrate(synthetic(), {
+      budget: 6,
+      ids: SECOND_ROUND.noise.ids,
+      fixed,
+      extra: [{ from: "stage 1's final values", values: fixed }],
+    });
+    expect(tie.checked.filter((c) => c.from === "stage 1's final values")).toHaveLength(1);
+    expect(() => fromUnit([0.5, 0.5], SECOND_ROUND.noise.ids)).toThrow(/needs the rest/);
+  });
+});
+
+describe('the search, as fixed after review', () => {
+  // A bowl around the start: CMA-ES converges on it, its step shrinking below the restart's 0.01.
+  const bowl: Scorer = (values) => {
+    const u = toUnit(values);
+    const start = toUnit(provisionalValues());
+    return Promise.resolve({
+      value: u.reduce((s, x, i) => s + (x - start[i]) ** 2, 0),
+      errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+      measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 },
+      unconverged: 0,
+    });
+  };
+
+  it('restarts when its step falls below 0.01, and offers the last told mean, not a fresh start', async () => {
+    const fit = await calibrate(bowl, { budget: 1500, restarts: { sigma: 0.01, stall: 1000 } });
+    const first = fit.generations.filter((g) => g.restart === 0);
+    // With the stall out of reach, the restart can only be the step's: a generation records its step before its
+    // update, so the last recorded one sits just above 0.01.
+    expect(fit.generations.some((g) => g.restart === 1)).toBe(true);
+    expect(first.length).toBeLessThan(1000);
+    expect(first[first.length - 1].sigma).toBeLessThan(0.02);
+    // A budget that ends as a restart begins: its final mean is the previous restart's, near the bowl's floor.
+    const ended = await calibrate(bowl, { budget: first.length * 11 + 3, restarts: { sigma: 0.01, stall: 1000 } });
+    expect(ended.generations[ended.generations.length - 1].restart).toBe(1);
+    const mean = ended.checked.find((c) => c.from === 'the final mean');
+    expect(mean?.value).toBeLessThan(1e-3);
+  });
+
+  it('ranks a candidate that left the finite numbers last when resumed through JSON', async () => {
+    let calls = 0;
+    const broken: Scorer = (values, seeds) => {
+      calls++;
+      return calls === 3 && seeds[0] === 1001
+        ? Promise.resolve({
+            value: Infinity,
+            errors: { frequency: 2, wavelength: 2, speed: 2, reversalRate: 2 },
+            measures: { finite: false, bouts: 0, frequency: null, wavelength: null, speed: 0, reversalRate: 0 },
+            unconverged: 0,
+          })
+        : synthetic()(values, seeds);
+    };
+    const whole = await calibrate(broken, { budget: 33 });
+    calls = 0;
+    const partial = await calibrate(broken, { budget: 11 });
+    const saved = JSON.parse(JSON.stringify(partial.evaluated)) as Evaluated[];
+    expect(saved.some((e) => (e.value as number | null) === null)).toBe(true);
+    calls = 100;
+    const resumed = await calibrate(broken, { budget: 33, previous: saved });
+    expect(resumed.evaluated.map((e) => e.unit)).toEqual(whole.evaluated.map((e) => e.unit));
+    expect(resumed.generations[0].best).toBe(whole.generations[0].best);
+  });
+});
 
 describe('the search', () => {
   it('spends its budget, a last generation cut short included, then checks the best on fresh seeds', async () => {

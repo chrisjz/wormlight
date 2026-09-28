@@ -1,10 +1,11 @@
-// npm run equivalence -- --fit <refit|planned> [--jobs N] [--trials N]
+// npm run equivalence -- --fit <refit|round-2|planned> [--jobs N] [--trials N]
 //
 // PLAN §7.2's comparison with the noise on (the paragraph after its table, set 2026-09-28 before it first ran): a
 // fit's 200 trials of 120 s at the model's step dt and at dt/2, seeds 1 to 200, each step in a copy of the
 // committed tree with its step changed (scripts/experiments/trees.ts), then each clause's percentile interval for
-// the difference (src/validation/equivalence.ts). The refit is the registry's values, which must be calibrated; the
-// planned fit is src/science/planned.ts's, with its white noise. A full run writes data/equivalence/<fit>.json and
+// the difference (src/validation/equivalence.ts). R's fits take their values from their committed records, the refit
+// from data/calibration/r2.json and the second round's from r3.json, whatever the registry holds; the planned fit is
+// src/science/planned.ts's, with its white noise. A full run writes data/equivalence/<fit>.json and
 // regenerates VALIDATION.md's section from every fit's file; --trials shortens a run for a look, writing only to
 // harness-out/. Trees and records go to harness-out/equivalence/, in folders named by a hash of the sources the
 // trials depend on (treeSource), so a run at other sources never touches another's, and a set is reused whole or in
@@ -17,7 +18,8 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
-import { isCalibrated, type LoopParams } from '../../src/sim/world.ts';
+import { CALIBRATED, type LoopParams } from '../../src/sim/world.ts';
+import { bounds, type Values } from '../../src/validation/calibration.ts';
 import { checkpoint1, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import { compareSteps, EQUIVALENCE, EQUIVALENCE_SEEDS } from '../../src/validation/equivalence.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
@@ -29,7 +31,12 @@ import { readPinned } from './pinned.ts';
 import { equivalenceSection, replaceSection, type EquivalenceRun } from './report.ts';
 
 type Fit = EquivalenceRun['fit'];
-const FITS: readonly Fit[] = ['refit', 'planned'];
+const FITS: readonly Fit[] = ['refit', 'round-2', 'planned'];
+// Where R's fits are recorded, each by its calibration's summary.
+const RECORDS: Partial<Record<Fit, string>> = {
+  refit: 'data/calibration/r2.json',
+  'round-2': 'data/calibration/r3.json',
+};
 const STEPS: [number, number] = [NEURAL_STEP, NEURAL_STEP / 2];
 const OUT = join(ROOT, 'harness-out', 'equivalence');
 const RESULTS = join(ROOT, 'data', 'equivalence');
@@ -53,6 +60,8 @@ function ensureTree(step: number, source: string): string {
 
 interface Manifest {
   fit: Fit;
+  // An R fit's values, from its record, so that a set is reused only for the values it ran; null for the planned fit.
+  values: Values | null;
   source: string;
   step: number;
   seconds: number;
@@ -68,11 +77,42 @@ interface Job {
 type World = typeof import('../../src/sim/world.ts');
 type Planned = typeof import('../../src/science/planned.ts');
 
-// A fit's values in a tree: the registry's, which a refit needs calibrated, or the planned model's fit.
-function paramsOf(fit: Fit, world: World, planned: Planned): LoopParams {
-  if (fit === 'planned') return world.plannedParams(planned.PLANNED.calibrated);
-  if (!world.isCalibrated()) throw new Error("the registry isn't calibrated: copy R's refit into params.ts first");
-  return world.currentParams();
+// A fit's parameters in a tree: an R fit's recorded values, or the planned model's fit.
+function paramsOf(manifest: Manifest, world: World, planned: Planned): LoopParams {
+  if (manifest.values) return world.loopParams(manifest.values);
+  return world.plannedParams(planned.PLANNED.calibrated);
+}
+
+// An R fit's final values, from its calibration's committed summary, which must be a whole run of track R with a
+// value for every calibrated parameter, each within its bounds; null for the planned fit, whose values are
+// src/science/planned.ts's.
+export function valuesOf(fit: Fit): Values | null {
+  const record = RECORDS[fit];
+  if (!record) return null;
+  const path = join(ROOT, record);
+  if (!existsSync(path)) throw new Error(`${fit} has no calibration yet: ${record} is missing`);
+  return checkedValues(JSON.parse(readFileSync(path, 'utf8')) as Parameters<typeof checkedValues>[0], record);
+}
+
+// A calibration summary's final values, once it is known to be a whole run of track R with a value for every
+// calibrated parameter, each within its bounds.
+export function checkedValues(
+  run: { model?: string; complete?: boolean; final?: { values?: Record<string, unknown> } },
+  record: string,
+): Values {
+  if (!run.complete) throw new Error(`${record} isn't a whole run`);
+  if (!run.model?.startsWith('track R')) throw new Error(`${record} isn't a fit of track R's model`);
+  const values = run.final?.values ?? {};
+  const keys = Object.keys(values).sort();
+  if (JSON.stringify(keys) !== JSON.stringify([...CALIBRATED].sort())) {
+    throw new Error(`${record}'s final values aren't the calibrated parameters`);
+  }
+  for (const id of CALIBRATED) {
+    const v = values[id];
+    const [lo, hi] = bounds(id);
+    if (typeof v !== 'number' || !(v >= lo && v <= hi)) throw new Error(`${record}'s ${id} lies outside its bounds`);
+  }
+  return values as Values;
 }
 
 async function runJob(job: Job): Promise<void> {
@@ -90,13 +130,13 @@ async function runJob(job: Job): Promise<void> {
   const record = runTrial(data, {
     seed: job.seed,
     seconds: job.manifest.seconds,
-    params: paramsOf(job.manifest.fit, world, planned),
+    params: paramsOf(job.manifest, world, planned),
     postures: await readPostures(),
   });
   writeWhole(job.out, JSON.stringify(record));
 }
 
-const USAGE = 'npm run equivalence -- --fit <refit|planned> [--jobs N] [--trials N]';
+const USAGE = 'npm run equivalence -- --fit <refit|round-2|planned> [--jobs N] [--trials N]';
 
 // Every option given once, each with its value after it, so that a mistyped one can't run the full comparison.
 export function parseArgs(args: readonly string[]): { fit: Fit; jobs: number; trials: number } {
@@ -135,17 +175,21 @@ if (process.argv[2] === '--worker') {
   const full = options.trials === EQUIVALENCE.trials;
   const committed = commit();
   if (/uncommitted/.test(committed)) throw new Error('commit first: the trees are taken from HEAD');
-  // The committed registry is the trees' too.
-  if (options.fit === 'refit' && !isCalibrated()) {
-    throw new Error("the registry isn't calibrated: copy R's refit into params.ts first");
-  }
+  const values = valuesOf(options.fit);
   const source = treeSource();
   const seeds = EQUIVALENCE_SEEDS.slice(0, options.trials);
   mkdirSync(OUT, { recursive: true });
   const jobs: Job[] = [];
   for (const step of STEPS) {
     const at = ensureTree(step, source);
-    const manifest: Manifest = { fit: options.fit, source, step, seconds: TRIAL_SECONDS, node: process.version };
+    const manifest: Manifest = {
+      fit: options.fit,
+      values,
+      source,
+      step,
+      seconds: TRIAL_SECONDS,
+      node: process.version,
+    };
     const dir = setDir(options.fit, step, source);
     for (const seed of prepareSet(dir, manifest, seeds)) {
       jobs.push({ tree: at, manifest, seed, out: join(dir, `${seed}.json`) });
@@ -164,6 +208,7 @@ if (process.argv[2] === '--worker') {
   const basis = await readPinned('eigenworms');
   const run: EquivalenceRun = {
     fit: options.fit,
+    values,
     date: new Date().toISOString().slice(0, 10),
     commit: committed,
     trials: options.trials,

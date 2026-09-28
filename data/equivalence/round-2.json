@@ -1,0 +1,68 @@
+{
+  "fit": "round-2",
+  "date": "2026-09-28",
+  "commit": "6f52402",
+  "trials": 200,
+  "seconds": 120,
+  "steps": [0.0025, 0.00125],
+  "resamples": 1000,
+  "grades": ["fail", "fail"],
+  "unconverged": [0, 0],
+  "comparison": {
+    "clauses": [
+      {
+        "name": "frequency",
+        "coarse": 0.15671641791044777,
+        "fine": 0.17408950122823882,
+        "difference": -0.017373083317791055,
+        "interval": [-0.032878672829567246, -0.0023558464614694685],
+        "margin": 0.0052226850368471646,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "wavelength",
+        "coarse": 0.6658807587265567,
+        "fine": 0.5942342791885169,
+        "difference": 0.07164647953803982,
+        "interval": [0.016050917497660633, 0.13215829179494354],
+        "margin": 0.017827028375655505,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "speed",
+        "coarse": 0.03563581930931702,
+        "fine": 0.03563978939648337,
+        "difference": -0.000003970087166349501,
+        "interval": [-0.0002821776428661438, 0.00025727803350868855],
+        "margin": 0.0010691936818945011,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "bout",
+        "coarse": 0,
+        "fine": 0,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.1,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "reversals",
+        "coarse": 4.579379562043796,
+        "fine": 4.623175182481752,
+        "difference": -0.04379562043795637,
+        "interval": [-0.11496350364963526, 0.02737226277372251],
+        "margin": 0.3,
+        "unmeasured": 0,
+        "pass": true
+      }
+    ],
+    "nonFinite": 0,
+    "pass": false
+  },
+  "source": "71fcb10446ea811575db4db16629eee2cc522a3d e0bfd7cfbda75fe5bef6a7a48a01826fb1b812e5 3eed1357532edeb8c7ddd88de0aee82fe68f387b 9e03b774783fa6e03c67f5c253e37e14e92af357 533fe8739bbb8970a7f99b99e587d5b433de42cd 9d8f870cf70a41eeb0200c984bf7c192906e0436"
+}

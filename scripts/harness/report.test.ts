@@ -6,7 +6,10 @@ import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { formatNumber } from '../docs/page.ts';
-import { parseArgs as equivalenceArgs } from './equivalence.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ROOT } from '../data/sources.ts';
+import { checkedValues, parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
 import {
   checkpoint0Section,
   checkpoint1Section,
@@ -328,5 +331,28 @@ describe('the harness report', () => {
     expect(() => equivalenceArgs(['--fit', 'refit', '--seconds', '30'])).toThrow(/unknown option/);
     expect(() => equivalenceArgs(['--fit', 'refit', '--fit', 'planned'])).toThrow(/twice/);
     expect(() => equivalenceArgs(['--fit', 'refit', '--jobs', '0'])).toThrow(/--jobs/);
+    expect(equivalenceArgs(['--fit', 'round-2']).fit).toBe('round-2');
+  });
+
+  it("takes R's fits from their committed records, whatever the registry holds", () => {
+    const final = (file: string): unknown =>
+      (JSON.parse(readFileSync(join(ROOT, 'data/calibration', file), 'utf8')) as { final: { values: unknown } }).final
+        .values;
+    expect(valuesOf('refit')).toEqual(final('r2.json'));
+    expect(valuesOf('planned')).toBeNull();
+    if (existsSync(join(ROOT, 'data/calibration/r3.json'))) expect(valuesOf('round-2')).toEqual(final('r3.json'));
+    else expect(() => valuesOf('round-2')).toThrow(/no calibration yet/);
+    // A record that isn't a whole fit of R's twelve, within their bounds, is refused.
+    const good = JSON.parse(readFileSync(join(ROOT, 'data/calibration/r2.json'), 'utf8')) as {
+      model: string;
+      complete: boolean;
+      final: { values: Record<string, number> };
+    };
+    expect(() => checkedValues({ ...good, complete: false }, 'x')).toThrow(/whole run/);
+    expect(() => checkedValues({ ...good, model: 'planned' }, 'x')).toThrow(/track R/);
+    const short = Object.fromEntries(Object.entries(good.final.values).filter(([id]) => id !== 'gapGainB'));
+    expect(() => checkedValues({ ...good, final: { values: short } }, 'x')).toThrow(/calibrated parameters/);
+    const outside = { ...good.final.values, gapGainB: 7 };
+    expect(() => checkedValues({ ...good, final: { values: outside } }, 'x')).toThrow(/bounds/);
   });
 });
