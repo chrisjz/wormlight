@@ -12,8 +12,8 @@ describe("the calibration's options", () => {
       probe: false,
     });
     expect(parseArgs(['--probe'])).toMatchObject({ probe: true, budget: 2000 });
-    // The probe takes its own budget, and starts afresh.
-    expect(() => parseArgs(['--probe', '--resume'])).toThrow(/--probe/);
+    // The probe takes its own budget, and can resume.
+    expect(parseArgs(['--probe', '--resume'])).toMatchObject({ probe: true, resume: true });
     expect(() => parseArgs(['--probe', '--budget', '20'])).toThrow(/--probe/);
     for (const args of [['--budget'], ['--budget', '0'], ['--budget', '2.5'], ['--seeds', '3'], ['--jobs', 'x']]) {
       expect(() => parseArgs(args), args.join(' ')).toThrow(/usage/);
@@ -35,6 +35,8 @@ describe("the calibration's record", () => {
     const s = settings(20);
     expect(s.model).toBe('track R, round 2');
     expect(s.budget).toEqual({ crawl: 20, noise: 200 });
+    // The probe records its own budget, stage 1 alone.
+    expect(settings(2000, true).budget).toEqual({ crawl: 400 });
     expect(s.start).toEqual(provisionalValues());
     expect(SUMMARY.endsWith('data/calibration/r3.json')).toBe(true);
     expect(PROBE.endsWith('data/calibration/r3-probe.json')).toBe(true);

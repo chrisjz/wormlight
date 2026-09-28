@@ -49,6 +49,15 @@ import { ROOT } from '../data/sources.ts';
 import { commit } from '../harness/commit.ts';
 import { readPinned, readPostures } from '../harness/pinned.ts';
 
+// A probe run: its pick, and checkpoint 1's grade of it on seeds of its own.
+interface ProbeRun {
+  seed: number;
+  restarts: number;
+  final: { from: string; values: Values; value: number; measures: unknown };
+  grade: string;
+  clauses: { name: string; value: number | null; grade: string }[];
+}
+
 interface Job {
   values: Values;
   seed: number;
@@ -155,17 +164,18 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
     out[flag === '--budget' ? 'budget' : 'jobs'] = Number(text);
     a++;
   }
-  if (out.probe && (out.resume || out.budget !== SECOND_ROUND.crawl.budget)) {
-    throw new Error(`--probe takes its own budget and can't resume; usage: ${USAGE}`);
+  if (out.probe && out.budget !== SECOND_ROUND.crawl.budget) {
+    throw new Error(`--probe takes its own budget; usage: ${USAGE}`);
   }
   return out;
 }
 
 // What a run was: the settings a reader needs to interpret its units and scores.
-export function settings(budget: number): Record<string, unknown> {
+export function settings(budget: number, probe = false): Record<string, unknown> {
   return {
     model: 'track R, round 2',
-    budget: { crawl: budget, noise: SECOND_ROUND.noise.budget },
+    // The probe runs stage 1 alone, at its own budget.
+    budget: probe ? { crawl: SECOND_ROUND.probe.budget } : { crawl: budget, noise: SECOND_ROUND.noise.budget },
     calibration: CALIBRATION,
     secondRound: SECOND_ROUND,
     start: provisionalValues(),
@@ -211,19 +221,19 @@ if (process.argv.includes('--worker')) {
       ? 'calibration-r3.json'
       : `calibration-r3-${options.budget}.json`;
   const file = join(ROOT, 'harness-out', name);
-  let previous: { crawl?: Evaluated[]; noise?: Evaluated[] } = {};
+  // A resumed run replays each stage's evaluations, and keeps every stage on disk until it is replayed; a resumed
+  // probe also keeps the runs it had graded.
+  let resumed: { stages: Record<string, Partial<Fit>>; runs?: ProbeRun[] } = { stages: {} };
   if (options.resume) {
     if (!existsSync(file)) throw new Error(`there is no run to resume at ${file}`);
-    const stages = (JSON.parse(readFileSync(file, 'utf8')) as { stages: Record<string, { evaluated: Evaluated[] }> })
-      .stages;
-    previous = { crawl: stages.crawl?.evaluated, noise: stages.noise?.evaluated };
-    process.stderr.write(
-      `resuming after ${previous.crawl?.length ?? 0} and ${previous.noise?.length ?? 0} evaluations\n`,
-    );
+    resumed = JSON.parse(readFileSync(file, 'utf8')) as typeof resumed;
+    const counts = Object.entries(resumed.stages).map(([k, v]) => `${k} ${v.evaluated?.length ?? 0}`);
+    process.stderr.write(`resuming after ${counts.join(', ')} evaluations\n`);
   }
+  const previous = (stage: string): Evaluated[] | undefined => resumed.stages[stage]?.evaluated;
   await readPostures(); // fetch once here, so the workers read the cache
   const head = {
-    ...settings(options.budget),
+    ...settings(options.budget, options.probe),
     commit: commit(),
     date: new Date().toISOString(),
     node: process.version,
@@ -242,10 +252,10 @@ if (process.argv.includes('--worker')) {
       const records = (await Promise.all(seeds.map((seed) => pool.run({ values, seed })))) as (KinematicRecord & {
         unconverged: number;
       })[];
-      const measures = measure(records);
+      const measures = measure(records, { spectral: true });
       return { measures, ...objective(measures, targets), unconverged: records.reduce((n, r) => n + r.unconverged, 0) };
     };
-  const stages: Record<string, Partial<Fit>> = {};
+  const stages: Record<string, Partial<Fit>> = { ...resumed.stages };
   const save = (complete: boolean, extra: Record<string, unknown> = {}): void =>
     writeFileSync(file, JSON.stringify({ ...head, complete, seconds: elapsed(), stages, ...extra }) + '\n');
   const report = (stage: string, budget: number) => (fit: Omit<Fit, 'checked' | 'final'>) => {
@@ -271,13 +281,16 @@ if (process.argv.includes('--worker')) {
     if (options.probe) {
       const { probe, crawl, restart } = SECOND_ROUND;
       const basis = await readPinned('eigenworms');
-      const runs = [];
+      const runs: ProbeRun[] = [...(resumed.runs ?? [])];
       for (const seed of probe.seeds) {
+        // A run graded before a stop is kept, not searched again.
+        if (runs.some((r) => r.seed === seed)) continue;
         const stage = `probe ${seed}`;
         const fit = await calibrate(scorer(crawl.targets), {
           budget: probe.budget,
           seed,
           restarts: restart,
+          previous: previous(stage),
           progress: report(stage, probe.budget),
         });
         stages[stage] = fit;
@@ -299,6 +312,8 @@ if (process.argv.includes('--worker')) {
           grade: graded.grade,
           clauses,
         });
+        // Saved as each is graded, so that a stop loses no grade.
+        save(false, { runs });
         process.stdout.write(
           `probe ${seed}: ${graded.grade} on seeds 2001 to 2020 (${clauses.map((c) => `${c.name} ${c.value === null ? '—' : c.value.toFixed(3)} ${c.grade}`).join('; ')})\n`,
         );
@@ -316,7 +331,7 @@ if (process.argv.includes('--worker')) {
       const first = await calibrate(scorer(crawl.targets), {
         budget: options.budget,
         restarts: restart,
-        previous: previous.crawl,
+        previous: previous('crawl'),
         progress: report('crawl', options.budget),
       });
       stages.crawl = first;
@@ -328,7 +343,7 @@ if (process.argv.includes('--worker')) {
         fixed: first.final.values,
         restarts: restart,
         extra: [{ from: "stage 1's final values", values: first.final.values }],
-        previous: previous.noise,
+        previous: previous('noise'),
         progress: report('noise', noise.budget),
       });
       stages.noise = second;

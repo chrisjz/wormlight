@@ -74,7 +74,8 @@ describe("track R's calibrated values", () => {
     expect(fit.complete).toBe(true);
     expect(fit.budget).toBe(CALIBRATION.budget);
     expect(fit.commit).not.toMatch(/uncommitted/);
-    // So the committed code can run it again: the same procedure, start, search space and objective.
+    // So the committed code keeps its procedure: the same settings, start, search space and objective, with round 1's
+    // scoring measure()'s default. The runner for the nulls, which get this procedure, comes with checkpoint 6.
     expect(fit.calibration).toEqual(JSON.parse(JSON.stringify(CALIBRATION)));
     expect(fit.start).toEqual(provisionalValues());
     expect(fit.mapping).toEqual(MAPPING);

@@ -9,7 +9,7 @@ import { formatNumber } from '../docs/page.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../data/sources.ts';
-import { parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
+import { checkedValues, parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
 import {
   checkpoint0Section,
   checkpoint1Section,
@@ -342,5 +342,17 @@ describe('the harness report', () => {
     expect(valuesOf('planned')).toBeNull();
     if (existsSync(join(ROOT, 'data/calibration/r3.json'))) expect(valuesOf('round-2')).toEqual(final('r3.json'));
     else expect(() => valuesOf('round-2')).toThrow(/no calibration yet/);
+    // A record that isn't a whole fit of R's twelve, within their bounds, is refused.
+    const good = JSON.parse(readFileSync(join(ROOT, 'data/calibration/r2.json'), 'utf8')) as {
+      model: string;
+      complete: boolean;
+      final: { values: Record<string, number> };
+    };
+    expect(() => checkedValues({ ...good, complete: false }, 'x')).toThrow(/whole run/);
+    expect(() => checkedValues({ ...good, model: 'planned' }, 'x')).toThrow(/track R/);
+    const short = Object.fromEntries(Object.entries(good.final.values).filter(([id]) => id !== 'gapGainB'));
+    expect(() => checkedValues({ ...good, final: { values: short } }, 'x')).toThrow(/calibrated parameters/);
+    const outside = { ...good.final.values, gapGainB: 7 };
+    expect(() => checkedValues({ ...good, final: { values: outside } }, 'x')).toThrow(/bounds/);
   });
 });

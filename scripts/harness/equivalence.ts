@@ -18,8 +18,8 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
-import type { LoopParams } from '../../src/sim/world.ts';
-import type { Values } from '../../src/validation/calibration.ts';
+import { CALIBRATED, type LoopParams } from '../../src/sim/world.ts';
+import { bounds, type Values } from '../../src/validation/calibration.ts';
 import { checkpoint1, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import { compareSteps, EQUIVALENCE, EQUIVALENCE_SEEDS } from '../../src/validation/equivalence.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
@@ -83,16 +83,36 @@ function paramsOf(manifest: Manifest, world: World, planned: Planned): LoopParam
   return world.plannedParams(planned.PLANNED.calibrated);
 }
 
-// An R fit's final values, from its calibration's committed summary, which must be a whole run; null for the planned
-// fit, whose values are src/science/planned.ts's.
+// An R fit's final values, from its calibration's committed summary, which must be a whole run of track R with a
+// value for every calibrated parameter, each within its bounds; null for the planned fit, whose values are
+// src/science/planned.ts's.
 export function valuesOf(fit: Fit): Values | null {
   const record = RECORDS[fit];
   if (!record) return null;
   const path = join(ROOT, record);
   if (!existsSync(path)) throw new Error(`${fit} has no calibration yet: ${record} is missing`);
-  const run = JSON.parse(readFileSync(path, 'utf8')) as { complete: boolean; final: { values: Values } };
+  return checkedValues(JSON.parse(readFileSync(path, 'utf8')) as Parameters<typeof checkedValues>[0], record);
+}
+
+// A calibration summary's final values, once it is known to be a whole run of track R with a value for every
+// calibrated parameter, each within its bounds.
+export function checkedValues(
+  run: { model?: string; complete?: boolean; final?: { values?: Record<string, unknown> } },
+  record: string,
+): Values {
   if (!run.complete) throw new Error(`${record} isn't a whole run`);
-  return run.final.values;
+  if (!run.model?.startsWith('track R')) throw new Error(`${record} isn't a fit of track R's model`);
+  const values = run.final?.values ?? {};
+  const keys = Object.keys(values).sort();
+  if (JSON.stringify(keys) !== JSON.stringify([...CALIBRATED].sort())) {
+    throw new Error(`${record}'s final values aren't the calibrated parameters`);
+  }
+  for (const id of CALIBRATED) {
+    const v = values[id];
+    const [lo, hi] = bounds(id);
+    if (typeof v !== 'number' || !(v >= lo && v <= hi)) throw new Error(`${record}'s ${id} lies outside its bounds`);
+  }
+  return values as Values;
 }
 
 async function runJob(job: Job): Promise<void> {
@@ -188,6 +208,7 @@ if (process.argv[2] === '--worker') {
   const basis = await readPinned('eigenworms');
   const run: EquivalenceRun = {
     fit: options.fit,
+    values,
     date: new Date().toISOString().slice(0, 10),
     commit: committed,
     trials: options.trials,

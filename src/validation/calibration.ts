@@ -139,8 +139,10 @@ export interface Measures {
   reversalRate: number;
 }
 
-// The four targets' measures, pooled over the trials (PLAN §7.3).
-export function measure(records: readonly KinematicRecord[]): Measures {
+// The four targets' measures, pooled over the trials (PLAN §7.3). With `spectral`, as R's second round scores
+// (SECOND_ROUND), a worm without a bout that moves forward on average, past the motion floor, has the mid-body
+// spectrum's peak for its frequency; without it, as round 1 and the refit's procedure score, it takes the cap.
+export function measure(records: readonly KinematicRecord[], options: { spectral?: boolean } = {}): Measures {
   const finite = records.length > 0 && records.every((r) => r.finite);
   const withBouts = records.map((r) => ({ ...r, bouts: bouts(r.velocity) }));
   const count = withBouts.reduce((n, r) => n + r.bouts.length, 0);
@@ -151,12 +153,10 @@ export function measure(records: readonly KinematicRecord[]): Measures {
     let sum = 0;
     for (const r of records) for (let k = 0; k < r.velocity.length; k++) sum += r.velocity[k];
     const speed = samples > 0 ? sum / samples : 0;
-    // From R's second round on (PLAN §7.3), a worm that moves forward on average, past the motion floor, has the
-    // mid-body spectrum's peak for its frequency, so the search has a direction; one that doesn't takes the cap.
     return {
       finite,
       bouts: 0,
-      frequency: speed > MOTION_FLOOR ? spectralPeak(records).peak : null,
+      frequency: options.spectral && speed > MOTION_FLOOR ? spectralPeak(records).peak : null,
       wavelength: null,
       speed,
       reversalRate,
@@ -304,6 +304,9 @@ export async function calibrate(
   // The restart's best, and the generations since it last fell.
   let restartBest = Infinity;
   let stalled = 0;
+  // The mean after the last generation told, from whichever restart: the final check's "final mean", so that a
+  // restart the budget ends before any update doesn't offer its start.
+  let finalMean = [...es.mean];
   const evaluated: Evaluated[] = [];
   const generations: Generation[] = [];
   const previous = options.previous ?? [];
@@ -321,7 +324,9 @@ export async function calibrate(
     const replayed = previous.slice(evaluated.length, evaluated.length + take);
     const results = await Promise.all(
       candidates.slice(0, take).map(async (u, k): Promise<Evaluated> => {
-        const was = replayed[k] as Evaluated | undefined;
+        const record = replayed[k] as Evaluated | undefined;
+        // JSON writes an infinite objective as null; read back, it must rank last again, not as 0.
+        const was = record && { ...record, value: (record.value as number | null) ?? Infinity };
         if (was) {
           if (was.unit.length !== u.length || was.unit.some((x, i) => x !== u[i])) {
             throw new Error(
@@ -366,21 +371,32 @@ export async function calibrate(
     });
     options.progress?.({ generations, evaluated });
     // A generation cut short by the budget doesn't update the search.
-    if (take === candidates.length) es.tell(ranked);
+    if (take === candidates.length) {
+      es.tell(ranked);
+      finalMean = [...es.mean];
+    }
   }
+  // The extra candidates first, so that on a tie they are kept (stage 2 must beat stage 1's values), then the best
+  // in order of their objective, then the final mean; a candidate already listed isn't run again.
+  const seen = new Set<string>();
   const finalists = [
+    ...(options.extra ?? []).map((x) => ({ ...x, fit: null as number | null })),
     ...best(evaluated, CALIBRATION.rechecked).map((e) => ({
       from: `${restart > 0 ? `restart ${e.restart}, ` : ''}generation ${e.generation}, candidate ${e.candidate}`,
       values: e.values,
       fit: e.value,
     })),
-    { from: 'the final mean', values: at(es.mean), fit: null as number | null },
-    ...(options.extra ?? []).map((x) => ({ ...x, fit: null as number | null })),
-  ];
+    { from: 'the final mean', values: at(finalMean), fit: null as number | null },
+  ].filter((f) => {
+    const key = JSON.stringify(CALIBRATED.map((id) => f.values[id]));
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const checked = await Promise.all(
     finalists.map(async (f): Promise<Finalist> => ({ ...f, ...(await score(f.values, CALIBRATION.checkSeeds)) })),
   );
-  // The lowest objective on the fresh seeds, the better on the fit's seeds on a tie.
+  // The lowest objective on the fresh seeds; on a tie, the earlier in the finalists' order.
   const final = checked.reduce((a, b) => (b.value < a.value ? b : a));
   return { generations, evaluated, checked, final };
 }
