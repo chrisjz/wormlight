@@ -1841,3 +1841,17 @@ The study reports, for each candidate, the points where it converges and where i
 - **The studies' pinned points** equal the registry's on `main` exactly, R's first fit and its start alike.
 
 **Status.** Set before the refit, which runs next with σ_n bounded at 0.169.
+
+## 2026-09-28 — §7.2's equivalence test: its details, set before it first runs
+
+**Why.** §7.2's comparison with the noise on was set after review by its trials, margins and resampling (the entries above), but not every detail a harness needs. They are set here, before the test or R's refit has run, so that neither result can shape them.
+
+**Decision** (PLAN §7.2, the paragraph after the table):
+
+- **The trials** are 200 of 120 s at each step, seeds 1 to 200, each starting from its seed's posture as checkpoint 1's do, at 2.5 and 1.25 ms, the whole loop stepped at each. Each run draws its noise as the model does, with no path shared between the steps, since the test judges the model as it runs and the GPU has no shared path. Considered: the second study's grid, which lets the two steps share their noise and narrows the interval, but tests a model the app doesn't run.
+- **The measures** are checkpoint 1's frequency, wavelength and speed over the bouts of 10 s or more, the share of trials with a 20 s bout, and reversals per minute over the measured windows.
+- **The interval** is a percentile interval of the difference, the value at dt less the value at dt/2: the 26th to the 975th of 1,000 resampled differences, sorted, each resample drawing the 200 seeds with replacement, both steps' trials together, from the model's own hash. The margins are §7.2's, the relative ones taken of the full 200 trials' value at dt/2. Considered: resampling each step's trials apart, which ignores the pairing, and a bias-corrected interval, which adds machinery for little at 200 trials.
+- **An unmeasured clause fails.** A clause unmeasured at either step over the 200 trials fails, and a resample in which it is unmeasured at either step counts as a difference outside the margin, so a worm that seldom crawls can't pass by chance.
+- **Both fits take it:** R's refit on the registry's values, and the planned fit as it stands, with its white noise, as the choice now requires (§9). Each result is written to `data/equivalence/<fit>.json` and to VALIDATION.md.
+
+**Status.** Set before the test is built or R's refit runs.
