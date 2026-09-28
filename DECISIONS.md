@@ -1676,3 +1676,40 @@ The study reports, for each candidate, the points where it converges and where i
 **Then.** The maintainer chooses a rule from the results. Adopting the coloured noise would put τ_n in the registry, taken from a_d, and recalibrate σ_n with the rest. Adopting sub-steps would cost about 1.8 times the CPU's and the GPU's time at k = 2, and 3.4 times at k = 4, which would take the app below its 10× target. Either lands on the GPU with parity before R's fit runs again.
 
 **Status.** Set before anything is built or run.
+
+## 2026-09-28 — The second numerics study: coloured noise converges within chance; nothing meets 2%
+
+**Run** with `node scripts/experiments/fixes/run.ts` at `a5e763f`, a clean commit: 6,888 trials in 77 minutes on 18 cores, then its grading, with every record set from that commit. Its summary is written to `harness-out/fixes/summary.json`. It followed the design above.
+
+**Where the worm crawls.** Only two of the seven points make the 3 bouts of 10 s the criterion needs, at both steps: R's fit, and the planned fit in some settings. The start, R's provisional values, and all four corners of the oscillator gains don't crawl at any step with any candidate. So the criterion was applied at R's fit and, where it was exercised, the planned fit.
+
+**At R's fit.** For each candidate, the change in checkpoint 1's frequency, wavelength and speed between 2.5 and 1.25 ms, each beside the chance of the difference, the two sets' resampled chance combined:
+
+| Noise    | k   | Frequency    | Wavelength   | Speed        | 20 s bouts  | Reversals a minute | Verdict       |
+| -------- | --- | ------------ | ------------ | ------------ | ----------- | ------------------ | ------------- |
+| Off      | 1   | 9.0% (1.2%)  | 10.0% (1.2%) | 3.4% (0.5%)  | 75% / 100%  | 3.52 / 0.74        | Not converged |
+| Off      | 2   | 5.1% (0.8%)  | 4.6% (0.7%)  | 0.2% (0.3%)  | 100% / 0%   | 1.85 / 0.11        | Not converged |
+| Off      | 4   | 1.7% (1.2%)  | 2.6% (1.2%)  | 1.0% (0.5%)  | 0% / 0%     | 1.17 / 0.14        | Not converged |
+| White    | 1   | 6.1% (4.6%)  | 6.9% (5.0%)  | 1.0% (3.2%)  | 55% / 85%   | 1.31 / 0.38        | Not converged |
+| White    | 2   | 18.8% (3.7%) | 13.3% (4.0%) | 11.6% (2.1%) | 90% / 100%  | 0.30 / 0           | Not converged |
+| White    | 4   | 8.0% (3.3%)  | 10.1% (3.7%) | 9.3% (1.9%)  | 100% / 100% | 0.11 / 0           | Not converged |
+| Coloured | 1   | 0.4% (2.8%)  | 2.9% (3.3%)  | 1.3% (2.1%)  | 55% / 65%   | 3.93 / 3.90        | Not converged |
+| Coloured | 2   | 2.5% (2.1%)  | 6.2% (3.1%)  | 3.3% (1.6%)  | 40% / 55%   | 4.66 / 3.74        | Not converged |
+| Coloured | 4   | 0.7% (3.4%)  | 2.8% (4.3%)  | 2.0% (2.6%)  | 20% / 55%   | 4.17 / 3.76        | Not converged |
+
+- **No candidate converges by the criterion.** The nearest is k = 4 without noise, 2.6% at worst, beyond its chance of 1.2%.
+- **The coloured noise's changes are within their chance** at k = 1 and k = 4. At k = 2 all three exceed it, the wavelength's twice over. Its reversal rate holds across the steps, 3.93 and 3.90 a minute at k = 1, where white noise's all but vanish at the finer step. White noise's changes are well beyond their chance at every k.
+- **Without noise, the deterministic error shrinks with k**, from 10% at k = 1 to 2.6% at k = 4, but doesn't reach 2%.
+- **The criterion itself can't be met with the noise on.** The pooled metrics of 20 trials vary by 2–5% by chance, so a candidate whose runs at the two steps differed only by chance would still fail 2% on most comparisons. Its bout clause, a share of 20 trials, moves in steps of 5%, and its grade flips at a band's edge: the coloured k = 1 runs grade partial and fail, the fine run's wavelength 1.02 against the partial band's 1.0.
+
+**At the planned fit** it crawls rarely, with 0 to 39 bouts across the settings, and was exercised without noise at every k, and with either noise at k = 4. There its changes run from 1.6% to 45%, and within chance only without noise at k = 4, whose worst, 2.9%, is under its chance of 9%.
+
+**The gain sweep,** without noise, on 8 trials. Of its 273 settings, 16 were exercised, all at R's fit or the planned fit.
+
+- At R's fit, raising the A-types' gain to 3 or 5 nS converges only at k = 4.
+- At the planned fit, with its one gain at 0.3 nS, it converges at every k; at 0.6 nS and above it converges at no k.
+- At the other points no setting crawled, so the sweep found no gain at which a setting stops converging there.
+
+**Cost.** On one CPU core, the loop on R's fit runs at 32.8, 20.2 and 12.1 times real time at k = 1, 2 and 4. The GPU runs no candidate yet. Scaled from the app's 21–24× at k = 1, it would run at about 13–15× at k = 2, keeping the 10× target, and about 8–9× at k = 4, below it.
+
+**Status.** Run. What it leaves for the maintainer: which fix, if any, to adopt, and how PLAN §7.2's criterion should treat runs whose metrics vary by chance more than it allows.
