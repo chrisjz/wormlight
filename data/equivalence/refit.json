@@ -1,0 +1,68 @@
+{
+  "fit": "refit",
+  "date": "2026-09-28",
+  "commit": "f9954de",
+  "trials": 200,
+  "seconds": 120,
+  "steps": [0.0025, 0.00125],
+  "resamples": 1000,
+  "grades": ["fail", "fail"],
+  "unconverged": [0, 0],
+  "comparison": {
+    "clauses": [
+      {
+        "name": "frequency",
+        "coarse": 0.09951563188022898,
+        "fine": 0.09946156147173198,
+        "difference": 0.0000540704084970034,
+        "interval": [-0.00016295820416836748, 0.000259152665224055],
+        "margin": 0.0029838468441519593,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "wavelength",
+        "coarse": 0.7028929801642216,
+        "fine": 0.7048455213345467,
+        "difference": -0.0019525411703250617,
+        "interval": [-0.004311943264571183, 0.00035880809954902393],
+        "margin": 0.0211453656400364,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "speed",
+        "coarse": 0.0288363887120573,
+        "fine": 0.028844541276169502,
+        "difference": -0.000008152564112202249,
+        "interval": [-0.00007149459331019792, 0.00005584978881893049],
+        "margin": 0.000865336238285085,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "bout",
+        "coarse": 0,
+        "fine": 0,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.1,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "reversals",
+        "coarse": 1.5136861313868615,
+        "fine": 1.5848540145985401,
+        "difference": -0.07116788321167866,
+        "interval": [-0.21897810218978098, 0.07390510948905105],
+        "margin": 0.3,
+        "unmeasured": 0,
+        "pass": true
+      }
+    ],
+    "nonFinite": 0,
+    "pass": true
+  },
+  "source": "f9f95c01f91eac048479a1a935d9ae22827c3463 e0bfd7cfbda75fe5bef6a7a48a01826fb1b812e5 3eed1357532edeb8c7ddd88de0aee82fe68f387b 10e8ee422231362704c05084748e6e7e1f2cb19b"
+}

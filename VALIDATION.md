@@ -4,13 +4,13 @@ How Wormlight's behaviour compares with the real worm's, by the checkpoints PLAN
 
 ## Where it stands
 
-| Checkpoint          | Result      | Status                                                                                                                        |
-| ------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, on the planned model's provisional values; runs again on the chosen fit               |
-| 1: crawling         | **Fail**    | On R's first fit at the 2.5 ms step: speed partial, too few 20 s bouts; partial at half the step, so R is suspended (PLAN §9) |
-| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)                                            |
+| Checkpoint          | Result      | Status                                                                                                                                       |
+| ------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0: silenced network | **Pass**    | Crawling, touch and chemotaxis clauses, on the planned model's provisional values; runs again on the chosen fit, R's refit                   |
+| 1: crawling         | **Fail**    | On R's refit: frequency just under partial, speed and 20 s bouts fail; the same at half the step (PLAN §7.2), so final, and R ends (PLAN §9) |
+| 2 to 6              | Not reached | They need forward crawling, which checkpoint 1's crawl gate guards (PLAN §7.4, §9)                                                           |
 
-Crawling as checkpoint 1 asks for it does not yet emerge from the connectome (DECISIONS.md, 2026-09-26 and 2026-09-27). Track R calibrated the planned model as it stands, then built its own model and calibrated that (PLAN §7.3, §9; DECISIONS.md, 2026-09-27). Checkpoint 1's section below grades R's first fit, with white noise; the model now runs with a coloured noise, and R's fit runs again with it (DECISIONS.md, 2026-09-28). A rule set before the fit chose R's first fit over the planned model's as the real wiring's final fit, with three clauses at pass against two; the choice used these same trials. At the model's 2.5 ms step R's fit falls short of partial on the bout clause alone, but at half the step it reaches partial, so R is suspended until its fit runs again with the coloured noise and passes §7.2's equivalence test (DECISIONS.md, 2026-09-28). Checkpoint 0 last ran on the planned model's provisional values, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again on the chosen fit. On the values checkpoint 0 last ran on, the intact model didn't crawl, so its crawling clause couldn't fail for lack of wiring, and its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it couldn't while it barely moved, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait behind checkpoint 1's crawl gate.
+Crawling as checkpoint 1 asks for it does not emerge from the connectome (DECISIONS.md, 2026-09-26 to 2026-09-28). Track R calibrated the planned model as it stands, then built its own model and calibrated it twice: first with white noise, whose result changed with the time step, then, after two numerics studies, with a coloured noise (PLAN §7.3, §9; DECISIONS.md). Checkpoint 1's section below grades R's refit, which fails, and §7.2's comparison, below it, finds the refit's measures the same at half the step, so the result is final. By a rule set before the refit, only a fit that passes that comparison can be chosen: the planned fit fails it, so R's refit is the real wiring's final fit, and since checkpoint 1 stays below partial, R ends (PLAN §9; DECISIONS.md, 2026-09-28). Checkpoint 0 last ran on the planned model's provisional values, the best of the go/no-go's 96 draws with the noise off (PLAN §6.2), and runs again on the chosen fit. On the values checkpoint 0 last ran on, the intact model didn't crawl, so its crawling clause couldn't fail for lack of wiring, and its pass says nothing about the wiring (PLAN §9). Its touch and chemotaxis clauses are the same: they ask that the silenced worm show no reflex and no chemotaxis, which it couldn't while it barely moved, and their passes will mean something alongside passes of checkpoints 2 to 4, which wait behind checkpoint 1's crawl gate.
 
 ## How the trials run
 
@@ -19,15 +19,15 @@ Crawling as checkpoint 1 asks for it does not yet emerge from the connectome (DE
 - **Checkpoint 1's measures** (PLAN §7.4). The kinematics over forward bouts of 10 s or more, pooled over trials, the wavelength only from a wave running from head to tail; the variance the first four eigenworms capture in postures sampled at 4 Hz, pooled over trials, self-intersecting ones left out; and the share of trials with a forward bout of 20 s or more.
 - **Touched trials** (checkpoint 0, PLAN §7.4). The same 20 trials again, each touched 5 times, 20 s apart from t = 20 s, alternating front (s = 0.2) and back (s = 0.8), odd seeds starting at the front: 50 anterior touches and 50 posterior. A touch starts with the step after its time. A reversal follows a touch if its first backward sample lies within the 2 s after it, and the untouched trial at the same seed and time gives the matched window. The speed before and after a touch is the mean of the velocity samples whose windows lie within the 2 s on either side. Fisher's exact test and the signed-rank test are one-sided, in the reflex's direction, at α = 0.05.
 - **The chemotaxis assay** (checkpoint 0 now, checkpoint 4 once reached). Each worm runs alone for up to 60 min on the butanone spot's steady field, starting with its centroid at the dish's centre from the posture its seed draws, and stops when any part of its body comes within 0.5 cm of either spot's centre. CI = (at odour − at control) / every worm run.
-- **The step.** The convergence check's comparison of checkpoint 1's metrics at dt and dt/2 was deferred until checkpoint 1 reached partial, and now runs (PLAN §7.2): neither fit converges at any step down to 0.3125 ms, so no result on this page is final. A second study found a coloured noise current that, at R's fit, keeps the results within chance across steps; the model adopts it, and §7.2 now judges noisy runs by an equivalence test on 200 trials a step (DECISIONS.md, 2026-09-28).
+- **The step** (PLAN §7.2). The comparison of checkpoint 1's measures at dt and dt/2 was deferred until checkpoint 1 reached partial, then run when R's first fit reached partial only at half the step: neither that fit nor the planned model's converged at any step down to 0.3125 ms, with white noise. The model now runs a coloured noise current, and the comparison is an equivalence test on 200 trials a step, each clause's 95% interval for the difference within a margin. R's refit passes it and the planned fit fails it (the last section below; DECISIONS.md, 2026-09-28).
 
 ## Reading the results
 
-- **R's fit crawls, but not for long enough, and how long depends on the time step.** Over its 34 forward bouts of 10 s or more, 614 s in all, a bend travels from head to tail, the rear lagging the front by 0.92 s. It moves at 0.063 body lengths per second, about two-sevenths of a real worm's 0.22 and twice the planned fit's 0.030, forward 43–83% of the time. But only 8 of the 20 trials hold a forward run of 20 s, against the 10 partial needs. At half the 2.5 ms step, 17 do, and the fit reaches partial; at a quarter, all 20 do, and its frequency falls to partial. A convergence study found two causes: a coarse step damps the white-noise current in every neuron, and the oscillators' stiff dynamics carry an error that depends on the whole parameter set (DECISIONS.md, 2026-09-28).
-- **The body undulates at the head switch's cycle, and its reversals are the switch's slips.** The mid-body curvature's spectrum peaks at 0.155 Hz, the head switch's cycle, with a harmonic near 0.30 Hz and 30% of its power between 0.2 and 0.45 Hz, where a crawling worm's lies. The graded 0.232 Hz counts crossings of that waveform and falls between the two, so, as for the planned fit, neither it nor the wavelength describes one wave. All 78 reversals began within 3 s after a flip of the switch, and AVA's activation barely changed over them. With a weaker switch the worm crawls about as fast with almost no reversals (DECISIONS.md, 2026-09-27). At finer steps the reversals all but vanish, so these slips are the step's (DECISIONS.md, 2026-09-28).
-- **The B-types carry the crawl, and the A-types and AVA make the reversals, at this step.** The fit left the B-types without their oscillator, but with the A-types lesioned the worm still crawls and never reverses, while with the B-types lesioned, or proprioception silenced, it makes no bout. With AVA lesioned it reverses a seventh as often. Its reversals come from the step: at finer steps it barely reverses at all (DECISIONS.md, 2026-09-27 and 2026-09-28).
-- **Five of its eleven values sit on a bound,** three of them from a sample clipped into the box. Pushed one at a time past three of them, it moves no faster than 0.091 body lengths per second, short of the pass band's 0.12 (DECISIONS.md, 2026-09-27).
-- **The planned model's fit** (DECISIONS.md, 2026-09-27) was led by its head switch's slower cycle, at 0.073 Hz, and moved at 0.030 body lengths per second, its forward runs cut by the switch at 13.6 s at most; checkpoint 1 graded its frequency partial and its speed and bouts fail.
+- **R's refit moves forward, but in runs the head switch cuts at about 10 s.** In every trial it moves forward 79–82% of the time, yet no forward run lasts past 10.3 s: all 54 reversals began within 3 s after a flip of the head switch, whose cycle puts the mid-body spectrum's peak at 0.082 Hz, with 1% of its power between 0.2 and 0.45 Hz, where a crawling worm's lies. Its 12 bouts of 10 s hold one undulation each, the mid-body crossing its mean twice a bout, so the graded 0.099 Hz is the switch's, not a wave's. It moves at 0.029 body lengths per second, about an eighth of a real worm's 0.22 (DECISIONS.md, 2026-09-28).
+- **Its result doesn't depend on the step.** At 1.25 ms, over 200 trials a step, every measure lies within its margin of the 2.5 ms value: the frequency's and the speed's intervals lie within 0.0003 of zero, and the reversals', at 1.51 and 1.59 a minute, within 0.22. So the failure is the model's, not the numerics' (DECISIONS.md, 2026-09-28).
+- **Five of its twelve values sit on a bound:** g_osc at 5 nS and κ_gap,B at 1, their tops; θ_osc at −28 mV and θ_nmj at −0.3, their floors; and τ_n at 0.2 s, its top. The noise, σ_n = 0.059 pA·√s, ends about a third of the way to its bound, and the B-types keep their oscillator, at 3.9 nS (DECISIONS.md, 2026-09-28).
+- **R's first fit, with white noise** (DECISIONS.md, 2026-09-27 and 2026-09-28), crawled faster, at 0.063 body lengths per second in bouts at 0.232 Hz, with 8 of 20 trials holding a 20 s run. But its reversals and the length of its runs came from the time step: at half the step 17 trials held one and it reached partial. The convergence studies traced this to the white noise, which a coarse step damps, and to the oscillators' stiff dynamics; the coloured noise and the refit followed.
+- **The planned model's fit** (DECISIONS.md, 2026-09-27) was led by its head switch's slower cycle, at 0.073 Hz, and moved at 0.030 body lengths per second, its forward runs cut by the switch at 13.6 s at most; checkpoint 1 graded its frequency partial and its speed and bouts fail. It fails §7.2's comparison: at half the step its frequency, wavelength, speed and reversal rate all move outside their margins, so its result isn't final and it can't be chosen (DECISIONS.md, 2026-09-28).
 - **On the planned model's provisional parameters** (DECISIONS.md, 2026-09-26), it fell into one slow cycle instead: its bend deepened over about a minute as it crept to a halt, then flipped, and it moved forward for about 25 s. Checkpoint 0's section below ran the silenced network on those parameters.
 - **The silenced worm barely moves.** In the 120 s trials it never passes the motion floor, and over an hour in the assay no centroid got more than 0.17 mm from its start, against 40 mm to either spot's capture circle.
 - **The touches reach no muscle.** Neither place's receptors, ALML, ALMR and AVM at the front and PLML and PLMR at the back, has a neuromuscular junction, so with their synapses cut a touch reaches the body only through the numerics: chiefly the integrator's restarts at its pulse's edges, and at rounding level the voltage solve's sums over every neuron. It moves no velocity sample by more than 2.7 × 10⁻⁷ body lengths per second; with the restarts switched off, 11 of the 20 touched trials still part from their twins, by up to 1.7 × 10⁻⁹. This page first said that with the restarts off a touched world stepped bit for bit as its twin, which held only for the seed first tried (DECISIONS.md).
@@ -149,48 +149,62 @@ Each worm ran alone in checkpoint 4's assay: the butanone spot's steady field, t
 
 ### Checkpoint 1: crawling — **Fail**
 
-Run on 2026-09-27 at `7c8ff61`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 0 pS, τ_w = 1.36 s, θ_osc = −28 mV, g_sw = 400 pA, g_p = 1.64 pA, κ_gap,B = 0.228, g_nmj = 40 per unit of relative drive, θ_nmj = −0.172 relative drive, κ_SMD = 0.158, σ_n = 0.127 pA·√s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
+Run on 2026-09-28 at `f9954de`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
 
-| Clause                                       | Measured | Pass      | Partial   | Grade       | Kind               |
-| -------------------------------------------- | -------- | --------- | --------- | ----------- | ------------------ |
-| Frequency (Hz)                               | 0.232    | 0.20–0.45 | 0.10–0.60 | **Pass**    | Calibration target |
-| Wavelength (body lengths)                    | 0.59     | 0.50–0.80 | 0.40–1.00 | **Pass**    | Calibration target |
-| Speed (body lengths/s)                       | 0.063    | 0.12–0.30 | 0.06–0.50 | **Partial** | Calibration target |
-| Posture variance the four eigenworms capture | 97.3%    | ≥ 85%     | ≥ 70%     | **Pass**    | Predicted          |
-| Trials with a forward bout of 20 s or more   | 40%      | ≥ 80%     | ≥ 50%     | **Fail**    | Predicted          |
+| Clause                                       | Measured | Pass      | Partial   | Grade    | Kind               |
+| -------------------------------------------- | -------- | --------- | --------- | -------- | ------------------ |
+| Frequency (Hz)                               | 0.099    | 0.20–0.45 | 0.10–0.60 | **Fail** | Calibration target |
+| Wavelength (body lengths)                    | 0.71     | 0.50–0.80 | 0.40–1.00 | **Pass** | Calibration target |
+| Speed (body lengths/s)                       | 0.029    | 0.12–0.30 | 0.06–0.50 | **Fail** | Calibration target |
+| Posture variance the four eigenworms capture | 98.4%    | ≥ 85%     | ≥ 70%     | **Pass** | Predicted          |
+| Trials with a forward bout of 20 s or more   | 0%       | ≥ 80%     | ≥ 50%     | **Fail** | Predicted          |
 
-The kinematics come from 34 forward bouts of 10 s or more, 614.1 s in all. Over them the mid-body curvature crossed its mean 285 times, 8.4 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 0.92 s (correlation 0.87). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020.
+The kinematics come from 12 forward bouts of 10 s or more, 120.8 s in all. Over them the mid-body curvature crossed its mean 24 times, 2.0 a bout; a full undulation crosses twice. The rear rod's curvature correlated best with the front's at a lag of 1.78 s (correlation 0.93). The eigenworm clause pools 8,820 postures sampled at 4 Hz; 0 self-intersecting postures were left out. The kinematic clauses are calibration targets, which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020.
 
-Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spectrum peaks at 0.155 Hz, with 30% of its power between 0.2 and 0.45 Hz; 78 of 78 reversals started within 3 s after a flip of the head switch; over reversals AVA's activation changed by −4.1 × 10⁻⁴ on average, against a standard deviation of 3.7 × 10⁻³.
+Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spectrum peaks at 0.082 Hz, with 1% of its power between 0.2 and 0.45 Hz; 54 of 54 reversals started within 3 s after a flip of the head switch; over reversals AVA's activation changed by −5.1 × 10⁻⁴ on average, against a standard deviation of 1.1 × 10⁻³.
 
 | Seed | Posture | Forward / paused / backward | Longest forward run (s) | Reversals | Mean velocity (body lengths/s) | Self-intersecting postures |
 | ---- | ------- | --------------------------- | ----------------------- | --------- | ------------------------------ | -------------------------- |
-| 1    | 247     | 58% / 30% / 12%             | 43.6                    | 8         | 0.0335                         | 0                          |
-| 2    | 5745    | 73% / 25% / 1%              | 33.0                    | 0         | 0.0443                         | 0                          |
-| 3    | 2081    | 67% / 30% / 2%              | 19.9                    | 2         | 0.0352                         | 0                          |
-| 4    | 2260    | 57% / 34% / 9%              | 15.4                    | 5         | 0.0371                         | 0                          |
-| 5    | 6605    | 43% / 42% / 14%             | 16.9                    | 9         | 0.0218                         | 0                          |
-| 6    | 2621    | 61% / 35% / 4%              | 16.2                    | 2         | 0.0313                         | 0                          |
-| 7    | 394     | 56% / 37% / 6%              | 16.5                    | 3         | 0.0304                         | 0                          |
-| 8    | 874     | 68% / 26% / 5%              | 30.8                    | 4         | 0.0355                         | 0                          |
-| 9    | 2169    | 83% / 14% / 3%              | 25.2                    | 2         | 0.0486                         | 0                          |
-| 10   | 4026    | 65% / 29% / 6%              | 12.4                    | 3         | 0.0320                         | 0                          |
-| 11   | 162     | 56% / 34% / 9%              | 21.0                    | 5         | 0.0322                         | 0                          |
-| 12   | 1032    | 54% / 40% / 5%              | 16.0                    | 4         | 0.0281                         | 0                          |
-| 13   | 4410    | 58% / 35% / 6%              | 11.2                    | 3         | 0.0370                         | 0                          |
-| 14   | 4877    | 67% / 31% / 1%              | 29.7                    | 0         | 0.0359                         | 0                          |
-| 15   | 4679    | 55% / 33% / 12%             | 17.6                    | 8         | 0.0288                         | 0                          |
-| 16   | 1398    | 65% / 32% / 2%              | 16.8                    | 2         | 0.0363                         | 0                          |
-| 17   | 3516    | 49% / 42% / 8%              | 13.6                    | 6         | 0.0241                         | 0                          |
-| 18   | 3956    | 56% / 37% / 6%              | 15.5                    | 3         | 0.0297                         | 0                          |
-| 19   | 6488    | 59% / 32% / 8%              | 22.1                    | 5         | 0.0369                         | 0                          |
-| 20   | 5323    | 64% / 29% / 7%              | 22.6                    | 4         | 0.0357                         | 0                          |
+| 1    | 247     | 81% / 11% / 8%              | 10.1                    | 1         | 0.0220                         | 0                          |
+| 2    | 5745    | 81% / 10% / 8%              | 9.8                     | 4         | 0.0223                         | 0                          |
+| 3    | 2081    | 80% / 12% / 7%              | 10.0                    | 2         | 0.0223                         | 0                          |
+| 4    | 2260    | 80% / 11% / 8%              | 10.0                    | 5         | 0.0225                         | 0                          |
+| 5    | 6605    | 82% / 11% / 7%              | 9.9                     | 1         | 0.0226                         | 0                          |
+| 6    | 2621    | 80% / 12% / 8%              | 10.0                    | 2         | 0.0221                         | 0                          |
+| 7    | 394     | 80% / 12% / 8%              | 10.0                    | 2         | 0.0222                         | 0                          |
+| 8    | 874     | 80% / 11% / 8%              | 9.9                     | 3         | 0.0217                         | 0                          |
+| 9    | 2169    | 81% / 11% / 8%              | 10.1                    | 5         | 0.0221                         | 0                          |
+| 10   | 4026    | 81% / 11% / 7%              | 9.9                     | 2         | 0.0220                         | 0                          |
+| 11   | 162     | 81% / 11% / 8%              | 9.9                     | 2         | 0.0214                         | 0                          |
+| 12   | 1032    | 82% / 10% / 7%              | 10.0                    | 5         | 0.0227                         | 0                          |
+| 13   | 4410    | 81% / 11% / 7%              | 9.9                     | 1         | 0.0227                         | 0                          |
+| 14   | 4877    | 79% / 12% / 8%              | 10.1                    | 5         | 0.0216                         | 0                          |
+| 15   | 4679    | 81% / 11% / 7%              | 10.3                    | 2         | 0.0225                         | 0                          |
+| 16   | 1398    | 81% / 12% / 7%              | 9.8                     | 1         | 0.0222                         | 0                          |
+| 17   | 3516    | 81% / 10% / 8%              | 9.8                     | 4         | 0.0226                         | 0                          |
+| 18   | 3956    | 80% / 12% / 8%              | 9.9                     | 3         | 0.0223                         | 0                          |
+| 19   | 6488    | 79% / 13% / 8%              | 9.7                     | 2         | 0.0219                         | 0                          |
+| 20   | 5323    | 79% / 13% / 8%              | 9.9                     | 2         | 0.0220                         | 0                          |
 
 <!-- /harness:checkpoint-1 -->
 
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on
+
+#### R's refit — **Pass**
+
+Run on 2026-09-28 at `f9954de`: 200 trials of 120 s at each step, seeds 1 to 200, at dt = 2.5 ms and dt/2 = 1.25 ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from 1,000 resamples of the seeds, and must lie within its margin (PLAN §7.2).
+
+| Clause                           | dt     | dt/2   | Difference | 95% interval       | Margin  | Result   |
+| -------------------------------- | ------ | ------ | ---------- | ------------------ | ------- | -------- |
+| Frequency (Hz)                   | 0.0995 | 0.0995 | +0.0001    | −0.0002 to +0.0003 | ±0.0030 | **Pass** |
+| Wavelength (body lengths)        | 0.7029 | 0.7048 | −0.0020    | −0.0043 to +0.0004 | ±0.0211 | **Pass** |
+| Speed (body lengths/s)           | 0.0288 | 0.0288 | 0.0000     | −0.0001 to +0.0001 | ±0.0009 | **Pass** |
+| Share of trials with a 20 s bout | 0.000  | 0.000  | 0.000      | 0.000 to 0.000     | ±0.100  | **Pass** |
+| Reversals a minute               | 1.514  | 1.585  | −0.071     | −0.219 to +0.074   | ±0.300  | **Pass** |
+
+Checkpoint 1's grade over these trials, reported and not compared: **Fail** at dt and **Fail** at dt/2. Solves that didn't converge: 0 at dt and 0 at dt/2. Every trial stayed within the finite numbers.
 
 #### The planned model's fit — **Fail**
 
