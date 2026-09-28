@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1, moving forward in runs the head switch cuts at about 10 s, so R has ended (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round has ended, and a second, changing the calibration, is proposed (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -396,7 +396,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Fouad et al. 2018; Xu et al. 2018 (abstract only); AVB needed for forward movement (Chalfie et al. 1985)',
     caveats:
-      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's first fit set it to 0, and the B-types still carried the crawl without one; its refit set it to 3.9 nS (DECISIONS.md)",
+      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's first fit set it to 0, and the B-types still carried the crawl without one; its refit set it to 3.9 nS, which, with θ_osc at its floor, clamps them below threshold (DECISIONS.md)",
     upgrade: 'A parameterised model of the B-type rhythm',
     sources: ['fouad2018', 'xu2018', 'chalfie1985', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [
@@ -412,7 +412,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Gao et al. 2018 (sufficient for backward locomotion without premotor interneurons)',
     caveats:
-      "As above. With these constants and no drive threshold the A-types don't cycle on their own, even without their premotor interneurons: they are excitable, and noise excites them. At the 5 nS both of R's fits set, their fast time scale, 0.2 ms, is shorter than the 2.5 ms step. With white noise the first fit's reversals depended on the step; with the coloured noise the refit's reversal rate doesn't. The model doesn't yet show the intrinsic rhythm it cites (DECISIONS.md)",
+      "As above. With these constants and no drive threshold the A-types don't cycle on their own, even without their premotor interneurons: they are excitable, and noise excites them. At the 5 nS both of R's fits set, their fast time scale, 0.2 ms, is shorter than the 2.5 ms step. With white noise the first fit's reversals depended on the step; with the coloured noise the refit's reversal rate stays within §7.2's margin, though its A-types never fire. The model doesn't yet show the intrinsic rhythm it cites (DECISIONS.md)",
     upgrade: 'A parameterised model of the A-type rhythm',
     sources: ['gao2018', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [{ check: 'checkpoint2' }, { check: 'checkpoint5', detail: 'AVA and AVA + AVD rows' }],
