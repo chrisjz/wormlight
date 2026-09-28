@@ -2022,3 +2022,50 @@ The study reports, for each candidate, the points where it converges and where i
 - **Everything else, as recommended:** the code fixed and tested, the explanations corrected, and the stale passages brought up to date.
 
 **Status.** Set after review; round 3's rules come next.
+
+## 2026-09-29 — Before R's third round: an investigation, and the currents come first
+
+**Why.** Before designing R's third round, the maintainer asked for a thorough investigation, covering the literature, the design of the search and the science of its likely target. Three agents reported, and their findings that decide it were checked here; the rest are attributed.
+
+- **The corner's crawl rests on impossible voltages.**
+  - Checked here, over 60 s from seed 5001: probe 14's pick holds the SMDs between −268 and +254 mV and the B-types between −211 and +178 mV. At each 0.1 s sample, 33 neurons on average sit outside the model's reversal range, −48 to 0 mV.
+  - The refit, which the app runs, holds its SMDs at ±210 mV, with 16 neurons outside.
+  - The investigation found that the crawl needs those swings: they leak through gap junctions and recruit RMD and SMB.
+  - A head switch that is a conductance, driving towards 0 and −48 mV, loses the crawl at every gain from 1 to 50 nS and across a grid of the other parameters.
+  - The proprioceptive current is unbounded too.
+  - Published head switches are bounded: Ji et al. 2021's muscle moment saturates, and Li et al. 2026 clip their outputs.
+- **The model has no backward mode.**
+  - Checked here in the runtime data: every chemical connection between the forward and backward command modules is excitatory.
+    - By the transmitter rule: AVA→AVB 9 sections, AVB→AVA 47, AVA→PVC 77 and AVA→A-types 282.
+    - By expression: RIM→AVB 41 and AIB→AVB 34.
+  - The investigation drove AVA with up to 400 pA at probe 14's values and got no reversal. Within the bounds, no parameter brings reversals without breaking the crawl; the "reversals" some settings make are dithering at the head switch's flips.
+  - In the animal, AVA is depolarised and bistable (Roberts et al. 2016; Meng et al. 2024), and some of these links are thought to be inhibitory.
+- **At the corner, the held-out checkpoints look foregone.** The investigation's stimulations were outside the checkpoints' protocols, on exploration seeds; the checkpoints themselves weren't run. They point to:
+  - checkpoint 2 failing, with no reversal;
+  - checkpoint 3 likely failing, since stimulating PLM slows the worm;
+  - checkpoint 4 failing: the worm circles at about 27° per mm, and AWC-ON's input reaches no muscle;
+  - checkpoint 5 passing at most one row;
+  - checkpoint 6 unable to tell wirings apart, since the crawl runs through parts no null rewires.
+- **The literature,** a search of work to 2026 with its citations checked on Crossref:
+  - Li et al. 2026 find forward undulation on agar paced from the head through SMD, SMB and RMD. That is consistent with a head-paced crawler, but with bounded units.
+  - Karbowski et al. 2006 measured a worm's speed at 0.79 of its wave's. At 0.30 Hz and 0.65 body lengths that is about 0.15 body lengths per second, whereas the calibration's speed target of 0.22 exceeds even the targets' own wave speed, 0.195.
+  - In other connectomes, retuned null wirings often match real ones: for example Reimers et al. 2026, a preprint. So "no evidence" is a live outcome for checkpoint 6.
+  - Li et al. 2026, like Gray et al. 2005, find that ablating the head's RMD, SMD or SMB raises the reversal rate: the head circuit suppresses reversals rather than making them.
+- **The search,** as the investigation mapped it:
+  - The corner covers about 7 × 10⁻⁴ of the face where g_osc,B = 0, and 92.6% of the box doesn't move.
+  - At the one measured rate, about one search in seven, the chosen five searches of 400 find the corner about half the time. Sixteen searches of 250 from a Latin hypercube would find it about nine times in ten, on 4,000 evaluations a wiring.
+  - Its maps ran 4,748 trials on the real wiring.
+- **An exploratory point passes checkpoint 1.** Probe 14's pick with τ_w at 0.34 s passes every clause on seeds 2001 to 2020, reproduced here: 0.308 Hz, 0.58 body lengths, 0.128 body lengths per second and a 20 s bout in every trial. It makes no reversal and has the same impossible voltages, and it can't be chosen.
+
+**Decision.** The maintainer chose the recommendation each time:
+
+- **R's third round is paused, and the currents come first.** The head switch's and proprioception's currents become conductances, driving towards the model's reversal potentials. That changes the form of two §1.1 layers rather than adding one. It is proposed in a rules pull request of its own, for approval, and the bounded model's behaviour is looked at before R's future is decided; the refit's own motion may not survive it. Considered: round 3 on the corner as it is, with sixteen searches of 250 and the voltage caveat declared; the same within the budget, eight of 250; and ending R now.
+- **The command circuit's signs are audited** against their sources: a data investigation, reporting what the evidence supports before any change. Any change would go through the pinned data pipeline. Considered: auditing only after the currents are bounded; and leaving the signs, with no backward mode as a known limit.
+- **Checkpoint 1's report gains a voltage diagnostic** (PLAN §7.4, added after results): how many neurons sit outside the reversal range at each sample, and the voltages' extremes. It is reported, not graded. FIDELITY gains a caveat on the two unbounded currents. Considered: recording the findings with no diagnostic.
+- **The speed target stays, for now.** Its inconsistency and Karbowski's measured ratio are recorded, and the target is decided, with the maintainer's approval, when the next calibration's rules are set. Considered: changing it now to about 0.15; and leaving it for good.
+- **Whatever follows must disclose:**
+  - that the corner's crawl and the pass point were found by exploring the real wiring;
+  - the investigation's 4,748 trials on it;
+  - its stimulations outside the checkpoints' protocols, which foreshadow checkpoints 2 to 5.
+
+**Status.** Set: the rules for bounding the currents come next.
