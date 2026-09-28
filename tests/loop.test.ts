@@ -135,12 +135,20 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it("runs track R's model on its provisional values, coloured noise and all, until its refit (PLAN §9)", () => {
-    expect(isCalibrated()).toBe(false);
-    expect(() => calibratedParams()).toThrow(/not calibrated/);
-    expect(currentParams()).toEqual(provisionalParams());
+  it("runs track R's model on its refit's values, coloured noise and all, its provisional values kept beside them (PLAN §9)", () => {
+    expect(isCalibrated()).toBe(true);
+    expect(currentParams()).toEqual(calibratedParams());
+    // A registry without the fit's values has none to give.
+    const uncalibrated = { ...PARAMS, noiseCorrelation: { ...PARAMS.noiseCorrelation, value: null } };
+    expect(() => calibratedParams(uncalibrated)).toThrow(/not calibrated/);
     expect(currentParams()).toMatchObject({
       relativeDrive: true,
+      oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,
+      oscillatorGainB: (PARAMS.oscillatorExcitabilityB.value as number) / 1000,
+      noise: PARAMS.noiseIntensity.value,
+      noiseCorrelation: PARAMS.noiseCorrelation.value,
+    });
+    expect(provisionalParams()).toMatchObject({
       gapGainB: 1,
       smdGain: 1,
       oscillatorGainB: 2.14,

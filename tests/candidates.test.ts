@@ -33,7 +33,7 @@ describe("the study's candidates", () => {
   });
 
   it('colour the noise when given a correlation time, and move the brain differently', () => {
-    const white = run(new World(data, currentParams(), { seed: 3 }), 400);
+    const white = run(new World(data, { ...currentParams(), noiseCorrelation: 0 }, { seed: 3 }), 400);
     const coloured = run(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }, { seed: 3 }), 400);
     expect(coloured.brain.noiseCorrelation).toBe(0.2);
     expect(Array.from(coloured.brain.voltage)).not.toEqual(Array.from(white.brain.voltage));
@@ -62,11 +62,11 @@ describe("the study's candidates", () => {
     expect(() => new World(data, { ...currentParams(), noiseCorrelation: -0.1 })).toThrow(/negative/);
   });
 
-  it('are refused by the GPU, sub-steps and noise grids alike, however a world reaches it; coloured noise it runs', () => {
+  it('are refused by the GPU, sub-steps and noise grids alike, however a world reaches it; coloured and white noise it runs', () => {
     // GpuWorld.create packs a world and GpuWorld.load takes one in; both check it first.
     expect(() => checkGpuWorld(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
     expect(() => checkGpuWorld(new World(data, currentParams()))).not.toThrow();
-    expect(() => checkGpuWorld(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }))).not.toThrow();
+    expect(() => checkGpuWorld(new World(data, { ...currentParams(), noiseCorrelation: 0 }))).not.toThrow();
     expect(() => packLoop(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
     expect(() => packLoop(new World(data, currentParams(), { noiseGrid: NEURAL_STEP / 2 }))).toThrow(/GPU/);
   });

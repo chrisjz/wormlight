@@ -14,8 +14,10 @@ import {
   type Checkpoint1,
   type Diagnostics,
   type Clause,
+  type Grade,
   type TrialSummary,
 } from '../../src/validation/checkpoints.ts';
+import type { Measure, StepComparison } from '../../src/validation/equivalence.ts';
 import { table } from '../data/render.ts';
 import { formatNumber } from '../docs/page.ts';
 
@@ -356,15 +358,80 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
   ].join('\n\n');
 }
 
-// Replace the text between a checkpoint's markers in the page.
-export function replaceSection(page: string, checkpoint: number, section: string): string {
-  const start = `<!-- harness:checkpoint-${checkpoint} -->`;
-  const end = `<!-- /harness:checkpoint-${checkpoint} -->`;
+// A run of §7.2's comparison with the noise on, as data/equivalence/<fit>.json records it.
+export interface EquivalenceRun {
+  fit: 'refit' | 'planned';
+  date: string;
+  commit: string;
+  trials: number;
+  seconds: number;
+  // dt and dt/2 (s).
+  steps: [number, number];
+  resamples: number;
+  // Checkpoint 1's grade over the trials at each step, reported and not compared.
+  grades: [Grade, Grade];
+  unconverged: [number, number];
+  comparison: StepComparison;
+}
+
+const FITS = { refit: "R's refit", planned: "The planned model's fit" } as const;
+const MEASURED: Record<Measure, { label: string; digits: number }> = {
+  frequency: { label: 'Frequency (Hz)', digits: 4 },
+  wavelength: { label: 'Wavelength (body lengths)', digits: 4 },
+  speed: { label: 'Speed (body lengths/s)', digits: 4 },
+  bout: { label: 'Share of trials with a 20 s bout', digits: 3 },
+  reversals: { label: 'Reversals a minute', digits: 3 },
+};
+
+// The comparison's section: each fit's clauses, their intervals and margins, and its verdict.
+export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
+  const parts = ["### The step: §7.2's comparison with the noise on"];
+  if (runs.length === 0) return [...parts, 'Not yet run.'].join('\n\n');
+  for (const run of runs) {
+    const { comparison: c } = run;
+    const rows = c.clauses.map((k) => {
+      const { label, digits } = MEASURED[k.name];
+      const value = (x: number | null): string => (x === null ? 'unmeasured' : fixed(x, digits));
+      const signed = (x: number): string => (x > 0 ? `+${fixed(x, digits)}` : fixed(x, digits));
+      // An end is null where the unmeasured resamples reach it, and unbounded.
+      const end = (x: number | null, unbounded: string): string => (x === null ? unbounded : signed(x));
+      const interval = k.interval === null ? '—' : `${end(k.interval[0], '−∞')} to ${end(k.interval[1], '+∞')}`;
+      const note =
+        k.unmeasured > 0
+          ? `, ${grouped(k.unmeasured)} ${k.unmeasured === 1 ? 'resample' : 'resamples'} unmeasured`
+          : '';
+      return [
+        label,
+        value(k.coarse),
+        value(k.fine),
+        k.difference === null ? '—' : signed(k.difference),
+        interval,
+        k.margin === null ? '—' : `±${fixed(k.margin, digits)}`,
+        `${k.pass ? '**Pass**' : '**Fail**'}${note}`,
+      ];
+    });
+    const [dt, half] = run.steps.map((s) => formatNumber(s * 1000));
+    parts.push(
+      `#### ${FITS[run.fit]} — ${c.pass ? '**Pass**' : '**Fail**'}`,
+      `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, seeds 1 to ${run.trials}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).`,
+      table(['Clause', 'dt', 'dt/2', 'Difference', '95% interval', 'Margin', 'Result'], rows),
+      `Checkpoint 1's grade over these trials, reported and not compared: ${GRADE[run.grades[0]]} at dt and ${GRADE[run.grades[1]]} at dt/2. Solves that didn't converge: ${grouped(run.unconverged[0])} at dt and ${grouped(run.unconverged[1])} at dt/2. ${c.nonFinite === 0 ? 'Every trial stayed within the finite numbers.' : `${count(c.nonFinite, 'trial')} left the finite numbers, which fails the comparison.`}`,
+    );
+  }
+  return parts.join('\n\n');
+}
+
+// Replace the text between a section's markers in the page: a checkpoint's, by its number, or the comparison's.
+export function replaceSection(page: string, key: number | 'equivalence', section: string): string {
+  const name = typeof key === 'number' ? `checkpoint-${key}` : key;
+  const what = typeof key === 'number' ? `checkpoint ${key}` : `the ${key} section`;
+  const start = `<!-- harness:${name} -->`;
+  const end = `<!-- /harness:${name} -->`;
   const a = page.indexOf(start);
   const b = page.indexOf(end);
-  if (a < 0 || b < a) throw new Error(`VALIDATION.md has no markers for checkpoint ${checkpoint}`);
+  if (a < 0 || b < a) throw new Error(`VALIDATION.md has no markers for ${what}`);
   if (page.indexOf(start, a + 1) >= 0 || page.indexOf(end, b + 1) >= 0) {
-    throw new Error(`VALIDATION.md has checkpoint ${checkpoint}'s markers more than once`);
+    throw new Error(`VALIDATION.md has ${what}'s markers more than once`);
   }
   return `${page.slice(0, a + start.length)}\n\n${section}\n\n${page.slice(b)}`;
 }
