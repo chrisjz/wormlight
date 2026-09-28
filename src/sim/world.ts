@@ -4,7 +4,7 @@
 // advances the body.
 
 import type { WormlightData } from '../data/schema.ts';
-import { PARAMS } from '../science/params.ts';
+import { PARAMS, type Param } from '../science/params.ts';
 import type { PlannedValues } from '../science/planned.ts';
 import { Body, boyleBody } from './body/body.ts';
 import {
@@ -100,9 +100,9 @@ export const CALIBRATED = [
   'noiseCorrelation',
 ] as const;
 
-// The registry's values, once calibrated.
-export function calibratedParams(): LoopParams {
-  const values = Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].value as number | null]));
+// The registry's values, once calibrated, or those of a registry standing in for it.
+export function calibratedParams(registry: Record<string, Param> = PARAMS): LoopParams {
+  const values = Object.fromEntries(CALIBRATED.map((id) => [id, registry[id].value]));
   if (Object.values(values).some((v) => v === null)) throw new Error('the loop parameters are not calibrated yet');
   return loopParams(values as unknown as RValues);
 }

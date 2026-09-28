@@ -25,10 +25,18 @@ export function firstStart(world: WorldModule): LoopParams {
 // R's provisional σ_n before the coloured noise, the white noise's (DECISIONS.md, 2026-09-27).
 const WHITE_PROVISIONAL = 0.0834;
 
-// The git trees whose content a trial depends on, less the step: the model's code, the data, the pins and the
-// harness's readers. A change anywhere else, such as to a study or to the docs, leaves records valid.
+// The git trees whose content a trial depends on, less the step: the model's code, the data, the pins, the
+// harness's readers and the scripts they read the pins with, and this file, whose buildTree sets the step. A change
+// anywhere else, such as to a study or to the docs, leaves records valid.
 export function treeSource(): string {
-  const paths = ['src', 'public/data', 'data/sources.json', 'scripts/harness'];
+  const paths = [
+    'src',
+    'public/data',
+    'data/sources.json',
+    'scripts/harness',
+    'scripts/data',
+    'scripts/experiments/trees.ts',
+  ];
   return execSync(`git rev-parse ${paths.map((p) => `HEAD:${p}`).join(' ')}`, { cwd: ROOT, encoding: 'utf8' })
     .trim()
     .split('\n')

@@ -50,10 +50,11 @@ export interface ClauseComparison {
   coarse: number | null;
   fine: number | null;
   difference: number | null;
-  // The percentile interval, and the margin it must lie within; null where the clause is unmeasured.
-  interval: [number, number] | null;
+  // The percentile interval, and the margin it must lie within; null where the clause is unmeasured. An end is
+  // null where it is unbounded, reached by the unmeasured resamples (percentileInterval).
+  interval: [number | null, number | null] | null;
   margin: number | null;
-  // Resamples in which the clause was unmeasured at either step, each counted as outside the margin.
+  // Resamples in which the clause was unmeasured at either step, each counted against both tails.
   unmeasured: number;
   pass: boolean;
 }
@@ -65,7 +66,21 @@ export interface StepComparison {
   pass: boolean;
 }
 
-// The comparison of `coarse`, the trials at dt, with `fine`, the same seeds' at dt/2, in the same order.
+// The percentile interval of the resampled differences, leaving `outside` of them beyond each end, with an
+// unmeasured resample (null) counted against both tails (PLAN §7.2, changed after results 2026-09-28): taken as the
+// lowest for the lower end and the highest for the upper. So an end is unbounded (null) once the unmeasured
+// resamples outnumber `outside`, and otherwise each end lies as many measured differences further in.
+export function percentileInterval(
+  differences: readonly (number | null)[],
+  outside: number,
+): [number | null, number | null] {
+  const measured = differences.filter((d): d is number => d !== null).sort((u, v) => u - v);
+  const spare = outside - (differences.length - measured.length);
+  return spare < 0 ? [null, null] : [measured[spare], measured[measured.length - 1 - spare]];
+}
+
+// The comparison of `coarse`, the trials at dt, with `fine`, the same seeds' at dt/2, in the same order. The
+// resamples must leave a whole number outside each end, as 1,000 leave 25.
 export function compareSteps(
   coarse: readonly TrialRecord[],
   fine: readonly TrialRecord[],
@@ -74,29 +89,30 @@ export function compareSteps(
   if (coarse.length !== fine.length || coarse.some((r, k) => r.seed !== fine[k].seed)) {
     throw new Error('the two steps must have the same seeds, in the same order');
   }
+  const outside = (EQUIVALENCE.outside * resamples) / EQUIVALENCE.resamples;
+  if (!Number.isInteger(outside) || outside < 1) throw new Error('the resamples must be a multiple of 40');
   const [a, b] = [bouted(coarse), bouted(fine)];
   const full = [measuresOf(a), measuresOf(b)];
-  const differences = new Map<Measure, number[]>(MEASURES.map((m) => [m, []]));
+  const differences = new Map<Measure, (number | null)[]>(MEASURES.map((m) => [m, []]));
   const n = a.length;
   for (let s = 0; s < resamples; s++) {
     const picks = Array.from({ length: n }, (_, k) => Math.floor(uniform(hash(EQUIVALENCE.resamplingSeed, s, k)) * n));
     const [x, y] = [measuresOf(picks.map((k) => a[k])), measuresOf(picks.map((k) => b[k]))];
     for (const m of MEASURES) {
       const [p, q] = [x[m], y[m]];
-      (differences.get(m) as number[]).push(p === null || q === null ? Infinity : p - q);
+      (differences.get(m) as (number | null)[]).push(p === null || q === null ? null : p - q);
     }
   }
   const clauses = MEASURES.map((name): ClauseComparison => {
     const [p, q] = [full[0][name], full[1][name]];
-    // Unmeasured resamples sort last, as Infinity, which u − v can't compare with itself.
-    const sorted = (differences.get(name) as number[]).sort((u, v) => (u < v ? -1 : u > v ? 1 : 0));
-    const unmeasured = sorted.filter((d) => d === Infinity).length;
+    const resampled = differences.get(name) as (number | null)[];
+    const unmeasured = resampled.filter((d) => d === null).length;
     if (p === null || q === null) {
       return { name, coarse: p, fine: q, difference: null, interval: null, margin: null, unmeasured, pass: false };
     }
     const margin = RELATIVE.has(name) ? EQUIVALENCE.margins[name] * Math.abs(q) : EQUIVALENCE.margins[name];
-    const cut = Math.round((EQUIVALENCE.outside / EQUIVALENCE.resamples) * resamples);
-    const interval: [number, number] = [sorted[cut], sorted[resamples - 1 - cut]];
+    const interval = percentileInterval(resampled, outside);
+    const [lower, upper] = interval;
     return {
       name,
       coarse: p,
@@ -105,7 +121,7 @@ export function compareSteps(
       interval,
       margin,
       unmeasured,
-      pass: interval[0] >= -margin && interval[1] <= margin,
+      pass: lower !== null && upper !== null && lower >= -margin && upper <= margin,
     };
   });
   const nonFinite = [...coarse, ...fine].filter((r) => !r.finite).length;

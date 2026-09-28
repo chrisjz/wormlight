@@ -392,10 +392,10 @@ export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
     const rows = c.clauses.map((k) => {
       const { label, digits } = MEASURED[k.name];
       const value = (x: number | null): string => (x === null ? 'unmeasured' : fixed(x, digits));
-      // An end past every measured resample, where more than the interval's tail were unmeasured, is unbounded.
-      const signed = (x: number): string =>
-        !Number.isFinite(x) ? (x > 0 ? '+∞' : '−∞') : x > 0 ? `+${fixed(x, digits)}` : fixed(x, digits);
-      const interval = k.interval === null ? '—' : `${signed(k.interval[0])} to ${signed(k.interval[1])}`;
+      const signed = (x: number): string => (x > 0 ? `+${fixed(x, digits)}` : fixed(x, digits));
+      // An end is null where the unmeasured resamples reach it, and unbounded.
+      const end = (x: number | null, unbounded: string): string => (x === null ? unbounded : signed(x));
+      const interval = k.interval === null ? '—' : `${end(k.interval[0], '−∞')} to ${end(k.interval[1], '+∞')}`;
       const note =
         k.unmeasured > 0
           ? `, ${grouped(k.unmeasured)} ${k.unmeasured === 1 ? 'resample' : 'resamples'} unmeasured`
@@ -413,7 +413,7 @@ export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
     const [dt, half] = run.steps.map((s) => formatNumber(s * 1000));
     parts.push(
       `#### ${FITS[run.fit]} — ${c.pass ? '**Pass**' : '**Fail**'}`,
-      `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, ${run.trials === 1 ? 'seed 1' : `seeds 1 to ${run.trials}`}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).`,
+      `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, seeds 1 to ${run.trials}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).`,
       table(['Clause', 'dt', 'dt/2', 'Difference', '95% interval', 'Margin', 'Result'], rows),
       `Checkpoint 1's grade over these trials, reported and not compared: ${GRADE[run.grades[0]]} at dt and ${GRADE[run.grades[1]]} at dt/2. Solves that didn't converge: ${grouped(run.unconverged[0])} at dt and ${grouped(run.unconverged[1])} at dt/2. ${c.nonFinite === 0 ? 'Every trial stayed within the finite numbers.' : `${count(c.nonFinite, 'trial')} left the finite numbers, which fails the comparison.`}`,
     );

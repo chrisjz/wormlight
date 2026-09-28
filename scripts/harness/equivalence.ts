@@ -6,21 +6,24 @@
 // the difference (src/validation/equivalence.ts). The refit is the registry's values, which must be calibrated; the
 // planned fit is src/science/planned.ts's, with its white noise. A full run writes data/equivalence/<fit>.json and
 // regenerates VALIDATION.md's section from every fit's file; --trials shortens a run for a look, writing only to
-// harness-out/. Records go to harness-out/equivalence/, and a set whose manifest matches is reused.
+// harness-out/. Trees and records go to harness-out/equivalence/, in folders named by a hash of the sources the
+// trials depend on (treeSource), so a run at other sources never touches another's, and a set is reused whole or in
+// part while its manifest matches. Each tree carries its sources, which every trial checks before it runs.
 
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
-import type { LoopParams } from '../../src/sim/world.ts';
+import { isCalibrated, type LoopParams } from '../../src/sim/world.ts';
 import { checkpoint1, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import { compareSteps, EQUIVALENCE, EQUIVALENCE_SEEDS } from '../../src/validation/equivalence.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { formatJson, formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
-import { buildTree, forkPool, prepareSet, treeSource, workersFrom, writeWhole } from '../experiments/trees.ts';
+import { buildTree, forkPool, prepareSet, treeSource, writeWhole } from '../experiments/trees.ts';
 import { commit } from './commit.ts';
 import { readPinned } from './pinned.ts';
 import { equivalenceSection, replaceSection, type EquivalenceRun } from './report.ts';
@@ -31,14 +34,29 @@ const STEPS: [number, number] = [NEURAL_STEP, NEURAL_STEP / 2];
 const OUT = join(ROOT, 'harness-out', 'equivalence');
 const RESULTS = join(ROOT, 'data', 'equivalence');
 const PAGE = join(ROOT, 'VALIDATION.md');
-const tree = (step: number): string => join(OUT, `tree-${Math.round(step * 1e6)}us`);
-const setDir = (fit: Fit, step: number): string => join(OUT, `${fit}-${Math.round(step * 1e6)}us`);
+const STAMP = '.source';
+// A short name for a set of sources, for the folders.
+const keyOf = (source: string): string => createHash('sha1').update(source).digest('hex').slice(0, 10);
+const tree = (step: number, source: string): string => join(OUT, `tree-${Math.round(step * 1e6)}us-${keyOf(source)}`);
+const setDir = (fit: Fit, step: number, source: string): string =>
+  join(OUT, `${fit}-${Math.round(step * 1e6)}us-${keyOf(source)}`);
+
+// A step's tree at these sources, built unless one carrying them is already there.
+function ensureTree(step: number, source: string): string {
+  const dir = tree(step, source);
+  const stamp = join(dir, STAMP);
+  if (existsSync(stamp) && readFileSync(stamp, 'utf8') === source) return dir;
+  buildTree(dir, step);
+  writeFileSync(stamp, source);
+  return dir;
+}
 
 interface Manifest {
   fit: Fit;
   source: string;
   step: number;
   seconds: number;
+  node: string;
 }
 interface Job {
   tree: string;
@@ -58,7 +76,10 @@ function paramsOf(fit: Fit, world: World, planned: Planned): LoopParams {
 }
 
 async function runJob(job: Job): Promise<void> {
-  const from = <T>(path: string): Promise<T> => import(join(job.tree, path)) as Promise<T>;
+  if (readFileSync(join(job.tree, STAMP), 'utf8') !== job.manifest.source) {
+    throw new Error(`${job.tree} no longer holds the sources its manifest names`);
+  }
+  const from = <T>(path: string): Promise<T> => import(pathToFileURL(join(job.tree, path)).href) as Promise<T>;
   const { NEURAL_STEP: step } = await from<typeof import('../../src/sim/numerics.ts')>('src/sim/numerics.ts');
   if (step !== job.manifest.step) throw new Error(`${job.tree} steps at ${step}, not ${job.manifest.step}`);
   const world = await from<World>('src/sim/world.ts');
@@ -75,21 +96,32 @@ async function runJob(job: Job): Promise<void> {
   writeWhole(job.out, JSON.stringify(record));
 }
 
+const USAGE = 'npm run equivalence -- --fit <refit|planned> [--jobs N] [--trials N]';
+
+// Every option given once, each with its value after it, so that a mistyped one can't run the full comparison.
 export function parseArgs(args: readonly string[]): { fit: Fit; jobs: number; trials: number } {
-  const value = (flag: string): string | undefined => {
-    const at = args.indexOf(flag);
-    return at >= 0 ? args[at + 1] : undefined;
-  };
-  const fit = value('--fit') as Fit | undefined;
-  if (fit === undefined || !FITS.includes(fit)) throw new Error('usage: --fit <refit|planned>');
-  const trials = value('--trials');
-  if (trials !== undefined && !(/^\d+$/.test(trials) && Number(trials) >= 2 && Number(trials) <= EQUIVALENCE.trials)) {
-    throw new Error(`--trials needs a whole number from 2 to ${EQUIVALENCE.trials}`);
+  const values = new Map<string, string>();
+  for (let k = 0; k < args.length; k += 2) {
+    const [flag, value] = [args[k], args[k + 1]];
+    if (!['--fit', '--jobs', '--trials'].includes(flag)) throw new Error(`unknown option ${flag}; usage: ${USAGE}`);
+    if (value === undefined || value.startsWith('--')) throw new Error(`${flag} needs a value; usage: ${USAGE}`);
+    if (values.has(flag)) throw new Error(`${flag} is given twice`);
+    values.set(flag, value);
   }
+  const fit = values.get('--fit') as Fit | undefined;
+  if (fit === undefined || !FITS.includes(fit)) throw new Error(`usage: ${USAGE}`);
+  const whole = (flag: string, least: number, most: number, otherwise: number): number => {
+    const text = values.get(flag);
+    if (text === undefined) return otherwise;
+    if (!/^\d+$/.test(text) || Number(text) < least || Number(text) > most) {
+      throw new Error(`${flag} needs a whole number from ${least} to ${most}`);
+    }
+    return Number(text);
+  };
   return {
     fit,
-    jobs: workersFrom(args, availableParallelism()),
-    trials: trials === undefined ? EQUIVALENCE.trials : Number(trials),
+    jobs: whole('--jobs', 1, 1024, availableParallelism()),
+    trials: whole('--trials', 2, EQUIVALENCE.trials, EQUIVALENCE.trials),
   };
 }
 
@@ -103,16 +135,20 @@ if (process.argv[2] === '--worker') {
   const full = options.trials === EQUIVALENCE.trials;
   const committed = commit();
   if (/uncommitted/.test(committed)) throw new Error('commit first: the trees are taken from HEAD');
+  // The committed registry is the trees' too.
+  if (options.fit === 'refit' && !isCalibrated()) {
+    throw new Error("the registry isn't calibrated: copy R's refit into params.ts first");
+  }
   const source = treeSource();
   const seeds = EQUIVALENCE_SEEDS.slice(0, options.trials);
   mkdirSync(OUT, { recursive: true });
   const jobs: Job[] = [];
   for (const step of STEPS) {
-    buildTree(tree(step), step);
-    const manifest: Manifest = { fit: options.fit, source, step, seconds: TRIAL_SECONDS };
-    const dir = setDir(options.fit, step);
+    const at = ensureTree(step, source);
+    const manifest: Manifest = { fit: options.fit, source, step, seconds: TRIAL_SECONDS, node: process.version };
+    const dir = setDir(options.fit, step, source);
     for (const seed of prepareSet(dir, manifest, seeds)) {
-      jobs.push({ tree: tree(step), manifest, seed, out: join(dir, `${seed}.json`) });
+      jobs.push({ tree: at, manifest, seed, out: join(dir, `${seed}.json`) });
     }
   }
   // The finer step's trials first, since they take longest.
@@ -124,7 +160,7 @@ if (process.argv[2] === '--worker') {
   });
   process.stderr.write(`${jobs.length} trials in ${((Date.now() - started) / 1000).toFixed(0)} s\n`);
 
-  const [coarse, fine] = STEPS.map((step) => readSet(setDir(options.fit, step), seeds));
+  const [coarse, fine] = STEPS.map((step) => readSet(setDir(options.fit, step, source), seeds));
   const basis = await readPinned('eigenworms');
   const run: EquivalenceRun = {
     fit: options.fit,

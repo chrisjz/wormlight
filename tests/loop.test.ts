@@ -138,6 +138,9 @@ describe('the world', () => {
   it("runs track R's model on its refit's values, coloured noise and all, its provisional values kept beside them (PLAN §9)", () => {
     expect(isCalibrated()).toBe(true);
     expect(currentParams()).toEqual(calibratedParams());
+    // A registry without the fit's values has none to give.
+    const uncalibrated = { ...PARAMS, noiseCorrelation: { ...PARAMS.noiseCorrelation, value: null } };
+    expect(() => calibratedParams(uncalibrated)).toThrow(/not calibrated/);
     expect(currentParams()).toMatchObject({
       relativeDrive: true,
       oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,

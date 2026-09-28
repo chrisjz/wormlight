@@ -278,7 +278,7 @@ describe('the harness report', () => {
             coarse: 0.03,
             fine: 0.029,
             difference: 0.001,
-            interval: [0.0005, Infinity],
+            interval: [0.0005, null],
             margin: 0.00087,
             unmeasured: 40,
             pass: false,
@@ -304,6 +304,12 @@ describe('the harness report', () => {
     );
     expect(section).toContain('| unmeasured | — | — | — | **Fail**, 1,000 resamples unmeasured |');
     expect(section).toContain('| +0.0005 to +∞ | ±0.0009 | **Fail**, 40 resamples unmeasured |');
+    // An end unbounded by the unmeasured resamples comes back from the committed JSON the same.
+    expect(equivalenceSection([JSON.parse(JSON.stringify(run)) as EquivalenceRun])).toBe(section);
+    const both = { ...run.comparison.clauses[1], interval: [null, null] as [null, null] };
+    expect(equivalenceSection([{ ...run, comparison: { ...run.comparison, clauses: [both] } }])).toContain(
+      '| −∞ to +∞ | ±0.0009 |',
+    );
     expect(section).toContain('**Partial** at dt and **Pass** at dt/2');
     expect(section).toContain("Solves that didn't converge: 0 at dt and 2 at dt/2");
     expect(equivalenceSection([])).toContain('Not yet run.');
@@ -315,5 +321,12 @@ describe('the harness report', () => {
     expect(() => equivalenceArgs([])).toThrow(/--fit/);
     expect(() => equivalenceArgs(['--fit', 'white'])).toThrow(/--fit/);
     expect(() => equivalenceArgs(['--fit', 'refit', '--trials', '201'])).toThrow(/--trials/);
+    // A mistyped option must not run the full comparison.
+    expect(() => equivalenceArgs(['--fit', 'refit', '--trials'])).toThrow(/needs a value/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--trial', '10'])).toThrow(/unknown option/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--jobs=4'])).toThrow(/unknown option/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--seconds', '30'])).toThrow(/unknown option/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--fit', 'planned'])).toThrow(/twice/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--jobs', '0'])).toThrow(/--jobs/);
   });
 });
