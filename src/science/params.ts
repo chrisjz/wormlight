@@ -4,10 +4,10 @@
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
 // bounds set here before it runs (PLAN.md §7.3). They are track R's model's (PLAN.md §9), and their values are
-// null until R's refit with the coloured noise, whose final values, unrounded, data/calibration/r2.json will
-// record and a test holds them to; R's first fit, with white noise, is in data/calibration/r1.json. Their
-// provisional values, which the model runs until then and where the refit starts, stay beside them; the
-// planned model's own are in src/science/planned.ts (PLAN.md §6.2). A parameter fixed in advance (level 0)
+// its refit's final ones, with the coloured noise, unrounded, which data/calibration/r2.json records and a test
+// holds them to; R's first fit, with white noise, is in data/calibration/r1.json. Their provisional values,
+// where the refit started, stay beside them; the planned model's own are in src/science/planned.ts (PLAN.md
+// §6.2). A parameter fixed in advance (level 0)
 // either has a value or is set by a stated rule. Every parameter says what new data or research
 // would raise it (spec §1.3).
 
@@ -169,7 +169,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: null,
+    value: 0.05943608161917489,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -183,7 +183,7 @@ export const PARAMS = {
   noiseCorrelation: {
     name: 'Neural noise correlation time',
     symbol: 'τ_n',
-    value: null,
+    value: 0.2,
     unit: 's',
     level: 1,
     subsystem: 'neural',
@@ -197,7 +197,7 @@ export const PARAMS = {
   gapGainB: {
     name: 'B-type gap junction gain',
     symbol: 'κ_gap,B',
-    value: null,
+    value: 1,
     unit: '',
     level: 1,
     subsystem: 'neural',
@@ -315,7 +315,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch current gain',
     symbol: 'g_sw',
-    value: null,
+    value: 311.74440224351065,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -329,7 +329,7 @@ export const PARAMS = {
   oscillatorExcitability: {
     name: 'A-type oscillator excitability',
     symbol: 'g_osc',
-    value: null,
+    value: 5000,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -343,7 +343,7 @@ export const PARAMS = {
   oscillatorExcitabilityB: {
     name: 'B-type oscillator excitability',
     symbol: 'g_osc,B',
-    value: null,
+    value: 3900.2952142736585,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -357,7 +357,7 @@ export const PARAMS = {
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: null,
+    value: 2.6416265755471136,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -371,7 +371,7 @@ export const PARAMS = {
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: null,
+    value: -28,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -396,7 +396,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: null,
+    value: 0.18970755200111186,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -412,7 +412,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: null,
+    value: 7.5460056354475835,
     unit: 'per unit of relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -426,7 +426,7 @@ export const PARAMS = {
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: null,
+    value: -0.3,
     unit: 'relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -440,7 +440,7 @@ export const PARAMS = {
   smdGain: {
     name: 'SMD junction gain past the head',
     symbol: 'κ_SMD',
-    value: null,
+    value: 0.7180212740176531,
     unit: '',
     level: 1,
     subsystem: 'muscle',

@@ -33,7 +33,7 @@ describe("the study's candidates", () => {
   });
 
   it('colour the noise when given a correlation time, and move the brain differently', () => {
-    const white = run(new World(data, currentParams(), { seed: 3 }), 400);
+    const white = run(new World(data, { ...currentParams(), noiseCorrelation: 0 }, { seed: 3 }), 400);
     const coloured = run(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }, { seed: 3 }), 400);
     expect(coloured.brain.noiseCorrelation).toBe(0.2);
     expect(Array.from(coloured.brain.voltage)).not.toEqual(Array.from(white.brain.voltage));
