@@ -1851,10 +1851,10 @@ The study reports, for each candidate, the points where it converges and where i
 - **The trials** are 200 of 120 s at each step, seeds 1 to 200, each starting from its seed's posture as checkpoint 1's do, at 2.5 and 1.25 ms, the whole loop stepped at each. Each run draws its noise as the model does, with no path shared between the steps, since the test judges the model as it runs and the GPU has no shared path. Considered: the second study's grid, which lets the two steps share their noise and narrows the interval, but tests a model the app doesn't run.
 - **The measures** are checkpoint 1's frequency, wavelength and speed over the bouts of 10 s or more, the share of trials with a 20 s bout, and reversals per minute over the measured windows.
 - **The interval** is a percentile interval of the difference, the value at dt less the value at dt/2: the 26th to the 975th of 1,000 resampled differences, sorted, each resample drawing the 200 seeds with replacement, both steps' trials together, from the model's own hash. The margins are §7.2's, the relative ones taken of the full 200 trials' value at dt/2. Considered: resampling each step's trials apart, which ignores the pairing, and a bias-corrected interval, which adds machinery for little at 200 trials.
-- **An unmeasured clause fails.** A clause unmeasured at either step over the 200 trials fails, and a resample in which it is unmeasured at either step counts as a difference outside the margin, so a worm that seldom crawls can't pass by chance. So does a trial that leaves the finite numbers at either step, as it fails checkpoint 1; added the same day, before the test was built or ran.
+- **An unmeasured clause fails.** A clause unmeasured at either step over the 200 trials fails, and a resample in which it is unmeasured at either step counts as a difference outside the margin, so a worm that seldom crawls can't pass by chance. A trial that leaves the finite numbers at either step fails the comparison too, as it fails checkpoint 1. Corrected after review: that rule was added the same day, before the test was built or ran but 4.5 minutes after R's refit started (the last entry below). **Changed after results** the same day (the last entry below): an unmeasured resample counts against both tails.
 - **Both fits take it:** R's refit on the registry's values, and the planned fit as it stands, with its white noise, as the choice now requires (§9). Each result is written to `data/equivalence/<fit>.json` and to VALIDATION.md.
 
-**Status.** Set before the test is built or R's refit runs.
+**Status.** Set before the test was built or ran, and all but the non-finite rule before R's refit started (corrected after review).
 
 ## 2026-09-28 — R's refit converges and fails checkpoint 1: it is chosen, and R ends
 
@@ -1899,3 +1899,37 @@ The study reports, for each candidate, the points where it converges and where i
 - **The app** holds 60 frames a second at up to 30× in headless Chrome, and at 50× gives 34 (`npm run plate:bench`).
 
 **Status.** Done: R has ended. Step 4 is next; a further round of R needs a new proposal.
+
+## 2026-09-28 — After review: the refit crawls by its head switch, and R's second round fixes the calibration
+
+**Why.** Three reviews of R's refit, and a study of what is left for R, found the refit, the test and the choice run as built, and R's end right by its rules as they stood. But the refit's motion, the objective and the choice need saying plainly. Each finding that decides it was reproduced before this entry was written; the reviews' other figures are attributed to them.
+
+- **The refit's forward motion is the head switch's.** Over 20 trials, removing the switch (g_sw = 0) stops the worm, forward 0% of the time. Lesioning all 18 B-types leaves it forward 72% of the time, against 81% intact, at 0.018 body lengths per second against 0.022. A review found the B-types held about 30 mV below threshold by their 3.9 nS oscillator with θ_osc at its floor, and the A-types never leaving the oscillator's fixed point: the fit keeps the motor circuits quiet, and each value on a bound pushes the same way. So "the B-types keep their oscillator" said less than it seemed: they keep its gain, which clamps them.
+- **Its frequency can't pass 0.100 Hz.** Each bout of 10 s holds one undulation, the mid-body crossing its mean twice (24 crossings in 12 bouts), so the graded frequency is one over the mean bout's length. A review found the forward runs piled at 9.7–10.1 s, around the bouts' 10 s floor. That is why a candidate's kinematics could vanish on other seeds, and why the objective, capped where a measure is missing, has a cliff there.
+- **§7.2's pass is real, but weak evidence here.** Recomputed from the records it is the same, and a review found the ungraded switch cycle agreeing too, 0.0841 Hz at dt and 0.0840 at dt/2. But with the frequency pinned and no 20 s bout at either step, two clauses can't fail, and the A-types' stiff jumps, behind the first fit's step bias, never happen. The pass is the refit's, and speaks for no lesion or null.
+- **The gate decided the choice.** Under step 3's ranking alone, the planned fit, two clauses at pass and one partial, would beat the refit, two at pass and none partial; both fail. §7.2's gate excludes the planned fit. It was set after review before the refit, but with the planned fit's step dependence already known (the entries above).
+- **R's model reaches partial inside its bounds.** The go/no-go's draw 0, with R's three gains at their floors and its other values inside the bounds, grades partial on checkpoint 1's 20 trials:
+
+  | Noise                   | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) | Trials with a 20 s bout | Objective |
+  | ----------------------- | -------------- | ------------------------- | ---------------------- | ----------------------- | --------- |
+  | Off                     | 0.295          | 0.42                      | 0.080                  | 100%                    | 1.53      |
+  | Coloured, 0.06 at 0.2 s | 0.261          | 0.48                      | 0.076                  | 100%                    | 1.51      |
+
+  The objective scores it worse than the refit's 1.21 because it makes no reversal. A study for this review found the calibration sampling two such worms in a shortened run, and passing them over.
+
+- **Lesioning AVA raises the refit's reversals,** from 1.42 to 5.41 a minute over 40 trials, where checkpoint 5's AVA rows ask for a fall.
+- **Smaller findings.**
+  - The non-finite rule was committed 4.5 minutes into the refit's calibration, not before it. It governs only the comparison, which it makes stricter, and no trial left the finite numbers.
+  - An unmeasured resample counted against the upper tail alone.
+  - The switch's current is unbounded, and a review found it holding the SMDs up to about 210 mV from threshold (PLAN §3).
+  - In the code: an unbounded interval end was lost in the JSON and shown as −∞; any rerun at a new commit, even a look, deleted the records behind the committed results; some of a trial's inputs weren't in the tree's hash; concurrent runs shared their trees; and a mistyped argument ran the full comparison.
+  - In the docs: 1.59 for 1.58; long-run parity claimed for Safari in a commit message and the pull request; stale passages in PLAN and README; and wording that overstated how each run ends and how far inside its margin each interval lay.
+
+**Decision** (PLAN §3, §7.2, §9, each marked). The maintainer chose the recommendation each time:
+
+- **R's second round fixes the calibration, not the model:** its reversal term, its search, and its score where no bout is measured. Its rules come in their own pull request, for approval, with a cheap probe before any full run, and no new parameter or layer. Considered: RMDs in the head switch with an agar P_th, a spec deviation and a 19th parameter, which passed checkpoint 1 in the study's probe but let 4 of the study's 5 untuned rewirings pass too; both, the calibration first; and no second round.
+- **An unmeasured resample counts against both tails** (PLAN §7.2, changed after results). Neither fit had one, so neither result changes. Considered: leaving the rule as it ran, with its side said.
+- **The findings are recorded:** the mechanism in VALIDATION and the ledger, the gate's part in the choice here, and two risks in PLAN §9, AVA's lesion for checkpoint 5 and the switch's forward motion in the open item on nulls. R's first round stays ended: its checkpoint 1 result is below partial and final by the rules as they stood.
+- **Everything else, as recommended:** the code fixed and tested, and the docs corrected, each correction marked.
+
+**Status.** Set after review; R's second round is proposed next.
