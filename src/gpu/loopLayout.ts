@@ -136,6 +136,10 @@ export function rodRange(segments: number, from: number, to: number): [number, n
 }
 
 export function packLoop(world: World): LoopLayout {
+  // The second numerics study's candidates run on the CPU alone (DECISIONS.md, 2026-09-28).
+  if (world.substeps !== 1 || world.brain.noiseCorrelation !== 0 || world.brain.noiseGrid !== 0) {
+    throw new Error('the GPU steps the brain once a loop step, with white noise drawn each step');
+  }
   const { body, muscles, params } = world;
   const n = world.brain.n;
   const segments = body.params.segments;

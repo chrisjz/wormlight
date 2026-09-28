@@ -7,6 +7,7 @@
 
 import { CG_MAX_ITERATIONS, CG_TOLERANCE } from '../numerics.ts';
 import type { Network } from './network.ts';
+import { drawNoise } from './noise.ts';
 import { gaussian } from './rng.ts';
 import { ConjugateGradient, type Solve } from './solver.ts';
 
@@ -137,6 +138,13 @@ export class Brain {
   // White current noise intensity, σ_n in current·√s: each step adds σ_n/√dt times a standard normal draw.
   noise = 0;
   seed = 0;
+  // Two options the second numerics study tests (DECISIONS.md, 2026-09-28), both 0 by default, which leaves the
+  // white noise above bit for bit; the GPU has neither. With a correlation time τ_n above 0, the noise is an
+  // Ornstein–Uhlenbeck current, τ_n dη = −η dt + σ_n dW, updated exactly, starting from 0 when the state is set,
+  // and not carried in a BrainState. With a grid, each step's noise comes from one path drawn on it, so that runs
+  // at different steps, each a multiple of it, share their noise.
+  noiseCorrelation = 0;
+  noiseGrid = 0;
   // Steps taken since the state was set: the noise's counter, and the clock of fixed-step callers.
   steps = 0;
   // The last voltage solve, and how many solves have failed to converge: stopped at the iteration cap, or
@@ -148,6 +156,8 @@ export class Brain {
   recovery = new Float64Array(0);
 
   private previousRecovery = new Float64Array(0);
+  private coloured = new Float64Array(0);
+  private drawn = new Float64Array(0);
   private readonly previousVoltage: Float64Array;
   private readonly previousActivation: Float64Array;
   private historyStep = 0;
@@ -209,6 +219,7 @@ export class Brain {
     if (recovery) this.recovery.set(recovery);
     this.steps = steps;
     this.historyStep = 0;
+    this.coloured.fill(0);
   }
 
   // A copy of everything the next step reads, so another brain, on the CPU or the GPU, can take the same step.
@@ -227,6 +238,7 @@ export class Brain {
 
   restore(state: BrainState): void {
     if (state.recovery.length !== this.recovery.length) throw new Error('the state has other oscillators');
+    this.coloured.fill(0);
     this.voltage.set(state.voltage);
     this.activation.set(state.activation);
     this.recovery.set(state.recovery);
@@ -243,6 +255,20 @@ export class Brain {
     this.historyStep = 0;
   }
 
+  // Each neuron's noise current over the next step, from the grid's path (noise.ts).
+  private drawNoise(dt: number): Float64Array {
+    if (this.drawn.length !== this.n) this.drawn = new Float64Array(this.n);
+    if (this.coloured.length !== this.n) this.coloured = new Float64Array(this.n);
+    const settings = {
+      seed: this.seed,
+      intensity: this.noise,
+      correlation: this.noiseCorrelation,
+      grid: this.noiseGrid,
+    };
+    drawNoise(this.drawn, this.coloured, settings, this.steps, dt);
+    return this.drawn;
+  }
+
   step(dt: number): void {
     const { n, network, voltage: v, activation: s, previousVoltage: vp, previousActivation: sp, d, b } = this;
     const { gap, chemical } = network;
@@ -251,11 +277,14 @@ export class Brain {
     // Implicit Euler: a = 1 and h = y.
     const a = bdf2 ? 1.5 : 1;
     const c = network.capacitance / dt;
-    const noise = this.noise > 0 ? this.noise / Math.sqrt(dt) : 0;
+    const plain = this.noiseCorrelation === 0 && this.noiseGrid === 0;
+    const noise = this.noise > 0 && plain ? this.noise / Math.sqrt(dt) : 0;
+    const drawn = this.noise > 0 && !plain ? this.drawNoise(dt) : null;
     for (let i = 0; i < n; i++) {
       let g = a * c + network.leak;
       let current = c * (bdf2 ? 2 * v[i] - 0.5 * vp[i] : v[i]) + network.leak * network.leakPotential + this.input[i];
       if (noise > 0) current += noise * gaussian(this.seed, this.steps, i);
+      else if (drawn) current += drawn[i];
       for (let k = gap.start[i]; k < gap.start[i + 1]; k++) g += gap.weight[k];
       for (let k = chemical.start[i]; k < chemical.start[i + 1]; k++) {
         const j = chemical.index[k];
