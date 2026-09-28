@@ -1789,7 +1789,7 @@ The study reports, for each candidate, the points where it converges and where i
 - **The GPU runs it.** The kernel updates the current exactly each step, from the same hashed draws as the CPU, with τ_n in the parameter block's vacant slot. GPU worlds take τ_n on creation and on load, and the GPU still refuses the second study's neural sub-steps and noise grids.
 - **The registry is R's refit's.**
   - τ_n is calibrated from 0.02 to 0.2 s, mapped logarithmically, provisionally 0.0632 s.
-  - σ_n runs from 0 to 0.472 pA·√s, provisionally 0.148.
+  - σ_n runs from 0 to 0.472 pA·√s, provisionally 0.148. Changed after review to white noise's 0.169 (the entry below).
   - The budget is 18.
   - R's twelve calibrated values are null until the refit. R's first fit, with white noise, stays recorded in `data/calibration/r1.json`.
   - `npm run calibrate` now writes `data/calibration/r2.json`, which a test will hold the registry to.
@@ -1798,8 +1798,9 @@ The study reports, for each candidate, the points where it converges and where i
 **Checked.**
 
 - **Parity in Chrome.** GPU parity passes on an M5 Max, the loop gaining a setup with the trial values and the coloured noise. The registry's setup is now R's provisional values with the coloured noise. The coloured setup passes all 11 one-step states and all 10 of its graded one-second states, and the registry's setup passes every state it has. Across the loop, 15 of 109 one-second states aren't graded, 14%, and the speed is as before: the brain at 29.8 times real time and the whole loop at 24.9.
-- **The app.** It holds 60 frames a second at 10× and 20× and saturates at about 24–29× (`npm run plate:bench`).
-- **The worm until the refit.** On R's provisional values with the coloured noise, on 8 of checkpoint 1's seeds, it moves forward 16–22% of the time, with no forward run past 4.5 s and 52 reversals in all. So until the refit, the app's worm barely crawls.
+- **Parity in Safari** passes too, on the same machine's GPU: 15 of 109 one-second states aren't graded, and the brain runs at 15.0 times real time and the whole loop at 11.1.
+- **The app.** In headless Chrome on the same machine it holds 60 frames a second at 10× and 20× and saturates at about 24–29× (`npm run plate:bench`).
+- **The worm until the refit.** On R's provisional values with the coloured noise, on 8 of checkpoint 1's seeds, it moves forward 16–22% of the time, with no forward run past 4.5 s and 52 reversals in all. So until the refit, the app's worm doesn't crawl: on 20 seeds a review found its mean forward velocity 0.005 body lengths per second, as with the noise off. Corrected after review: this first said it barely crawls.
 
 **Status.** Built; R's fit runs again next.
 
@@ -1832,5 +1833,11 @@ The study reports, for each candidate, the points where it converges and where i
   - Checkpoint 5. A lesion that slows a hub's partners raises their spread more under the coloured noise than white noise did. In a review's linear analysis at rest, lesioning AVA raises the A-types' spread 4.9-fold, against 2.4-fold with white noise, and AVB with PVC the B-types' 3.0-fold, against 1.7-fold. Noise-driven backward activity could then work against the AVA rows.
   - Checkpoint 6. σ_n's bound is the same for every brain, but each wiring's neurons spread differently under it: in a review's own rewirings, not the project's nulls, the widest neuron's 20 mV intensity at τ_n = 0.2 s ranged from 0.39 to 0.67. Checkpoint 6's report gives each null's widest neuron's spread at its fitted noise. The analysis behind these figures and the bound's first derivation ran in scratch scripts; it is committed as code when that report is built.
 - **Everything else, as recommended.** Parity's allowance for the noise scales with τ_n, the one-step check compares the noise current itself, and the round trip and the long runs use the coloured noise. The study scripts pin R's first fit and white noise, so a rerun reproduces their tables. The app's notice, the comments, R's status across PLAN, README, VALIDATION and the ledger, and the entries above are corrected, and Safari's parity is recorded.
+
+**Checked** at 7e298b8, on the M5 Max:
+
+- **GPU parity passes in Chrome and in Safari.** The coloured current's worst one-step error is 1.4% of its bound in both, and the round trip and split dispatches carry it on both coloured setups. Of 109 one-second states, 15 aren't graded in Chrome and 14 in Safari. The brain runs at 29.8 times real time in Chrome and 15.4 in Safari, the whole loop at 24.9 and 11.0.
+- **Long-run parity passes in Chrome on the registry's values,** 265 seeds a side for 60 s each. The SD of κL differs by −0.0013 against a margin of ±0.0483 (p = 2.4 × 10⁻⁷), and the frequency by 0.00087 Hz against ±0.0114 (p = 1.7 × 10⁻⁴), with no unconverged solve. On the CPU over 40 seeds, the registry's spreads need 101 and 169 seeds a side for 90% power, against 45 and 281 on the trial values.
+- **The studies' pinned points** equal the registry's on `main` exactly, R's first fit and its start alike.
 
 **Status.** Set before the refit, which runs next with σ_n bounded at 0.169.
