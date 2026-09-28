@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { checkGpuWorld, packLoop } from '../src/gpu/loopLayout.ts';
+import type { BrainState } from '../src/sim/brain/brain.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { currentParams, World } from '../src/sim/world.ts';
 import { readJson } from './checks.ts';
@@ -47,6 +48,14 @@ describe("the study's candidates", () => {
     run(restored, 300);
     expect(Array.from(restored.brain.voltage)).toEqual(Array.from(unbroken.brain.voltage));
     expect(halfway.snapshot().brain.noise.some((x) => x !== 0)).toBe(true);
+  });
+
+  it("refuse a state whose noise current doesn't fit, or that has none", () => {
+    const world = run(new World(data, { ...currentParams(), noiseCorrelation: 0.05 }, { seed: 3 }), 10);
+    const state = world.snapshot();
+    const brain = (noise: Float64Array | undefined) => ({ ...state, brain: { ...state.brain, noise } as BrainState });
+    expect(() => world.restore(brain(new Float64Array(3)))).toThrow(/number of neurons/);
+    expect(() => world.restore(brain(undefined))).toThrow(/predates the coloured noise/);
   });
 
   it('refuse a negative correlation time', () => {

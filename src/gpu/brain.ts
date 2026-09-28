@@ -109,7 +109,7 @@ export class GpuBrain {
   readonly device: GPUDevice;
   readonly n: number;
   readonly network: Network;
-  // White current noise intensity, σ_n in current·√s, and the seed of its hash, as the CPU's Brain has them.
+  // The current noise's intensity, σ_n in current·√s, and the seed of its hash, as the CPU's Brain has them.
   noise = 0;
   // τ_n, the coloured noise's correlation time: 0 for white noise, as the CPU's Brain has it.
   noiseCorrelation = 0;
@@ -300,6 +300,7 @@ export class GpuBrain {
     this.alive();
     const n = this.n;
     const oscillators = this.oscillators?.neurons ?? new Int32Array(0);
+    if (!state.noise) throw new Error('the state carries no noise current, so it predates the coloured noise');
     const lengths = [state.voltage, state.activation, state.previousVoltage, state.previousActivation, state.noise];
     if (lengths.some((a) => a.length !== n)) throw new Error(`the state is not of ${n} neurons`);
     if (state.recovery.length !== oscillators.length || state.previousRecovery.length !== oscillators.length) {

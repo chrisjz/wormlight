@@ -24,6 +24,7 @@ interface Step {
   bareShare: number;
   activationShare: number;
   recoveryShare: number;
+  noiseShare: number;
   referenceShare: number;
   iterations: { cpu: number; gpu: number };
   pass: boolean;
@@ -132,7 +133,7 @@ const g = (x: number, digits = 3): string =>
   x === 0 ? '0' : Math.abs(x) < 1e-3 ? x.toExponential(2) : x.toFixed(digits);
 const stepLine = (r: Step): string =>
   `  ${mark(r.pass)} ${r.label.padEnd(12)} V ${g(r.voltageShare).padStart(9)} (no allowance ${g(r.bareShare).padStart(9)})` +
-  `   s ${g(r.activationShare).padStart(9)}   w ${g(r.recoveryShare).padStart(9)}` +
+  `   s ${g(r.activationShare).padStart(9)}   w ${g(r.recoveryShare).padStart(9)}   η ${g(r.noiseShare).padStart(9)}` +
   `   reference V ${g(r.referenceShare).padStart(6)}   ${r.iterations.cpu} / ${r.iterations.gpu}`;
 const secondLine = (r: Second): string =>
   `  ${r.graded ? mark(r.pass) : '·'} ${r.label.padEnd(12)} V ${g(r.voltageRms, 5).padStart(9)}   s ` +
@@ -209,7 +210,8 @@ try {
   console.log(
     `\none step: worst errors as shares of their tolerances (|ΔV| ≤ ${thresholds.oneStep.voltage} × max(|V|, 1 mV) ` +
       `plus the noise's allowance, |Δs| ≤ ${thresholds.oneStep.activation}, |Δw| ≤ ${thresholds.oneStep.recovery} × ` +
-      "max(|w|, 1)), against the CPU reference at the GPU's solver tolerance; ΔV against the reference at its own " +
+      "max(|w|, 1), |Δη| within the coloured noise's rounding bound), against the CPU reference at the GPU's " +
+      'solver tolerance; ΔV against the reference at its own ' +
       'tolerance is reported, not graded; solver iterations CPU / GPU',
   );
   for (const r of report.oneStep) console.log(stepLine(r));

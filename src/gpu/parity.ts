@@ -19,6 +19,7 @@ import { gaussianFrom, hash, uniform } from '../sim/brain/rng.ts';
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { GpuBrain, MAX_STEPS_PER_DISPATCH, type GpuBrainStatus } from './brain.ts';
 import {
+  colouredBounds,
   cpuBrain,
   FLOOR,
   gaussianBound,
@@ -35,6 +36,7 @@ import {
   VARIANT_LESIONS,
   WELL_POSED,
   worst,
+  type NoiseSetup,
   type ParityCase,
   type ParitySetup,
 } from './parityCases.ts';
@@ -179,6 +181,9 @@ export interface StepResult {
   referenceShare: number;
   // The allowance for the noise's rounding, mV.
   allowance: number;
+  // Graded: the coloured noise current's largest error as a share of its bound (colouredBounds); with white
+  // noise both sides must hold it at 0.
+  noiseShare: number;
   iterations: { cpu: number; gpu: number };
   pass: boolean;
 }
@@ -191,14 +196,20 @@ const voltageTolerance =
 
 export function compareStep(
   label: string,
-  setup: Pick<ParitySetup, 'noise' | 'seed' | 'network'>,
-  steps: number,
+  setup: NoiseSetup,
+  before: BrainState,
   cpu: Brain,
   reference: Brain,
   gpu: { state: BrainState; status: GpuBrainStatus },
 ): StepResult {
   const { state, status } = gpu;
-  const allowance = noiseAllowance(setup, steps);
+  const allowance = noiseAllowance(setup, before.steps, before.noise);
+  const bounds = colouredBounds(setup, before.steps, before.noise);
+  let noiseShare = 0;
+  cpu.snapshot().noise.forEach((eta, i) => {
+    const error = Math.abs(eta - state.noise[i]);
+    noiseShare = Math.max(noiseShare, error === 0 ? 0 : error / bounds[i]);
+  });
   const voltage = worst(cpu.voltage, state.voltage, voltageTolerance(cpu.voltage, allowance)).share;
   const bare = worst(cpu.voltage, state.voltage, voltageTolerance(cpu.voltage, 0)).share;
   const activation = worst(cpu.activation, state.activation, () => ONE_STEP.activation).share;
@@ -216,9 +227,11 @@ export function compareStep(
     recoveryShare: recovery,
     referenceShare,
     allowance,
+    noiseShare,
     iterations: { cpu: cpu.lastSolve.iterations, gpu: status.iterations },
     pass:
       voltage <= 1 &&
+      noiseShare <= 1 &&
       activation <= 1 &&
       recovery <= 1 &&
       status.unconverged === 0 &&
@@ -235,7 +248,7 @@ async function checkOneStep(gpu: GpuBrain, setup: ParitySetup, c: ParityCase): P
   gpu.restore(c.state);
   gpu.setInput(c.input);
   gpu.run(NEURAL_STEP, 1);
-  return compareStep(c.label, setup, c.state.steps, cpu, reference, await gpu.read());
+  return compareStep(c.label, setup, c.state, cpu, reference, await gpu.read());
 }
 
 export interface SecondResult {
@@ -383,7 +396,7 @@ async function checkApi(device: GPUDevice, setup: ParitySetup): Promise<ApiResul
     gpu.restore(c.state);
     gpu.restart();
     gpu.run(NEURAL_STEP, 1);
-    const restarted = compareStep('restart', setup, c.state.steps, cpu, reference, await gpu.read());
+    const restarted = compareStep('restart', setup, c.state, cpu, reference, await gpu.read());
     results.push({
       name: 'after restart, a step is implicit Euler',
       detail: `worst ΔV ${restarted.voltageShare.toFixed(3)} of its one-step tolerance`,
@@ -399,7 +412,7 @@ async function checkApi(device: GPUDevice, setup: ParitySetup): Promise<ApiResul
     onward.step(NEURAL_STEP);
     onwardReference.step(NEURAL_STEP);
     gpu.run(NEURAL_STEP, 1);
-    const handOff = compareStep('hand-off', setup, handed.steps, onward, onwardReference, await gpu.read());
+    const handOff = compareStep('hand-off', setup, handed, onward, onwardReference, await gpu.read());
     results.push({
       name: 'the CPU carries on from a state the GPU read',
       detail: `worst ΔV ${handOff.voltageShare.toFixed(3)} of its one-step tolerance`,

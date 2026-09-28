@@ -137,14 +137,15 @@ export class Brain {
   readonly threshold: Float64Array;
   // The external current during the next step, applied at its end as the implicit scheme reads it.
   readonly input: Float64Array;
-  // White current noise intensity, σ_n in current·√s: each step adds σ_n/√dt times a standard normal draw.
+  // The current noise's intensity, σ_n in current·√s. As white noise, each step adds σ_n/√dt times a standard
+  // normal draw.
   noise = 0;
   seed = 0;
-  // Two options the second numerics study tests (DECISIONS.md, 2026-09-28), both 0 by default, which leaves the
-  // white noise above bit for bit; the GPU has neither. With a correlation time τ_n above 0, the noise is an
-  // Ornstein–Uhlenbeck current, τ_n dη = −η dt + σ_n dW, updated exactly, starting from 0 when the state is set,
-  // and not carried in a BrainState. With a grid, each step's noise comes from one path drawn on it, so that runs
-  // at different steps, each a multiple of it, share their noise.
+  // Both 0 by default, which leaves the white noise above bit for bit. With a correlation time τ_n above 0, the
+  // noise is an Ornstein–Uhlenbeck current, τ_n dη = −η dt + σ_n dW, updated exactly, as track R's model runs it
+  // from its refit on (DECISIONS.md, 2026-09-28); it starts from 0 when the state is set and is carried in a
+  // BrainState. With a grid, which the second numerics study tests and the GPU lacks, each step's noise comes from
+  // one path drawn on it, so that runs at different steps, each a multiple of it, share their noise.
   noiseCorrelation = 0;
   noiseGrid = 0;
   // Steps taken since the state was set: the noise's counter, and the clock of fixed-step callers.
@@ -242,6 +243,7 @@ export class Brain {
 
   restore(state: BrainState): void {
     if (state.recovery.length !== this.recovery.length) throw new Error('the state has other oscillators');
+    if (!state.noise) throw new Error('the state carries no noise current, so it predates the coloured noise');
     if (state.noise.length !== this.n) throw new Error('the state has another number of neurons');
     this.coloured.set(state.noise);
     this.voltage.set(state.voltage);

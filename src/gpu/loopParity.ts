@@ -3,11 +3,12 @@
 // the assay's odour field: the rest world and twenty from the trial values' closed loop; copies of them moved
 // across the dish and turned, which the CPU doesn't notice and the GPU must not; copies pressed against the
 // dish's wall, which both push back; copies tapped front and back; states from two variants that make the head
-// switch flip and gate; states from track R's model; and states on the registry's values, which the app runs.
-// The thresholds are the body's row of §7.2, set before any loop results and changed after them (DECISIONS.md,
-// 2026-09-26), and AWC-ON's threshold's, set before any results (2026-09-27); the brain's are as before. Long
-// runs, LONG_SEEDS a side for 60 s, compare the body wave's statistics by Welch's two one-sided tests while the
-// worm doesn't crawl.
+// switch flip and gate; states from track R's model; states with the coloured noise; and states on the registry's
+// values, which the app runs, the coloured noise's among them. The thresholds are the body's row of §7.2, set
+// before any loop results and changed after them (DECISIONS.md, 2026-09-26), and AWC-ON's threshold's, set before
+// any results (2026-09-27); the brain's are as before, the coloured current's within its rounding bound. Long
+// runs, LONG_SEEDS a side for 60 s on the registry's values, compare the body wave's statistics by Welch's two
+// one-sided tests while the worm doesn't crawl.
 
 import type { WormlightData } from '../data/schema.ts';
 import { boyleBody } from '../sim/body/body.ts';
@@ -39,6 +40,7 @@ import {
   SAMPLES,
   SECOND,
   WELL_POSED,
+  longWorld,
   seededWorld,
   TAP_COPIES,
   ENDING_COPIES,
@@ -101,7 +103,7 @@ async function checkLoopStep(gpu: GpuWorld, data: WormlightData, c: LoopCase): P
   gpu.restore(c.state);
   gpu.run(1);
   const { state, status } = await gpu.read();
-  const brain = compareStep(c.label, cpu.brain, c.state.brain.steps, cpu.brain, reference.brain, {
+  const brain = compareStep(c.label, cpu.brain, c.state.brain, cpu.brain, reference.brain, {
     state: state.brain,
     status,
   });
@@ -254,8 +256,10 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
 }
 
 // The loop's own API, from a state with a touch pulse under way: it goes in and comes back, and a run split
-// across dispatches is the run.
+// across dispatches is the run. A setup with the coloured noise names its checks, whose state must carry a current.
 async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
+  const coloured = (c.setup.params.noiseCorrelation ?? 0) > 0;
+  const named = (name: string): string => (coloured ? `${c.setup.name}: ${name}` : name);
   const results: ApiResult[] = [];
   gpu.restore(c.state);
   const back = (await gpu.read()).state;
@@ -265,14 +269,16 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const near = (a: ArrayLike<number>, b: ArrayLike<number>, within: number): boolean =>
     a.length === b.length && Array.from(a).every((x, i) => Math.abs(x - b[i]) <= within);
   results.push({
-    name: 'a world goes in and comes back',
+    name: named('a world goes in and comes back'),
     detail:
-      "the brain, velocities, muscles, switch, AWC-ON's threshold and touch pulses as f32; places within " +
-      '10⁻¹³ m and angles within 10⁻¹⁰ rad',
+      "the brain, its noise current included, velocities, muscles, switch, AWC-ON's threshold and touch pulses as " +
+      'f32; places within 10⁻¹³ m and angles within 10⁻¹⁰ rad',
     pass:
       c.state.touchLeft.some((left) => left > 0) &&
+      (!coloured || c.state.brain.noise.some((eta) => eta !== 0)) &&
       sameTouch(c.state, back) &&
       f32(c.state.brain.voltage, back.brain.voltage) &&
+      f32(c.state.brain.noise, back.brain.noise) &&
       f32(c.state.velocity, back.velocity) &&
       f32(c.state.muscles, back.muscles) &&
       near(c.state.x, back.x, 1e-13) &&
@@ -295,10 +301,11 @@ async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const apart = (await gpu.read()).state;
   const same = (a: ArrayLike<number>, b: ArrayLike<number>): boolean => Array.from(a).every((x, i) => x === b[i]);
   results.push({
-    name: `${steps} whole-loop steps split into two dispatches equal ${steps} dispatches of one`,
-    detail: "identical brain, body, muscles, switch, AWC-ON's threshold and touch pulses",
+    name: named(`${steps} whole-loop steps split into two dispatches equal ${steps} dispatches of one`),
+    detail: "identical brain, noise current, body, muscles, switch, AWC-ON's threshold and touch pulses",
     pass:
       same(together.brain.voltage, apart.brain.voltage) &&
+      same(together.brain.noise, apart.brain.noise) &&
       same(together.x, apart.x) &&
       same(together.theta, apart.theta) &&
       same(together.muscles, apart.muscles) &&
@@ -517,12 +524,14 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const cases = loopCases(data, setup);
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
-      if (setup === LOOP_SETUPS[0]) {
-        const last = cases[cases.length - 1];
+      const last = cases[cases.length - 1];
+      if (setup === LOOP_SETUPS[0] || (setup.params.noiseCorrelation ?? 0) > 0) {
         const pulsing = tapped(last.state, gpu.layout.touch, gpu.layout.touchSets, FRONT);
         api.push(...(await checkLoopApi(gpu, { ...last, state: pulsing })));
+      }
+      if (setup === LOOP_SETUPS[0]) {
         api.push(...(await checkAwcApi(device, data, gpu, cpuWorld(data, cases[0].state, undefined, setup))));
-        api.push(...(await checkTouchApi(gpu, data, cases[cases.length - 1])));
+        api.push(...(await checkTouchApi(gpu, data, last)));
       }
       const { radii, wall } = boyleBody();
       const { touch: receptors, touchSets: sets } = gpu.layout;
@@ -568,7 +577,9 @@ export interface LongReport {
 // and Welch's two one-sided tests at α = 0.05 pass only below about 0.0050 Hz (the ±5% margin, 0.0085 Hz,
 // over t at 0.95). For 90% power at no true difference they need a standard error of at most the margin over
 // 3.29, 0.00258 Hz, which takes 2 (0.0297 / 0.00258)² ≈ 265 seeds a side (DECISIONS.md, 2026-09-26: sized from
-// that run's spread, not its difference).
+// that run's spread, not its difference). That run was on the trial values; the long runs now take the
+// registry's, whose spreads, on the CPU over 40 seeds of R's provisional values, need fewer (DECISIONS.md,
+// 2026-09-28).
 export const LONG_SEEDS = 265;
 
 // Long-run parity: each seed's world run for `seconds` on each side, its mid-body curvature sampled every 0.1 s
@@ -584,7 +595,7 @@ export async function runLongParity(
   const samples = Math.round(seconds / WAVE_SAMPLE);
   const warm = Math.round(WAVE_WARM_UP / WAVE_SAMPLE);
   const duration = seconds - WAVE_WARM_UP;
-  const first = seededWorld(data, 1);
+  const first = longWorld(data, 1);
   const scale = first.body.params.segmentLength * first.body.params.segments;
   const k = new Float64Array(first.body.rods);
   const midCurvature = (x: ArrayLike<number>, y: ArrayLike<number>): number => {
@@ -597,7 +608,7 @@ export async function runLongParity(
   const unconverged = { cpu: 0, gpu: 0 };
   try {
     for (let seed = 1; seed <= seeds; seed++) {
-      const world = seed === 1 ? first : seededWorld(data, seed);
+      const world = seed === 1 ? first : longWorld(data, seed);
       // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
       gpu.load(world);
       const cpuSamples: number[] = [];

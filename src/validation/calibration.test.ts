@@ -58,7 +58,7 @@ describe("the calibration's settings", () => {
       neuromuscularGain: [2, 40, 'log'],
       neuromuscularThreshold: [-0.3, 0.8, 'linear'],
       smdGain: [0.1, 1, 'log'],
-      noiseIntensity: [0, 0.472, 'linear'],
+      noiseIntensity: [0, 0.169, 'linear'],
       noiseCorrelation: [0.02, 0.2, 'log'],
     });
   });

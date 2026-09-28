@@ -5,7 +5,7 @@ import { validateWormlightData } from '../../src/data/schema.ts';
 import { countFacts } from '../../src/science/facts.ts';
 import { ROOT } from '../data/sources.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
-import { fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
+import { calibratedText, fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
 
 const facts = countFacts(
   validateWormlightData(JSON.parse(readFileSync(join(ROOT, 'public/data/wormlight.v1.json'), 'utf8'))),
@@ -96,5 +96,21 @@ describe('calibrated values on the page', () => {
     );
     expect(formatValue({ ...PARAMS.oscillatorExcitability, value: 5000 })).toBe(formatNumber(5000));
     expect(formatValue(PARAMS.membraneCapacitance)).toBe('1');
+  });
+
+  it('are said to come from a fit, with how many it left on a bound, once every one has a value', () => {
+    const { oscillatorExcitability: g, noiseIntensity: sigma } = PARAMS;
+    expect(
+      calibratedText([
+        { ...g, value: 2000 },
+        { ...sigma, value: 0.169 },
+      ]),
+    ).toBe('shown below rounded from its fit, 1 of them on a bound');
+    expect(
+      calibratedText([
+        { ...g, value: 2000 },
+        { ...sigma, value: null },
+      ]),
+    ).toMatch(/^not yet calibrated/);
   });
 });

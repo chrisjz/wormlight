@@ -135,6 +135,14 @@ describe('the harness report', () => {
     // A figure that rounds to zero carries no minus sign.
     const still = { ...record, velocity: Array<number>(600).fill(-0.00001) };
     expect(checkpoint0Section(checkpoint0([still], [touched], [worm]), info)).toContain('| 0.0000 |');
+    // On a fit, it gives the calibrated values the run used.
+    const calibrated = checkpoint0Section(checkpoint0([record], [touched], [worm]), {
+      ...info,
+      calibrated: true,
+      registry: fitted,
+    });
+    expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');
+    expect(calibrated).toContain(`σ_n = ${shown('noiseIntensity')} pA·√s`);
   });
 
   it("says why a reflex went unmeasured, and what a shortened run's single touch was", () => {

@@ -4,9 +4,10 @@
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
 // bounds set here before it runs (PLAN.md §7.3). They are track R's model's (PLAN.md §9), and their values are
-// its fit's final ones, unrounded, which data/calibration/r1.json records and a test holds them to. Their
-// provisional values, carried over from the planned model's fit and where R's fit started, stay beside them;
-// the planned model's own are in src/science/planned.ts (PLAN.md §6.2). A parameter fixed in advance (level 0)
+// null until R's refit with the coloured noise, whose final values, unrounded, data/calibration/r2.json will
+// record and a test holds them to; R's first fit, with white noise, is in data/calibration/r1.json. Their
+// provisional values, which the model runs until then and where the refit starts, stay beside them; the
+// planned model's own are in src/science/planned.ts (PLAN.md §6.2). A parameter fixed in advance (level 0)
 // either has a value or is set by a stated rule. Every parameter says what new data or research
 // would raise it (spec §1.3).
 
@@ -33,7 +34,8 @@ export interface Param {
   calibratedAgainst?: string;
   bounds?: readonly [number, number] | null;
   // The value a calibrated parameter takes until calibration sets one, and where the calibration starts: for
-  // track R's model, the planned model's fit carried over (PLAN.md §6.2, §7.3; DECISIONS.md 2026-09-27).
+  // track R's model, the planned model's fit carried over (PLAN.md §6.2, §7.3; DECISIONS.md 2026-09-27), and
+  // the coloured noise's set for it (DECISIONS.md 2026-09-28).
   provisional?: number;
 }
 
@@ -172,10 +174,10 @@ export const PARAMS = {
     level: 1,
     subsystem: 'neural',
     sources: ['gray2005'],
-    note: "The intensity of each neuron's coloured noise current, an Ornstein–Uhlenbeck process with correlation time τ_n: τ_n dη = −η dt + σ_n dW, updated exactly each step (DECISIONS.md, 2026-09-28). Its upper bound gives the widest neuron at rest, IL2DL, a voltage spread of 20 mV with τ_n at its upper bound (PLAN §7.3).",
+    note: "The intensity of each neuron's coloured noise current, an Ornstein–Uhlenbeck process with correlation time τ_n: τ_n dη = −η dt + σ_n dW, updated exactly each step (DECISIONS.md, 2026-09-28). Its upper bound is white noise's, which gives the widest neuron at rest, IL2DL, a voltage spread of 20 mV; the coloured current's power lies below white noise's at every frequency, so no neuron in any network spreads more (PLAN §7.3; DECISIONS.md, 2026-09-28).",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
-    bounds: [0, 0.472],
+    bounds: [0, 0.169],
     provisional: 0.148,
   },
   noiseCorrelation: {

@@ -124,19 +124,22 @@ function referencedCitations(): CitationId[] {
   return [...usedCitations()].sort(byShort);
 }
 
+// What the status says of the calibrated values: rounded from a fit, with how many it left on a bound, which the
+// page reports as limited by it; or, before the refit, the provisional values the model runs on.
+export function calibratedText(calibrated: readonly Param[]): string {
+  const onBound = calibrated.filter(
+    (p) => p.value !== null && p.bounds != null && (p.value === p.bounds[0] || p.value === p.bounds[1]),
+  ).length;
+  return calibrated.every((p) => p.value !== null)
+    ? `shown below rounded from its fit, ${onBound} of them on a bound`
+    : "not yet calibrated for the coloured noise it runs with: each is shown with the provisional value it runs on, where its refit starts, and R's first fit, with white noise, is recorded in `data/calibration/r1.json`";
+}
+
 export function fidelityPage(facts: Facts): string {
   const subsystems = Object.keys(SUBSYSTEMS) as SubsystemId[];
   const free = freeParams();
   const calibrated = free.filter((id) => PARAMS[id].level === 1);
-  // Calibrated values the fit left on a bound, which the page reports as limited by it.
-  const onBound = calibrated.filter((id) => {
-    const p: Param = PARAMS[id];
-    return p.value !== null && p.bounds != null && (p.value === p.bounds[0] || p.value === p.bounds[1]);
-  }).length;
-  const fitted = calibrated.every((id) => PARAMS[id].value !== null);
-  const values = fitted
-    ? `shown below rounded from its fit, ${onBound} of them on a bound`
-    : "not yet calibrated for the coloured noise it runs with: each is shown with the provisional value it runs on, where its refit starts, and R's first fit, with white noise, is recorded in `data/calibration/r1.json`";
+  const values = calibratedText(calibrated.map((id): Param => PARAMS[id]));
   const groups = Object.keys(PARAM_GROUPS) as Subsystem[];
   return [
     '# Fidelity ledger',

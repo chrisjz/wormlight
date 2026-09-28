@@ -57,11 +57,12 @@ const stepRow = (r: StepResult): string[] => [
   fixed(r.bareShare, 3),
   fixed(r.activationShare, 3),
   fixed(r.recoveryShare, 3),
+  fixed(r.noiseShare, 3),
   fixed(r.referenceShare, 3),
   `${r.iterations.cpu} / ${r.iterations.gpu}`,
   verdict(r.pass),
 ];
-const STEP_HEAD = ['State', 'ΔV', 'ΔV, no allowance', 'Δs', 'Δw', 'ΔV, reference', 'Iterations', ''];
+const STEP_HEAD = ['State', 'ΔV', 'ΔV, no allowance', 'Δs', 'Δw', 'Δη', 'ΔV, reference', 'Iterations', ''];
 
 function showParity(report: ParityReport): void {
   const { noise, thresholds, variant } = report;
@@ -87,7 +88,8 @@ function showParity(report: ParityReport): void {
     el(
       'h3',
       `One step: |ΔV| ≤ ${thresholds.oneStep.voltage} × max(|V|, 1 mV) plus the noise's allowance, ` +
-        `|Δs| ≤ ${thresholds.oneStep.activation}, |Δw| ≤ ${thresholds.oneStep.recovery} × max(|w|, 1)`,
+        `|Δs| ≤ ${thresholds.oneStep.activation}, |Δw| ≤ ${thresholds.oneStep.recovery} × max(|w|, 1), ` +
+        "|Δη| within the coloured noise's rounding bound",
     ),
     el(
       'p',

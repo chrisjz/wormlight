@@ -28,7 +28,17 @@ import type { TrialRecord } from '../../../src/validation/trial.ts';
 import { ROOT } from '../../data/sources.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned } from '../../harness/pinned.ts';
-import { buildTree, forkPool, prepareSet, resampledChance, treeSource, workersFrom, writeWhole } from '../trees.ts';
+import {
+  buildTree,
+  firstFit,
+  firstStart,
+  forkPool,
+  prepareSet,
+  resampledChance,
+  treeSource,
+  workersFrom,
+  writeWhole,
+} from '../trees.ts';
 
 const OUT = join(ROOT, 'harness-out', 'fixes');
 const STEPS = [0.0025, 0.00125] as const;
@@ -87,9 +97,9 @@ type World = typeof import('../../../src/sim/world.ts');
 type Planned = typeof import('../../../src/science/planned.ts');
 
 function paramsAt(point: PointId, world: World, planned: Planned): LoopParams {
-  if (point === 'r-fit') return world.currentParams();
+  if (point === 'r-fit') return firstFit(world);
   if (point === 'planned') return world.plannedParams(planned.PLANNED.calibrated);
-  const start = world.provisionalParams();
+  const start = firstStart(world);
   if (point === 'start') return start;
   const [a, b] = point.slice(1).split('-b').map(Number);
   return { ...start, oscillatorGain: a, oscillatorGainB: b };
@@ -109,7 +119,7 @@ async function runJob(job: Job): Promise<void> {
   const params: LoopParams = {
     ...base,
     ...(m.noise === 'off' ? { noise: 0 } : {}),
-    ...(m.noise === 'coloured' ? { noiseCorrelation: m.correlation } : {}),
+    noiseCorrelation: m.noise === 'coloured' ? m.correlation : 0,
     ...(m.gains?.a === undefined ? {} : { oscillatorGain: m.gains.a }),
     ...(m.gains?.b === undefined ? {} : { oscillatorGainB: m.gains.b }),
   };
@@ -128,11 +138,11 @@ async function runJob(job: Job): Promise<void> {
 // The CPU's speed at each k: one world on R's fit at the coarser step, 20 s after 2 s to settle, on one core.
 async function runSpeed(substeps: number): Promise<void> {
   const from = <T>(path: string): Promise<T> => import(join(tree(STEPS[0]), path)) as Promise<T>;
-  const { World, currentParams } = await from<World>('src/sim/world.ts');
+  const world = await from<World>('src/sim/world.ts');
   const data = validateWormlightData(
     JSON.parse(readFileSync(join(tree(STEPS[0]), 'public/data/wormlight.v1.json'), 'utf8')),
   );
-  const w = new World(data, currentParams(), { seed: 1, neuralSubsteps: substeps });
+  const w = new world.World(data, firstFit(world), { seed: 1, neuralSubsteps: substeps });
   for (let k = 0; k < Math.round(2 / STEPS[0]); k++) w.step();
   const steps = Math.round(20 / STEPS[0]);
   const started = performance.now();

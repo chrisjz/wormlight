@@ -7,7 +7,7 @@
 import type { WormlightData } from '../data/schema.ts';
 import { Brain, type BrainState, type Oscillators } from '../sim/brain/brain.ts';
 import { lesion, type Network } from '../sim/brain/network.ts';
-import { hash, uniform } from '../sim/brain/rng.ts';
+import { gaussianFrom, hash, uniform } from '../sim/brain/rng.ts';
 import { FIRST_LAWN, lawnField, steadyField, type Lawn } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP, ODOUR_SUBSTEP } from '../sim/numerics.ts';
@@ -146,10 +146,49 @@ export function gaussianBound(h1: number, h2: number): number {
   return bound + ulp(Math.abs(R * cos) + bound) / 2;
 }
 
+// The noise as a brain has it: σ_n, its hash's seed, and τ_n, above 0 for the coloured current.
+export type NoiseSetup = Pick<ParitySetup, 'noise' | 'seed' | 'network'> & { noiseCorrelation?: number };
+
+// The most the shader's rounding can move each neuron's coloured current over one step from `before`, the state's
+// own, in pA: η·decay + spread·gaussian, with η rounded to f32 on the way in, dt, τ_n and σ_n held as f32, exp's
+// 3 + 2|x| ULP, the square roots' 2⁻²² and 2.5 ULP as gaussianBound takes them, the division's 2.5 ULP, and a whole
+// ULP for each rounding. All 0 with white noise, whose current carries nothing from step to step.
+export function colouredBounds(setup: NoiseSetup, steps: number, before: ArrayLike<number>): Float64Array {
+  const bounds = new Float64Array(setup.network.names.length);
+  const tau = setup.noiseCorrelation ?? 0;
+  if (setup.noise === 0 || tau === 0) return bounds;
+  const x = NEURAL_STEP / tau;
+  const decay = Math.exp(-x);
+  // exp's own error, and its argument's: dt and τ_n rounded and their quotient's 2.5 ULP, 7 ULP of x in all.
+  const dDecay = (3 + 2 * x) * ulp(decay) + decay * x * 7 * 2 ** -23;
+  const a = setup.noise / Math.sqrt(2 * tau);
+  const dA = a * (2 ** -23 + 2 ** -22) + 5 * ulp(a);
+  const q = 1 - decay * decay;
+  const dQ = 2 * decay * dDecay + ulp(decay * decay) + ulp(q);
+  const root = Math.sqrt(q);
+  const dRoot = dQ / (2 * root) + 2 ** -22 * root + 2.5 * ulp(root);
+  const spread = a * root;
+  const dSpread = dA * root + a * dRoot + ulp(spread);
+  for (let i = 0; i < bounds.length; i++) {
+    const h1 = hash(setup.seed, steps, 2 * i);
+    const h2 = hash(setup.seed, steps, 2 * i + 1);
+    const g = gaussianFrom(h1, h2);
+    const eta = before[i];
+    const kept = Math.abs(eta) * dDecay + decay * ulp(eta) + ulp(eta * decay);
+    const drawn = dSpread * Math.abs(g) + spread * gaussianBound(h1, h2) + ulp(spread * g);
+    bounds[i] = kept + drawn + ulp(Math.abs(eta * decay) + Math.abs(spread * g));
+  }
+  return bounds;
+}
+
 // The most the noise's rounding can move any voltage in one step: the implicit system's inverse is bounded by
-// dt/C in the ∞-norm, since each row's diagonal exceeds its off-diagonal sum by at least C/dt.
-export function noiseAllowance(setup: Pick<ParitySetup, 'noise' | 'seed' | 'network'>, steps: number): number {
+// dt/C in the ∞-norm, since each row's diagonal exceeds its off-diagonal sum by at least C/dt. The coloured
+// current's is its bound above; white noise's, its draw's.
+export function noiseAllowance(setup: NoiseSetup, steps: number, before: ArrayLike<number>): number {
   if (setup.noise === 0) return 0;
+  if ((setup.noiseCorrelation ?? 0) > 0) {
+    return (NEURAL_STEP * Math.max(...colouredBounds(setup, steps, before))) / setup.network.capacitance;
+  }
   let worst = 0;
   for (let i = 0; i < setup.network.names.length; i++) {
     const h1 = hash(setup.seed, steps, 2 * i);
@@ -296,8 +335,13 @@ export function cpuWorld(
   return world;
 }
 
-// A world for long-run parity: the trial values, from its seed's start in the assay's field, or as the options
-// say instead.
+// A world for long-run parity: the registry's values, which the app runs, with the coloured noise from track R's
+// refit on (DECISIONS.md, 2026-09-28), from its seed's start in the assay's field.
+export function longWorld(data: WormlightData, seed: number): World {
+  return new World(data, currentParams(), { seed, odour: assayField() });
+}
+
+// A world on the trial values, from its seed's start in the assay's field, or as the options say instead.
 export function seededWorld(data: WormlightData, seed: number, options: WorldOptions = {}): World {
   return new World(data, PARITY_LOOP, { seed, odour: assayField(), ...options });
 }
