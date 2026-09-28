@@ -187,3 +187,11 @@ Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spec
 | 20   | 5323    | 64% / 29% / 7%              | 22.6                    | 4         | 0.0357                         | 0                          |
 
 <!-- /harness:checkpoint-1 -->
+
+<!-- harness:equivalence -->
+
+### The step: §7.2's comparison with the noise on
+
+Not yet run.
+
+<!-- /harness:equivalence -->

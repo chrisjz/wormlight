@@ -6,7 +6,17 @@ import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { formatNumber } from '../docs/page.ts';
-import { checkpoint0Section, checkpoint1Section, parameterText, replaceSection, scientific, shares } from './report.ts';
+import { parseArgs as equivalenceArgs } from './equivalence.ts';
+import {
+  checkpoint0Section,
+  checkpoint1Section,
+  equivalenceSection,
+  parameterText,
+  replaceSection,
+  scientific,
+  shares,
+  type EquivalenceRun,
+} from './report.ts';
 import { parseArgs } from './run.ts';
 
 const info = { date: '2026-09-26', commit: 'abc1234', calibrated: false, trials: 1, seconds: 70 };
@@ -85,6 +95,9 @@ describe('the harness report', () => {
     expect(next).not.toContain('old 1');
     expect(next).toContain('<!-- harness:checkpoint-1 -->\n\nnew 1\n\n<!-- /harness:checkpoint-1 -->');
     expect(() => replaceSection('Prose.', 0, 'x')).toThrow(/no markers/);
+    const comparison = '<!-- harness:equivalence -->\nold\n<!-- /harness:equivalence -->';
+    expect(replaceSection(comparison, 'equivalence', 'new')).toContain('new');
+    expect(() => replaceSection('Prose.', 'equivalence', 'x')).toThrow(/the equivalence section/);
   });
 
   it('names the parameters it ran on: the calibrated, to three significant figures, or the provisional', () => {
@@ -232,5 +245,74 @@ describe('the harness report', () => {
     ]) {
       expect(() => parseArgs(args), args.join(' ')).toThrow();
     }
+  });
+
+  it("writes §7.2's comparison: each clause's values, interval and margin, and the fit's verdict", () => {
+    const run: EquivalenceRun = {
+      fit: 'refit',
+      date: '2026-09-28',
+      commit: 'abc1234',
+      trials: 200,
+      seconds: 120,
+      steps: [0.0025, 0.00125],
+      resamples: 1000,
+      grades: ['partial', 'pass'],
+      unconverged: [0, 2],
+      comparison: {
+        nonFinite: 0,
+        pass: false,
+        clauses: [
+          {
+            name: 'frequency',
+            coarse: 0.3012,
+            fine: 0.3,
+            difference: 0.0012,
+            interval: [-0.004, 0.0061],
+            margin: 0.009,
+            unmeasured: 0,
+            pass: true,
+          },
+          {
+            name: 'speed',
+            coarse: 0.03,
+            fine: 0.029,
+            difference: 0.001,
+            interval: [0.0005, Infinity],
+            margin: 0.00087,
+            unmeasured: 40,
+            pass: false,
+          },
+          {
+            name: 'wavelength',
+            coarse: 0.62,
+            fine: null,
+            difference: null,
+            interval: null,
+            margin: null,
+            unmeasured: 1000,
+            pass: false,
+          },
+        ],
+      },
+    };
+    const section = equivalenceSection([run]);
+    expect(section).toContain("#### R's refit — **Fail**");
+    expect(section).toContain('200 trials of 120 s at each step, seeds 1 to 200, at dt = 2.5 ms and dt/2 = 1.25 ms');
+    expect(section).toContain(
+      '| Frequency (Hz) | 0.3012 | 0.3000 | +0.0012 | −0.0040 to +0.0061 | ±0.0090 | **Pass** |',
+    );
+    expect(section).toContain('| unmeasured | — | — | — | **Fail**, 1,000 resamples unmeasured |');
+    expect(section).toContain('| +0.0005 to +∞ | ±0.0009 | **Fail**, 40 resamples unmeasured |');
+    expect(section).toContain('**Partial** at dt and **Pass** at dt/2');
+    expect(section).toContain("Solves that didn't converge: 0 at dt and 2 at dt/2");
+    expect(equivalenceSection([])).toContain('Not yet run.');
+  });
+
+  it('takes a fit for the comparison, and a shortened run within its 200 trials', () => {
+    expect(equivalenceArgs(['--fit', 'planned', '--jobs', '4'])).toEqual({ fit: 'planned', jobs: 4, trials: 200 });
+    expect(equivalenceArgs(['--fit', 'refit', '--trials', '10']).trials).toBe(10);
+    expect(() => equivalenceArgs([])).toThrow(/--fit/);
+    expect(() => equivalenceArgs(['--fit', 'white'])).toThrow(/--fit/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--trials', '201'])).toThrow(/--trials/);
   });
 });
