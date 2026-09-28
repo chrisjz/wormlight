@@ -168,6 +168,8 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 **Why.** A fixed per-step standard deviation, as in the first draft, makes noise power at behavioural time scales proportional to the step size, so a σ calibrated at one step would be wrong at another. The uniform transform must exclude 0 and 1, or Box–Muller takes log(0).
 **Status.** Done in PLAN.md §3.5.
 
+**Superseded from track R's refit on** (2026-09-28, below): the noise becomes an Ornstein–Uhlenbeck current, its correlation time calibrated.
+
 ## 2026-09-25 — The odour field's loss rate is an assumption, and the harness precomputes the field
 
 **Decision.** The first-order loss is set so the steady decay length is 3 cm (level 0, fixed in advance). The app steps the field explicitly on the GPU in sub-steps of at most 4 ms. The harness computes it once per layout and shares it across trials.
@@ -1644,7 +1646,7 @@ The rerun, 704 trials in 11 minutes, matches the first run's loop results exactl
 
 ## 2026-09-28 — The second numerics study: its design, set before it runs
 
-**Why.** The convergence study found that neither fit converges at any step down to 0.3125 ms, for two reasons (the entries above). A coarse step damps the white-noise current in every neuron. And the oscillators' stiff dynamics carry an error that depends on the whole parameter set. This study tests a fix for each, at several points of the search space, so that the maintainer can choose a rule from evidence gathered widely. Its candidates, points and criterion are set here, as the maintainer chose them, before anything is built or run.
+**Why.** The convergence study found that neither fit converges at any step down to 0.3125 ms, for two reasons (the entries above). A coarse step damps the white-noise current in every neuron. And the oscillators' stiff dynamics carry an error that depends on the whole parameter set. This study tests a fix for each, at several points of the search space, so that the maintainer can choose a rule from evidence gathered widely. Its candidates, τ_n and points are set here as the maintainer chose them, and its criterion as proposed with them, before anything is built or run.
 
 **The candidates.** Each is added to the CPU reference as an option whose default leaves the model as it is, bit for bit.
 
@@ -1677,11 +1679,11 @@ The study reports, for each candidate, the points where it converges and where i
 
 **Status.** Set before anything is built or run.
 
-## 2026-09-28 — The second numerics study: coloured noise converges within chance; nothing meets 2%
+## 2026-09-28 — The second numerics study: coloured noise stays within chance at R's fit; nothing meets 2% (corrected after review)
 
-**Run** with `node scripts/experiments/fixes/run.ts` at `a5e763f`, a clean commit: 6,888 trials in 77 minutes on 18 cores, then its grading, with every record set from that commit. Its summary is written to `harness-out/fixes/summary.json`. It followed the design above.
+**Run** with `node scripts/experiments/fixes/run.ts` at `a5e763f`, a clean commit: 6,888 trials in 77 minutes on 18 cores, then its grading, with every record set from that commit. Its summary is written to `harness-out/fixes/summary.json`. It followed the design above, with these differences, noted after review: its grading ran on one core for 88 minutes after the trials; the gain sweep's sets have no chance beside them; and the rule that a setting is judged only where the worm makes 3 bouts was proposed with the design, not put to the maintainer.
 
-**Where the worm crawls.** Only two of the seven points make the 3 bouts of 10 s the criterion needs, at both steps: R's fit, and the planned fit in some settings. The start, R's provisional values, and all four corners of the oscillator gains don't crawl at any step with any candidate. So the criterion was applied at R's fit and, where it was exercised, the planned fit.
+**Where the worm crawls.** Only two of the seven points make the 3 bouts of 10 s the criterion needs, at both steps: R's fit, and the planned fit in some settings. The start, R's provisional values, and all four corners of the oscillator gains never make 3 bouts at a step, with any candidate. Their reversal rates and mean velocities are in the summary; a review read them as agreeing between steps at all five with the coloured noise, while white noise's mean velocity at the start moved by 24% at k = 2. So the criterion was applied at R's fit and, where it was exercised, the planned fit.
 
 **At R's fit.** For each candidate, the change in checkpoint 1's frequency, wavelength and speed between 2.5 and 1.25 ms, each beside the chance of the difference, the two sets' resampled chance combined:
 
@@ -1698,15 +1700,15 @@ The study reports, for each candidate, the points where it converges and where i
 | Coloured | 4   | 0.7% (3.4%)  | 2.8% (4.3%)  | 2.0% (2.6%)  | 20% / 55%   | 4.17 / 3.76        | Not converged |
 
 - **No candidate converges by the criterion.** The nearest is k = 4 without noise, 2.6% at worst, beyond its chance of 1.2%.
-- **The coloured noise's changes are within their chance** at k = 1 and k = 4. At k = 2 all three exceed it, the wavelength's twice over. Its reversal rate holds across the steps, 3.93 and 3.90 a minute at k = 1, where white noise's all but vanish at the finer step. White noise's changes are well beyond their chance at every k.
+- **The coloured noise's changes are within their chance** at k = 1 and k = 4, but for the bout clause at k = 4, 20% against 55%. At k = 2 all three exceed it, the wavelength's twice over. Corrected after review: the chance here combines the two runs' as if independent. A review found the pairing makes it smaller, 1.8%, 2.3% and 1.1% at k = 1, which the wavelength's and speed's changes exceed; another found the trials' paths part within the trial, so pairing buys little. Either way the coloured noise's changes are within 1.96 times their chance. Its reversal rate holds across the steps, 3.93 and 3.90 a minute at k = 1, where white noise's all but vanish at the finer step. White noise's changes are well beyond their chance at k = 2 and 4; at k = 1 they are 1.3 to 1.4 times it, and its speed's within it.
 - **Without noise, the deterministic error shrinks with k**, from 10% at k = 1 to 2.6% at k = 4, but doesn't reach 2%.
-- **The criterion itself can't be met with the noise on.** The pooled metrics of 20 trials vary by 2–5% by chance, so a candidate whose runs at the two steps differed only by chance would still fail 2% on most comparisons. Its bout clause, a share of 20 trials, moves in steps of 5%, and its grade flips at a band's edge: the coloured k = 1 runs grade partial and fail, the fine run's wavelength 1.02 against the partial band's 1.0.
+- **The criterion itself can't be met with the noise on.** The chance of the difference between two runs of 20 trials is 1.6–5.0%, so a candidate whose runs at the two steps differed only by chance would still fail 2% on most comparisons. Its bout clause, a share of 20 trials, moves in steps of 5%, and its grade flips at a band's edge: the coloured k = 1 runs grade partial and fail, the fine run's wavelength 1.02 against the partial band's 1.0.
 
-**At the planned fit** it crawls rarely, with 0 to 39 bouts across the settings, and was exercised without noise at every k, and with either noise at k = 4. There its changes run from 1.6% to 45%, and within chance only without noise at k = 4, whose worst, 2.9%, is under its chance of 9%.
+**At the planned fit** it crawls rarely, with 0 to 39 bouts across the settings, and was exercised without noise at every k, and with either noise at k = 4. There its worst change in a setting runs from 2.9% to 45%, and is within chance only without noise at k = 4, whose 2.9% is under its chance of 9%.
 
 **The gain sweep,** without noise, on 8 trials. Of its 273 settings, 16 were exercised, all at R's fit or the planned fit.
 
-- At R's fit, raising the A-types' gain to 3 or 5 nS converges only at k = 4.
+- At R's fit, the sweep crawls only with the A-types' gain at 3 or 5 nS, the fit's own 5 included, and converges there only at k = 4, on 8 trials; on 20, in the table, 5 nS at k = 4 doesn't. No B-type gain from 0.3 to 5 nS crawls there.
 - At the planned fit, with its one gain at 0.3 nS, it converges at every k; at 0.6 nS and above it converges at no k.
 - At the other points no setting crawled, so the sweep found no gain at which a setting stops converging there.
 
@@ -1726,9 +1728,9 @@ The study reports, for each candidate, the points where it converges and where i
   - τ_n is set by that rule, so it isn't a free parameter, and the budget stays at 17.
   - σ_n keeps its units and is calibrated again in the refit.
   - Spec §1.1's noise layer, independent seeded noise for each neuron, is unchanged.
-  - The deterministic error the study found without noise, 10% at R's fit at 2.5 ms, stays, within the noise's chance; the neural sub-steps that would shrink it cost the app its 10× target.
+  - Without noise, R's fit still changes by 9–10% in frequency and wavelength between 2.5 and 1.25 ms. With the coloured noise its changes were within chance, but at 20 trials the tolerance couldn't show an error that size. Sub-steps shrink it to 5.1% at k = 2, which keeps the 10× target, and 2.6% at k = 4, which doesn't. Corrected after review: this first said the error stayed within the noise's chance, and that sub-steps cost the app its target.
   - Considered: the coloured noise with 4 neural sub-steps, which would lower the app's target to about 8×; and adopting nothing, with R left suspended.
-- **With the noise on, PLAN §7.2's comparison at dt and dt/2 asks each clause to agree within 2%, or within 1.96 times the two runs' combined chance, whichever is larger.** The chance is taken by resampling each run's trials, and the grades needn't match, since a grade flips at a band's edge by chance. Noise-off runs keep the plain 2%. Considered: keeping 2% with enough trials, 80 to 100 a step, that chance falls below 1%, at about five times the cost of every check; and keeping 2% as it is, which no candidate could meet with the noise on.
+- **With the noise on, PLAN §7.2's comparison at dt and dt/2 asks each clause to agree within 2%, or within 1.96 times the two runs' combined chance, whichever is larger.** The chance is taken by resampling each run's trials, and the grades needn't match, since a grade flips at a band's edge by chance. Noise-off runs keep the plain 2%. Considered: keeping 2% with enough trials that chance falls below 1%, which a review put at about 130 to 215 a step, 6.5 to 11 times the cost; and keeping 2% as it is, which no candidate could meet with the noise on.
 - **Then R resumes,** in two pull requests:
   - the coloured noise on the CPU reference and the GPU, with parity, and in the registry;
   - R's fit run again, σ_n included, then §7.2's comparison under the new criterion, which it must pass before its checkpoint 1 result is final.
