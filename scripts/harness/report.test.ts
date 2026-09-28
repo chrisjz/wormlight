@@ -10,6 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../data/sources.ts';
 import { checkedValues, parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
+import { diagnosticsText } from './report.ts';
 import {
   checkpoint0Section,
   checkpoint1Section,
@@ -354,5 +355,13 @@ describe('the harness report', () => {
     expect(() => checkedValues({ ...good, final: { values: short } }, 'x')).toThrow(/calibrated parameters/);
     const outside = { ...good.final.values, gapGainB: 7 };
     expect(() => checkedValues({ ...good, final: { values: outside } }, 'x')).toThrow(/bounds/);
+  });
+
+  it("reports the voltage diagnostic when the trials carry it, and says nothing of it when they don't", () => {
+    const base = { peak: 0.3, share: 0.5, reversals: 0, afterFlip: 0, avaChange: null, avaSpread: null };
+    expect(diagnosticsText({ ...base, outside: { mean: 16.04, max: 23, lowest: -213.4, highest: 203.2 } })).toContain(
+      "16.0 neurons on average sat outside the model's reversal range, −48 to 0 mV, at each sample, and 23 at most, voltages running from −213 to 203 mV",
+    );
+    expect(diagnosticsText({ ...base, outside: null })).not.toContain('reversal range');
   });
 });

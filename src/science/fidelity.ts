@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison; a third, R's last, is set (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison. A third, R's last, is paused: that crawl rests on the head switch's unbounded current, and the model has no backward mode (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -382,7 +382,8 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis:
       'Ji et al. 2021 (threshold 2.33 and derivative weight 46 ms, on curvature averaged over the 0.1–0.3 head region; level 2 on agar); Yeon et al. 2018 (SMDD proprioceptive)',
-    caveats: 'The gain is calibrated (1); gating by network drive is ours (0)',
+    caveats:
+      "The gain is calibrated (1); gating by network drive is ours (0). Its injected current is unbounded, where published switches saturate: R's refit holds the SMDs near ±210 mV, far outside the model's reversal range, and a bounded, conductance-based form is to come (DECISIONS.md)",
     upgrade: 'Recordings of the head rhythm generator',
     sources: ['ji2021', 'yeon2018'],
     testedBy: [
@@ -422,7 +423,8 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'rhythm',
     levels: [3, 1],
     basis: "Wen et al. 2012: driven by bending of the ~200 µm in front of each neuron's muscles",
-    caveats: 'The gain is calibrated (1)',
+    caveats:
+      'The gain is calibrated (1). Its injected current is unbounded, so weakly coupled B-types can be driven far outside the reversal range; a bounded, conductance-based form is to come (DECISIONS.md)',
     upgrade: 'Identified stretch receptors and their gain',
     sources: ['wen2012'],
     testedBy: [

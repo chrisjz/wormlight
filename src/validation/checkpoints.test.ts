@@ -340,6 +340,17 @@ describe('checkpoint 1', () => {
 });
 
 describe("checkpoint 1's diagnostics", () => {
+  it('count the neurons outside the reversal range, over every sample of every trial that carries them', () => {
+    const quiet = record(new Array<number>(4).fill(0));
+    const d = diagnostics([
+      { ...quiet, outside: [0, 2, 4], lowest: -60, highest: -1 },
+      { ...quiet, outside: [6], lowest: -50, highest: 12 },
+      quiet,
+    ]);
+    expect(d.outside).toEqual({ mean: 3, max: 6, lowest: -60, highest: 12 });
+    expect(diagnostics([quiet]).outside).toBeNull();
+  });
+
   it('find the spectral peak of the mid-body bend, and its share in 0.2–0.45 Hz', () => {
     // 0.3 Hz over 100 s of samples, 0.1 s apart: every bit of power in the band, at 0.3 Hz.
     const wave = Array.from({ length: 1000 }, (_, k) => Math.sin(2 * Math.PI * 0.3 * (k / 10)));

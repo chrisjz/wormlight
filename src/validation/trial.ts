@@ -3,6 +3,7 @@
 // checkpoints 0 and 1 take.
 
 import type { WormlightData } from '../data/schema.ts';
+import { PARAMS } from '../science/params.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { curvature } from '../sim/proprio.ts';
@@ -77,6 +78,12 @@ export interface TrialRecord {
   // activation, the mean of AVAL's and AVAR's, aligned with the velocity samples.
   switchFlips: number[];
   ava: number[];
+  // For the voltage diagnostic (PLAN §7.4, added 2026-09-29): how many neurons lie outside the model's reversal
+  // range at each sample, aligned with the velocity samples, and the lowest and highest voltages over them (mV).
+  // Records made before it have none.
+  outside?: number[];
+  lowest?: number;
+  highest?: number;
 }
 
 // The world at its start: the real posture its seed draws, turned, head at the dish's centre.
@@ -126,6 +133,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   let side = world.headSwitch.h;
   const avaIndex = ['AVAL', 'AVAR'].map((name) => data.neurons.findIndex((n) => n.name === name));
   const avaSamples: number[] = [];
+  // The reversal range: no synaptic or leak current can take a neuron past it; only injected currents can.
+  const [floor, ceiling] = [PARAMS.reversalInhibitory.value as number, PARAMS.reversalExcitatory.value as number];
+  const outsideSamples: number[] = [];
+  const extremes: [number, number][] = [];
   const centroid: number[] = [];
   const head: number[] = [];
   const bend: [number[], number[], number[]] = [[], [], []];
@@ -147,6 +158,15 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     bend[1].push(k[FRONT_ROD]);
     bend[2].push(k[REAR_ROD]);
     avaSamples.push(avaIndex.reduce((a, i) => a + world.brain.activation[i], 0) / avaIndex.length);
+    let outside = 0;
+    let [low, high] = [Infinity, -Infinity];
+    for (const v of world.brain.voltage) {
+      if (v < floor || v > ceiling) outside++;
+      low = Math.min(low, v);
+      high = Math.max(high, v);
+    }
+    outsideSamples.push(outside);
+    extremes.push([low, high]);
   };
   sample();
   for (let s = 1; s <= steps; s++) {
@@ -171,7 +191,8 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const velocity = forwardVelocity(centroid, head, length);
   // The curvature samples that line up with the velocity's: from the first 10 s, as many as it has.
   const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
-  const aligned = (a: number[]): number[] => a.slice(first, first + velocity.length);
+  const aligned = <T>(a: T[]): T[] => a.slice(first, first + velocity.length);
+  const measured = aligned(extremes);
   return {
     seed,
     seconds,
@@ -188,5 +209,8 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     touches,
     switchFlips,
     ava: aligned(avaSamples),
+    outside: aligned(outsideSamples),
+    lowest: Math.min(...measured.map(([low]) => low)),
+    highest: Math.max(...measured.map(([, high]) => high)),
   };
 }

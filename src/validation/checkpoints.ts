@@ -129,6 +129,9 @@ export interface Diagnostics {
   // deviation over the measured windows; null with no reversals, or no samples.
   avaChange: number | null;
   avaSpread: number | null;
+  // Added after results (2026-09-29): how many neurons sit outside the model's reversal range at a sample, on
+  // average and at most, and the lowest and highest voltages (mV); null when no record carries them.
+  outside: { mean: number; max: number; lowest: number; highest: number } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -184,6 +187,19 @@ export function spectralPeak(records: readonly { finite: boolean; mid: ArrayLike
   return { peak, share };
 }
 
+// The voltage diagnostic over the trials that carry it, every sample weighted alike.
+export function outsideRange(records: readonly TrialRecord[]): Diagnostics['outside'] {
+  const carrying = records.filter((r) => r.outside && r.outside.length > 0);
+  if (carrying.length === 0) return null;
+  const all = carrying.flatMap((r) => r.outside as number[]);
+  return {
+    mean: all.reduce((a, b) => a + b, 0) / all.length,
+    max: Math.max(...all),
+    lowest: Math.min(...carrying.map((r) => r.lowest as number)),
+    highest: Math.max(...carrying.map((r) => r.highest as number)),
+  };
+}
+
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
   const { peak, share } = spectralPeak(records);
   let count = 0;
@@ -211,6 +227,7 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
     afterFlip,
     avaChange: changes.length > 0 ? mean(changes) : null,
     avaSpread: spread,
+    outside: outsideRange(records),
   };
 }
 

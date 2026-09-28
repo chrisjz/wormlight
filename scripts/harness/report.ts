@@ -325,6 +325,11 @@ export function diagnosticsText(d: Diagnostics): string {
     d.avaChange === null || d.avaSpread === null
       ? "AVA's activation has no reversal to report"
       : `over reversals AVA's activation changed by ${scientific(d.avaChange)} on average, against a standard deviation of ${scientific(d.avaSpread)}`,
+    ...(d.outside === null
+      ? []
+      : [
+          `${d.outside.mean.toFixed(1)} neurons on average sat outside the model's reversal range, −48 to 0 mV, at each sample, and ${d.outside.max} at most, voltages running from ${fixed(d.outside.lowest, 0)} to ${fixed(d.outside.highest, 0)} mV`,
+        ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;
 }

@@ -88,6 +88,9 @@ describe('a trial', () => {
     // Velocity from 10 s to the last sample whose second-long window ends by 12 s: 10.0 to 11.5 s.
     expect(r.velocity.length).toBe(16);
     for (const a of [r.mid, r.front, r.rear]) expect(a.length).toBe(r.velocity.length);
+    // The voltage diagnostic, sample for sample, and its extremes over the same samples.
+    expect(r.outside).toHaveLength(r.velocity.length);
+    expect(r.lowest).toBeLessThanOrEqual(r.highest as number);
     // Postures at 10.0, 10.25, … 12.0 s.
     expect(r.postures.count + r.selfIntersecting).toBe(9);
     expect(r.posture).toBe(startingPosture(2, POSTURES.length).index);
