@@ -1641,3 +1641,38 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 - **World refuses a lesion it can't name,** silenced or not.
 
 The rerun, 704 trials in 11 minutes, matches the first run's loop results exactly; the results entry above is rewritten from it.
+
+## 2026-09-28 — The second numerics study: its design, set before it runs
+
+**Why.** The convergence study found that neither fit converges at any step down to 0.3125 ms, for two reasons (the entries above). A coarse step damps the white-noise current in every neuron. And the oscillators' stiff dynamics carry an error that depends on the whole parameter set. This study tests a fix for each, at several points of the search space, so that the maintainer can choose a rule from evidence gathered widely. Its candidates, points and criterion are set here, as the maintainer chose them, before anything is built or run.
+
+**The candidates.** Each is added to the CPU reference as an option whose default leaves the model as it is, bit for bit.
+
+- **A coloured noise current.** Each neuron's noise is an Ornstein–Uhlenbeck current with correlation time τ_n, τ_n dη = −η dt + σ_n dW, updated exactly at each step. Its intensity σ_n keeps its meaning, since the current tends to the present white noise as τ_n goes to 0. τ_n is the model's synaptic decay time, 1/a_d = 0.2 s, from Kunert's rates in the registry, so that the noise stands for fluctuating synaptic input. It is not a new free value, and would join the registry only if the fix is adopted.
+- **Neural sub-steps.** The brain steps k times at dt/k within each loop step, the loop's inputs held across them, while the muscles, the body and the rest step once. k is 1, 2 or 4.
+
+**The points.** Each candidate is judged at seven:
+
+- R's provisional values, the refit's start;
+- R's fit;
+- the planned fit;
+- the four corners of the two oscillator gains, g_osc at 0.3 or 5 nS and g_osc,B at 0 or 5 nS, with the start's other values.
+
+**What runs.**
+
+- **At every point,** each combination of noise model and k runs checkpoint 1's 20 trials at the loop's step of 2.5 ms and at 1.25 ms, with the brain's sub-step halved alongside: 42 candidate-points, with the noise as fitted. The three values of k also run with the noise off, which doesn't depend on the noise model.
+- **Noise paths are paired between the two steps.** Both draw their noise from one path on a grid at the finer run's brain step. White noise's increment over a step is the sum of the grid's, and the coloured current is the path's value at the step's end. So a difference between the steps is the numerics' and the dynamics', not a new draw's.
+- **A gain sweep at each point,** with the noise off, for each k. It varies g_osc, with g_osc,B at the point's value, and then g_osc,B, with g_osc at the point's, over 0.3, 0.6, 1, 1.5, 2.14, 3 and 5 nS; the planned fit has one gain, swept alone. It runs 8 trials at each step, since without noise the trials barely differ by chance.
+- **Cost.** The CPU's speed for each k. The GPU's is projected from it, since no candidate is on the GPU yet.
+
+**The criterion.**
+
+- **Converged:** checkpoint 1's five clause values each agree within 2% at 2.5 and 1.25 ms (PLAN §7.2), with the same grade, as the dt and dt/2 of that candidate.
+- **Only where the worm crawls.** A setting is judged only if the worm makes at least 3 forward bouts of 10 s or more at both steps; where it doesn't, it is reported as not exercised, with its reversal rate and mean velocity beside.
+- **With chance beside it.** Each set's chance variation, from 100 resamplings of its trials, is reported with it.
+
+The study reports, for each candidate, the points where it converges and where it doesn't, and from the sweep the largest gains at which it converges at each point.
+
+**Then.** The maintainer chooses a rule from the results. Adopting the coloured noise would put τ_n in the registry, taken from a_d, and recalibrate σ_n with the rest. Adopting sub-steps would cost about 1.8 times the CPU's and the GPU's time at k = 2, and 3.4 times at k = 4, which would take the app below its 10× target. Either lands on the GPU with parity before R's fit runs again.
+
+**Status.** Set before anything is built or run.
