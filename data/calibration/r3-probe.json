@@ -1,0 +1,236 @@
+{
+  "model": "track R, round 2",
+  "budget": { "crawl": 2000, "noise": 200 },
+  "calibration": {
+    "budget": 2000,
+    "trialSeconds": 120,
+    "fitSeeds": [1001, 1002, 1003, 1004],
+    "checkSeeds": [1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019, 1020],
+    "rechecked": 10,
+    "start": "provisional",
+    "sigma": 0.3,
+    "seed": 1
+  },
+  "secondRound": {
+    "crawl": { "targets": ["frequency", "wavelength", "speed"], "budget": 2000 },
+    "noise": {
+      "ids": ["noiseIntensity", "noiseCorrelation"],
+      "targets": ["frequency", "wavelength", "speed", "reversalRate"],
+      "budget": 200
+    },
+    "restart": { "sigma": 0.01, "stall": 20 },
+    "probe": {
+      "budget": 400,
+      "seeds": [11, 12, 13, 14],
+      "gradeSeeds": [
+        2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018,
+        2019, 2020
+      ]
+    }
+  },
+  "start": {
+    "oscillatorExcitability": 2140,
+    "oscillatorExcitabilityB": 2140,
+    "oscillatorRecoveryTime": 2.51,
+    "oscillatorDriveThreshold": -12.9,
+    "headSwitchGain": 371,
+    "proprioceptiveGain": 0.308,
+    "gapGainB": 1,
+    "neuromuscularGain": 22,
+    "neuromuscularThreshold": 0.0642,
+    "smdGain": 1,
+    "noiseIntensity": 0.148,
+    "noiseCorrelation": 0.0632
+  },
+  "bounds": {
+    "oscillatorExcitability": [300, 5000],
+    "oscillatorExcitabilityB": [0, 5000],
+    "oscillatorRecoveryTime": [0.2, 3],
+    "oscillatorDriveThreshold": [-28, 5],
+    "headSwitchGain": [20, 400],
+    "proprioceptiveGain": [0.1, 30],
+    "gapGainB": [0.1, 1],
+    "neuromuscularGain": [2, 40],
+    "neuromuscularThreshold": [-0.3, 0.8],
+    "smdGain": [0.1, 1],
+    "noiseIntensity": [0, 0.169],
+    "noiseCorrelation": [0.02, 0.2]
+  },
+  "mapping": {
+    "oscillatorExcitability": "log",
+    "oscillatorExcitabilityB": "linear",
+    "gapGainB": "log",
+    "smdGain": "log",
+    "oscillatorRecoveryTime": "log",
+    "oscillatorDriveThreshold": "linear",
+    "headSwitchGain": "log",
+    "proprioceptiveGain": "log",
+    "neuromuscularGain": "log",
+    "neuromuscularThreshold": "linear",
+    "noiseIntensity": "linear",
+    "noiseCorrelation": "log"
+  },
+  "targets": { "frequency": 0.3, "wavelength": 0.65, "speed": 0.22, "reversalRate": 1.8 },
+  "errorCap": 2,
+  "commit": "6b387b2",
+  "date": "2026-09-28T13:00:08.427Z",
+  "node": "v26.7.0",
+  "jobs": 18,
+  "complete": true,
+  "seconds": 2696.937,
+  "runs": [
+    {
+      "seed": 11,
+      "restarts": 1,
+      "final": {
+        "from": "restart 1, generation 0, candidate 20",
+        "values": {
+          "oscillatorExcitability": 5000,
+          "oscillatorExcitabilityB": 2081.3036420571134,
+          "oscillatorRecoveryTime": 0.612150451726003,
+          "oscillatorDriveThreshold": -7.214359400326607,
+          "headSwitchGain": 268.5155946543332,
+          "proprioceptiveGain": 2.5464073939213723,
+          "gapGainB": 0.8089383146604482,
+          "neuromuscularGain": 20.196110372498957,
+          "neuromuscularThreshold": -0.1782803824148953,
+          "smdGain": 0.5021923249421045,
+          "noiseIntensity": 0.15965475203837187,
+          "noiseCorrelation": 0.055669466393014615
+        },
+        "value": 0.9853490952783568,
+        "measures": {
+          "finite": true,
+          "bouts": 9,
+          "frequency": 0.14693534844668346,
+          "wavelength": 0.8491367525104201,
+          "speed": 0.045218315714157235,
+          "reversalRate": 0
+        }
+      },
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.1635930993456276, "grade": "partial" },
+        { "name": "wavelength", "value": 0.7323332912600394, "grade": "pass" },
+        { "name": "speed", "value": 0.04356883118173397, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9706551539236963, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ]
+    },
+    {
+      "seed": 12,
+      "restarts": 0,
+      "final": {
+        "from": "generation 32, candidate 2",
+        "values": {
+          "oscillatorExcitability": 1758.382284253659,
+          "oscillatorExcitabilityB": 3435.0483183794086,
+          "oscillatorRecoveryTime": 1.4524946356875277,
+          "oscillatorDriveThreshold": -19.04181712100695,
+          "headSwitchGain": 237.69769335904937,
+          "proprioceptiveGain": 4.034307784164753,
+          "gapGainB": 1,
+          "neuromuscularGain": 13.672462226113495,
+          "neuromuscularThreshold": -0.3,
+          "smdGain": 0.4459166317101286,
+          "noiseIntensity": 0.1647183989534713,
+          "noiseCorrelation": 0.02
+        },
+        "value": 1.0794428231809248,
+        "measures": {
+          "finite": true,
+          "bouts": 29,
+          "frequency": 0.13807012100527458,
+          "wavelength": 0.6470534091549641,
+          "speed": 0.02469814834698425,
+          "reversalRate": 4.037408759124087
+        }
+      },
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.13774834437086092, "grade": "partial" },
+        { "name": "wavelength", "value": 0.6486889294339668, "grade": "pass" },
+        { "name": "speed", "value": 0.02504867697717327, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9881112448828616, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ]
+    },
+    {
+      "seed": 13,
+      "restarts": 1,
+      "final": {
+        "from": "restart 0, generation 8, candidate 7",
+        "values": {
+          "oscillatorExcitability": 5000,
+          "oscillatorExcitabilityB": 4106.161744352773,
+          "oscillatorRecoveryTime": 1.949766895845681,
+          "oscillatorDriveThreshold": -9.196808939265289,
+          "headSwitchGain": 400,
+          "proprioceptiveGain": 1.3156836026479948,
+          "gapGainB": 0.9956635667496635,
+          "neuromuscularGain": 40,
+          "neuromuscularThreshold": -0.15110549261813835,
+          "smdGain": 0.19271272278188714,
+          "noiseIntensity": 0.15158718985888672,
+          "noiseCorrelation": 0.07335389032677432
+        },
+        "value": 0.8130800906040366,
+        "measures": {
+          "finite": true,
+          "bouts": 1,
+          "frequency": 0.2,
+          "wavelength": 0.693238787851962,
+          "speed": 0.03625799299213339,
+          "reversalRate": 5.063868613138686
+        }
+      },
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.24630541871921183, "grade": "pass" },
+        { "name": "wavelength", "value": 0.4107634297660594, "grade": "partial" },
+        { "name": "speed", "value": 0.037620648594619256, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9171551802629611, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ]
+    },
+    {
+      "seed": 14,
+      "restarts": 0,
+      "final": {
+        "from": "generation 30, candidate 3",
+        "values": {
+          "oscillatorExcitability": 4369.840184949914,
+          "oscillatorExcitabilityB": 0,
+          "oscillatorRecoveryTime": 0.9180625716326803,
+          "oscillatorDriveThreshold": -28,
+          "headSwitchGain": 400,
+          "proprioceptiveGain": 2.6122166727114653,
+          "gapGainB": 0.1,
+          "neuromuscularGain": 28.410172676502057,
+          "neuromuscularThreshold": -0.14032978791664116,
+          "smdGain": 0.11060607075980995,
+          "noiseIntensity": 0.04142522364564243,
+          "noiseCorrelation": 0.2
+        },
+        "value": 0.3542906593794446,
+        "measures": {
+          "finite": true,
+          "bouts": 16,
+          "frequency": 0.33844662408759124,
+          "wavelength": 0.5021635790502619,
+          "speed": 0.10231797122890107,
+          "reversalRate": 0
+        }
+      },
+      "grade": "partial",
+      "clauses": [
+        { "name": "frequency", "value": 0.3432290477277917, "grade": "pass" },
+        { "name": "wavelength", "value": 0.5012454214980978, "grade": "pass" },
+        { "name": "speed", "value": 0.10403304878767193, "grade": "partial" },
+        { "name": "eigenworms", "value": 0.9361523575653278, "grade": "pass" },
+        { "name": "bout", "value": 1, "grade": "pass" }
+      ]
+    }
+  ],
+  "goAhead": true
+}
