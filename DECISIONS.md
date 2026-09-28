@@ -168,6 +168,8 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 **Why.** A fixed per-step standard deviation, as in the first draft, makes noise power at behavioural time scales proportional to the step size, so a σ calibrated at one step would be wrong at another. The uniform transform must exclude 0 and 1, or Box–Muller takes log(0).
 **Status.** Done in PLAN.md §3.5.
 
+**Superseded from track R's refit on** (2026-09-28, below): the noise becomes an Ornstein–Uhlenbeck current, its correlation time calibrated.
+
 ## 2026-09-25 — The odour field's loss rate is an assumption, and the harness precomputes the field
 
 **Decision.** The first-order loss is set so the steady decay length is 3 cm (level 0, fixed in advance). The app steps the field explicitly on the GPU in sub-steps of at most 4 ms. The harness computes it once per layout and shares it across trials.
@@ -1641,3 +1643,125 @@ Five of the pick's eleven are on a bound: g_osc, g_sw and g_nmj on their upper o
 - **World refuses a lesion it can't name,** silenced or not.
 
 The rerun, 704 trials in 11 minutes, matches the first run's loop results exactly; the results entry above is rewritten from it.
+
+## 2026-09-28 — The second numerics study: its design, set before it runs
+
+**Why.** The convergence study found that neither fit converges at any step down to 0.3125 ms, for two reasons (the entries above). A coarse step damps the white-noise current in every neuron. And the oscillators' stiff dynamics carry an error that depends on the whole parameter set. This study tests a fix for each, at several points of the search space, so that the maintainer can choose a rule from evidence gathered widely. Its candidates, τ_n and points are set here as the maintainer chose them, and its criterion as proposed with them, before anything is built or run.
+
+**The candidates.** Each is added to the CPU reference as an option whose default leaves the model as it is, bit for bit.
+
+- **A coloured noise current.** Each neuron's noise is an Ornstein–Uhlenbeck current with correlation time τ_n, τ_n dη = −η dt + σ_n dW, updated exactly at each step. Its intensity σ_n keeps its meaning, since the current tends to the present white noise as τ_n goes to 0. τ_n is the model's synaptic decay time, 1/a_d = 0.2 s, from Kunert's rates in the registry, so that the noise stands for fluctuating synaptic input. It is not a new free value, and would join the registry only if the fix is adopted.
+- **Neural sub-steps.** The brain steps k times at dt/k within each loop step, the loop's inputs held across them, while the muscles, the body and the rest step once. k is 1, 2 or 4.
+
+**The points.** Each candidate is judged at seven:
+
+- R's provisional values, the refit's start;
+- R's fit;
+- the planned fit;
+- the four corners of the two oscillator gains, g_osc at 0.3 or 5 nS and g_osc,B at 0 or 5 nS, with the start's other values.
+
+**What runs.**
+
+- **At every point,** each combination of noise model and k runs checkpoint 1's 20 trials at the loop's step of 2.5 ms and at 1.25 ms, with the brain's sub-step halved alongside: 42 candidate-points, with the noise as fitted. The three values of k also run with the noise off, which doesn't depend on the noise model.
+- **Noise paths are paired between the two steps.** Both draw their noise from one path on a grid at the finer run's brain step. White noise's increment over a step is the sum of the grid's, and the coloured current is the path's value at the step's end. So a difference between the steps is the numerics' and the dynamics', not a new draw's.
+- **A gain sweep at each point,** with the noise off, for each k. It varies g_osc, with g_osc,B at the point's value, and then g_osc,B, with g_osc at the point's, over 0.3, 0.6, 1, 1.5, 2.14, 3 and 5 nS; the planned fit has one gain, swept alone. It runs 8 trials at each step, since without noise the trials barely differ by chance.
+- **Cost.** The CPU's speed for each k. The GPU's is projected from it, since no candidate is on the GPU yet.
+
+**The criterion.**
+
+- **Converged:** checkpoint 1's five clause values each agree within 2% at 2.5 and 1.25 ms (PLAN §7.2), with the same grade, as the dt and dt/2 of that candidate.
+- **Only where the worm crawls.** A setting is judged only if the worm makes at least 3 forward bouts of 10 s or more at both steps; where it doesn't, it is reported as not exercised, with its reversal rate and mean velocity beside.
+- **With chance beside it.** Each set's chance variation, from 100 resamplings of its trials, is reported with it.
+
+The study reports, for each candidate, the points where it converges and where it doesn't, and from the sweep the largest gains at which it converges at each point.
+
+**Then.** The maintainer chooses a rule from the results. Adopting the coloured noise would put τ_n in the registry, taken from a_d, and recalibrate σ_n with the rest. Adopting sub-steps would cost about 1.8 times the CPU's and the GPU's time at k = 2, and 3.4 times at k = 4, which would take the app below its 10× target. Either lands on the GPU with parity before R's fit runs again.
+
+**Status.** Set before anything is built or run.
+
+## 2026-09-28 — The second numerics study: coloured noise stays within chance at R's fit; nothing meets 2% (corrected after review)
+
+**Run** with `node scripts/experiments/fixes/run.ts` at `a5e763f`, a clean commit: 6,888 trials in 77 minutes on 18 cores, then its grading, with every record set from that commit. Its summary is written to `harness-out/fixes/summary.json`. It followed the design above, with these differences, noted after review: its grading ran on one core for 88 minutes after the trials; the gain sweep's sets have no chance beside them; and the rule that a setting is judged only where the worm makes 3 bouts was proposed with the design, not put to the maintainer.
+
+**Where the worm crawls.** Only two of the seven points make the 3 bouts of 10 s the criterion needs, at both steps: R's fit, and the planned fit in some settings. The start, R's provisional values, and all four corners of the oscillator gains never make 3 bouts at a step, with any candidate. Their reversal rates and mean velocities are in the summary; a review read them as agreeing between steps at all five with the coloured noise, while white noise's mean velocity at the start moved by 24% at k = 2. So the criterion was applied at R's fit and, where it was exercised, the planned fit.
+
+**At R's fit.** For each candidate, the change in checkpoint 1's frequency, wavelength and speed between 2.5 and 1.25 ms, each beside the chance of the difference, the two sets' resampled chance combined:
+
+| Noise    | k   | Frequency    | Wavelength   | Speed        | 20 s bouts  | Reversals a minute | Verdict       |
+| -------- | --- | ------------ | ------------ | ------------ | ----------- | ------------------ | ------------- |
+| Off      | 1   | 9.0% (1.2%)  | 10.0% (1.2%) | 3.4% (0.5%)  | 75% / 100%  | 3.52 / 0.74        | Not converged |
+| Off      | 2   | 5.1% (0.8%)  | 4.6% (0.7%)  | 0.2% (0.3%)  | 100% / 0%   | 1.85 / 0.11        | Not converged |
+| Off      | 4   | 1.7% (1.2%)  | 2.6% (1.2%)  | 1.0% (0.5%)  | 0% / 0%     | 1.17 / 0.14        | Not converged |
+| White    | 1   | 6.1% (4.6%)  | 6.9% (5.0%)  | 1.0% (3.2%)  | 55% / 85%   | 1.31 / 0.38        | Not converged |
+| White    | 2   | 18.8% (3.7%) | 13.3% (4.0%) | 11.6% (2.1%) | 90% / 100%  | 0.30 / 0           | Not converged |
+| White    | 4   | 8.0% (3.3%)  | 10.1% (3.7%) | 9.3% (1.9%)  | 100% / 100% | 0.11 / 0           | Not converged |
+| Coloured | 1   | 0.4% (2.8%)  | 2.9% (3.3%)  | 1.3% (2.1%)  | 55% / 65%   | 3.93 / 3.90        | Not converged |
+| Coloured | 2   | 2.5% (2.1%)  | 6.2% (3.1%)  | 3.3% (1.6%)  | 40% / 55%   | 4.66 / 3.74        | Not converged |
+| Coloured | 4   | 0.7% (3.4%)  | 2.8% (4.3%)  | 2.0% (2.6%)  | 20% / 55%   | 4.17 / 3.76        | Not converged |
+
+- **No candidate converges by the criterion.** The nearest is k = 4 without noise, 2.6% at worst, beyond its chance of 1.2%.
+- **The coloured noise's changes are within their chance** at k = 1 and k = 4, but for the bout clause at k = 4, 20% against 55%. At k = 2 all three exceed it, the wavelength's twice over. Corrected after review: the chance here combines the two runs' as if independent. A review found the pairing makes it smaller, 1.8%, 2.3% and 1.1% at k = 1, which the wavelength's and speed's changes exceed; another found the trials' paths part within the trial, so pairing buys little. Either way the coloured noise's changes are within 1.96 times their chance. Its reversal rate holds across the steps, 3.93 and 3.90 a minute at k = 1, where white noise's all but vanish at the finer step. White noise's changes are well beyond their chance at k = 2 and 4; at k = 1 they are 1.3 to 1.4 times it, and its speed's within it.
+- **Without noise, the deterministic error shrinks with k**, from 10% at k = 1 to 2.6% at k = 4, but doesn't reach 2%.
+- **The criterion itself can't be met with the noise on.** The chance of the difference between two runs of 20 trials is 1.6–5.0%, so a candidate whose runs at the two steps differed only by chance would still fail 2% on most comparisons. Its bout clause, a share of 20 trials, moves in steps of 5%, and its grade flips at a band's edge: the coloured k = 1 runs grade partial and fail, the fine run's wavelength 1.02 against the partial band's 1.0.
+
+**At the planned fit** it crawls rarely, with 0 to 39 bouts across the settings, and was exercised without noise at every k, and with either noise at k = 4. There its worst change in a setting runs from 2.9% to 45%, and is within chance only without noise at k = 4, whose 2.9% is under its chance of 9%.
+
+**The gain sweep,** without noise, on 8 trials. Of its 273 settings, 16 were exercised, all at R's fit or the planned fit.
+
+- At R's fit, the sweep crawls only with the A-types' gain at 3 or 5 nS, the fit's own 5 included, and converges there only at k = 4, on 8 trials; on 20, in the table, 5 nS at k = 4 doesn't. No B-type gain from 0.3 to 5 nS crawls there.
+- At the planned fit, with its one gain at 0.3 nS, it converges at every k; at 0.6 nS and above it converges at no k.
+- At the other points no setting crawled, so the sweep found no gain at which a setting stops converging there.
+
+**Cost.** On one CPU core, the loop on R's fit runs at 32.8, 20.2 and 12.1 times real time at k = 1, 2 and 4. The GPU runs no candidate yet. Scaled from the app's 21–24× at k = 1, it would run at about 13–15× at k = 2, keeping the 10× target, and about 8–9× at k = 4, below it.
+
+**Status.** Run. What it leaves for the maintainer: which fix, if any, to adopt, and how PLAN §7.2's criterion should treat runs whose metrics vary by chance more than it allows.
+
+## 2026-09-28 — The noise becomes coloured, and §7.2 judges noisy runs against chance (changed after results, revised after review)
+
+**Revised after review** the same day, before any use (the entry below): §7.2's tolerance is replaced by an equivalence test on 200 trials, and τ_n is calibrated, not fixed at 1/a_d.
+
+**Why.** The second numerics study (above) found the coloured noise current the only candidate whose between-step changes at R's fit stay within chance at the model's own step, with its reversals holding. It also found that PLAN §7.2's 2% can't be met by any candidate with the noise on, since 20 trials' pooled metrics vary by 2–5% by chance.
+
+**Decision** (PLAN §3.5, §7.2, §9, marked changed after results). The maintainer chose the recommendation each time:
+
+- **From track R's refit on, the noise is an Ornstein–Uhlenbeck current.** Each neuron's noise follows τ_n dη = −η dt + σ_n dW, updated exactly each step, with τ_n the synapses' decay time, 1/a_d = 0.2 s, taken from Kunert's rates. It supersedes the white noise of 2026-09-25.
+  - τ_n is set by that rule, so it isn't a free parameter, and the budget stays at 17.
+  - σ_n keeps its units and is calibrated again in the refit.
+  - Spec §1.1's noise layer, independent seeded noise for each neuron, is unchanged.
+  - Without noise, R's fit still changes by 9–10% in frequency and wavelength between 2.5 and 1.25 ms. With the coloured noise its changes were within chance, but at 20 trials the tolerance couldn't show an error that size. Sub-steps shrink it to 5.1% at k = 2, which keeps the 10× target, and 2.6% at k = 4, which doesn't. Corrected after review: this first said the error stayed within the noise's chance, and that sub-steps cost the app its target.
+  - Considered: the coloured noise with 4 neural sub-steps, which would lower the app's target to about 8×; and adopting nothing, with R left suspended.
+- **With the noise on, PLAN §7.2's comparison at dt and dt/2 asks each clause to agree within 2%, or within 1.96 times the two runs' combined chance, whichever is larger.** The chance is taken by resampling each run's trials, and the grades needn't match, since a grade flips at a band's edge by chance. Noise-off runs keep the plain 2%. Considered: keeping 2% with enough trials that chance falls below 1%, which a review put at about 130 to 215 a step, 6.5 to 11 times the cost; and keeping 2% as it is, which no candidate could meet with the noise on.
+- **Then R resumes,** in two pull requests:
+  - the coloured noise on the CPU reference and the GPU, with parity, and in the registry;
+  - R's fit run again, σ_n included, then §7.2's comparison under the new criterion, which it must pass before its checkpoint 1 result is final.
+
+**Status.** Set before the coloured noise is built into the model.
+
+## 2026-09-28 — After review: an equivalence test for §7.2, and τ_n calibrated
+
+**Why.** Three reviews of the second numerics study found that its code runs as built, with the model's defaults bit for bit as on `main`, but that the rule drawn from it doesn't hold. Each finding that decides it was reproduced, or read from the study's own summary, before this entry was written; the reviews' other figures are attributed to them.
+
+- **The adopted §7.2 rule passes the defect it was meant to catch.** Within 2% or 1.96 times the two runs' combined chance, on 20 trials, white noise at k = 1 passes every clause. Its changes are 6.1%, 6.9% and 1.0% against tolerances of 9.0%, 9.8% and 6.3%. A review found the case that suspended R, R's fit with its white noise at 2.5 against 1.25 ms, failing only its bout clause, and by 0.1 of a percentage point. On 100 trials that review found white noise's step bias real: about 5% in frequency and wavelength, with the share of 20 s bouts going from 46% to 88% and reversals from 1.58 to 0.39 a minute. At 20 trials the tolerance is too wide to see it, and it widens as trials fall. And the reversal rate, the defect itself, wasn't a clause.
+- **τ_n is a potent choice, not a derived one.** On 20 seeds of R's fit at 2.5 ms, τ_n of 0.02, 0.05 and 0.2 s give 20 s bouts in 95%, 90% and 15% of trials, and 1.88, 2.81 and 4.50 reversals a minute. a_d is the synapses' deactivation rate, not a measured property of neural noise. PLAN §6.2 counts a value set by a rule as ours, and the entry withdrawing the 1 nS bound called τ_n a new free parameter.
+- **At the same σ_n, the coloured current moves a neuron far less than white noise.** A review found each neuron's voltage spread at 0.06 to 0.39 of white's, a median of 0.12, and AVA's from 0.93 to 0.10 mV. So σ_n's bound, set for white noise by a 20 mV rule, no longer means what it did.
+- **The coloured noise converges at R's fit, but the evidence is narrow.** A review ran it on 200 trials at three steps and found it within about 1%. But at a σ_n of 0.06 it showed a 4% bias in frequency and wavelength, so convergence depends on σ_n too.
+- **The coloured current's state isn't in a snapshot,** so a restored world parts from an unbroken one by up to 5.8 mV, a review found. The GPU's guard also misses the path that loads one world into another.
+
+**Decision** (PLAN §3.5, §6.2, §7.2, §7.3, §9, each marked). The maintainer chose the recommendation each time:
+
+- **§7.2's comparison with the noise on becomes an equivalence test.** It runs 200 trials at each step. Each clause's 95% interval for the difference between dt and dt/2 must lie within a margin set now:
+  - ±3% of the value at dt/2 for the frequency, wavelength and speed;
+  - ±0.10 for the share of trials with a 20 s bout;
+  - ±0.3 a minute for the reversal rate, which the comparison now checks.
+
+  The interval comes from resampling the seeds 1,000 times, the same seeds at both steps. The grades needn't match, and noise-off runs keep the plain 2%. It replaces the rule set earlier today before any use.
+  - Considered: the same test with ±2% margins on about 300 trials a step; and keeping the replaced rule.
+
+- **τ_n is calibrated, level 1, from 0.02 to 0.2 s, mapped logarithmically,** and the budget rises to 18, which the maintainer approved. Both ends converged at R's fit, 0.2 s on 200 trials and 0.02 s in a review's runs. The refit tunes it with the rest, as every null's fit will, so no one chooses it after seeing its effect. σ_n's bound is derived again for the coloured noise by §7.3's 20 mV rule before the refit.
+  - Considered: fixing τ_n at 0.2 s, counted at level 0; and fixing it at 0.02 s, where R's fit crawls in most trials, a choice made after seeing that.
+- **Everything else, as recommended.** The earlier entries are corrected in place. PLAN, README, VALIDATION, the ledger and CLAUDE.md say one thing about R's status. The GPU's guard covers the path that loads one world into another. The study records its own settings in its manifests, and the difference in each clause in its verdicts, and draws its resamplings from the model's own hash. The coloured current's state is carried in snapshots, on the CPU and the GPU, when the noise lands.
+
+**Then R resumes,** in two pull requests:
+
+- The coloured noise lands on the CPU reference and the GPU, with parity and its state in snapshots, together with τ_n in the registry and σ_n's new bound.
+- R's fit runs again on twelve parameters, then §7.2's equivalence test, which it must pass before its checkpoint 1 result is final.

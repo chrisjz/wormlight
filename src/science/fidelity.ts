@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's fit crawls in bouts but fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until the numerics converge (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's fit crawls in bouts but fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until the coloured noise runs on the CPU and the GPU and R's fit runs again (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -348,7 +348,8 @@ export const COMPONENTS: readonly Component[] = [
     subsystem: 'neurons',
     levels: [1],
     basis: 'Calibrated to the spontaneous reversal rate (PLAN §7.3)',
-    caveats: 'White current noise; its intensity is tuned',
+    caveats:
+      "White current noise; its intensity is tuned. From track R's refit it becomes a coloured current, whose correlation time is tuned too (DECISIONS.md)",
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [

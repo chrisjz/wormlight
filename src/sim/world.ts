@@ -35,8 +35,10 @@ export interface LoopParams {
   // g_nmj (per EM section) and θ_nmj (EM sections), or with relativeDrive per unit of relative drive and in it.
   neuromuscularGain: number;
   neuromuscularThreshold: number;
-  // σ_n (pA·√s).
+  // σ_n (pA·√s), and the noise's correlation time τ_n (s): left out or 0, white noise, as the model runs; above 0,
+  // an Ornstein–Uhlenbeck current, a candidate the second numerics study tests (DECISIONS.md, 2026-09-28).
   noise: number;
+  noiseCorrelation?: number;
   // Track R's model (PLAN §9): g_osc for the B-types, apart from the A-types' (nS); κ_gap,B on every gap junction
   // with a B-type on either side; κ_SMD on the SMDs' neuromuscular junctions past the head; and drive relative to
   // each muscle's range, in whose units g_nmj and θ_nmj then are. Left out, each is the planned model's: the
@@ -135,6 +137,11 @@ export interface WorldOptions {
   switchThreshold?: number;
   // The butanone AWC-ON senses (PLAN §4.1); with none, the concentration is 0 everywhere.
   odour?: Odour;
+  // Numerics the second numerics study tests (DECISIONS.md, 2026-09-28), which the GPU doesn't run: the brain's
+  // steps within each loop step, 1 by default; and a grid the noise's path is drawn on, so that worlds at different
+  // steps share their noise, none by default.
+  neuralSubsteps?: number;
+  noiseGrid?: number;
 }
 
 // Everything the next step reads, so another world, on the CPU or the GPU, can take the same step.
@@ -164,6 +171,8 @@ export interface WorldState {
 export class World {
   readonly params: LoopParams;
   readonly brain: Brain;
+  // The brain's steps within each loop step (WorldOptions.neuralSubsteps).
+  readonly substeps: number;
   readonly body: Body;
   readonly muscles: Muscles;
   readonly headSwitch: HeadSwitch;
@@ -207,6 +216,12 @@ export class World {
     const network = cut.length > 0 ? lesion(whole, cut) : whole;
     this.brain = new Brain(network, thresholds, options.solver);
     this.brain.noise = params.noise;
+    this.brain.noiseCorrelation = params.noiseCorrelation ?? 0;
+    if (!(this.brain.noiseCorrelation >= 0)) throw new Error("the noise's correlation time can't be negative");
+    this.brain.noiseGrid = options.noiseGrid ?? 0;
+    this.substeps = options.neuralSubsteps ?? 1;
+    if (!Number.isInteger(this.substeps) || this.substeps < 1)
+      throw new Error('neural sub-steps must be a whole number');
     this.brain.seed = seed;
     const alive = (name: string): boolean => !lesioned.has(name);
     // Each A- and B-type neuron's oscillator, with its class's gain; one with a gain of 0 has none.
@@ -355,7 +370,7 @@ export class World {
   }
 
   get time(): number {
-    return this.brain.steps * NEURAL_STEP;
+    return (this.brain.steps * NEURAL_STEP) / this.substeps;
   }
 
   // The network's drive on the SMDs, which gates the head switch: for each, the voltage its partners and
@@ -419,7 +434,7 @@ export class World {
     this.switchCurrent = current;
     for (const i of this.dorsalSwitch) brain.input[i] += current;
     for (const i of this.ventralSwitch) brain.input[i] -= current;
-    brain.step(dt);
+    for (let k = 0; k < this.substeps; k++) brain.step(dt / this.substeps);
     this.muscles.step(dt, brain.activation);
     this.muscles.segments(body.dorsal, body.ventral);
     body.step(dt);

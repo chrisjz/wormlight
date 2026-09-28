@@ -172,7 +172,7 @@ export const PARAMS = {
     level: 1,
     subsystem: 'neural',
     sources: ['gray2005'],
-    note: 'White current noise, drawn each step with standard deviation σ_n/√dt.',
+    note: "White current noise, drawn each step with standard deviation σ_n/√dt; from track R's refit, a coloured current (DECISIONS.md, 2026-09-28).",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
     bounds: [0, 0.169],

@@ -37,6 +37,9 @@ export interface StartOptions {
   silenced?: boolean;
   // Neurons laser-ablated, as checkpoint 5's rows lesion them, keeping the intact network's thresholds (PLAN §3.3).
   lesions?: readonly string[];
+  // The second numerics study's options, which the model doesn't use (World's, DECISIONS.md, 2026-09-28).
+  neuralSubsteps?: number;
+  noiseGrid?: number;
   // The real postures, each the tangent angles head first with their mean removed.
   postures: readonly (readonly number[])[];
   // The odour AWC-ON senses; trials have none.
@@ -89,6 +92,8 @@ export function startingWorld(
       seed,
       silenced: options.silenced,
       lesions: options.lesions,
+      neuralSubsteps: options.neuralSubsteps,
+      noiseGrid: options.noiseGrid,
       posture,
       odour: options.odour,
     }),

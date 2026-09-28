@@ -135,7 +135,16 @@ export function rodRange(segments: number, from: number, to: number): [number, n
   return [nearest, nearest];
 }
 
+// The GPU steps the brain once a loop step, with white noise drawn each step: the second numerics study's
+// candidates run on the CPU alone (DECISIONS.md, 2026-09-28). Every way a world reaches the GPU checks this.
+export function checkGpuWorld(world: World): void {
+  if (world.substeps !== 1 || world.brain.noiseCorrelation !== 0 || world.brain.noiseGrid !== 0) {
+    throw new Error('the GPU steps the brain once a loop step, with white noise drawn each step');
+  }
+}
+
 export function packLoop(world: World): LoopLayout {
+  checkGpuWorld(world);
   const { body, muscles, params } = world;
   const n = world.brain.n;
   const segments = body.params.segments;
