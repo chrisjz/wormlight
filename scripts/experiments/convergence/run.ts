@@ -14,17 +14,8 @@
 // manifest naming what its trials ran on; a set whose manifest doesn't match is run again. The summary goes to
 // harness-out/convergence/summary.json.
 
-import { execSync, fork } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs';
+import { fork } from 'node:child_process';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,6 +27,7 @@ import type { TrialRecord } from '../../../src/validation/trial.ts';
 import { ROOT } from '../../data/sources.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned } from '../../harness/pinned.ts';
+import { buildTree, forkPool, prepareSet, treeSource, workersFrom, writeWhole } from '../trees.ts';
 import { GAINS, LONE_SETTINGS, RECOVERIES, STEPS, excited, held } from './oscillator.ts';
 
 const OUT = join(ROOT, 'harness-out', 'convergence');
@@ -80,47 +72,6 @@ const recordDir = (step: number, model: Model, noise: Noise): string =>
 const causeDir = (slug: string, step: number, noise: Noise): string =>
   join(OUT, 'records', `cause-${slug}-${step * 1e6}us-${noise}`);
 
-// The git trees whose content a trial depends on, less the step: the model's code, the data, the pins and the
-// harness's readers. A change anywhere else, such as to this study or to the docs, leaves records valid.
-function source(): string {
-  const paths = ['src', 'public/data', 'data/sources.json', 'scripts/harness'];
-  return execSync(`git rev-parse ${paths.map((p) => `HEAD:${p}`).join(' ')}`, { cwd: ROOT, encoding: 'utf8' })
-    .trim()
-    .split('\n')
-    .join(' ');
-}
-
-// A copy of the committed tree with the neural step changed, sharing the dependencies and the pinned cache.
-function buildTree(step: number): void {
-  const dir = tree(step);
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(join(dir, 'data'), { recursive: true });
-  execSync(`git archive HEAD src scripts public/data data/sources.json | tar -x -C ${JSON.stringify(dir)}`, {
-    cwd: ROOT,
-  });
-  symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
-  symlinkSync(join(ROOT, 'data', 'cache'), join(dir, 'data', 'cache'));
-  const numerics = join(dir, 'src', 'sim', 'numerics.ts');
-  const text = readFileSync(numerics, 'utf8');
-  const pattern = /^export const NEURAL_STEP = [0-9.e-]+;$/m;
-  if ((text.match(new RegExp(pattern.source, 'gm')) ?? []).length !== 1) {
-    throw new Error('the neural step is not declared once where the study expects it');
-  }
-  writeFileSync(numerics, text.replace(pattern, `export const NEURAL_STEP = ${step};`));
-}
-
-// A record set's folder, emptied unless its manifest is the one given; the seeds it still needs.
-function prepare(dir: string, manifest: Manifest, seeds: readonly number[]): number[] {
-  const path = join(dir, 'manifest.json');
-  const same = existsSync(path) && readFileSync(path, 'utf8') === JSON.stringify(manifest);
-  if (!same) {
-    rmSync(dir, { recursive: true, force: true });
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path, JSON.stringify(manifest));
-  }
-  return seeds.filter((seed) => !existsSync(join(dir, `${seed}.json`)));
-}
-
 // A trial in a step's tree, whose modules are the main tree's but for the step, which it checks.
 async function runJob(job: Job): Promise<void> {
   const from = <T>(path: string): Promise<T> => import(join(job.tree, path)) as Promise<T>;
@@ -146,9 +97,7 @@ async function runJob(job: Job): Promise<void> {
     postures: await readPostures(),
     lesions: lesions ?? undefined,
   });
-  // Whole or not at all: a record left half-written would be taken as done.
-  writeFileSync(`${job.out}.part`, JSON.stringify(record));
-  renameSync(`${job.out}.part`, job.out);
+  writeWhole(job.out, JSON.stringify(record));
 }
 
 // The CPU reference's speed in a step's tree: one world on R's fit, 20 s after 2 s to settle, on one core.
@@ -170,32 +119,6 @@ const describe = (job: Job): string => {
   const variant = m.lesions ? 'A-types lesioned' : m.oscillatorGain === null ? '' : `, g_osc ${m.oscillatorGain} nS`;
   return `${m.model}'s fit${variant}, noise ${m.noise}, step ${m.step * 1000} ms, seed ${job.seed}`;
 };
-
-// Each job in a worker process of its own. The first failure stops new jobs; those under way finish, then it throws.
-async function pool(jobs: Job[], workers: number): Promise<void> {
-  const self = fileURLToPath(import.meta.url);
-  let next = 0;
-  let done = 0;
-  let failure: Error | null = null;
-  await Promise.all(
-    Array.from({ length: workers }, async () => {
-      while (next < jobs.length && !failure) {
-        const job = jobs[next++];
-        await new Promise<void>((resolve) => {
-          const child = fork(self, ['--worker', JSON.stringify(job)], { stdio: 'inherit' });
-          child.on('exit', (code) => {
-            if (code !== 0) failure ??= new Error(`${describe(job)} exited ${code}`);
-            resolve();
-          });
-        });
-        if (++done % 36 === 0) process.stderr.write(`${done}/${jobs.length} trials\n`);
-      }
-    }),
-  );
-  // Set from the workers' callbacks, which the compiler's narrowing can't see.
-  const error = failure as Error | null;
-  if (error) throw error;
-}
 
 function speed(treeDir: string): Promise<{ step: number; realTime: number }> {
   return new Promise((resolve, reject) => {
@@ -277,14 +200,12 @@ if (process.argv[2] === '--worker') {
   await runSpeed(process.argv[3]);
   process.disconnect?.();
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const at = process.argv.indexOf('--jobs');
-  const workers = at > 0 ? Number(process.argv[at + 1]) : availableParallelism();
-  if (!Number.isInteger(workers) || workers < 1) throw new Error('usage: run.ts [--jobs N], N a whole number');
+  const workers = workersFrom(process.argv, availableParallelism());
   const committed = commit();
   if (/uncommitted/.test(committed)) throw new Error('commit first: the trees are taken from HEAD');
   const head = {
     commit: committed,
-    source: source(),
+    source: treeSource(),
     date: new Date().toISOString(),
     node: process.version,
     steps: STEPS,
@@ -307,7 +228,7 @@ if (process.argv[2] === '--worker') {
     excited: GAINS.flatMap((g) => RECOVERIES.flatMap((r) => STEPS.map((s) => excited(g, r, s)))),
   };
 
-  for (const step of STEPS) buildTree(step);
+  for (const step of STEPS) buildTree(tree(step), step);
   const src = head.source;
   const jobs: Job[] = [];
   const reused: string[] = [];
@@ -318,7 +239,7 @@ if (process.argv[2] === '--worker') {
         const dir = recordDir(step, model, noise);
         const manifest: Manifest = { source: src, step, model, noise, lesions: null, oscillatorGain: null };
         const seeds = [...SEEDS, ...FRESH_SEEDS];
-        const needed = prepare(dir, manifest, seeds);
+        const needed = prepareSet(dir, manifest, seeds);
         if (needed.length < seeds.length) reused.push(dir);
         for (const seed of needed) jobs.push({ tree: tree(step), manifest, seed, out: join(dir, `${seed}.json`) });
       }
@@ -338,7 +259,7 @@ if (process.argv[2] === '--worker') {
           lesions: v.lesions === 'A' ? aTypes : null,
           oscillatorGain: v.oscillatorGain ?? null,
         };
-        const needed = prepare(dir, manifest, CAUSE_SEEDS);
+        const needed = prepareSet(dir, manifest, CAUSE_SEEDS);
         if (needed.length < CAUSE_SEEDS.length) reused.push(dir);
         for (const seed of needed) jobs.push({ tree: tree(step), manifest, seed, out: join(dir, `${seed}.json`) });
       }
@@ -346,7 +267,7 @@ if (process.argv[2] === '--worker') {
   }
   process.stderr.write(`both fits in the loop, and the cause: ${jobs.length} trials to run\n`);
   const started = Date.now();
-  await pool(jobs, workers);
+  await forkPool(fileURLToPath(import.meta.url), jobs, workers, describe);
   const trialSeconds = (Date.now() - started) / 1000;
 
   process.stderr.write("the CPU's speed\n");
