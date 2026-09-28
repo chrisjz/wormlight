@@ -1714,7 +1714,9 @@ The study reports, for each candidate, the points where it converges and where i
 
 **Status.** Run. What it leaves for the maintainer: which fix, if any, to adopt, and how PLAN §7.2's criterion should treat runs whose metrics vary by chance more than it allows.
 
-## 2026-09-28 — The noise becomes coloured, and §7.2 judges noisy runs against chance (changed after results)
+## 2026-09-28 — The noise becomes coloured, and §7.2 judges noisy runs against chance (changed after results, revised after review)
+
+**Revised after review** the same day, before any use (the entry below): §7.2's tolerance is replaced by an equivalence test on 200 trials, and τ_n is calibrated, not fixed at 1/a_d.
 
 **Why.** The second numerics study (above) found the coloured noise current the only candidate whose between-step changes at R's fit stay within chance at the model's own step, with its reversals holding. It also found that PLAN §7.2's 2% can't be met by any candidate with the noise on, since 20 trials' pooled metrics vary by 2–5% by chance.
 
@@ -1732,3 +1734,32 @@ The study reports, for each candidate, the points where it converges and where i
   - R's fit run again, σ_n included, then §7.2's comparison under the new criterion, which it must pass before its checkpoint 1 result is final.
 
 **Status.** Set before the coloured noise is built into the model.
+
+## 2026-09-28 — After review: an equivalence test for §7.2, and τ_n calibrated
+
+**Why.** Three reviews of the second numerics study found that its code runs as built, with the model's defaults bit for bit as on `main`, but that the rule drawn from it doesn't hold. Each finding that decides it was reproduced, or read from the study's own summary, before this entry was written; the reviews' other figures are attributed to them.
+
+- **The adopted §7.2 rule passes the defect it was meant to catch.** Within 2% or 1.96 times the two runs' combined chance, on 20 trials, white noise at k = 1 passes every clause. Its changes are 6.1%, 6.9% and 1.0% against tolerances of 9.0%, 9.8% and 6.3%. A review found the case that suspended R, R's fit with its white noise at 2.5 against 1.25 ms, failing only its bout clause, and by 0.1 of a percentage point. On 100 trials that review found white noise's step bias real: about 5% in frequency and wavelength, with the share of 20 s bouts going from 46% to 88% and reversals from 1.58 to 0.39 a minute. At 20 trials the tolerance is too wide to see it, and it widens as trials fall. And the reversal rate, the defect itself, wasn't a clause.
+- **τ_n is a potent choice, not a derived one.** On 20 seeds of R's fit at 2.5 ms, τ_n of 0.02, 0.05 and 0.2 s give 20 s bouts in 95%, 90% and 15% of trials, and 1.88, 2.81 and 4.50 reversals a minute. a_d is the synapses' deactivation rate, not a measured property of neural noise. PLAN §6.2 counts a value set by a rule as ours, and the entry withdrawing the 1 nS bound called τ_n a new free parameter.
+- **At the same σ_n, the coloured current moves a neuron far less than white noise.** A review found each neuron's voltage spread at 0.06 to 0.39 of white's, a median of 0.12, and AVA's from 0.93 to 0.10 mV. So σ_n's bound, set for white noise by a 20 mV rule, no longer means what it did.
+- **The coloured noise converges at R's fit, but the evidence is narrow.** A review ran it on 200 trials at three steps and found it within about 1%. But at a σ_n of 0.06 it showed a 4% bias in frequency and wavelength, so convergence depends on σ_n too.
+- **The coloured current's state isn't in a snapshot,** so a restored world parts from an unbroken one by up to 5.8 mV, a review found. The GPU's guard also misses the path that loads one world into another.
+
+**Decision** (PLAN §3.5, §6.2, §7.2, §7.3, §9, each marked). The maintainer chose the recommendation each time:
+
+- **§7.2's comparison with the noise on becomes an equivalence test.** It runs 200 trials at each step. Each clause's 95% interval for the difference between dt and dt/2 must lie within a margin set now:
+  - ±3% of the value at dt/2 for the frequency, wavelength and speed;
+  - ±0.10 for the share of trials with a 20 s bout;
+  - ±0.3 a minute for the reversal rate, which the comparison now checks.
+
+  The interval comes from resampling the seeds 1,000 times, the same seeds at both steps. The grades needn't match, and noise-off runs keep the plain 2%. It replaces the rule set earlier today before any use.
+  - Considered: the same test with ±2% margins on about 300 trials a step; and keeping the replaced rule.
+
+- **τ_n is calibrated, level 1, from 0.02 to 0.2 s, mapped logarithmically,** and the budget rises to 18, which the maintainer approved. Both ends converged at R's fit, 0.2 s on 200 trials and 0.02 s in a review's runs. The refit tunes it with the rest, as every null's fit will, so no one chooses it after seeing its effect. σ_n's bound is derived again for the coloured noise by §7.3's 20 mV rule before the refit.
+  - Considered: fixing τ_n at 0.2 s, counted at level 0; and fixing it at 0.02 s, where R's fit crawls in most trials, a choice made after seeing that.
+- **Everything else, as recommended.** The earlier entries are corrected in place. PLAN, README, VALIDATION, the ledger and CLAUDE.md say one thing about R's status. The GPU's guard covers the path that loads one world into another. The study records its own settings in its manifests, and the difference in each clause in its verdicts, and draws its resamplings from the model's own hash. The coloured current's state is carried in snapshots, on the CPU and the GPU, when the noise lands.
+
+**Then R resumes,** in two pull requests:
+
+- The coloured noise lands on the CPU reference and the GPU, with parity and its state in snapshots, together with τ_n in the registry and σ_n's new bound.
+- R's fit runs again on twelve parameters, then §7.2's equivalence test, which it must pass before its checkpoint 1 result is final.
