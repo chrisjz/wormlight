@@ -176,8 +176,8 @@ export async function startPlate(
   why.rel = 'noopener';
   notice.append(
     el('strong', undefined, "Crawling doesn't yet emerge. "),
-    "The model runs on provisional values until its fit runs again with a new noise, and on them the worm doesn't " +
-      'crawl. ',
+    "The worm moves forward at about an eighth of a real worm's speed, in runs its head's slow cycle cuts every " +
+      'ten seconds or so. ',
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);

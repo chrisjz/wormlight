@@ -1855,3 +1855,47 @@ The study reports, for each candidate, the points where it converges and where i
 - **Both fits take it:** R's refit on the registry's values, and the planned fit as it stands, with its white noise, as the choice now requires (§9). Each result is written to `data/equivalence/<fit>.json` and to VALIDATION.md.
 
 **Status.** Set before the test is built or R's refit runs.
+
+## 2026-09-28 — R's refit converges and fails checkpoint 1: it is chosen, and R ends
+
+**What ran,** by the rules above, each set before it ran.
+
+- **The refit** (`npm run calibrate` at d946b9f, 2,000 evaluations on 18 cores in 53 min, from R's provisional values). The final pick, from generation 152, scores 1.207 on the fresh seeds 1005 to 1020, against R's first fit's 0.591. It measures 0.100 Hz, 0.70 body lengths, 0.029 body lengths per second and 1.78 reversals a minute, against targets of 0.30, 0.65, 0.22 and 1.8. The three candidates best on their own 4 trials made no bout of 10 s on the fresh seeds and scored 8.8 to 8.9. Five of the twelve values sit on a bound: g_osc at 5 nS and κ_gap,B at 1, their tops; θ_osc at −28 mV and θ_nmj at −0.3, their floors; and τ_n at 0.2 s, its top. σ_n ends at 0.0594 pA·√s, about a third of its bound, and g_osc,B at 3.90 nS, so the B-types keep their oscillator. The registry takes the values unrounded (`data/calibration/r2.json`).
+- **Checkpoint 1 fails** (`npm run harness -- --checkpoint 1` at f9954de):
+
+  | Clause                            | Measured | Grade |
+  | --------------------------------- | -------- | ----- |
+  | Frequency (Hz)                    | 0.099    | Fail  |
+  | Wavelength (body lengths)         | 0.71     | Pass  |
+  | Speed (body lengths/s)            | 0.029    | Fail  |
+  | Posture variance, four eigenworms | 98.4%    | Pass  |
+  | Trials with a 20 s forward bout   | 0%       | Fail  |
+
+  The frequency falls just under partial's 0.10 Hz. In every trial the worm moves forward 79–82% of the time, but no forward run lasts past 10.3 s: all 54 reversals began within 3 s after a flip of the head switch, whose cycle puts the mid-body spectrum's peak at 0.082 Hz, with 1% of its power between 0.2 and 0.45 Hz. Over its 12 bouts of 10 s the mid-body crosses its mean twice a bout, one undulation a run, so the graded frequency is the switch's. The switch's cycle sets forward runs of about 10 s, at the bouts' own 10 s floor, which is why a candidate's kinematics could go unmeasured on other seeds.
+
+- **§7.2's comparison** (`npm run equivalence`), 200 trials at 2.5 and 1.25 ms each, each clause's 95% interval for the difference against its margin:
+
+  | Clause                           | R's refit, dt → dt/2 | Interval         | Margin  | The planned fit, dt → dt/2 | Interval         | Margin  |
+  | -------------------------------- | -------------------- | ---------------- | ------- | -------------------------- | ---------------- | ------- |
+  | Frequency (Hz)                   | 0.0995 → 0.0995      | −0.0002, +0.0003 | ±0.0030 | 0.198 → 0.255              | −0.097, −0.025   | ±0.0077 |
+  | Wavelength (body lengths)        | 0.703 → 0.705        | −0.0043, +0.0004 | ±0.021  | 0.555 → 0.406              | +0.082, +0.218   | ±0.012  |
+  | Speed (body lengths/s)           | 0.0288 → 0.0288      | −0.0001, +0.0001 | ±0.0009 | 0.0313 → 0.0302            | +0.0003, +0.0020 | ±0.0009 |
+  | Share of trials with a 20 s bout | 0 → 0                | 0, 0             | ±0.10   | 0 → 0                      | 0, 0             | ±0.10   |
+  | Reversals a minute               | 1.51 → 1.59          | −0.22, +0.07     | ±0.3    | 1.71 → 4.48                | −2.88, −2.67     | ±0.3    |
+  | **Result**                       | **Pass**             |                  |         | **Fail**                   |                  |         |
+
+  R's refit ran at f9954de and the planned fit at eb76387, and no solve failed to converge in either. So R's checkpoint 1 result is final, and the planned fit's, whose frequency, wavelength, speed and reversals all move with the step, isn't.
+
+**Decision,** by the rules set before the refit (PLAN §9, 2026-09-27 and after review 2026-09-28):
+
+- **R's refit is the real wiring's final fit.** Only a fit that passes §7.2's comparison enters the choice, and only R's refit passes it. The app and the harness run it.
+- **R ends.** Its checkpoint 1 result stays below partial, and is final. A further round needs a new proposal the maintainer approves (§9).
+- **Step 4 follows on the chosen fit:** checkpoint 0 runs again, with the sham twins' harness code and the binomial test on arrivals (§7.4). Checkpoints 2 to 6 stay behind checkpoint 1's crawl gate.
+
+**Checked** on the refit's values, on the M5 Max:
+
+- **GPU parity passes in Chrome and in Safari.** The registry's setup, now the refit, passes all 11 of its one-step states and all 11 of its one-second states, every one graded. The coloured current's worst one-step error is 2.0% of its bound in both. Of 109 one-second states, 15 aren't graded in Chrome and 14 in Safari. The brain runs at 29.8 times real time in Chrome and the whole loop at 24.9; in Safari, at 22.6 and 17.8, faster than Safari's run on the provisional values the same day, at 15.4 and 11.0, on the same machine.
+- **Long-run parity passes in Chrome,** 265 seeds a side for 60 s each: the SD of κL differs by −0.0003 against ±0.0372 and the frequency by 0.00004 Hz against ±0.0043, with no unconverged solve.
+- **The app** holds 60 frames a second at up to 30× in headless Chrome, and at 50× gives 34 (`npm run plate:bench`).
+
+**Status.** Done: R has ended. Step 4 is next; a further round of R needs a new proposal.
