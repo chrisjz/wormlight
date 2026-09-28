@@ -192,6 +192,18 @@ Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spec
 
 ### The step: §7.2's comparison with the noise on
 
-Not yet run.
+#### The planned model's fit — **Fail**
+
+Run on 2026-09-28 at `eb76387`: 200 trials of 120 s at each step, seeds 1 to 200, at dt = 2.5 ms and dt/2 = 1.25 ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from 1,000 resamples of the seeds, and must lie within its margin (PLAN §7.2).
+
+| Clause                           | dt     | dt/2   | Difference | 95% interval       | Margin  | Result   |
+| -------------------------------- | ------ | ------ | ---------- | ------------------ | ------- | -------- |
+| Frequency (Hz)                   | 0.1982 | 0.2552 | −0.0570    | −0.0971 to −0.0251 | ±0.0077 | **Fail** |
+| Wavelength (body lengths)        | 0.5548 | 0.4057 | +0.1492    | +0.0824 to +0.2177 | ±0.0122 | **Fail** |
+| Speed (body lengths/s)           | 0.0313 | 0.0302 | +0.0011    | +0.0003 to +0.0020 | ±0.0009 | **Fail** |
+| Share of trials with a 20 s bout | 0.000  | 0.000  | 0.000      | 0.000 to 0.000     | ±0.100  | **Pass** |
+| Reversals a minute               | 1.708  | 4.484  | −2.776     | −2.877 to −2.672   | ±0.300  | **Fail** |
+
+Checkpoint 1's grade over these trials, reported and not compared: **Fail** at dt and **Fail** at dt/2. Solves that didn't converge: 0 at dt and 0 at dt/2. Every trial stayed within the finite numbers.
 
 <!-- /harness:equivalence -->

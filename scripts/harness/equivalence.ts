@@ -18,7 +18,7 @@ import type { LoopParams } from '../../src/sim/world.ts';
 import { checkpoint1, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import { compareSteps, EQUIVALENCE, EQUIVALENCE_SEEDS } from '../../src/validation/equivalence.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
-import { formatMarkdown } from '../data/render.ts';
+import { formatJson, formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
 import { buildTree, forkPool, prepareSet, treeSource, workersFrom, writeWhole } from '../experiments/trees.ts';
 import { commit } from './commit.ts';
@@ -142,7 +142,8 @@ if (process.argv[2] === '--worker') {
   process.stdout.write(`${section}\n\n`);
   if (full) {
     mkdirSync(RESULTS, { recursive: true });
-    writeFileSync(join(RESULTS, `${options.fit}.json`), `${JSON.stringify({ ...run, source }, null, 2)}\n`);
+    const file = join(RESULTS, `${options.fit}.json`);
+    writeFileSync(file, await formatJson(JSON.stringify({ ...run, source }), file));
     // Every fit's latest full run, the refit first.
     const runs = FITS.filter((fit) => readdirSync(RESULTS).includes(`${fit}.json`)).map(
       (fit) => JSON.parse(readFileSync(join(RESULTS, `${fit}.json`), 'utf8')) as EquivalenceRun,
