@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { packLoop } from '../src/gpu/loopLayout.ts';
+import { checkGpuWorld, packLoop } from '../src/gpu/loopLayout.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { currentParams, World } from '../src/sim/world.ts';
 import { readJson } from './checks.ts';
@@ -38,7 +38,14 @@ describe("the study's candidates", () => {
     expect(Array.from(coloured.brain.voltage)).not.toEqual(Array.from(white.brain.voltage));
   });
 
-  it('are refused by the GPU, which runs neither', () => {
+  it('refuse a negative correlation time', () => {
+    expect(() => new World(data, { ...currentParams(), noiseCorrelation: -0.1 })).toThrow(/negative/);
+  });
+
+  it('are refused by the GPU, which runs neither, however a world reaches it', () => {
+    // GpuWorld.create packs a world and GpuWorld.load takes one in; both check it first.
+    expect(() => checkGpuWorld(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
+    expect(() => checkGpuWorld(new World(data, currentParams()))).not.toThrow();
     expect(() => packLoop(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
     expect(() => packLoop(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }))).toThrow(/GPU/);
     expect(() => packLoop(new World(data, currentParams(), { noiseGrid: NEURAL_STEP / 2 }))).toThrow(/GPU/);

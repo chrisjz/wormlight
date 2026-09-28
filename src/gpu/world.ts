@@ -7,7 +7,7 @@ import { tap, type TouchReceptor } from '../sim/touch.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import { GpuBrain, type GpuBrainOptions, type GpuBrainStatus } from './brain.ts';
 import type { GpuField } from './field.ts';
-import { awcLayout, packLoop, packOdour, type LoopLayout } from './loopLayout.ts';
+import { awcLayout, checkGpuWorld, type LoopLayout, packLoop, packOdour } from './loopLayout.ts';
 
 // A whole World on the GPU: its brain and its loop, stepped together at the neural step.
 export class GpuWorld {
@@ -50,6 +50,7 @@ export class GpuWorld {
   // Take on another world made the same way, perhaps with another seed: its seed and noise, which AWC is ON and
   // so its gain, and its state. Its odour isn't taken; setOdour changes that.
   load(world: World): void {
+    checkGpuWorld(world);
     const state = world.snapshot();
     this.brain.checkLoopState(state);
     this.brain.setAwc(awcLayout(world));

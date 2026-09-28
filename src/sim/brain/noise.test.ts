@@ -38,7 +38,7 @@ describe('the noise drawn from a grid', () => {
     expect(Array.from(a)).toEqual(Array.from(b));
   });
 
-  it("settles the coloured current to σ_n²/2τ_n's variance, tending to white noise as τ_n shrinks", () => {
+  it("settles the coloured current to σ_n²/2τ_n's variance", () => {
     const dt = 0.0025;
     const tau = 0.2;
     const coloured = new Float64Array(n);

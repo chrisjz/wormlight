@@ -13,6 +13,9 @@
 // harness-out/convergence/trees/. Records go to harness-out/convergence/records/, one folder a set, each with a
 // manifest naming what its trials ran on; a set whose manifest doesn't match is run again. The summary goes to
 // harness-out/convergence/summary.json.
+//
+// DECISIONS.md's results came from aaacc70. Its resamplings have since moved to the model's hash, so a rerun's chance
+// figures differ slightly from those; its trials don't.
 
 import { fork } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -27,7 +30,7 @@ import type { TrialRecord } from '../../../src/validation/trial.ts';
 import { ROOT } from '../../data/sources.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned } from '../../harness/pinned.ts';
-import { buildTree, forkPool, prepareSet, treeSource, workersFrom, writeWhole } from '../trees.ts';
+import { buildTree, forkPool, prepareSet, resampledChance, treeSource, workersFrom, writeWhole } from '../trees.ts';
 import { GAINS, LONE_SETTINGS, RECOVERIES, STEPS, excited, held } from './oscillator.ts';
 
 const OUT = join(ROOT, 'harness-out', 'convergence');
@@ -125,9 +128,10 @@ function speed(treeDir: string): Promise<{ step: number; realTime: number }> {
     const child = fork(fileURLToPath(import.meta.url), ['--speed', treeDir], {
       stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
     });
-    child.once('message', (m) => resolve(m as { step: number; realTime: number }));
+    let result: { step: number; realTime: number } | null = null;
+    child.once('message', (m) => (result = m as { step: number; realTime: number }));
     child.on('exit', (code) =>
-      code === 0 ? undefined : reject(new Error(`the speed run in ${treeDir} exited ${code}`)),
+      code === 0 && result ? resolve(result) : reject(new Error(`the speed run in ${treeDir} gave no result`)),
     );
   });
 }
@@ -143,23 +147,6 @@ const meanVelocity = (trials: readonly TrialRecord[]): number => {
   const all = trials.flatMap((r) => r.velocity);
   return all.reduce((a, b) => a + b, 0) / all.length;
 };
-
-// A pooled measure's chance variation: its standard deviation over RESAMPLES resamplings of the trials, with
-// replacement, as a share of its value; a fixed seed makes it repeatable.
-function chance(trials: readonly TrialRecord[], value: (sample: TrialRecord[]) => number | null): number | null {
-  const full = value([...trials]);
-  if (full === null || full === 0) return null;
-  let state = 12345;
-  const random = (): number => (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const draws: number[] = [];
-  for (let b = 0; b < RESAMPLES; b++) {
-    const v = value(Array.from({ length: trials.length }, () => trials[Math.floor(random() * trials.length)]));
-    if (v !== null) draws.push(v);
-  }
-  const mean = draws.reduce((a, b) => a + b, 0) / draws.length;
-  const sd = Math.sqrt(draws.reduce((a, b) => a + (b - mean) ** 2, 0) / (draws.length - 1));
-  return sd / Math.abs(full);
-}
 
 // A fit's measures at one step, with or without its noise. Grading doesn't depend on the step: the records are
 // sampled every MOTION_SAMPLE s at any step.
@@ -184,10 +171,10 @@ async function grade(step: number, model: Model, noise: Noise): Promise<Record<s
     flipsPerMinute: trials.reduce((n, r) => n + r.switchFlips.filter((t) => t >= MEASURE_FROM).length, 0) / minutes,
     meanVelocity: meanVelocity(trials),
     chance: {
-      frequency: chance(trials, clause('frequency')),
-      wavelength: chance(trials, clause('wavelength')),
-      speed: chance(trials, clause('speed')),
-      meanVelocity: chance(trials, meanVelocity),
+      frequency: resampledChance(trials, clause('frequency'), RESAMPLES),
+      wavelength: resampledChance(trials, clause('wavelength'), RESAMPLES),
+      speed: resampledChance(trials, clause('speed'), RESAMPLES),
+      meanVelocity: resampledChance(trials, meanVelocity, RESAMPLES),
     },
     unconverged: [...trials, ...fresh].reduce((n, r) => n + r.unconverged, 0),
     fresh: { ...m, objective: objective(m).value },

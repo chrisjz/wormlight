@@ -4,6 +4,7 @@
 import { execSync, fork } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { hash, uniform } from '../../src/sim/brain/rng.ts';
 import { ROOT } from '../data/sources.ts';
 
 // The git trees whose content a trial depends on, less the step: the model's code, the data, the pins and the
@@ -90,3 +91,24 @@ export function workersFrom(args: readonly string[], cores: number): number {
   if (!Number.isInteger(workers) || workers < 1) throw new Error('usage: --jobs N, N a whole number');
   return workers;
 }
+
+// A pooled measure's chance variation: its standard deviation over `resamples` resamplings of the trials, with
+// replacement, as a share of its value, the draws from the model's own hash so every run makes the same ones.
+export function resampledChance<T>(
+  trials: readonly T[],
+  value: (sample: T[]) => number | null,
+  resamples: number,
+): number | null {
+  const full = value([...trials]);
+  if (full === null || full === 0) return null;
+  const draws: number[] = [];
+  for (let b = 0; b < resamples; b++) {
+    const sample = trials.map((_, k) => trials[Math.floor(uniform(hash(RESAMPLING_SEED, b, k)) * trials.length)]);
+    const v = value(sample);
+    if (v !== null) draws.push(v);
+  }
+  if (draws.length < 2) return null;
+  const mean = draws.reduce((a, b) => a + b, 0) / draws.length;
+  return Math.sqrt(draws.reduce((a, b) => a + (b - mean) ** 2, 0) / (draws.length - 1)) / Math.abs(full);
+}
+const RESAMPLING_SEED = 12345;

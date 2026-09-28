@@ -10,6 +10,9 @@
 //
 // Each loop step runs in a copy of the committed tree with it changed, under harness-out/fixes/trees/. Records go to
 // harness-out/fixes/records/, one folder a set with a manifest, and the summary to harness-out/fixes/summary.json.
+//
+// DECISIONS.md's results came from a5e763f. After review its resamplings draw from the model's hash, and its verdicts
+// record each clause's difference, so a rerun's chance figures differ slightly from those; its trials don't.
 
 import { fork } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -25,7 +28,7 @@ import type { TrialRecord } from '../../../src/validation/trial.ts';
 import { ROOT } from '../../data/sources.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned } from '../../harness/pinned.ts';
-import { buildTree, forkPool, prepareSet, treeSource, workersFrom, writeWhole } from '../trees.ts';
+import { buildTree, forkPool, prepareSet, resampledChance, treeSource, workersFrom, writeWhole } from '../trees.ts';
 
 const OUT = join(ROOT, 'harness-out', 'fixes');
 const STEPS = [0.0025, 0.00125] as const;
@@ -51,9 +54,13 @@ interface Setting {
   gains?: { a?: number; b?: number };
 }
 
+// What a record set ran on: the trees its trials depend on, its step, and the study's own settings for it, which
+// live in this script, outside those trees.
 interface Manifest extends Setting {
   source: string;
   step: number;
+  correlation: number;
+  grid: number;
 }
 
 interface Job {
@@ -102,7 +109,7 @@ async function runJob(job: Job): Promise<void> {
   const params: LoopParams = {
     ...base,
     ...(m.noise === 'off' ? { noise: 0 } : {}),
-    ...(m.noise === 'coloured' ? { noiseCorrelation: CORRELATION } : {}),
+    ...(m.noise === 'coloured' ? { noiseCorrelation: m.correlation } : {}),
     ...(m.gains?.a === undefined ? {} : { oscillatorGain: m.gains.a }),
     ...(m.gains?.b === undefined ? {} : { oscillatorGainB: m.gains.b }),
   };
@@ -113,7 +120,7 @@ async function runJob(job: Job): Promise<void> {
     postures: await readPostures(),
     neuralSubsteps: m.substeps,
     // The finer of the pair's brain steps, which both runs' noise is drawn on.
-    noiseGrid: STEPS[1] / m.substeps,
+    noiseGrid: m.grid,
   });
   writeWhole(job.out, JSON.stringify(record));
 }
@@ -138,8 +145,11 @@ function speed(substeps: number): Promise<{ substeps: number; realTime: number }
     const child = fork(fileURLToPath(import.meta.url), ['--speed', String(substeps)], {
       stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
     });
-    child.once('message', (m) => resolve(m as { substeps: number; realTime: number }));
-    child.on('exit', (code) => (code === 0 ? undefined : reject(new Error(`the speed run at k = ${substeps} failed`))));
+    let result: { substeps: number; realTime: number } | null = null;
+    child.once('message', (m) => (result = m as { substeps: number; realTime: number }));
+    child.on('exit', (code) =>
+      code === 0 && result ? resolve(result) : reject(new Error(`the speed run at k = ${substeps} gave no result`)),
+    );
   });
 }
 
@@ -152,23 +162,6 @@ const meanVelocity = (trials: readonly TrialRecord[]): number => {
   const all = trials.flatMap((r) => r.velocity);
   return all.reduce((a, b) => a + b, 0) / all.length;
 };
-
-// A pooled measure's chance variation: its standard deviation over RESAMPLES resamplings of the trials, as a share of
-// its value, from a fixed seed.
-function chance(trials: readonly TrialRecord[], value: (sample: TrialRecord[]) => number | null): number | null {
-  const full = value([...trials]);
-  if (full === null || full === 0) return null;
-  let state = 12345;
-  const random = (): number => (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const draws: number[] = [];
-  for (let b = 0; b < RESAMPLES; b++) {
-    const v = value(Array.from({ length: trials.length }, () => trials[Math.floor(random() * trials.length)]));
-    if (v !== null) draws.push(v);
-  }
-  if (draws.length < 2) return null;
-  const mean = draws.reduce((a, b) => a + b, 0) / draws.length;
-  return Math.sqrt(draws.reduce((a, b) => a + (b - mean) ** 2, 0) / (draws.length - 1)) / Math.abs(full);
-}
 
 interface Measured {
   grade: string;
@@ -197,10 +190,10 @@ async function measureSet(dir: string, seeds: readonly number[], withChance: boo
     ...(withChance
       ? {
           chance: {
-            frequency: chance(trials, clause('frequency')),
-            wavelength: chance(trials, clause('wavelength')),
-            speed: chance(trials, clause('speed')),
-            meanVelocity: chance(trials, meanVelocity),
+            frequency: resampledChance(trials, clause('frequency'), RESAMPLES),
+            wavelength: resampledChance(trials, clause('wavelength'), RESAMPLES),
+            speed: resampledChance(trials, clause('speed'), RESAMPLES),
+            meanVelocity: resampledChance(trials, meanVelocity, RESAMPLES),
           },
         }
       : {}),
@@ -208,19 +201,28 @@ async function measureSet(dir: string, seeds: readonly number[], withChance: boo
 }
 
 // The criterion: judged only where the worm crawls at both steps; converged if every clause value agrees within 2%
-// and the grade is the same.
-function verdict(coarse: Measured, fine: Measured): { verdict: string; worst: number | null } {
-  if (coarse.bouts < EXERCISED || fine.bouts < EXERCISED) return { verdict: 'not exercised', worst: null };
-  let worst = 0;
+// and the grade is the same. Each clause's difference is recorded: relative to the finer run's value, but absolute for
+// the bout clause, a share of trials; a clause measured at one step only is marked so.
+function verdict(
+  coarse: Measured,
+  fine: Measured,
+): { verdict: string; differences: Record<string, number | 'one step only' | null> } {
+  const differences: Record<string, number | 'one step only' | null> = {};
+  let agree = coarse.grade === fine.grade;
   for (const name of Object.keys(coarse.clauses)) {
     const [a, b] = [coarse.clauses[name], fine.clauses[name]];
-    if (a === null && b === null) continue;
-    if (a === null || b === null) return { verdict: 'not converged', worst: Infinity };
-    const d = a === b ? 0 : Math.abs(a - b) / Math.max(Math.abs(b), 1e-12);
-    worst = Math.max(worst, d);
+    if (a === null && b === null) differences[name] = null;
+    else if (a === null || b === null) {
+      differences[name] = 'one step only';
+      agree = false;
+    } else {
+      const d = name === 'bout' ? Math.abs(a - b) : a === b ? 0 : Math.abs(a - b) / Math.abs(b);
+      differences[name] = d;
+      if (!(d <= AGREE)) agree = false;
+    }
   }
-  const ok = worst <= AGREE && coarse.grade === fine.grade;
-  return { verdict: ok ? 'converged' : 'not converged', worst };
+  if (coarse.bouts < EXERCISED || fine.bouts < EXERCISED) return { verdict: 'not exercised', differences };
+  return { verdict: agree ? 'converged' : 'not converged', differences };
 }
 
 function settings(): { main: Setting[]; sweep: Setting[] } {
@@ -260,7 +262,7 @@ if (process.argv[2] === '--worker') {
   const reused: string[] = [];
   const queue = (s: Setting, seeds: readonly number[]): void => {
     for (const step of STEPS) {
-      const manifest: Manifest = { ...s, source, step };
+      const manifest: Manifest = { ...s, source, step, correlation: CORRELATION, grid: STEPS[1] / s.substeps };
       const dir = setDir(s, step);
       const needed = prepareSet(dir, manifest, seeds);
       if (needed.length < seeds.length) reused.push(dir);

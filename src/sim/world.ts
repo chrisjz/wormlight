@@ -217,6 +217,7 @@ export class World {
     this.brain = new Brain(network, thresholds, options.solver);
     this.brain.noise = params.noise;
     this.brain.noiseCorrelation = params.noiseCorrelation ?? 0;
+    if (!(this.brain.noiseCorrelation >= 0)) throw new Error("the noise's correlation time can't be negative");
     this.brain.noiseGrid = options.noiseGrid ?? 0;
     this.substeps = options.neuralSubsteps ?? 1;
     if (!Number.isInteger(this.substeps) || this.substeps < 1)
