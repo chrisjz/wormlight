@@ -30,11 +30,11 @@ describe('citations', () => {
 });
 
 describe('parameters', () => {
-  it("keep within the free-parameter budget: track R's eleven calibrated and six fixed in advance", () => {
+  it("keep within the free-parameter budget: track R's twelve calibrated and six fixed in advance", () => {
     const free = freeParams();
-    expect(free).toHaveLength(17);
+    expect(free).toHaveLength(18);
     expect(free.length).toBeLessThanOrEqual(FREE_PARAMETER_BUDGET);
-    expect(free.filter((id) => PARAMS[id].level === 1)).toHaveLength(11);
+    expect(free.filter((id) => PARAMS[id].level === 1)).toHaveLength(12);
     expect(free.filter((id) => PARAMS[id].level === 0)).toHaveLength(6);
   });
 

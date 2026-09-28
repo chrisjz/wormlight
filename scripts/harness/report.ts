@@ -29,6 +29,8 @@ export interface RunInfo {
   // Checkpoint 0's assay runs: how many worms, each for up to how long (s).
   worms?: number;
   wormSeconds?: number;
+  // The registry the run's parameters came from, if not PARAMS itself.
+  registry?: Record<string, Param>;
 }
 
 // The parameters a run used: the calibrated ones, to three significant figures, as FIDELITY.md shows them, or
@@ -96,7 +98,7 @@ function runLine(info: RunInfo, trials: readonly TrialSummary[]): string {
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length;
   return [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText(info.calibrated)}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText(info.calibrated, info.registry)}.`,
     `Every measure starts after each trial's first 10 s. ${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
 }
@@ -131,7 +133,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length;
   const minutes = (info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds) / 60;
   const run = [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated)}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated, info.registry)}.`,
     `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${plural(infinite, 'trial or worm', 'trials or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
   const { front, back, window, anteriorPartial, first, every } = CHECKPOINT_0_TOUCH;

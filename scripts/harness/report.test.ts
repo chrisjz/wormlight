@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import { checkpoint0, checkpoint1, touchSchedule } from '../../src/validation/checkpoints.ts';
 import { emptySums } from '../../src/validation/posture.ts';
-import { PARAMS } from '../../src/science/params.ts';
+import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { formatNumber } from '../docs/page.ts';
@@ -11,11 +11,18 @@ import { parseArgs } from './run.ts';
 
 const info = { date: '2026-09-26', commit: 'abc1234', calibrated: false, trials: 1, seconds: 70 };
 
-// The registry with its calibrated values unset, as before a fit.
+// The registry with its calibrated values unset, as before a fit, and one standing in for a fit's: each provisional
+// value nudged off its three figures, so the report must round it.
 const uncalibrated = { ...PARAMS, ...Object.fromEntries(CALIBRATED.map((id) => [id, { ...PARAMS[id], value: null }])) };
+const fitted: Record<string, Param> = {
+  ...PARAMS,
+  ...Object.fromEntries(
+    CALIBRATED.map((id) => [id, { ...PARAMS[id], value: (PARAMS[id].provisional as number) * (1 + 1e-4) + 1e-9 }]),
+  ),
+};
 // A calibrated value as the report shows it, to three significant figures.
 const shown = (id: (typeof CALIBRATED)[number]): string =>
-  formatNumber(Number((PARAMS[id].value as number).toPrecision(3)));
+  formatNumber(Number((fitted[id].value as number).toPrecision(3)));
 // A trial that backs up for 2 s of its 60 measured, then lies still.
 const velocity = [...Array<number>(20).fill(-0.05), ...Array<number>(580).fill(0)];
 const zeros = velocity.map(() => 0);
@@ -86,10 +93,11 @@ describe('the harness report', () => {
     expect(parameterText(false)).toContain('g_osc = 2140 pS');
     expect(parameterText(false)).toContain('g_osc,B = 2140 pS');
     expect(parameterText(false)).toContain('κ_gap,B = 1, g_nmj = 22 per unit of relative drive');
-    expect(parameterText(false)).toContain('σ_n = 0.0834 pA·√s');
+    expect(parameterText(false)).toContain('σ_n = 0.148 pA·√s, τ_n = 0.0632 s');
     expect(() => parameterText(true, uncalibrated)).toThrow(/aren't calibrated/);
+    expect(() => parameterText(true)).toThrow(/aren't calibrated/);
     // R's fit, to three significant figures.
-    const calibrated = parameterText(true);
+    const calibrated = parameterText(true, fitted);
     expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');
     expect(calibrated).toContain(
       `g_osc = ${shown('oscillatorExcitability')} pS, g_osc,B = ${shown('oscillatorExcitabilityB')} pS`,
@@ -186,7 +194,11 @@ describe('the harness report', () => {
     expect(section).toContain(
       'the mid-body curvature has no spectrum to report; 0 of 0 reversals started within 3 s after a flip of the head switch',
     );
-    const calibrated = checkpoint1Section(checkpoint1([record], [[1]]), { ...info, calibrated: true });
+    const calibrated = checkpoint1Section(checkpoint1([record], [[1]]), {
+      ...info,
+      calibrated: true,
+      registry: fitted,
+    });
     expect(calibrated).toContain(
       'which the parameters were tuned against (PLAN §7.3), on seeds of their own, 1001 to 1020',
     );

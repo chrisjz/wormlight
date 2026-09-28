@@ -30,6 +30,7 @@ export class GpuWorld {
     try {
       brain.setOscillators(world.brain.oscillators);
       brain.noise = world.brain.noise;
+      brain.noiseCorrelation = world.brain.noiseCorrelation;
       brain.seed = world.brain.seed;
       const gpu = new GpuWorld(brain, layout);
       gpu.restore(world.snapshot());
@@ -56,6 +57,7 @@ export class GpuWorld {
     this.brain.setAwc(awcLayout(world));
     this.brain.seed = world.brain.seed;
     this.brain.noise = world.brain.noise;
+    this.brain.noiseCorrelation = world.brain.noiseCorrelation;
     this.restore(state);
   }
 

@@ -80,7 +80,7 @@ describe('fidelityPage', () => {
 
   it('states the free-parameter count against the budget', () => {
     expect(page).toContain(
-      'There are 17 free parameters, 11 calibrated and 6 fixed in advance, against a budget of 17',
+      'There are 18 free parameters, 12 calibrated and 6 fixed in advance, against a budget of 18',
     );
   });
 });
@@ -90,12 +90,11 @@ describe('calibrated values on the page', () => {
     const fitted = (value: number): Param => ({ ...PARAMS.oscillatorDriveThreshold, value });
     expect(formatValue(fitted(-12.882325367708441))).toBe('−12.9');
     expect(formatValue({ ...PARAMS.oscillatorExcitability, value: 2135.222828203875 })).toBe('2140');
-    const g = PARAMS.oscillatorExcitability.value as number;
-    expect(formatValue(PARAMS.oscillatorExcitability)).toBe(formatNumber(Number(g.toPrecision(3))));
     // Before a fit, the page shows the provisional value.
     expect(formatValue({ ...PARAMS.oscillatorExcitability, value: null })).toBe(
       'not yet calibrated; provisionally 2140',
     );
+    expect(formatValue({ ...PARAMS.oscillatorExcitability, value: 5000 })).toBe(formatNumber(5000));
     expect(formatValue(PARAMS.membraneCapacitance)).toBe('1');
   });
 });

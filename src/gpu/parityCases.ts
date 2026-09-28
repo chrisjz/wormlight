@@ -213,8 +213,9 @@ export function assayField(): OdourField {
 // off as well. The gating variant's seed makes AWCR AWC-ON, where the others' makes AWCL, and its states are
 // also taken moved, so AWCR senses odour its threshold never adapted to. A fourth runs track R's model (PLAN §9):
 // relative drive, g_nmj and θ_nmj in its units, the B-types' oscillator gain apart from the A-types', and the two
-// class gains below 1. A fifth runs the values the app runs, the registry's, so the GPU is checked on whatever a fit
-// sets (DECISIONS.md, 2026-09-28): R's fit leaves the B-types without oscillators and the A-types' at 5 nS.
+// class gains below 1. A fifth runs the trial values with the coloured noise, which carries a current in each
+// neuron's state (DECISIONS.md, 2026-09-28). A sixth runs the values the app runs, the registry's, so the GPU is
+// checked on whatever a fit sets.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
@@ -249,6 +250,7 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     },
     states: 10,
   },
+  { name: 'coloured', params: { ...PARITY_LOOP, noiseCorrelation: 0.05 }, states: 10 },
   { name: 'registry', params: currentParams(), states: 10 },
 ];
 

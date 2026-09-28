@@ -38,16 +38,27 @@ describe("the study's candidates", () => {
     expect(Array.from(coloured.brain.voltage)).not.toEqual(Array.from(white.brain.voltage));
   });
 
+  it('carry the coloured current in a snapshot, so a restored world goes on as the unbroken one', () => {
+    const params = { ...currentParams(), noiseCorrelation: 0.05 };
+    const unbroken = run(new World(data, params, { seed: 3 }), 600);
+    const halfway = run(new World(data, params, { seed: 3 }), 300);
+    const restored = new World(data, params, { seed: 3 });
+    restored.restore(halfway.snapshot());
+    run(restored, 300);
+    expect(Array.from(restored.brain.voltage)).toEqual(Array.from(unbroken.brain.voltage));
+    expect(halfway.snapshot().brain.noise.some((x) => x !== 0)).toBe(true);
+  });
+
   it('refuse a negative correlation time', () => {
     expect(() => new World(data, { ...currentParams(), noiseCorrelation: -0.1 })).toThrow(/negative/);
   });
 
-  it('are refused by the GPU, which runs neither, however a world reaches it', () => {
+  it('are refused by the GPU, sub-steps and noise grids alike, however a world reaches it; coloured noise it runs', () => {
     // GpuWorld.create packs a world and GpuWorld.load takes one in; both check it first.
     expect(() => checkGpuWorld(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
     expect(() => checkGpuWorld(new World(data, currentParams()))).not.toThrow();
+    expect(() => checkGpuWorld(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }))).not.toThrow();
     expect(() => packLoop(new World(data, currentParams(), { neuralSubsteps: 2 }))).toThrow(/GPU/);
-    expect(() => packLoop(new World(data, { ...currentParams(), noiseCorrelation: 0.2 }))).toThrow(/GPU/);
     expect(() => packLoop(new World(data, currentParams(), { noiseGrid: NEURAL_STEP / 2 }))).toThrow(/GPU/);
   });
 });

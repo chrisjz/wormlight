@@ -37,7 +37,7 @@ export interface Param {
   provisional?: number;
 }
 
-export const FREE_PARAMETER_BUDGET = 17;
+export const FREE_PARAMETER_BUDGET = 18;
 const CALIBRATION_TARGETS =
   'undulation frequency, wavelength, speed and the spontaneous reversal rate, by one CMA-ES procedure (PLAN §7.3)';
 
@@ -167,21 +167,35 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: 0.12664945135247196,
+    value: null,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
     sources: ['gray2005'],
-    note: "White current noise, drawn each step with standard deviation σ_n/√dt; from track R's refit, a coloured current (DECISIONS.md, 2026-09-28).",
+    note: "The intensity of each neuron's coloured noise current, an Ornstein–Uhlenbeck process with correlation time τ_n: τ_n dη = −η dt + σ_n dW, updated exactly each step (DECISIONS.md, 2026-09-28). Its upper bound gives the widest neuron at rest, IL2DL, a voltage spread of 20 mV with τ_n at its upper bound (PLAN §7.3).",
     calibratedAgainst: CALIBRATION_TARGETS,
     upgrade: 'Measured noise statistics of C. elegans neurons',
-    bounds: [0, 0.169],
-    provisional: 0.0834,
+    bounds: [0, 0.472],
+    provisional: 0.148,
+  },
+  noiseCorrelation: {
+    name: 'Neural noise correlation time',
+    symbol: 'τ_n',
+    value: null,
+    unit: 's',
+    level: 1,
+    subsystem: 'neural',
+    sources: [],
+    note: "The coloured noise current's correlation time. Tuned, not set: it moves the worm as much as any parameter (DECISIONS.md, 2026-09-28).",
+    calibratedAgainst: CALIBRATION_TARGETS,
+    upgrade: 'Measured noise statistics of C. elegans neurons',
+    bounds: [0.02, 0.2],
+    provisional: 0.0632,
   },
   gapGainB: {
     name: 'B-type gap junction gain',
     symbol: 'κ_gap,B',
-    value: 0.22762780716148476,
+    value: null,
     unit: '',
     level: 1,
     subsystem: 'neural',
@@ -299,7 +313,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch current gain',
     symbol: 'g_sw',
-    value: 400,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -313,7 +327,7 @@ export const PARAMS = {
   oscillatorExcitability: {
     name: 'A-type oscillator excitability',
     symbol: 'g_osc',
-    value: 5000,
+    value: null,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -327,7 +341,7 @@ export const PARAMS = {
   oscillatorExcitabilityB: {
     name: 'B-type oscillator excitability',
     symbol: 'g_osc,B',
-    value: 0,
+    value: null,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -341,7 +355,7 @@ export const PARAMS = {
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: 1.3560373295681751,
+    value: null,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -355,7 +369,7 @@ export const PARAMS = {
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: -28,
+    value: null,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -380,7 +394,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: 1.6444928523215532,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -396,7 +410,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: 40,
+    value: null,
     unit: 'per unit of relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -410,7 +424,7 @@ export const PARAMS = {
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: -0.17246425327436188,
+    value: null,
     unit: 'relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -424,7 +438,7 @@ export const PARAMS = {
   smdGain: {
     name: 'SMD junction gain past the head',
     symbol: 'κ_SMD',
-    value: 0.15781678236807647,
+    value: null,
     unit: '',
     level: 1,
     subsystem: 'muscle',

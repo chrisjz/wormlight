@@ -47,6 +47,8 @@ export interface BrainState {
   previousVoltage: Float64Array;
   previousActivation: Float64Array;
   previousRecovery: Float64Array;
+  // Each neuron's coloured noise current, 0 throughout with white noise.
+  noise: Float64Array;
   history: number;
   steps: number;
 }
@@ -182,6 +184,7 @@ export class Brain {
     this.d = new Float64Array(n);
     this.b = new Float64Array(n);
     this.next = new Float64Array(n);
+    this.coloured = new Float64Array(n);
     this.solver = new ConjugateGradient(n);
     this.tolerance = options.tolerance ?? CG_TOLERANCE;
     this.maxIterations = options.maxIterations ?? CG_MAX_ITERATIONS;
@@ -231,6 +234,7 @@ export class Brain {
       previousVoltage: Float64Array.from(this.previousVoltage),
       previousActivation: Float64Array.from(this.previousActivation),
       previousRecovery: Float64Array.from(this.previousRecovery),
+      noise: Float64Array.from(this.coloured),
       history: this.historyStep,
       steps: this.steps,
     };
@@ -238,7 +242,8 @@ export class Brain {
 
   restore(state: BrainState): void {
     if (state.recovery.length !== this.recovery.length) throw new Error('the state has other oscillators');
-    this.coloured.fill(0);
+    if (state.noise.length !== this.n) throw new Error('the state has another number of neurons');
+    this.coloured.set(state.noise);
     this.voltage.set(state.voltage);
     this.activation.set(state.activation);
     this.recovery.set(state.recovery);
@@ -258,7 +263,6 @@ export class Brain {
   // Each neuron's noise current over the next step, from the grid's path (noise.ts).
   private drawNoise(dt: number): Float64Array {
     if (this.drawn.length !== this.n) this.drawn = new Float64Array(this.n);
-    if (this.coloured.length !== this.n) this.coloured = new Float64Array(this.n);
     const settings = {
       seed: this.seed,
       intensity: this.noise,

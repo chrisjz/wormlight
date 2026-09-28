@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's fit crawls in bouts but fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until the coloured noise runs on the CPU and the GPU and R's fit runs again (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's fit crawls in bouts but fails checkpoint 1 at the 2.5 ms step and reaches partial at half of it, so R is suspended until its fit runs again with the coloured noise (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -349,11 +349,14 @@ export const COMPONENTS: readonly Component[] = [
     levels: [1],
     basis: 'Calibrated to the spontaneous reversal rate (PLAN §7.3)',
     caveats:
-      "White current noise; its intensity is tuned. From track R's refit it becomes a coloured current, whose correlation time is tuned too (DECISIONS.md)",
+      "A coloured current, an Ornstein–Uhlenbeck process in each neuron; its intensity and correlation time are tuned. White noise before track R's refit (DECISIONS.md)",
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [
-      { check: 'unit', detail: 'its power is the same at any step, and each neuron draws its own' },
+      {
+        check: 'unit',
+        detail: 'its variance settles to σ_n²/2τ_n, its update is exact at any step, and each neuron draws its own',
+      },
       { check: 'checkpoint1', detail: 'bout clause' },
       { check: 'checkpoint5', detail: 'spontaneous-reversal rows' },
     ],

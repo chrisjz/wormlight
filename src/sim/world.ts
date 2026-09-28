@@ -55,6 +55,8 @@ export interface RValues extends PlannedValues {
   oscillatorExcitabilityB: number; // pS
   gapGainB: number;
   smdGain: number;
+  // τ_n (s), the coloured noise's correlation time; σ_n is then the coloured current's intensity.
+  noiseCorrelation: number;
 }
 export function loopParams(values: RValues): LoopParams {
   return {
@@ -63,6 +65,7 @@ export function loopParams(values: RValues): LoopParams {
     gapGainB: values.gapGainB,
     smdGain: values.smdGain,
     relativeDrive: true,
+    noiseCorrelation: values.noiseCorrelation,
   };
 }
 
@@ -94,6 +97,7 @@ export const CALIBRATED = [
   'neuromuscularThreshold',
   'smdGain',
   'noiseIntensity',
+  'noiseCorrelation',
 ] as const;
 
 // The registry's values, once calibrated.
