@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { gaussian } from '../sim/brain/rng.ts';
 import { Cmaes, defaultLambda, symmetricEigen } from './cmaes.ts';
 
 // Run to a target or a budget of evaluations; return the evaluations used and the best value.
@@ -53,6 +54,13 @@ describe('CMA-ES', () => {
     expect(run(1)).toEqual(run(1));
     expect(run(1)).not.toEqual(run(2));
     expect(() => new Cmaes({ mean: [0, 0], sigma: 1, seed: 1 }).tell([1, 2])).toThrow(/needs/);
+  });
+
+  it("continues a seed's stream from the generations drawn before it, for a restart", () => {
+    const fresh = new Cmaes({ mean: [0, 0, 0], sigma: 1, seed: 7 }).ask();
+    const later = new Cmaes({ mean: [0, 0, 0], sigma: 1, seed: 7, drawn: 3 }).ask();
+    expect(later[0]).toEqual([0, 1, 2].map((i) => gaussian(7, 3, i)));
+    expect(later[0]).not.toEqual(fresh[0]);
   });
 
   it('ranks an infinite value last, as it would the worst finite one', () => {

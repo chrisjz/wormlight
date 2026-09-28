@@ -12,6 +12,7 @@ import {
   crawlingClause,
   diagnostics,
   periodogram,
+  spectralPeak,
   gradeAtLeast,
   gradeRange,
   meanVelocity,
@@ -372,5 +373,18 @@ describe("checkpoint 1's diagnostics", () => {
   it('say nothing when there is nothing to measure', () => {
     const d = diagnostics([{ ...record([]), finite: false }]);
     expect(d).toMatchObject({ peak: null, share: null, reversals: 0, afterFlip: 0, avaChange: null });
+  });
+});
+
+describe("the mid-body spectrum's peak", () => {
+  it('finds a bend at 0.25 Hz, summing the trials, and gives nothing without a finite trial', () => {
+    const wave = Array.from({ length: 1000 }, (_, k) => Math.sin(2 * Math.PI * 0.25 * (k / 10)));
+    expect(
+      spectralPeak([
+        { finite: true, mid: wave },
+        { finite: true, mid: wave },
+      ]).peak,
+    ).toBeCloseTo(0.25, 12);
+    expect(spectralPeak([{ finite: false, mid: wave }])).toEqual({ peak: null, share: null });
   });
 });
