@@ -163,25 +163,30 @@ describe("the loop's parity", () => {
     expect(world.brain.oscillators?.neurons).toHaveLength(expected.length);
   });
 
-  it("puts every world in the assay's odour field, with each AWC ON in some, and T above and below the odour", () => {
-    const sides = new Set<string>();
-    for (const setup of LOOP_SETUPS) {
-      const c = loopCases(data, setup)[1];
-      const world = cpuWorld(data, c.state, undefined, setup);
-      sides.add(world.awcSide);
-      expect(world.odour).toBe(assayField());
-      expect(world.smell()).toBeGreaterThan(0.5);
-    }
-    expect([...sides].sort()).toEqual(['AWCL', 'AWCR']);
-    // Moved away from the spot, the odour falls below the threshold adapted at the centre; pressed against the
-    // wall beside the spot, it rises far above.
-    const { radii, wall } = boyleBody();
-    const state = loopCases(data)[5].state;
-    const moved = cpuWorld(data, movedAndTurned(state, COPIES[0].dx, COPIES[0].dy, 0));
-    expect(moved.smell()).toBeLessThan(moved.awc.threshold);
-    const pressed = cpuWorld(data, againstWall(state, radii, wall, WALL_COPIES[0]));
-    expect(pressed.smell()).toBeGreaterThan(4 * pressed.awc.threshold);
-  });
+  // Builds every setup's states: about 1.3 s here, and past 5 s on a slow CI runner.
+  it(
+    "puts every world in the assay's odour field, with each AWC ON in some, and T above and below the odour",
+    { timeout: 30000 },
+    () => {
+      const sides = new Set<string>();
+      for (const setup of LOOP_SETUPS) {
+        const c = loopCases(data, setup)[1];
+        const world = cpuWorld(data, c.state, undefined, setup);
+        sides.add(world.awcSide);
+        expect(world.odour).toBe(assayField());
+        expect(world.smell()).toBeGreaterThan(0.5);
+      }
+      expect([...sides].sort()).toEqual(['AWCL', 'AWCR']);
+      // Moved away from the spot, the odour falls below the threshold adapted at the centre; pressed against the
+      // wall beside the spot, it rises far above.
+      const { radii, wall } = boyleBody();
+      const state = loopCases(data)[5].state;
+      const moved = cpuWorld(data, movedAndTurned(state, COPIES[0].dx, COPIES[0].dy, 0));
+      expect(moved.smell()).toBeLessThan(moved.awc.threshold);
+      const pressed = cpuWorld(data, againstWall(state, radii, wall, WALL_COPIES[0]));
+      expect(pressed.smell()).toBeGreaterThan(4 * pressed.awc.threshold);
+    },
+  );
 
   it('moves and turns copies of a state without touching anything else', () => {
     const c = loopCases(data)[3];
