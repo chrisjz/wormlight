@@ -1778,3 +1778,25 @@ The study reports, for each candidate, the points where it converges and where i
 - **Until R's fit runs again, the app runs R's provisional values.** With τ_n uncalibrated the registry holds R's model uncalibrated, as it did before R's first fit, and at those values the worm doesn't crawl. The refit follows in the next pull request. Considered: building the noise and refitting in one pull request.
 
 **Status.** Set before the coloured noise is built into the model.
+
+## 2026-09-28 — The coloured noise, built
+
+**Built** on the CPU reference and the GPU, by the rules above:
+
+- **The current carries in a snapshot.** Each neuron's coloured current is part of the brain's state on both sides: the CPU's `BrainState` and the GPU's ninth state word. A world restored from a snapshot goes on as the unbroken one, bit for bit on the CPU. A review had found such a world parting by up to 5.8 mV.
+- **The GPU runs it.** The kernel updates the current exactly each step, from the same hashed draws as the CPU, with τ_n in the parameter block's vacant slot. GPU worlds take τ_n on creation and on load, and the GPU still refuses the second study's neural sub-steps and noise grids.
+- **The registry is R's refit's.**
+  - τ_n is calibrated from 0.02 to 0.2 s, mapped logarithmically, provisionally 0.0632 s.
+  - σ_n runs from 0 to 0.472 pA·√s, provisionally 0.148.
+  - The budget is 18.
+  - R's twelve calibrated values are null until the refit. R's first fit, with white noise, stays recorded in `data/calibration/r1.json`.
+  - `npm run calibrate` now writes `data/calibration/r2.json`, which a test will hold the registry to.
+- **The planned model** keeps its white noise, unchanged.
+
+**Checked.**
+
+- **Parity in Chrome.** GPU parity passes on an M5 Max, the loop gaining a setup with the trial values and the coloured noise. The registry's setup is now R's provisional values with the coloured noise. The coloured setup passes all 11 one-step states and all 10 of its graded one-second states, and the registry's setup passes every state it has. Across the loop, 15 of 109 one-second states aren't graded, 14%, and the speed is as before: the brain at 29.8 times real time and the whole loop at 24.9.
+- **The app.** It holds 60 frames a second at 10× and 20× and saturates at about 24–29× (`npm run plate:bench`).
+- **The worm until the refit.** On R's provisional values with the coloured noise, on 8 of checkpoint 1's seeds, it moves forward 16–22% of the time, with no forward run past 4.5 s and 52 reversals in all. So until the refit, the app's worm barely crawls.
+
+**Status.** Built; R's fit runs again next.
