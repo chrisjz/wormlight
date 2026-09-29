@@ -554,13 +554,13 @@ Safari and Firefox run their own WebGPU engines, which CI can't cover, so milest
 
 **The behavioural harness.** `npm run harness -- --checkpoint <n>` runs trials in parallel on the CPU reference, writes JSON to `harness-out/`, and regenerates the results tables in `VALIDATION.md`. It runs checkpoints 0 and 1 from milestone 3, checkpoint 0 in full since milestone 4 brought touch and odour, on the provisional parameters until 2026-09-27, then the planned model's calibrated ones, then R's provisional values when R's model landed, R's first fit's from 2026-09-27, the provisional values again when the coloured noise landed, and the refit's since 2026-09-28 (§6.2). Checkpoint 0 last ran on the planned model's provisional values and checkpoint 1 on R's refit. `npm run equivalence` writes §7.2's comparison to its own section.
 
-**CI jobs.**
+**CI jobs.** `changes` decides which of the others a change needs (`scripts/ci/changes.ts`): `checks` runs on every change, and `data`, `visual` and `gpu` only when a file they use changed, so a change to the docs, the ledger, the trials' code or the unit tests alone skips them. Each job's code is traced through the imports of its pages and scripts when CI runs, and the files it reads without importing them are listed. A change to the workflow, those rules or the dependencies runs everything, and so does a failure to find the changed files. A pull request's newer push cancels the run it supersedes (2026-09-29).
 
 - `checks`: lint, format, unit tests including the port and production checks, typecheck, build, and the freshness of `FIDELITY.md`.
 - `data`: rebuilds the runtime data, `DATA_SOURCES.md` and the reports from their pins, and fails if any committed output differs.
 - `gpu`: parity on SwiftShader, since milestone 2.
 - `visual`: fixed views pixel-compared against baselines, as Universe does: the graph's from milestone 1, and the plate's from milestone 3.
-- `deploy`: Pages, gated on `DEPLOY_PAGES`, after `checks`, `data`, `visual` and `gpu` pass. Live since 2026-09-26 at https://chrisjz.github.io/wormlight/.
+- `deploy`: Pages, gated on `DEPLOY_PAGES`, when the built app's files changed and after `checks`, `data`, `visual` and `gpu` pass or are skipped. Live since 2026-09-26 at https://chrisjz.github.io/wormlight/.
 
 ## 9. Milestones
 

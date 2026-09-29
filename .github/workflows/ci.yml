@@ -16,7 +16,38 @@ permissions:
 env:
   CHROME_VERSION: 154.0.8037.57
 
+# A pull request's newer push cancels the run it supersedes; each push to main runs to the end.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Which jobs the change needs (scripts/ci/changes.ts): checks runs on every change, and data, visual and gpu
+  # only when a file they use changed, their code traced through its imports in the checked-out tree, so a change
+  # to the docs alone skips them. Each is skipped only on an explicit false, so if this job fails they all run; a
+  # skipped job passes the ruleset's required checks.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      site: ${{ steps.changes.outputs.site }}
+      data: ${{ steps.changes.outputs.data }}
+      visual: ${{ steps.changes.outputs.visual }}
+      gpu: ${{ steps.changes.outputs.gpu }}
+    steps:
+      # A pull request's checkout is its merge commit, whose first parent is the base.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: changes
+        run: node scripts/ci/changes.ts
+        env:
+          BEFORE: ${{ github.event.before }}
+
   checks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -44,6 +75,8 @@ jobs:
   # cache holds downloads named by their digest, each checked on read, so any earlier cache is safe to
   # start from; it is saved even when the check fails, so a failing run doesn't download again.
   data:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.data != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -80,6 +113,8 @@ jobs:
   # Chrome offers no adapter at all without Mesa's Vulkan drivers, so they are installed. Chrome's version is
   # CHROME_VERSION above. The capture log names the Chrome version and the adapter that drew the frames.
   visual:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.visual != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -121,6 +156,8 @@ jobs:
   # check fails. The results are uploaded with the speed benchmark, which on a software GPU says nothing about a
   # real one.
   gpu:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.gpu != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -151,13 +188,16 @@ jobs:
           path: gpu-out/
           retention-days: 14
 
-  # Publishes main to GitHub Pages, https://chrisjz.github.io/wormlight/, once every other job has passed.
+  # Publishes main to GitHub Pages, https://chrisjz.github.io/wormlight/, once every other job has passed or been
+  # skipped, when the built app's files changed.
   # Pages takes its source from GitHub Actions, and the repository variable DEPLOY_PAGES=true turns this job
   # on; set it to anything else to stop deploying. BASE_PATH defaults to the project-site path; set the
   # variable BASE_PATH=/ if a custom domain is added. Deploys queue rather than overlap.
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true'
-    needs: [checks, data, visual, gpu]
+    if: >-
+      ${{ !cancelled() && !contains(needs.*.result, 'failure') && needs.changes.outputs.site != 'false'
+      && github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_PAGES == 'true' }}
+    needs: [changes, checks, data, visual, gpu]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:

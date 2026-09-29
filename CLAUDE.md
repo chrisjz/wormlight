@@ -35,5 +35,6 @@ A living _C. elegans_ in the browser: the Cook et al. 2019 connectome, simulated
 
 - One focused PR at a time, always based on `main`, with no stacked PRs. The maintainer merges each before the next starts.
 - Commit messages: an evocative first line, then a short story of the why. Write multi-line messages with `git commit -F <file>`.
+- CI runs `checks` on every change, and `data`, `visual` and `gpu` only when a file they use changes (`scripts/ci/changes.ts`). Their code is traced through the imports of their pages and scripts when CI runs; when a job starts reading a file it doesn't import, such as runtime data, add it to that job's `reads` there.
 - `gh pr edit` has been broken by a GraphQL deprecation; use `gh api -X PATCH repos/chrisjz/wormlight/pulls/<n>` instead.
 - Prettier reflows Markdown. A nested ordered list that starts at 0 needs a blank line before it, or it merges into the paragraph above. A line straight after a list item is folded into that item, so leave a blank line before a following paragraph. After any scripted edit, grep-verify the result.
