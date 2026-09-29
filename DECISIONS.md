@@ -1060,7 +1060,7 @@ Considered for checkpoint 3: keeping the before-and-after test; and untouched tw
 
 **Checkpoint 3 is marked as changed** in PLAN: its test is changed before any of its trials, but the change was prompted by checkpoint 0's result. Checkpoint 0's posterior clause keeps the before-and-after rule it ran under; §7.4's paragraph on it states that rule itself, and changing it now would be a change after results. After review the same day, checkpoint 0's reruns take sham twins too, and checkpoint 2 is marked as well (below).
 
-**Status.** Rules only, set before checkpoint 2 or 3 ran and revised after review the same day (below); the sham touch and the trials are built when they first run, after track R.
+**Status.** Rules only, set before checkpoint 2 or 3 ran and revised after review the same day (below); the sham touch and the trials are built when they first run, after track R. The sham touch and checkpoint 0's twins were built for its rerun (2026-09-30, below); checkpoints 2 and 3's three-way fork waits for them.
 
 ## 2026-09-27 — After review: sham twins for checkpoint 0's reruns, a random touch time, paired tests and an effect floor
 
@@ -2618,46 +2618,61 @@ No held-out checkpoint's protocol ran. The fairness list's count of the real wir
 
 **Status.** Done: the negative result stands as the headline, and checkpoint 0's rerun on the refit and the sign audit's record come next.
 
-## 2026-09-30 — Checkpoint 0's rerun: its sham twins and binomial test, built
+## 2026-09-30 — Checkpoint 0's rerun: its sham twins and binomial test, built (revised after review)
 
 **Why.** Checkpoint 0 runs again on the chosen fit, the refit (PLAN §9, step 4). Its reruns grade touches against sham twins, and chemotaxis by an exact binomial test on arrivals, by rules set on 2026-09-27 after its first run (PLAN §7.4). Neither was built.
 
 **Decision.**
 
-- **The sham touch.** `World.sham(s)` restarts the integrator at the steps a touch at s would switch its receptors' currents on and off, with no current of its own. A sham where a touch would reach no receptor, or give none a current, does nothing, as that touch wouldn't restart it either. A restored world has no sham under way. Only the harness uses it, so the GPU has none, and the loop's parity is unchanged.
-- **The fork.** With `shams`, `runTrial` copies the world at each touch, from its snapshot and with its seed, so the copy draws the same noise. The copy takes a sham touch in the touch's place and runs 3.5 s on, sampled on the touched line's grid, while the touched line runs on to its next touch. Each twin's velocity is the touched line's up to the touch and its own after, until 3 s after, where its windows end. The harness forks a twin at every touch of checkpoint 0's touched trials.
+- **The sham touch.** `World.sham(s)` restarts the integrator at the two steps where a touch at s would switch its receptors' currents on and off, with no current of its own. Where a touch would reach no receptor, or give none it reaches a current, the sham does nothing, just as that touch wouldn't restart the integrator. A restored world has no sham under way. Only the harness uses it, so the GPU has none, and the loop's parity is unchanged.
+- **The fork.** With `shams`, `runTrial` copies the world at each touch, from its snapshot and with its seed, so the copy draws the same noise. The copy takes a sham touch in the touch's place and runs 3.5 s on, sampled on the touched line's grid, while the touched line runs on to its next touch. Each twin's velocity comes from the touched line's positions up to the touch and its own after, until 3 s after it, where the touch's windows end. The harness forks a twin at every touch of checkpoint 0's touched trials. Added after review: `runTrial` refuses a touch that leaves its twin under 3.5 s before the next touch or the trial's end, where the touched line would take a touch its twin doesn't; the schedule's touches are 20 s apart.
 - **The grading.**
-  - Each touch is compared with its twin over the twin's samples alone, so a reversal the touched line starts after the twin has stopped isn't counted.
   - **Anterior:** found if a reversal follows 40% or more of the touches and McNemar's exact test, one-sided, finds more of them after the touches than after the twins.
   - **Posterior:** found if the signed-rank test, one-sided and paired, finds the touched copies faster than their twins over the 2 s after, by at least 0.0012 body lengths per second on average: 1% of checkpoint 1's passing floor of speed, 0.12.
-  - **Chemotaxis:** fails only if the exact binomial test at one half finds one spot reached significantly more often. The test is two-sided, doubling the larger count's upper tail, which at one half is the same as summing the outcomes no more likely than the one seen. Its index is still reported.
-  - The before-and-after test the first run graded the posterior touches by is reported beside it, not graded.
+  - **Chemotaxis:** fails only if the exact binomial test at one half finds one spot reached significantly more often. Its index is still reported.
+- **What the build settled that the rules left open.**
+  - The two-sided binomial test doubles the larger count's upper tail, which at one half is the same as summing the outcomes no more likely than the one seen.
+  - Each touch is compared with its twin over the twin's samples. Those cover every sample the rules read, so the choice changes no grade; corrected after review, which found the reason first given described a case that can't arise.
+  - A twin that leaves the finite numbers fails its reflex, as a broken trial does, and the report counts twins with the trials and worms, their unconverged solves included (added after review).
+  - The report no longer gives the first run's figures against the untouched trials, its largest touched-against-untouched change and its test over the untouched windows. The before-and-after test the first run graded by is reported beside the paired test, not graded.
+- **Corrected after review:** a touched trial that broke between touches, stopping with fewer touches than its schedule, would have made the grading throw, since the schedule was checked before whether the trial stayed finite. It fails the clause now, as on main.
 - **Checked.**
   - A sham restarts at exactly a touch's two steps and applies no current.
   - Forking twins leaves the touched line's record unchanged, sample for sample.
-  - In the silenced network, whose touches reach no muscle, a twin matches its touched line exactly.
-  - McNemar's and the binomial test match their exact tails, worked by hand.
-  - 545 tests pass.
-  - A shortened run of 3 trials of 44 s went through end to end.
+  - With the touch receptors lesioned, so that neither touch nor sham does anything, the intact refit's twin matches its touched line bit for bit, coloured noise and head switch included (added after review). In the silenced network, whose touches reach no muscle, a twin matches its touched line exactly on the planned model's provisional values with the noise off; corrected after review: on the refit it matches to rounding (the entry below).
+  - McNemar's and the binomial test match their exact tails, worked by hand; a review checked both against exact tails for n up to 200.
+  - 547 tests pass.
+- **Exploration, disclosed.** Before the run, a shortened run of 3 trials of 44 s went through end to end, at ee592e4 with the code uncommitted, on checkpoint 0's own seeds 1 to 3 and with 3 worms; every clause passed. Only the report's wording changed after it.
 
-**Status.** Built; checkpoint 0 ran on the refit (the entry below).
+**Status.** Built, and revised after review; checkpoint 0 ran on the refit (the entry below).
 
-## 2026-09-30 — Checkpoint 0 passes on the refit, and says little
+## 2026-09-30 — Checkpoint 0 passes on the refit, and says little (revised after review)
 
 **Why.** Checkpoint 0 runs again on the chosen fit (PLAN §9, step 4), by its reruns' rules (the entry above).
 
-**The run** (`npm run harness -- --checkpoint 0` at cd8a671, 207 s on 14 workers). It ran 20 trials of 120 s untouched and 20 touched, 5 touches each with a sham twin apiece, and 30 worms in the assay for up to 60 min. Every one stayed finite, and no brain solve failed to converge. Every clause passes:
+**The run** (`npm run harness -- --checkpoint 0 --checkpoint 1 --jobs 14` at 1b398c9, 209 s; first at cd8a671, before the review's fixes, with the same grades; the harness dates both 2026-09-29, in UTC). It ran 20 trials of 120 s untouched and 20 touched, 5 touches each with a sham twin apiece, and 30 worms in the assay for up to 60 min. Every trial, twin and worm stayed finite, and no brain solve failed to converge, the twins' included. Every clause passes:
 
-| Clause          | Measured                                                                                                                                           | Grade |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Crawling        | No forward bout of 10 s or more                                                                                                                    | Pass  |
-| Anterior touch  | A reversal after none of 50 touches, and after none of their twins; p = 1                                                                          | Pass  |
-| Posterior touch | Over the 2 s after 50 touches, the touched copies and their twins alike at −0.0001 body lengths per second, 5.5 × 10⁻¹⁸ apart on average; p = 0.42 | Pass  |
-| Chemotaxis      | No worm reached either spot, so the test can't fail; p = 1                                                                                         | Pass  |
+| Clause          | Measured                                                                                                                                                                          | Grade |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Crawling        | No forward bout of 10 s or more                                                                                                                                                   | Pass  |
+| Anterior touch  | A reversal after none of 50 touches, and after none of their twins; p = 1                                                                                                         | Pass  |
+| Posterior touch | Over the 2 s after 50 touches, the touched copies and their twins alike at −0.0001 body lengths per second: a mean difference of 5.5 × 10⁻¹⁸, and none over 1.7 × 10⁻¹⁶; p = 0.42 | Pass  |
+| Chemotaxis      | No worm reached either spot, so the test can't fail; p = 1                                                                                                                        | Pass  |
+
+Checkpoint 1 ran again beside it, on the same refit, with the same grades and measures; its section now carries the diagnostics of what paces the crawl, which its last run predated.
 
 **How it reads.**
 
-- **The crawling pass follows from a bound, not from the wiring.** The intact refit makes forward bouts of 10 s, 12 of them over checkpoint 1's 20 trials, and it moves by its head switch alone (the entry of 2026-09-28). Silenced, the switch's gate stays shut on every step, its drive 0.47 mV below θ_osc. That threshold sits at its floor of −28 mV, which was set so that a silenced head stays gated (PLAN §7.3). So the pass shows that the refit needs the network's drive to open its switch, not that the connectome makes the crawl.
-- **The touch and chemotaxis clauses** ask that a silenced worm which barely moves show no reflex and no chemotaxis. It moved no centroid more than 0.19 mm in an hour, so those passes would mean something only alongside passes of checkpoints 2 to 4, which stay not reached. Each touched copy matches its sham twin to rounding, as the design meant: the touches reach no muscle.
+- **The crawling pass follows from a bound, not from the wiring.**
+  - The intact refit makes forward bouts of 10 s, 12 of them over checkpoint 1's 20 trials, and it moves by its head switch alone (the entry of 2026-09-28).
+  - Intact, the switch's gate is open on every measured step: its drive sits 26.2 mV above θ_osc on average, with a standard deviation of 4.9 mV. The switch cycles at 0.084 Hz, beside the body's spectral peak at 0.082. So the network never gates the rhythm; it supplies a steady drive.
+  - Silenced, with every partner cut, the drive is a constant, the SMDs' leak less their thresholds. It sits 0.47 mV below θ_osc on every step, and the gate stays shut.
+  - θ_osc sits at its floor of −28 mV, which was set to keep a silenced head switch shut (PLAN §7.3), so the gate would stay shut for any θ_osc within its bounds. For any fit inside them, the clause couldn't fail through the switch.
+  - This meets spec §1.1's letter but not its intent, as the survey's picks did (the entry of 2026-09-29).
+- **The touch and chemotaxis clauses** ask a silenced worm that barely moves to show no reflex and no chemotaxis. No worm's centroid got more than 0.19 mm from its start in the hour, so those passes would mean something only alongside passes of checkpoints 2 to 4, which stay not reached.
+- **The touched copies and their twins match to rounding,** as expected where the touches reach no muscle. The posterior test's p-value ranks rounding errors and carries no information; the floor of 0.0012 body lengths per second, some 13 orders of magnitude above the differences, decides the clause.
+- **Noted after review.**
+  - The silenced refit makes no backward move. R's first fit made 18 reversals over the 20 silenced trials, its A-types excited by the noise (the entry of 2026-09-28), and the checkpoint allows for such activity; the refit's A-types stay quiet.
+  - The touched receptors reach +854 mV in the silenced network, against +10.5 mV at most untouched. A touch's current is sized for a receptor's load in the intact network, and a silenced receptor keeps only its leak. It moves no muscle and changes no grade.
 
 **Status.** Done: checkpoint 0 passes on the refit. The sign audit's record comes next.
