@@ -2209,26 +2209,40 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 
 **Status.** Set after review, before any of it was built; built next (the entry below), then the survey.
 
-## 2026-09-29 — The conductance form, built
+## 2026-09-29 — The conductance form, built (its parity setups changed after results; revised after review)
 
 **Why.** The entry above set the conductance form of the head switch and proprioception before any of it was built. It is built here, on the CPU reference and the GPU, beside the current form the refit runs. No fit uses it yet; the survey's runner comes next.
 
 - **What was built.**
-  - **The brain.** It takes, per neuron, a conductance and the current it would carry at 0 mV, Σ g·E, on the solve's diagonal and right-hand side, as it takes a synapse's. Left at 0, a step is the same bit for bit, and every test that pins the current form's runs passes unchanged.
-  - **The form.** A fit names its form in its parameters; left out, it is the current form, as for every fit so far.
-  - **The world.** It opens the switch's conductance on the four SMDs and proprioception's on the A- and B-types, as the rules set.
-  - **The GPU.** Its kernel does the same while looping. The form is a flag in a word of the uniform block that was padding, and the reversal potentials are the registry's, written into the shader.
-  - **The registry.** g_sw and g_p each gain a conductance entry with the rule's bounds and start. The calibration's bounds, start and mapping take the form. FIDELITY shows both forms, and gains a component for the conductance form.
-  - **The report.** Checkpoint 1's report gains the shunt in the conductance form (PLAN §7.4).
+  - **The brain.** It takes, per neuron, a conductance and the current it would carry at 0 mV, Σ g·E, on the solve's diagonal and right-hand side, as it takes a synapse's. Left at 0, a step is the same bit for bit: a test holds five current-form worlds (the registry's values, the provisional values, trial values, a lesioned network and the silenced one) to sums of their state after 400 steps made on main before any of this, and a review found them identical by hash after 2,000 steps.
+  - **The form.** A fit names its form in its parameters, and every function that turns values into a fit's parameters, bounds or start now requires one, so none can fall back to the current form unasked. Changed after review: they defaulted to the current form, and `calibrate()`, the calibration's runner and the equivalence script passed none.
+  - **The records.** The calibration's runner records its form, round 2's the current, and a record that names none is read as the current form, as every record so far. The equivalence script reads a fit's form from its record and checks its bounds in that form. Added after review.
+  - **The world.** It opens the switch's conductance on the four SMDs and proprioception's on the A- and B-types with fields, as the rules set.
+  - **The GPU.** Its kernel does the same while looping. The form is a flag in a word of the uniform block that was padding, and the reversal potentials are the registry's, written into the shader. The switch's side is chosen from h, as on the CPU. Changed after review: it was chosen from the sign of the recorded conductance, which agrees for any g_sw above 0.
+  - **The registry.** g_sw and g_p each gain a conductance entry with the rule's bounds and start. A registry without one is refused in the conductance form rather than read as the current form's. FIDELITY shows both forms, and gains a component for the conductance form, tested by checkpoints 0 and 1 as well as the unit tests.
+  - **The report.** Checkpoint 1's report gains, in the conductance form, each layer's shunt, a mean of per-target ratios, and how often a second the head switch's gate turns on or off (PLAN §7.4). A trial records their sums and its sample count, not every sample. Changed after review: it recorded both shunts at every sample, about 40 KB a trial.
+  - **The curvature.** The data build now reports the 95th percentile of the postures' curvature over the model's fields, 8.34, and a unit test holds the registry's 8.3 to it, so `data:check` guards it in CI. Changed after review: a unit test computed it only where the postures were cached, which CI's aren't.
 - **Checked.**
-  - **The bounds.** A unit test recomputes the rule from the runtime data: 0.0215–47.9 nS for g_sw, and 0.000168–7.83 nS per unit of κL for g_p. These round outward to the registry's. With the pinned postures cached, it checks that their 95th percentile over the fields is 8.3.
-  - **The range.** At the box's upper corner, 50 nS and 8 nS per unit of κL, the SMDs stayed between −47.6 and +0.06 mV with the parity setups' noise. With none, a test holds them within half a millivolt of the range.
-  - **The overshoot.** A lone neuron's conductance takes it at most micro-volts past its reversal potential, from BDF2's history at conductances far above C/dt.
-  - **GPU parity.** It passes in headless Chrome and in Safari on the Mac's GPU, both forms, with two new setups in the conductance form: one at gains inside the box, and one at its upper corner, where the gate turns on and off every few steps. P_th is 0.05 in both, where the head flips in that form.
-  - **The corner's tolerance.** There, the CPU reference solved at its own tolerance differs from itself at the GPU's by up to 17.7 shares of the one-step threshold, which is reported, not graded. The solve's relative tolerance loosens as the conductances grow, as the review estimated.
-- **Changed after a failed parity run.** In the first run, the two new setups failed the one-step velocity check, at 1.1 to 2.1 shares, every other check passing.
-  - At their trial values, with θ_nmj at 0.2, the conductance form's muscles barely activated, at most 0.25, and the body crept at under 5 µm/s. The check, 1% of the largest velocity, then graded f32 rounding in the body's solve.
-  - The setups now take θ_nmj at −0.2, inside R's box, and pass. Parity's thresholds are unchanged.
-  - Choosing those values took a few runs of 3 to 7 s in the conductance form on the real wiring, at test values rather than a fit's. They are disclosed as exploration.
+  - **The bounds.** A unit test recomputes the rule from the runtime data: 0.0215–47.9 nS for g_sw, and 0.000168–7.83 nS per unit of κL for g_p, which round outward to the registry's.
+  - **The range.** In parity's corner setup (seed 1, white noise of 0.01 pA·√s, θ_osc −1 mV) over its 5 s, the SMDs stayed between −47.6 and +0.06 mV. A test with no noise and θ_osc at −3 mV holds them within half a millivolt of the range over 3 s. With oscillators and noise off, a review found no neuron leaving it over 8 s in either setup; the conductance setups' excursions past it are the A-types' oscillators'.
+  - **The overshoot.** A lone neuron's conductance takes it past its steady state by up to 2.9% of the step, near 3 nS, where x = G·dt/C is about 7: BDF2's first step after an implicit-Euler start overshoots by (0.5 − 2/(1 + x))/(1.5 + x) of it, L-stable but not monotone. From rest that is 0.91 mV past E_exc at 3 nS and 0.13 mV at 50 nS. A test sweeps 0.02 to 1,000 nS and bounds it at 3%. Corrected after review: this said micro-volts, true only above about 1,000 nS.
+  - **GPU parity.** It passes in headless Chrome, in Safari on the Mac's GPU and on CI's SwiftShader, both forms, with three setups in the conductance form, their state's round trip and runs split across dispatches included:
+    - gains inside the box, 1 nS and 0.05 nS, the gate open and the head flipping;
+    - the box's upper corner, 50 nS and 8 nS, the gate open, so BDF2 runs at the largest conductances (added after review);
+    - the upper corner with θ_osc at −1 mV, where the gate turns on or off on about half the steps.
 
-**Status.** Built; the survey's runner comes next.
+    P_th is 0.05 in all three, where the head flips in that form. Corrected after review: this said the gate turned "every few steps".
+
+  - **The solve's tolerance.** At the corner the CPU reference solved at its own tolerance differs from itself at the GPU's by up to 17.7 shares of the one-step threshold, reported and not graded. Large conductances raise ‖b‖, against which the solve's tolerance is relative; but the registry's setup, in the current form, reaches 31.3 in the same run, so the corner isn't the outlier. Corrected after review: this called it the conductances' doing, as a review had estimated.
+- **Changed after results: the parity setups' values.** In the first run, the two setups then in the conductance form failed the one-step velocity check, at 1.1 to 2.1 shares, every other check passing.
+  - Before: track R's parity values with θ_nmj at 0.2, P_th 0.05, and θ_osc −3 mV at gains inside the box and −1 mV at the corner. Their muscles barely activated, at most 0.25, and the body crept at under 5 µm/s, so the check, 1% of the largest velocity with a floor of 10⁻⁴ segment lengths a second, graded f32 rounding in the body's solve.
+  - After: θ_nmj at −0.2, inside R's box, the rest unchanged; they pass, and parity's thresholds are unchanged (PLAN §7.2). Considered: a floor scaled to the body's forces, a threshold change after results; and leaving the setups and reporting the failure.
+  - **To revisit.** A bounded fit that barely moves would fail the registry's setup the same way, so the velocity floor is to be revisited, in an entry of its own, before any bounded fit reaches the registry.
+- **Exploration, disclosed.**
+  - **Choosing the setups' values:** four worlds of 5 to 7 s at P_th 0.5; twelve at P_th 0.05 to 0.2 with θ_osc at −1 or −3 mV; and twelve more with θ_nmj at −0.2; all on seed 1 in the assay's field at track R's parity values, with each parity setup's body speeds and the parity runs themselves.
+  - **The reviews:** short runs at track R's parity values and at the provisional values in the conductance form, over seeds 1 to 3, of 2 to 20 s. They found that the conductance form's provisional values give no head rhythm, the head never flipping over 3 seeds × 20 s where the current form's flipped 2 to 3 times; the survey starts elsewhere, but the bounded calibration, should R end, starts there.
+  - **The gate.** Within about 1 mV of θ_osc, where a network's drive sits, the gate turns on or off on most steps, in either form: 602 times in 800 steps at the corner, a review found, and 459 to 590 in the current form on track R's parity values. The loop then runs by implicit Euler, and its result depends on the step; so the survey's picks report their gate's toggles (PLAN §7.4), and only §7.2's comparison would catch a final fit there.
+
+**After review.** Three reviews found the build matching the rules on every point, the current form unchanged, and no bug in the model; but the search itself not taking the form, several claims wrong or unsupported, and the curvature unguarded in CI. The maintainer chose the recommendation each time: the form threaded through and required now; a gate-open corner added to parity; the curvature computed by the data build; and every other fix.
+
+**Status.** Built. Still to come with the survey's runner: its Latin-hypercube starts, its record, and the bounded model's calibration mode.
