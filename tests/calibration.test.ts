@@ -17,6 +17,7 @@ import {
   TARGETS,
   THIRD_ROUND,
   provisionalValues,
+  ranked,
   surveyStart,
 } from '../src/validation/calibration.ts';
 import { CALIBRATION_TARGETS } from '../src/science/validation.ts';
@@ -193,5 +194,60 @@ describe("the calibration's targets in the registry (PLAN §7.3)", () => {
     expect(reversals).toMatch(new RegExp(`^${TARGETS.reversalRate} a minute`));
     // Round 3's speed is the other targets' wave speed times Karbowski et al.'s ratio, to two figures.
     expect(0.79 * TARGETS.frequency * TARGETS.wavelength).toBeCloseTo(THIRD_ROUND.goals.speed, 2);
+  });
+});
+
+describe("R's third round's record (PLAN §7.3, §9)", () => {
+  interface Pick {
+    seed: number;
+    value: number;
+    values: { [id: string]: number };
+  }
+  const round = readJson<{
+    model: string;
+    form: string;
+    commit: string;
+    complete: boolean;
+    phase1: { seed: number; final: { value: number } }[];
+    ranking: { seed: number; value: number }[];
+    continued: number[];
+    picks: Pick[];
+    stages: { [stage: string]: { generations: { evaluations: number; restart: number }[] } };
+  }>('data/calibration/r5.json');
+
+  it('ran as its rules set, from a clean commit, its picks the continued searches in their order', () => {
+    expect(round).toMatchObject({ model: 'track R, round 3', form: 'conductance', complete: true });
+    expect(round.commit).not.toMatch(/uncommitted/);
+    const recorded = round as unknown as { [key: string]: unknown };
+    for (const [key, value] of Object.entries(settings(CALIBRATION.budget, 'round 3'))) {
+      expect(recorded[key], key).toEqual(JSON.parse(JSON.stringify(value)));
+    }
+    // Phase 1 ranked its sixteen by their final checks, and phase 2 continued the best four to 750 each.
+    const order = ranked(round.phase1.map((p) => ({ seed: p.seed, value: p.final.value })));
+    expect(round.ranking.map((r) => r.seed)).toEqual(order.map((r) => r.seed));
+    expect(round.continued).toEqual(order.slice(0, THIRD_ROUND.phase2.continued).map((r) => r.seed));
+    for (const seed of THIRD_ROUND.seeds) {
+      expect(round.stages[`phase 1 ${seed}`].generations.at(-1)?.evaluations).toBe(THIRD_ROUND.phase1.budget);
+    }
+    for (const seed of round.continued) {
+      expect(round.stages[`phase 2 ${seed}`].generations.at(-1)?.evaluations).toBe(THIRD_ROUND.phase2.budget);
+    }
+    expect([...round.picks.map((p) => p.seed)].sort()).toEqual([...round.continued].sort());
+    expect(round.picks.map((p) => p.seed)).toEqual(ranked(round.picks).map((p) => p.seed));
+  });
+
+  it("chose no fit: each pick failed §7.2's comparison in turn, at its recorded values, so the refit stays", () => {
+    round.picks.forEach((pick, k) => {
+      const run = readJson<{ pick: number; values: unknown; comparison: { pass: boolean } }>(
+        `data/equivalence/round-3-pick-${k + 1}.json`,
+      );
+      expect(run.pick).toBe(k + 1);
+      expect(run.values).toEqual(pick.values);
+      expect(run.comparison.pass).toBe(false);
+    });
+    expect(existsSync(join(ROOT, 'data/calibration/r5-chosen.json'))).toBe(false);
+    expect(
+      CALIBRATED.every((id) => PARAMS[id].value === readJson<Record>('data/calibration/r2.json').final.values[id]),
+    ).toBe(true);
   });
 });

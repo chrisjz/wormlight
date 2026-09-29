@@ -2490,3 +2490,49 @@ A review found, in trials of its own:
 - the second: 828 of 30 s on the calibration's seeds, and 140 of 120 s as in the first.
 
 **Status.** Built; the real wiring's round comes next.
+
+## 2026-09-29 — R's third round: no pick holds at half the step, so the refit stays and R ends
+
+**Why.** R's third round, its last, ran on the real wiring by the rules set before it (the entries above). This records its search, its four picks' comparisons with §7.2, and what the rules make of them.
+
+**The search** (`npm run calibrate -- --round-3` at 7aa7a9f; 3.2 hours on 14 workers; `data/calibration/r5.json`).
+
+- **Phase 1.** Sixteen searches of 250 evaluations; none restarted. Ranked by their final checks' objective, the best four were those of CMA-ES seeds 12 (0.711), 23 (0.716), 14 (0.726) and 18 (0.869). The survey's two partial searches, seeds 18 and 26, ranked fourth and fifth. The picks of two searches, seeds 15 and 22, made no bout on the fresh seeds.
+- **Phase 2.** The four continued to 750 evaluations each, with no restart. In each, the final check preferred a candidate of phase 2's to phase 1's pick.
+- **The picks,** in the order they took the comparison, on the fresh seeds 1005 to 1020:
+
+  | Pick | CMA-ES seed | From                       | Objective | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) |
+  | ---- | ----------- | -------------------------- | --------- | -------------- | ------------------------- | ---------------------- |
+  | 1    | 12          | generation 64, candidate 2 | 0.366     | 0.189          | 0.57                      | 0.081                  |
+  | 2    | 14          | the final mean             | 0.375     | 0.180          | 0.61                      | 0.081                  |
+  | 3    | 18          | generation 61, candidate 3 | 0.552     | 0.217          | 0.46                      | 0.057                  |
+  | 4    | 23          | generation 67, candidate 1 | 0.592     | 0.149          | 0.62                      | 0.063                  |
+
+- **Where they sit.** Three picks turned the B-types' oscillator off (g_osc,B at 0). Picks 1 and 4 also have g_sw and g_nmj at the tops of their boxes. Pick 1 has κ_gap,B at its floor, pick 2 has σ_n at 0, pick 4 has τ_n at its floor, and pick 3 has τ_w at its top.
+- **Trials.** 27,568 of 120 s: 6,000 evaluations of 4, and 223 candidates rechecked on 16 seeds each.
+
+**The comparison, down the four** (`npm run equivalence -- --fit round-3 --pick N`, at 8358a9a, 4042820, d888332 and c5539c3). Every pick failed, each on its frequency and its wavelength. Its speed, its share of trials with a 20 s bout and its reversals passed:
+
+| Pick | Frequency, dt → dt/2 | Its interval against its margin | Wavelength, dt → dt/2 | Its interval against its margin | Checkpoint 1 over the 200 trials, dt and dt/2 |
+| ---- | -------------------- | ------------------------------- | --------------------- | ------------------------------- | --------------------------------------------- |
+| 1    | 0.1846 → 0.1886      | −0.0072 to −0.0006, ±0.0057     | 0.5931 → 0.5809       | +0.0010 to +0.0234, ±0.0174     | Partial, partial                              |
+| 2    | 0.1796 → 0.1896      | −0.0137 to −0.0065, ±0.0057     | 0.6088 → 0.5665       | +0.0316 to +0.0533, ±0.0170     | Partial, partial                              |
+| 3    | 0.2091 → 0.2001      | +0.0002 to +0.0170, ±0.0060     | 0.4754 → 0.4991       | −0.0453 to −0.0005, ±0.0150     | Fail, fail                                    |
+| 4    | 0.1500 → 0.1579      | −0.0113 to −0.0046, ±0.0047     | 0.6129 → 0.5878       | +0.0122 to +0.0386, ±0.0176     | Partial, partial                              |
+
+- Pick 1 failed narrowly: its differences, −2.1% in frequency and +2.1% in wavelength, lie within their margins, but their intervals reach past them.
+- Picks 1, 2 and 4 made a forward bout of 20 s in every one of their 200 trials at both steps; pick 3 in 92% and 96%.
+- No pick passed, so no chosen pick's report was written: checkpoint 1 on its own trials, the speed's interval and the runs that show what paces the crawl are all the chosen fit's, and there is none.
+
+**Decision.** By the rules:
+
+- **The refit stays** the real wiring's final fit, with its form and its procedure for the nulls (PLAN §9, step 3).
+- **R ends,** after its third round, as the rules said it would either way.
+- **The consequences carry over.** The refit's voltages lie outside the model's range (the investigation's entry above), and that stands. So does the item PLAN §9 left open, whether the head switch's slips can meet the calibration's reversal term, which remains open for the refit's procedure and is to settle before any null is tuned.
+
+**Reported, not acted on.**
+
+- **The wave holds, and the step shares it out.** In every pick, the wave's speed, the frequency times the wavelength, moves by less than 2% from dt to dt/2: 0.0%, 1.8%, 0.5% and 0.9%. The body's speed passes the comparison in all four. It is the split between frequency and wavelength that moves with the step, by 2% to 8%, each in the opposite direction to the other. Why wasn't investigated.
+- **The crawl is faster than the survey's.** The picks' speeds on the fresh seeds, 0.057 to 0.081 body lengths per second, reach a third above the survey's two partial picks, graded at 0.061 on seeds of their own, but all stay below a pass, 0.12.
+
+**Status.** Done: track R has ended, and the refit remains the real wiring's final fit. Next, as PLAN §9 sets it out, checkpoint 0 runs again on the refit. The open item on the reversal term is settled before any null is tuned by the refit's procedure.
