@@ -26,3 +26,34 @@ export const STARTING_POSTURES = {
 } as const satisfies ReferenceData;
 
 export const REFERENCE_DATA: readonly ReferenceData[] = [EIGENWORM_BASIS, STARTING_POSTURES];
+
+// The calibration's targets (PLAN §7.3), which the calibrated parameters are tuned against: their values are the
+// calibration's (src/validation/calibration.ts), which a test holds these to, and these are their sources.
+export interface CalibrationTarget {
+  target: string;
+  use: string;
+  sources: readonly CitationId[];
+}
+
+export const CALIBRATION_TARGETS: readonly CalibrationTarget[] = [
+  {
+    target: 'Undulation frequency and wavelength',
+    use: '0.30 Hz and 0.65 body lengths, from 0.30 ± 0.02 Hz and 0.65 ± 0.03 body lengths (Table 1, mean ± SEM, N > 10).',
+    sources: ['fangyen2010'],
+  },
+  {
+    target: 'Speed',
+    use: '0.22 body lengths per second, from 219 ± 29 µm/s off food (mean ± s.d.).',
+    sources: ['ramot2008'],
+  },
+  {
+    target: "R's third round's speed",
+    use: "0.15 body lengths per second, for round 3 alone: the frequency and wavelength targets' wave speed, 0.195 body lengths per second, times 0.79, the ratio of speed to wave speed in adult wild-type worms crawling on food (Table 2, 0.79 ± 0.26, N = 58).",
+    sources: ['karbowski2006'],
+  },
+  {
+    target: 'Spontaneous reversals',
+    use: '1.8 a minute, short and long reversals at 6 to 16 minutes off food, read from Fig. 1E.',
+    sources: ['gray2005'],
+  },
+];

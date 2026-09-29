@@ -136,6 +136,13 @@ A level describes the kind of evidence, not how much a part matters, and not cer
 - **Checkpoint 1** (pin `eigenworms` in `data/sources.json`): The first four modes, over 100 tangent angles with the head first, score the share of posture variance they capture: postures pooled over all 20 trials at 4 Hz, each trial's first 10 s left out, and self-intersecting postures left out, as Stephens et al. left them out (PLAN §7.4). Sources: Stephens et al. 2008; Hebert et al. 2021; Broekmans et al. 2016; OIST Physics of Behavior tutorials 2025.
 - **Checkpoints 0 and 1** (pin `oist-postures` in `data/sources.json`): Each trial starts from one of these 6,655 real postures, drawn by its seed, head first and turned to a heading drawn uniformly (PLAN §7.4). The data build checks them, and finds the first four eigenworms capture 96.46% of their variance by the harness's own measure. Sources: OIST Physics of Behavior tutorials 2025; Stephens et al. 2008.
 
+The calibration's targets (PLAN §7.3), which the calibrated parameters are tuned against:
+
+- **Undulation frequency and wavelength**: 0.30 Hz and 0.65 body lengths, from 0.30 ± 0.02 Hz and 0.65 ± 0.03 body lengths (Table 1, mean ± SEM, N > 10). Sources: Fang-Yen et al. 2010.
+- **Speed**: 0.22 body lengths per second, from 219 ± 29 µm/s off food (mean ± s.d.). Sources: Ramot et al. 2008.
+- **R's third round's speed**: 0.15 body lengths per second, for round 3 alone: the frequency and wavelength targets' wave speed, 0.195 body lengths per second, times 0.79, the ratio of speed to wave speed in adult wild-type worms crawling on food (Table 2, 0.79 ± 0.26, N = 58). Sources: Karbowski et al. 2006.
+- **Spontaneous reversals**: 1.8 a minute, short and long reversals at 6 to 16 minutes off food, read from Fig. 1E. Sources: Gray, Hill & Bargmann 2005.
+
 ## Parameters
 
 Every constant the plan fixes so far, from `src/science/params.ts`. A parameter is free when we set it ourselves, at level 1 or 0. There are 18 free parameters, 12 calibrated and 6 fixed in advance, against a budget of 18 (PLAN.md §6.2). Constants that only later milestones use, such as the body's spring constants and the oscillator's fixed coefficients, join the registry with the code that uses them.
@@ -236,6 +243,7 @@ Every constant the plan fixes so far, from `src/science/params.ts`. A parameter 
 - **Chen et al. 2013.** Chen TW, Wardill TJ, Sun Y, et al. Ultrasensitive fluorescent proteins for imaging neuronal activity. Nature 499:295–300 (2013), doi:10.1038/nature12354
 - **Cook et al. 2019.** Cook SJ, Jarrell TA, Brittin CA, et al. Whole-animal connectomes of both Caenorhabditis elegans sexes. Nature 571:63–71 (2019), doi:10.1038/s41586-019-1352-7
 - **Emmons 2024.** Emmons SW. Comprehensive analysis of the C. elegans connectome reveals novel circuits and functions of previously unstudied neurons. PLoS Biology 22:e3002939 (2024), doi:10.1371/journal.pbio.3002939
+- **Fang-Yen et al. 2010.** Fang-Yen C, Wyart M, Xie J, Kawai R, Kodger T, Chen S, Wen Q, Samuel ADT. Biomechanical analysis of gait adaptation in the nematode Caenorhabditis elegans. PNAS 107:20323–20328 (2010), doi:10.1073/pnas.1003016107
 - **Fenyves et al. 2020.** Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P. Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical synapse neuronal connectome network. PLoS Computational Biology 16:e1007974 (2020), doi:10.1371/journal.pcbi.1007974
 - **FitzHugh 1961.** FitzHugh R. Impulses and physiological states in theoretical models of nerve membrane. Biophysical Journal 1:445–466 (1961), doi:10.1016/S0006-3495(61)86902-6
 - **Flavell et al. 2013.** Flavell SW, Pokala N, Macosko EZ, et al. Serotonin and the neuropeptide PDF initiate and extend opposing behavioral states in C. elegans. Cell 154:1023–1035 (2013), doi:10.1016/j.cell.2013.08.001
@@ -245,6 +253,7 @@ Every constant the plan fixes so far, from `src/science/params.ts`. A parameter 
 - **Gray, Hill & Bargmann 2005.** Gray JM, Hill JJ, Bargmann CI. A circuit for navigation in Caenorhabditis elegans. PNAS 102:3184–3191 (2005), doi:10.1073/pnas.0409009101
 - **Hebert et al. 2021.** Hebert L, Ahamed T, Costa AC, O'Shaughnessy L, Stephens GJ. WormPose: image synthesis and convolutional networks for pose estimation in C. elegans. PLoS Computational Biology 17:e1008914 (2021), doi:10.1371/journal.pcbi.1008914
 - **Ji et al. 2021.** Ji H, Fouad AD, Teng S, et al. Phase response analyses support a relaxation oscillator model of locomotor rhythm generation in Caenorhabditis elegans. eLife 10:e69905 (2021), doi:10.7554/eLife.69905
+- **Karbowski et al. 2006.** Karbowski J, Cronin CJ, Seah A, Mendel JE, Cleary D, Sternberg PW. Conservation rules, their breakdown, and optimality in Caenorhabditis sinusoidal locomotion. Journal of Theoretical Biology 242:652–669 (2006), doi:10.1016/j.jtbi.2006.04.012
 - **Kim, Leahy & Shlizerman 2019.** Kim J, Leahy W, Shlizerman E. Neural Interactome: interactive simulation of a neuronal system. Frontiers in Computational Neuroscience 13:8 (2019), doi:10.3389/fncom.2019.00008
 - **Kunert, Shlizerman & Kutz 2014.** Kunert J, Shlizerman E, Kutz JN. Low-dimensional functionality of complex network dynamics: neurosensory integration in the Caenorhabditis elegans connectome. Physical Review E 89:052805 (2014), doi:10.1103/PhysRevE.89.052805
 - **Kunert-Graf et al. 2017.** Kunert-Graf JM, Shlizerman E, Walker A, Kutz JN. Multistability and long-timescale transients encoded by network structure in a model of C. elegans connectome dynamics. Frontiers in Computational Neuroscience 11:53 (2017), doi:10.3389/fncom.2017.00053
@@ -254,6 +263,7 @@ Every constant the plan fixes so far, from `src/science/params.ts`. A parameter 
 - **Lugg 1968.** Lugg GA. Diffusion coefficients of some organic and other vapors in air. Analytical Chemistry 40:1072–1077 (1968), doi:10.1021/ac60263a006
 - **Nagumo, Arimoto & Yoshizawa 1962.** Nagumo J, Arimoto S, Yoshizawa S. An active pulse transmission line simulating nerve axon. Proceedings of the IRE 50:2061–2070 (1962), doi:10.1109/JRPROC.1962.288235
 - **OIST Physics of Behavior tutorials 2025.** OIST Physics of Behavior tutorials contributors (Zenodo creators: IrinaKorshok, a-beraud, Greg Stephens, AkiraK). Physics of Behavior Tutorials, v1.0. Zenodo (CC BY 4.0) (2025), doi:10.5281/zenodo.15099731
+- **Ramot et al. 2008.** Ramot D, Johnson BE, Berry TL, Carnell L, Goodman MB. The Parallel Worm Tracker: a platform for measuring average speed and drug-induced paralysis in nematodes. PLoS ONE 3:e2208 (2008), doi:10.1371/journal.pone.0002208
 - **Randi et al. 2023.** Randi F, Sharma AK, Dvali S, Leifer AM. Neural signal propagation atlas of Caenorhabditis elegans. Nature 623:406–414 (2023), doi:10.1038/s41586-023-06683-4
 - **Richmond & Jorgensen 1999.** Richmond JE, Jorgensen EM. One GABA and two acetylcholine receptors function at the C. elegans neuromuscular junction. Nature Neuroscience 2:791–797 (1999), doi:10.1038/12160
 - **Sawin, Ranganathan & Horvitz 2000.** Sawin ER, Ranganathan R, Horvitz HR. C. elegans locomotory rate is modulated by the environment through a dopaminergic pathway and by experience through a serotonergic pathway. Neuron 26:619–631 (2000), doi:10.1016/S0896-6273(00)81199-X

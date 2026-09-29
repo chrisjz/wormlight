@@ -541,6 +541,37 @@ describe("R's third round (PLAN §7.3, §9; set before any of it ran, revised af
     expect(continued.generations[22]).toMatchObject({ generation: 22, evaluations: 253 });
   });
 
+  it('continues a search that restarted in phase 1 exactly, and scores none of its evaluations again', async () => {
+    // A flat objective restarts the search at the top of generation 21, after 231 evaluations, at λ = 22.
+    let scored = 0;
+    const flat: Scorer = (_, seeds) => {
+      if (seeds === CALIBRATION.fitSeeds) scored++;
+      return Promise.resolve({
+        value: 1,
+        errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+        measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.15, reversalRate: 0 },
+        unconverged: 0,
+      });
+    };
+    const options = {
+      form: 'conductance' as const,
+      restarts: THIRD_ROUND.restart,
+      seed: 11,
+      start: surveyStart(0, 0),
+      restartFrom: (r: number) => surveyStart(0, r),
+    };
+    const first = await calibrate(flat, { ...options, budget: 250 });
+    // Phase 1 ends 19 candidates into the restart's first generation.
+    expect(first.generations.at(-1)).toMatchObject({ restart: 1, generation: 0, lambda: 22, evaluations: 250 });
+    const fresh = await calibrate(flat, { ...options, budget: 750 });
+    // Continued from phase 1's record, as the runner does when phase 2's own is shorter, it scores only the 500 new.
+    scored = 0;
+    const continued = await calibrate(flat, { ...options, budget: 750, previous: first.evaluated });
+    expect(scored).toBe(500);
+    expect(continued.evaluated).toEqual(fresh.evaluated);
+    expect(continued.final).toEqual(fresh.final);
+  });
+
   it('restarts a stalled search before the 250th evaluation, and never after', async () => {
     // A flat objective: nothing ever improves on a restart's first generation.
     const flat: Scorer = () =>

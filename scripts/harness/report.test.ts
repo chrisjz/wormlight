@@ -488,7 +488,7 @@ describe('the harness report', () => {
     };
     const pacing = { open: 0.987, margin: { mean: -1.234, sd: 0.5 }, cycleRate: 0.0612 };
     expect(diagnosticsText({ ...base, pacing })).toContain(
-      "the head switch's gate was open on 99% of the measured steps, the head-switch drive sat 1.2 mV below θ_osc on average, with a standard deviation of 0.5 mV, and the switch cycled at 0.061 Hz, half its flips a second, beside the spectrum's peak at 0.300 Hz.",
+      "the head switch's gate was open on 98.7% of the measured steps, the head-switch drive sat 1.2 mV below θ_osc on average, with a standard deviation of 0.5 mV, and the switch cycled at 0.061 Hz, half its flips a second, beside the spectrum's peak at 0.300 Hz.",
     );
     expect(diagnosticsText({ ...base, pacing: { ...pacing, margin: { mean: 3, sd: 1 } } })).toContain(
       '3.0 mV above θ_osc',
@@ -524,8 +524,10 @@ describe('the harness report', () => {
       ],
     };
     const section = chosenSection(report);
-    expect(section).toContain("### R's third round: pick 2, from search 18 — **Partial**, at the speed floor");
-    expect(section).toContain('with a 95% interval of 0.0598 to 0.0631 from 1,000 resamples of the 20 trials');
+    expect(section).toContain(
+      "### R's third round: pick 2, from the search of CMA-ES seed 18 — **Partial**, at the speed floor",
+    );
+    expect(section).toContain('with a 95% interval from 0.0598 to 0.0631 over 1,000 resamples of the 20 trials');
     expect(section).toContain('So the partial is reported as partial at the speed floor');
     expect(section).toContain('| The head switch off, g_sw at 0 | **Fail** |');
     expect(section).toContain('10%');
@@ -537,6 +539,27 @@ describe('the harness report', () => {
     expect(clear).not.toContain(', at the speed floor');
     // With no bout in some resamples, the interval's lower end reads as such.
     const bare = chosenSection({ ...report, speed: { ...report.speed, interval: [null, 0.07], unmeasured: 40 } });
-    expect(bare).toContain('no bout to 0.0700 from 1,000 resamples of the 20 trials, 40 with no bout');
+    expect(bare).toContain(
+      'from below every measured speed to 0.0700 over 1,000 resamples of the 20 trials, 40 of them with no bout',
+    );
+    // A fit that isn't partial carries no floor label, and its report says nothing of one.
+    const failed = chosenSection({
+      ...report,
+      checkpoint1: { ...report.checkpoint1, grade: 'fail' },
+      speed: { ...report.speed, atFloor: null },
+    });
+    expect(failed).not.toContain('speed floor');
+  });
+
+  it("lesions the rules' classes by name in the runtime data: 18 B-types, 21 A-types, AVBL and AVBR", () => {
+    const data = JSON.parse(readFileSync(join(ROOT, 'public/data/wormlight.v1.json'), 'utf8')) as {
+      neurons: { name: string; oscillator: string | null }[];
+    };
+    const runs = variants(data.neurons, valuesOf('refit') as Values, 'conductance');
+    expect(runs.map((r) => r.lesions?.length ?? 0)).toEqual([0, 0, 18, 21, 2]);
+    const names = new Set(data.neurons.map((n) => n.name));
+    for (const r of runs) for (const name of r.lesions ?? []) expect(names.has(name), name).toBe(true);
+    expect(runs[2].lesions?.every((n) => /^[DV]B\d+$/.test(n))).toBe(true);
+    expect(runs[3].lesions?.every((n) => /^[DV]A\d+$/.test(n))).toBe(true);
   });
 });

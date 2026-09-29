@@ -343,7 +343,7 @@ export function diagnosticsText(d: Diagnostics): string {
     ...(d.pacing === null
       ? []
       : [
-          `the head switch's gate was open on ${percent(d.pacing.open)} of the measured steps, the head-switch drive sat ${fixed(Math.abs(d.pacing.margin.mean), 1)} mV ${d.pacing.margin.mean < 0 ? 'below' : 'above'} θ_osc on average, with a standard deviation of ${fixed(d.pacing.margin.sd, 1)} mV, and the switch cycled at ${d.pacing.cycleRate.toFixed(3)} Hz, half its flips a second${d.peak === null ? '' : `, beside the spectrum's peak at ${d.peak.toFixed(3)} Hz`}`,
+          `the head switch's gate was open on ${(100 * d.pacing.open).toFixed(1)}% of the measured steps, the head-switch drive sat ${fixed(Math.abs(d.pacing.margin.mean), 1)} mV ${d.pacing.margin.mean < 0 ? 'below' : 'above'} θ_osc on average, with a standard deviation of ${fixed(d.pacing.margin.sd, 1)} mV, and the switch cycled at ${d.pacing.cycleRate.toFixed(3)} Hz, half its flips a second${d.peak === null ? '' : `, beside the spectrum's peak at ${d.peak.toFixed(3)} Hz`}`,
         ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;
@@ -396,7 +396,8 @@ export interface ChosenReport {
     unmeasured: number;
     // The pooled speed over the comparison's trials at dt/2.
     fine: number | null;
-    atFloor: boolean;
+    // Whether a partial is at the speed floor; null for a grade other than partial.
+    atFloor: boolean | null;
   };
   variants: {
     name: string;
@@ -410,9 +411,10 @@ export interface ChosenReport {
 
 export function chosenSection(r: ChosenReport): string {
   const c = r.checkpoint1;
-  const end = (x: number | null): string => (x === null ? 'no bout' : x.toFixed(4));
+  // An end the resamples with no bout reach lies below every measured speed.
+  const [lower, upper] = r.speed.interval.map((x) => (x === null ? 'below every measured speed' : x.toFixed(4)));
   const speed = [
-    `Its pooled speed is ${r.speed.value === null ? 'unmeasured' : `${r.speed.value.toFixed(4)} body lengths per second`}, with a 95% interval of ${end(r.speed.interval[0])} to ${end(r.speed.interval[1])} from 1,000 resamples of the 20 trials${r.speed.unmeasured > 0 ? `, ${grouped(r.speed.unmeasured)} with no bout` : ''}; over §7.2's trials at dt/2 it is ${r.speed.fine === null ? 'unmeasured' : r.speed.fine.toFixed(4)}.`,
+    `Its pooled speed is ${r.speed.value === null ? 'unmeasured' : `${r.speed.value.toFixed(4)} body lengths per second`}, with a 95% interval from ${lower} to ${upper} over 1,000 resamples of the 20 trials${r.speed.unmeasured > 0 ? `, ${grouped(r.speed.unmeasured)} of them with no bout` : ''}; over §7.2's trials at dt/2 it is ${r.speed.fine === null ? 'unmeasured' : r.speed.fine.toFixed(4)}.`,
     c.grade === 'partial'
       ? r.speed.atFloor
         ? 'So the partial is reported as partial at the speed floor: the interval, or the speed at dt/2, reaches below 0.06.'
@@ -435,7 +437,7 @@ export function chosenSection(r: ChosenReport): string {
     v.meanVelocity.toFixed(4),
   ]);
   return [
-    `### R's third round: pick ${r.pick}, from search ${r.seed} — ${GRADE[c.grade]}${c.grade === 'partial' && r.speed.atFloor ? ', at the speed floor' : ''}`,
+    `### R's third round: pick ${r.pick}, from the search of CMA-ES seed ${r.seed} — ${GRADE[c.grade]}${c.grade === 'partial' && r.speed.atFloor ? ', at the speed floor' : ''}`,
     `Checkpoint 1 graded from the first 20 of §7.2's trials at dt, seeds 1 to 20, run on ${r.date} at \`${r.commit}\`, on the pick's values from data/calibration/r5.json (${r.from}), in the conductance form (PLAN §9).`,
     table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], c.clauses.map(clauseRow)),
     speed,

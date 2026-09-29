@@ -6,14 +6,18 @@ import {
   SURVEY,
   surveyStart,
   THIRD_ROUND,
+  type Evaluated,
 } from '../../src/validation/calibration.ts';
 import {
   BOUNDED,
   boundedAllowed,
+  continuedFrom,
+  mayStartAfresh,
   parseArgs,
   PROBE,
   procedure,
   ROUND_3,
+  roundThreeAllowed,
   settings,
   SUMMARY,
   summary,
@@ -88,6 +92,32 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     expect(boundedAllowed({ complete: true, partial: true })).toBe(false);
     expect(boundedAllowed({ complete: false, partial: false })).toBe(false);
     expect(boundedAllowed(null)).toBe(false);
+  });
+
+  it('runs round 3 once, only after a whole survey found a partial pick', () => {
+    expect(roundThreeAllowed({ complete: true, partial: true }, false)).toBe(true);
+    expect(roundThreeAllowed({ complete: true, partial: true }, true)).toBe(false);
+    expect(roundThreeAllowed({ complete: true, partial: false }, false)).toBe(false);
+    expect(roundThreeAllowed({ complete: false, partial: true }, false)).toBe(false);
+    expect(roundThreeAllowed(null, false)).toBe(false);
+  });
+
+  it('never starts afresh over a stopped run, which only --resume takes up', () => {
+    expect(mayStartAfresh(null)).toBe(true);
+    expect(mayStartAfresh({ complete: true })).toBe(true);
+    expect(mayStartAfresh({ complete: false })).toBe(false);
+    expect(mayStartAfresh({})).toBe(false);
+  });
+
+  it("replays phase 1's record in phase 2 until phase 2's own is longer", () => {
+    const evaluations = (n: number) => Array.from({ length: n }, (_, k) => ({ candidate: k }) as unknown as Evaluated);
+    const first = evaluations(250);
+    // A stop in the generation that crosses the 250th evaluation leaves phase 2's own record at 242.
+    expect(continuedFrom(evaluations(242), first)).toBe(first);
+    expect(continuedFrom(undefined, first)).toBe(first);
+    const own = evaluations(253);
+    expect(continuedFrom(own, first)).toBe(own);
+    expect(continuedFrom(own, undefined)).toBe(own);
   });
 });
 

@@ -92,6 +92,7 @@ export const THIRD_ROUND = {
   form: 'conductance' as Form,
   targets: ['frequency', 'wavelength', 'speed'] as readonly Target[],
   goals: { ...TARGETS, speed: 0.15 },
+  spectral: false,
   seeds: SURVEY.seeds,
   phase1: { budget: 250 },
   phase2: { budget: 750, continued: 4 },

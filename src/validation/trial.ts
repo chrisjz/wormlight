@@ -93,8 +93,9 @@ export interface TrialRecord {
   // many times the head switch's gate turned on or off over the measured steps. Trials in the current form have none.
   conductance?: { samples: number; switchShunt: number | null; proprioShunt: number | null; gateToggles: number };
   // For what paces the crawl (PLAN §7.4, added 2026-09-29 before round 3 ran), over the measured steps, in either
-  // form: their count, those whose step ran with the head switch's gate open, and the sums of the head-switch drive
-  // less θ_osc and of its square after each (mV, mV²). Records made before it have none.
+  // form: their count, those whose gate was open, and the sums of the head-switch drive less θ_osc that each step's
+  // gate read, and of its square (mV, mV²). The gate is open when that margin is above 0, whatever g_sw is, so a
+  // switch at 0 still shows it. Records made before it have none.
   gate?: { steps: number; open: number; margin: number; marginSquares: number };
 }
 
@@ -165,7 +166,8 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   // The gate's turns on or off, over the 0.1 s from each sample to the next.
   const toggles: number[] = [];
   let [turned, open] = [0, world.switchCurrent !== 0];
-  // The gate over the same stretches: its steps, those it was open, and the drive's margin, summed and squared.
+  // The gate over the same stretches, each step counted in the stretch its gate was read in: its steps, those it was
+  // open, and the drive's margin, summed and squared.
   const gate: [number, number, number, number][] = [];
   let [gateSteps, gateOpen, margin, margins] = [0, 0, 0, 0];
   // The voltages' extremes at every step, over the 0.1 s from each sample to the next.
@@ -217,11 +219,15 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   for (let s = 1; s <= steps; s++) {
     const touch = due.get(s - 1);
     if (touch) touches.push({ ...touch, reached: world.touch(touch.s).map((r) => r.name) });
+    // The margin this step's gate reads: the step computes the same drive before it moves anything.
+    const m = world.headDrive() - world.params.driveThreshold;
     world.step();
     if (!body.x.every(Number.isFinite) || !body.y.every(Number.isFinite)) {
       finite = false;
       break;
     }
+    [gateSteps, gateOpen] = [gateSteps + 1, gateOpen + (m > 0 ? 1 : 0)];
+    [margin, margins] = [margin + m, margins + m * m];
     if (world.headSwitch.h !== side) {
       side = world.headSwitch.h;
       switchFlips.push(s * NEURAL_STEP);
@@ -236,9 +242,6 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     }
     scan();
     if ((world.switchCurrent !== 0) !== open) [turned, open] = [turned + 1, !open];
-    const m = world.headDrive() - world.params.driveThreshold;
-    [gateSteps, gateOpen] = [gateSteps + 1, gateOpen + (world.switchCurrent !== 0 ? 1 : 0)];
-    [margin, margins] = [margin + m, margins + m * m];
     if (s >= from && s % posturesEvery === 0) {
       const points = resample(body.midline());
       if (selfIntersects(points)) selfIntersecting++;

@@ -350,7 +350,9 @@ if (process.argv[2] === '--worker') {
   if (round3 && full && result.comparison.pass && values) {
     const own = coarse.slice(0, SEEDS.length);
     if (own.some((r, k) => r.seed !== SEEDS[k])) throw new Error("the comparison's first trials aren't checkpoint 1's");
-    const data = validateWormlightData(JSON.parse(readFileSync(join(ROOT, 'public/data/wormlight.v1.json'), 'utf8')));
+    // The neurons by name as the trials' own tree holds them.
+    const at = ensureTree(STEPS[0], source);
+    const data = validateWormlightData(JSON.parse(readFileSync(join(at, 'public/data/wormlight.v1.json'), 'utf8')));
     const runs = variants(data.neurons, values, form).map((v) => ({
       ...v,
       dir: setDir(`${name}-${v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, STEPS[0], source),
@@ -374,7 +376,8 @@ if (process.argv[2] === '--worker') {
         interval: speed.interval,
         unmeasured: speed.unmeasured,
         fine: fineSpeed,
-        atFloor: atSpeedFloor(speed.interval, fineSpeed),
+        // The label reads a partial alone (PLAN §7.4).
+        atFloor: graded.grade === 'partial' ? atSpeedFloor(speed.interval, fineSpeed) : null,
       },
       variants: runs.map((v) => {
         const records = readSet(v.dir, SEEDS);

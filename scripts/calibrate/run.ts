@@ -310,8 +310,8 @@ export function procedure(mode: Mode): Procedure {
   const { crawl, restart } = SECOND_ROUND;
   if (mode === 'survey') return { form: SURVEY.form, targets: crawl.targets, spectral: true, restarts: restart };
   if (mode === 'round 3') {
-    const { form, targets, goals } = THIRD_ROUND;
-    return { form, targets, goals, spectral: false, restarts: THIRD_ROUND.restart };
+    const { form, targets, goals, spectral } = THIRD_ROUND;
+    return { form, targets, goals, spectral, restarts: THIRD_ROUND.restart };
   }
   // The refit's: all four targets, without the spectral frequency or restarts, in the conductance form.
   if (mode === 'bounded') return { form: 'conductance', targets: ALL_TARGETS, spectral: false };
@@ -328,6 +328,23 @@ export interface SurveyVerdict {
 // (PLAN §9). A later rule that calls for it changes this.
 export const boundedAllowed = (survey: SurveyVerdict | null): boolean =>
   survey !== null && survey.complete === true && survey.partial === false;
+
+// Whether round 3 may run on the real wiring: only once the survey has run to its end and found a pick at least
+// partial, and only once, before its record is committed (PLAN §9).
+export const roundThreeAllowed = (survey: SurveyVerdict | null, recorded: boolean): boolean =>
+  survey !== null && survey.complete === true && survey.partial === true && !recorded;
+
+// Whether a run may start afresh where another left its file: only if there is none, or that run finished. A stopped
+// run is resumed with --resume, or moved aside by hand, never overwritten.
+export const mayStartAfresh = (existing: { complete?: boolean } | null): boolean =>
+  existing === null || existing.complete === true;
+
+// What phase 2 replays of a search (PLAN §7.3): phase 1's record, or, resumed, its own so far, whichever is longer.
+// Each is the start of the other, and phase 1's evaluations are never scored again.
+export const continuedFrom = (
+  own: readonly Evaluated[] | undefined,
+  first: readonly Evaluated[] | undefined,
+): readonly Evaluated[] | undefined => ((own?.length ?? 0) >= (first?.length ?? 0) ? own : first);
 
 // The committed summary: the run without its evaluations, its stages' included.
 export function summary(run: Record<string, unknown>): Record<string, unknown> {
@@ -377,6 +394,12 @@ if (process.argv.includes('--worker')) {
     seconds?: number;
   } = { stages: {} };
   const committed = commit();
+  if (
+    !options.resume &&
+    !mayStartAfresh(existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as object) : null)
+  ) {
+    throw new Error(`${file} holds a stopped run: take it up with --resume, or move it aside first`);
+  }
   if (options.resume) {
     if (!existsSync(file)) throw new Error(`there is no run to resume at ${file}`);
     resumed = JSON.parse(readFileSync(file, 'utf8')) as typeof resumed;
@@ -396,6 +419,15 @@ if (process.argv.includes('--worker')) {
     if (!boundedAllowed(survey)) {
       throw new Error(
         "the survey found a crawl (data/calibration/survey.json), so the bounded calibration doesn't run (PLAN §9)",
+      );
+    }
+  }
+  // Round 3 runs once, and only because the survey found a crawl (PLAN §9).
+  if (mode === 'round 3') {
+    const survey = existsSync(SURVEYED) ? (JSON.parse(readFileSync(SURVEYED, 'utf8')) as SurveyVerdict) : null;
+    if (!roundThreeAllowed(survey, existsSync(ROUND_3))) {
+      throw new Error(
+        'round 3 runs once, after a survey that found a crawl: data/calibration/survey.json says otherwise, or data/calibration/r5.json is already committed',
       );
     }
   }
@@ -555,8 +587,8 @@ if (process.argv.includes('--worker')) {
           restarts,
           start: surveyStart(j, 0),
           restartFrom: (r) => surveyStart(j, r),
-          // Phase 2 continues phase 1's search: its first evaluations replayed, or, resumed, its own so far.
-          previous: previous(stage) ?? before?.evaluated,
+          // Phase 2 continues phase 1's search, replaying its evaluations, or its own so far once it has more.
+          previous: continuedFrom(previous(stage), before?.evaluated),
           ...(before ? { extra: [{ from: `phase 1's pick, ${before.final.from}`, values: before.final.values }] } : {}),
           progress: report(stage, budget),
         });
@@ -597,9 +629,12 @@ if (process.argv.includes('--worker')) {
         restarts: Math.max(...fit.generations.map((g) => g.restart)),
         final: fit.final,
       }));
-      const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, continued, picks };
-      writeWhole(file, JSON.stringify(run) + '\n');
+      // Phase 1's ranking, which chose the searches phase 2 continues.
+      const ranking = order.map(({ seed, value, from }) => ({ seed, value, from }));
+      const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks };
+      // The committed record first, so that a stop between the two writes leaves a run --resume can finish.
       writeWhole(ROUND_3, await formatJson(JSON.stringify(summary(run)), ROUND_3));
+      writeWhole(file, JSON.stringify(run) + '\n');
       process.stdout.write("The picks, in the order they take §7.2's comparison:\n");
       for (const p of picks) {
         process.stdout.write(`  seed ${p.seed}, ${p.from}: ${shown(p.value)}\n`);

@@ -79,8 +79,9 @@ export function writeWhole(path: string, text: string): void {
   renameSync(`${path}.part`, path);
 }
 
-// Each job in a worker process of its own, `script --worker <job>`. The first failure stops new jobs; those under
-// way finish, then it throws.
+// Each job in a worker process of its own, `script --worker <job>`, its heap capped and its time limited, so that a
+// worker gone wrong fails alone rather than taking the machine's memory. The first failure stops new jobs; those
+// under way finish, then it throws.
 export async function forkPool<T>(
   script: string,
   jobs: readonly T[],
@@ -95,9 +96,14 @@ export async function forkPool<T>(
       while (next < jobs.length && !failure) {
         const job = jobs[next++];
         await new Promise<void>((resolve) => {
-          const child = fork(script, ['--worker', JSON.stringify(job)], { stdio: 'inherit' });
-          child.on('exit', (code) => {
-            if (code !== 0) failure ??= new Error(`${describe(job)} exited ${code}`);
+          const child = fork(script, ['--worker', JSON.stringify(job)], {
+            stdio: 'inherit',
+            execArgv: [...process.execArgv, WORKER_HEAP],
+          });
+          const timer = setTimeout(() => child.kill(), JOB_TIMEOUT);
+          child.on('exit', (code, signal) => {
+            clearTimeout(timer);
+            if (code !== 0) failure ??= new Error(`${describe(job)} exited ${signal ?? code}`);
             resolve();
           });
         });
@@ -109,6 +115,11 @@ export async function forkPool<T>(
   const error = failure as Error | null;
   if (error) throw error;
 }
+
+// Each worker's heap, and how long a job may run before it is taken as stuck and killed, as the calibration's runner
+// takes a trial (scripts/calibrate/run.ts).
+const WORKER_HEAP = '--max-old-space-size=2048';
+const JOB_TIMEOUT = 300_000; // ms
 
 // A whole number of workers from `--jobs N`, or one per core.
 export function workersFrom(args: readonly string[], cores: number): number {

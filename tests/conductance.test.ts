@@ -30,7 +30,8 @@ import {
   type Values,
 } from '../src/validation/calibration.ts';
 import { spanCurvature } from '../src/validation/posture.ts';
-import { runTrial } from '../src/validation/trial.ts';
+import { MEASURE_FROM, MOTION_SAMPLE } from '../src/validation/motion.ts';
+import { runTrial, startingWorld } from '../src/validation/trial.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { readJson } from './checks.ts';
 
@@ -268,14 +269,35 @@ describe('the world in the conductance form', () => {
     const open = smd.reduce((sum, i) => sum + TRIAL.switchGain / loads[i], 0) / smd.length;
     expect(c.gateToggles).toBe(0);
     expect(c.switchShunt).toBeCloseTo(open * c.samples, 10);
-    // What paces the crawl, over the same steps (PLAN §7.4, added before round 3 ran): the gate open on every one,
-    // the head-switch drive above θ_osc throughout; and the record in the current form too.
+    // What paces the crawl, over the same steps (PLAN §7.4, added before round 3 ran): the margin each measured step's
+    // gate read, as a world stepped here reads it before each step, and the gate open wherever it is above 0.
     const gate = r.gate;
     if (!gate) throw new Error('no gate record');
-    expect(gate.steps).toBe(r.velocity.length * Math.round(0.1 / NEURAL_STEP));
+    const every = Math.round(MOTION_SAMPLE / NEURAL_STEP);
+    const [from, to] = [MEASURE_FROM / MOTION_SAMPLE, MEASURE_FROM / MOTION_SAMPLE + r.velocity.length].map((k) =>
+      Math.round(k * every),
+    );
+    const { world: again } = startingWorld(data, { ...options, params: TRIAL });
+    const expected = { steps: 0, open: 0, margin: 0, marginSquares: 0 };
+    for (let s = 1; s <= to; s++) {
+      const m = again.headDrive() - TRIAL.driveThreshold;
+      again.step();
+      if (s <= from) continue;
+      expected.steps++;
+      if (m > 0) expected.open++;
+      expected.margin += m;
+      expected.marginSquares += m * m;
+    }
+    // The counts exactly; the sums to rounding, since the trial adds them 0.1 s at a time.
+    expect([gate.steps, gate.open]).toEqual([expected.steps, expected.open]);
+    expect(gate.margin).toBeCloseTo(expected.margin, 9);
+    expect(gate.marginSquares).toBeCloseTo(expected.marginSquares, 9);
+    expect(gate.steps).toBe(r.velocity.length * every);
     expect(gate.open).toBe(gate.steps);
-    expect(gate.margin).toBeGreaterThan(0);
-    expect(gate.marginSquares).toBeGreaterThanOrEqual(gate.margin ** 2 / gate.steps);
+    // With the switch off, the gate still reads open: it is the drive's, not the switch's current.
+    const off = runTrial(data, { ...options, params: { ...TRIAL, switchGain: 0 } });
+    expect(off.gate?.open).toBeGreaterThan(0);
+    expect(off.conductance?.switchShunt).toBe(0);
     // The curved start bends the body, so proprioception opens conductances too.
     expect(c.proprioShunt).toBeGreaterThan(0);
     // With the SMDs lesioned, the switch has no targets.
