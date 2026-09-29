@@ -2207,7 +2207,7 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 
 **After review.** Three reviews found the rules' figures reproducing, but the survey too weak to end R on a miss, and push-pull inhibiting on average. They also found several choices left open that could have been made after results, and errors in the record. The maintainer chose the recommendation each time: sixteen searches of 250 from a Latin hypercube; push-pull kept, its asymmetry stated and a shunt diagnostic reported; θ_nmj's unreachable top declared; and every other fix.
 
-**Status.** Set after review, before any of it was built; built next (the entry below), then the survey.
+**Status.** Set after review, before any of it was built; built next, then the survey, which found a crawl (the entries below).
 
 ## 2026-09-29 — The conductance form, built (its parity setups changed after results; revised after review)
 
@@ -2245,4 +2245,97 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 
 **After review.** Three reviews found the build matching the rules on every point, the current form unchanged, and no bug in the model; but the search itself not taking the form, several claims wrong or unsupported, and the curvature unguarded in CI. The maintainer chose the recommendation each time: the form threaded through and required now; a gate-open corner added to parity; the curvature computed by the data build; and every other fix.
 
-**Status.** Built. Still to come with the survey's runner: its Latin-hypercube starts, its record, and the bounded model's calibration mode.
+**Status.** Built; the survey's runner followed (the entries below).
+
+## 2026-09-29 — The survey's runner, built
+
+**Why.** The survey of the bounded model, and the bounded model's calibration should the survey find no crawl, were set before either was built (the entries above). Their runner is built here, before either runs; no rule changes.
+
+- **The survey** (`npm run calibrate -- --survey`). Stage 1 of R's second round, on the kinematics alone and with its spectral frequency for a worm without a bout, runs sixteen times at 250 evaluations in the conductance form, with CMA-ES seeds 11 to 26, each with its final check. Each pick is graded by checkpoint 1's grading on seeds 3001 to 3020, and the record keeps each search's start, its pick, its grade and its diagnostics, the shunt and the gate's toggles among them. It is written to `data/calibration/survey.json`, and a stopped survey resumes with the searches it had graded. Corrected after review: until the runner's fix (the entry below), each generation's save dropped the graded runs, so a resumed survey would have graded them again, to the same result.
+- **Its starts.** They are the Latin hypercube the rules give, computed by `surveyStart` in `src/validation/calibration.ts`; a tie in the ranks, which never arose, would go to the lower search's number. A search's restarts, by round 2's rules on its step and its stalls, start from fresh points of the same hash rather than its own start again, through a new option of the search. Tests hold the starts to one cell a parameter for each search, strictly inside the box, and a restart to the point it is given.
+- **The bounded calibration** (`npm run calibrate -- --bounded`). The refit's procedure in the conductance form: one search of 2,000 evaluations on all four targets, without the spectral frequency or restarts, from the conductance form's provisional values, with the final check. It is written to `data/calibration/r4.json`, and it runs only if the survey finds no crawl, after the speed target is decided (PLAN §7.3). The equivalence script gains its fit when it has a record.
+- **Round 2's modes are unchanged.** The probe's search and grading now share the survey's code, and its record is the same.
+
+**Status.** Built; the survey ran (the entry below).
+
+## 2026-09-29 — The survey finds a crawl in the bounded model, so R's third round runs (revised after review)
+
+**Why.** The survey ran as its rules set (the entries above): `npm run calibrate -- --survey` at 1f574a1, on 14 workers, in 2 h 16 min, from a clean commit and without a resume. It ran 19,136 trials on the real wiring:
+
+- 16,000 on the calibration's seeds 1001 to 1004, 4,000 evaluations of 4 trials;
+- 2,816 on the final check's seeds 1005 to 1020, 176 finalists on 16 seeds each, which round 3 and every null reuse;
+- 320 on the survey's grading seeds 3001 to 3020.
+
+The result:
+
+- **Two partial picks.** 2 of the 16 picks grade partial by checkpoint 1's grading on seeds 3001 to 3020, those of searches 7 and 15 (CMA-ES seeds 18 and 26). The hit rate is 2 of 16, 0.125 (95% interval 0.016–0.383), consistent with the one in seven the current form's searches found, though those differed in form, start and budget.
+
+  | CMA-ES seed | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) | Eigenworms | 20 s bouts | Reversals |
+  | ----------- | -------------- | ------------------------- | ---------------------- | ---------- | ---------- | --------- |
+  | 18          | 0.129          | 0.84                      | 0.061                  | 98.6%      | 100%       | 0         |
+  | 26          | 0.186          | 0.49                      | 0.061                  | 97.8%      | 100%       | 0         |
+  - **How they crawl.** Both crawl slowly: their speed sits at partial's floor of 0.06, and their frequency is well below the target's 0.30 Hz. Their mid-body spectra peak at 0.119 and 0.164 Hz, with 18% of the power in 0.2–0.45 Hz.
+  - **Where they sit.** Both have the B-types' oscillator off (g_osc,B = 0, at its bound) and κ_gap,B low, at 0.15 and 0.17. Their θ_nmj of −0.12 and −0.10 and g_nmj of 33 and 30 lie near probe 14's corner's −0.14 and 28 (the investigation's entry above). Unlike the corner, their κ_SMD sits mid-box, at 0.31 and 0.33 against 0.11; their θ_osc sits at −16.5 and −15.6 mV against its floor of −28; and they crawl more slowly, at 0.061 against about 0.10 body lengths per second. Their g_sw is 1.9 and 14 nS, and their g_p 0.015 and 0.066 nS per unit of κL. Seed 26's σ_n sits on its bound, 0.169 pA·√s. Two failing picks, seeds 13 and 19, also have g_osc,B = 0. Corrected after review: this called it the region where the corner lay.
+  - **Their diagnostics,** reported and not graded:
+    - **Voltages.** Seed 18's ran from −37.7 to +7.2 mV, with 0.1 neurons outside the reversal range on average. Seed 26's ran from −73.3 to +29.8 mV, with 3.5 outside and 0.04 more than 10 mV past.
+    - **Shunt.** Seed 18's switch conductance came to 1.9 times its SMDs' passive loads, and seed 26's to 14 times, all but clamping them. Proprioception's came to 0.13 and 0.59.
+    - **The gate.** Each gate stayed open throughout.
+
+- **The fourteen that failed.** Every one failed the speed clause. The eleven with a forward bout of 10 s moved at 0.019 to 0.034 body lengths per second. Three, seeds 15, 22 and 24, made no such bout, so their kinematics went unmeasured; two of them wiggled at 0.265 Hz with most of their power in the band.
+  - **Reversals.** Nine reversed. In seven of them every reversal began within 3 s after a flip of the head switch: slips. In the other two, 115 of 125 and 8 of 90 did.
+  - **The gate.** Seed 23's gate turned on or off 88 times a second, about one step in five. Corrected after review: this miscounted the groups and left out the speed.
+- **No search restarted.** None went 20 generations without a better best (the longest went 13), and none's step fell below 0.01 (the smallest was 0.092). Corrected after review: this said 250 evaluations end before the restart rules fire.
+
+**After review.** Three reviews found the survey run exactly as its rules set: an independent implementation reproduced every start, every search replays, and every recorded number reproduces. But the result is weaker than the verdict alone says. Checked here from the full run record:
+
+- **A ceiling, not a floor.**
+  - The fastest of all 4,000 evaluations reached 0.064 body lengths per second, and only 3 of them combined a bout with a speed of 0.06 or more.
+  - 3,341 of the 4,000 (84%) had no bout and a speed of 0.01 or less, the objective's plateau. Only 1 of the 176 first generations' candidates made a bout.
+
+A review found, in trials of its own:
+
+- **At the floor.**
+  - On fresh seeds both picks stay partial, at 0.061, with trial-bootstrap intervals of about ±0.001.
+  - At half the step, seed 18 is partial by 0.00001, at 0.060010.
+  - Raising its g_nmj from 33 to 40, inside the box, fails it, at 0.058.
+- **The step.** Seed 26's frequency and wavelength moved by 6% and 8% at half the step, outside §7.2's margins. Twenty trials can't test equivalence, but a fit like it could fail §7.2's comparison.
+- **The head switch paces the crawl, running unconditionally.**
+  - With θ_osc at −16 mV, far below the intact network's drive, the gate stayed open throughout in 15 of the 16 picks: the network never gates the head's rhythm.
+  - Seed 18's switch flips 14.5 times a minute, half of which is 0.121 Hz, against its spectral peak of 0.119.
+  - With g_sw at its lower bound, both picks stop.
+  - With the 18 B-types lesioned, or the 21 A-types, the crawl is lost. With AVBL and AVBR lesioned, seed 18 stays partial and seed 26 falls just short of the speed floor.
+  - This meets spec §1.1's letter, since the silenced network's head is gated off, but not its intent. It bodes ill for checkpoint 5's AVB and PVC row and for what checkpoint 6 can say.
+- **Reach, not ranking.** Rescoring all 4,000 evaluations with a speed target of 0.15, or with the kinematics from at least 4 bouts, changes no search's best candidate. So the survey is no evidence about the speed target, which rests on the wave-speed argument alone. The spectral frequency held two searches on a plateau of wiggling for 10 to 15 generations, as round 2's review found.
+
+**Decision.** The survey's verdict follows the rules set before it ran; nothing was chosen here. After review, the maintainer chose the recommendation each time:
+
+- **R's third round, its last, runs on the bounded model, the caveats above recorded.** Its procedure is proposed in a rules pull request of its own, for the maintainer's approval, and every null gets it. Its rules state in advance:
+  - how a fit that is partial only at the speed floor reads;
+  - that a pass is likely out of reach in this form;
+  - the diagnostics, reported and not graded, that show what paces the crawl: the gate's open share, and runs with the switch weakened and with the B-types, the A-types and AVB lesioned.
+
+  Round 3's rules are designed after these results, and say so. Considered: stopping R now, overriding the rule; and raising the bar round 3's fit must clear.
+
+- **The picks are exploratory.** They can't be chosen, and they took neither checkpoint 1's own trials nor §7.2's comparison.
+- **Round 3's rules also:**
+  - decide the speed target, with the maintainer's approval (PLAN §7.3);
+  - name round 3's record, since `r4.json` is the bounded calibration's;
+  - add its fit to the equivalence script.
+- **The velocity floor** of GPU parity is revisited before any bounded fit reaches the registry (the build's entry above).
+- **The bounded calibration is guarded.** `npm run calibrate -- --bounded` refuses to run unless the survey's record says no pick graded partial, since the survey found one. A later rule that calls for it lifts the guard. Considered: removing the mode.
+- **The runner is fixed** (after review):
+  - a resumed survey or probe now keeps the runs it had graded, where each generation's save had dropped them;
+  - its records are written whole or not at all;
+  - a trial running past 300 s is killed, and each worker's heap is capped at 2 GB;
+  - a resume refuses another commit or a finished run, and its time carries on;
+  - its options refuse names that aren't modes.
+
+  Tests now hold the starts to the rules' formula, restarts to their index with a replay, and the record to its settings and its clauses. The survey itself met none of these faults: it ran through once.
+
+- **Disclosed.** For its findings the science review ran 177 trials of 120 s on seeds 9001 to 9020, at the two picks' values in the conductance form:
+  - 80 at the step and at half of it;
+  - 80 with the switch weakened, proprioception at its lower bound, and the B-types, the A-types or AVB lesioned;
+  - 16 with g_nmj at 40;
+  - 1 for timing.
+
+**Status.** Done: the survey found a crawl, and round 3's rules come next.

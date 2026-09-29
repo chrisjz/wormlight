@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hash, uniform } from '../sim/brain/rng.ts';
 import { PARAMS } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { emptySums } from './posture.ts';
@@ -22,6 +23,8 @@ import {
   type KinematicRecord,
   type Scorer,
   type Values,
+  SURVEY,
+  surveyStart,
 } from './calibration.ts';
 
 describe("the calibration's settings", () => {
@@ -207,6 +210,57 @@ const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
     });
   };
 };
+
+describe('the survey of the bounded model (PLAN §9, set after review before any of it ran)', () => {
+  it('is sixteen searches of 250 in the conductance form, with CMA-ES seeds 11 to 26, graded on 3001 to 3020', () => {
+    expect(SURVEY).toMatchObject({ form: 'conductance', budget: 250, hashSeed: 0x53555256 });
+    expect(SURVEY.seeds).toEqual(Array.from({ length: 16 }, (_, i) => 11 + i));
+    expect(SURVEY.gradeSeeds).toEqual(Array.from({ length: 20 }, (_, i) => 3001 + i));
+  });
+
+  it('starts from a Latin hypercube strictly inside the box, and restarts from fresh points of the same hash', () => {
+    const S = SURVEY.hashSeed;
+    const n = SURVEY.seeds.length;
+    const starts = SURVEY.seeds.map((_, j) => surveyStart(j, 0));
+    for (let k = 0; k < CALIBRATED.length; k++) {
+      // Each parameter's sixteen starts fill its sixteen cells, one each.
+      const cells = starts.map((u) => Math.floor(u[k] * n)).sort((a, b) => a - b);
+      expect(cells).toEqual(Array.from({ length: n }, (_, i) => i));
+      // By the rules' formula: search j's cell is the rank of uniform(hash(S, j, 64 + k)) among the sixteen, and its
+      // place within the cell uniform(hash(S, j, k)).
+      const b = Array.from({ length: n }, (_, j) => uniform(hash(S, j, 64 + k)));
+      starts.forEach((u, j) => {
+        expect(Math.floor(u[k] * n)).toBe(b.filter((x) => x < b[j]).length);
+        expect(u[k] * n - Math.floor(u[k] * n)).toBeCloseTo(uniform(hash(S, j, k)), 12);
+        expect(u[k] > 0 && u[k] < 1).toBe(true);
+      });
+    }
+    // Restart r of search j starts at uniform(hash(S, 16r + j, k)).
+    for (const r of [1, 2, 3]) {
+      expect(surveyStart(3, r)).toEqual(CALIBRATED.map((_, k) => uniform(hash(S, n * r + 3, k))));
+    }
+    expect(() => surveyStart(16, 0)).toThrow(/no search 16/);
+  });
+
+  it("restarts a search from restartFrom's point for each restart, and replays such a search bit for bit", async () => {
+    const points = [0.25, 0.5, 0.75].map((x) => CALIBRATED.map(() => x));
+    // A step below 10 restarts it after each generation.
+    const options = {
+      form: 'current' as const,
+      budget: 120,
+      restarts: { sigma: 10, stall: 20 },
+      restartFrom: (r: number) => points[r % 3],
+    };
+    const fit = await calibrate(synthetic(), options);
+    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues('current'), 'current'));
+    for (const r of [1, 2]) expect(fit.generations.find((g) => g.restart === r)?.mean).toEqual(points[r]);
+    // Resumed from its evaluations, it comes out the same; resumed with other restart points, it is caught.
+    const again = await calibrate(synthetic(), { ...options, previous: fit.evaluated });
+    expect(again.evaluated).toEqual(fit.evaluated);
+    const moved = { ...options, previous: fit.evaluated, restartFrom: (r: number) => points[(r + 1) % 3] };
+    await expect(calibrate(synthetic(), moved)).rejects.toThrow(/parts from/);
+  });
+});
 
 describe("R's second round", () => {
   it("is PLAN §7.3's: the crawl, then the noise, with restarts and a probe", () => {
