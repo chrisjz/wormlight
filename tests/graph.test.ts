@@ -3,8 +3,10 @@
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData, type Chemical } from '../src/data/schema.ts';
 import { DEFAULT_LAYOUT, graphLayout, isCordNeuron, unbendNeurons } from '../src/render/layout.ts';
-import { linkKind, Wiring } from '../src/ui/connections.ts';
+import { chemicalProvenance, REWIRED_PROVENANCE } from '../src/science/provenance.ts';
+import { contrastData } from '../src/sim/brain/rewire.ts';
 import { currentParams } from '../src/sim/world.ts';
+import { linkKind, Wiring } from '../src/ui/connections.ts';
 import { badgeKey, GROUP_TITLES, inspect, musclesByNeuron, type GroupKind, type Row } from '../src/ui/inspection.ts';
 import { readJson } from './checks.ts';
 
@@ -199,5 +201,68 @@ describe('the inspector', () => {
     expect(role('VB6')).toMatch(bRole);
     expect(role('DA9')).toMatch(/^an A-type intrinsic oscillator/);
     expect(role('SMDVL')).toMatch(/proprioceptive switch/);
+  });
+});
+
+describe('the inspector on an experiment (spec §6)', () => {
+  const muscles = musclesByNeuron(data);
+
+  it('marks a lesioned neuron, and every connection a lesion cuts', () => {
+    const wiring = new Wiring(data);
+    const lesioned = new Set(['AVAL', 'AVBL']);
+    const aval = inspect(data, wiring, muscles, at('AVAL'), lesioned);
+    expect(aval.lesioned).toBe(true);
+    expect(aval.groups.flatMap((g) => g.rows).every((r) => r.cut)).toBe(true);
+    const vb6 = inspect(data, wiring, muscles, at('VB6'), lesioned);
+    expect(vb6.lesioned).toBe(false);
+    for (const row of vb6.groups.flatMap((g) => g.rows)) expect(row.cut, row.name).toBe(lesioned.has(row.name));
+    expect(vb6.groups.flatMap((g) => g.rows).some((r) => r.cut)).toBe(true);
+    expect(
+      inspect(data, wiring, muscles, at('VB6'))
+        .groups.flatMap((g) => g.rows)
+        .some((r) => r.cut),
+    ).toBe(false);
+  });
+
+  it("badges a rewired connection as such, with the real connection whose sign it keeps, never that one's badge", () => {
+    const contrast = contrastData(data, 1);
+    const wiring = new Wiring(contrast);
+    let moved = 0;
+    for (const i of data.neurons.keys()) {
+      const shown = inspect(contrast, wiring, muscles, i);
+      for (const group of shown.groups.filter((g) => g.kind === 'out')) {
+        for (const row of group.rows) {
+          const c = contrast.chemical.find((e) => e.pre === shown.name && e.post === row.name);
+          if (!c) throw new Error(`no ${shown.name}>${row.name}`);
+          if (c.original === c.post) {
+            expect(row.provenance).toEqual(chemicalProvenance(c));
+            expect(row.origin).toBeUndefined();
+          } else {
+            moved++;
+            expect(row.provenance).toEqual(REWIRED_PROVENANCE);
+            expect(row.origin).toEqual({ pre: c.pre, post: c.original, provenance: chemicalProvenance(c) });
+          }
+        }
+      }
+    }
+    expect(moved).toBeGreaterThan(3500);
+    // Its gap junctions and junctions onto muscle are the real wiring's.
+    const vb6 = inspect(contrast, wiring, muscles, at('VB6'));
+    expect(vb6.groups.find((g) => g.kind === 'gap')?.rows.every((r) => r.provenance.label === 'EM')).toBe(true);
+    expect(vb6.groups.find((g) => g.kind === 'muscle')?.rows.every((r) => r.provenance.label === 'Receptors')).toBe(
+      true,
+    );
+  });
+
+  it('gives the other end of a rewired connection the same origin', () => {
+    const contrast = contrastData(data, 2);
+    const wiring = new Wiring(contrast);
+    const c = contrast.chemical.find((e) => e.pre !== e.post && e.original !== e.post && e.signSource === 'physiology');
+    if (!c) throw new Error('no moved physiology connection');
+    const into = inspect(contrast, wiring, muscles, at(c.post)).groups.find((g) => g.kind === 'in');
+    const row = into?.rows.find((r) => r.name === c.pre);
+    expect(row?.provenance.label).toBe('Rewired');
+    expect(row?.origin).toEqual({ pre: c.pre, post: c.original, provenance: chemicalProvenance(c) });
+    expect(row?.origin?.provenance.label).toBe('Physiology');
   });
 });

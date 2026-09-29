@@ -8,6 +8,7 @@ import {
   GAP_PROVENANCE,
   MUSCLE_SIGN_LEVELS,
   muscleProvenance,
+  REWIRED_PROVENANCE,
   SIGN_LEVELS,
   type Provenance,
 } from './provenance.ts';
@@ -28,6 +29,7 @@ const all: Provenance[] = [
   muscleProvenance({ signSource: 'receptor' }),
   muscleProvenance({ signSource: 'none' }),
   GAP_PROVENANCE,
+  REWIRED_PROVENANCE,
 ];
 
 describe('sign provenance', () => {
@@ -37,6 +39,7 @@ describe('sign provenance', () => {
     expect([...new Set(Object.values(SIGN_LEVELS))].sort()).toEqual([...ledger('Chemical synapse signs')].sort());
     expect([...new Set(Object.values(MUSCLE_SIGN_LEVELS))].sort()).toEqual([...ledger('Neuromuscular signs')].sort());
     expect(ledger('Gap junctions')).toEqual([GAP_PROVENANCE.level]);
+    expect(ledger('The contrast brain')).toEqual([REWIRED_PROVENANCE.level]);
   });
 
   it("opens each explanation with its level's name on the scale", () => {

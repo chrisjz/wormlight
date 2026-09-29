@@ -6,7 +6,8 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { Brain, type BrainState, type Oscillators } from '../sim/brain/brain.ts';
-import { lesion, type Network } from '../sim/brain/network.ts';
+import { cookNetwork, lesion, type Network } from '../sim/brain/network.ts';
+import { contrastData } from '../sim/brain/rewire.ts';
 import { gaussianFrom, hash, uniform } from '../sim/brain/rng.ts';
 import { FIRST_LAWN, lawnField, steadyField, type Lawn } from '../sim/env/dish.ts';
 import type { OdourField } from '../sim/env/odour.ts';
@@ -260,12 +261,17 @@ export function assayField(): OdourField {
 // P_th at 0.05, where the head flips in that form, and θ_nmj at −0.2, where its muscles move the body: at gains
 // inside the box, the gate open; and at the box's upper corner, where the conductances weigh most against the
 // solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
-// where the gate turns on or off on about half the steps.
+// where the gate turns on or off on about half the steps. The last runs the registry's values on the contrast
+// brain (PLAN §3.5), lesioned as a viewer may lesion it (spec §6): its first rewiring, less a command interneuron,
+// a B-type oscillator, a touch receptor and a dorsal SMD.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
   switchThreshold?: number;
   seed?: number;
+  // The contrast brain's rewiring it runs, if not the real wiring, and the neurons lesioned.
+  rewiring?: number;
+  lesions?: readonly string[];
   // Whether its states are also taken moved, as the trial values' are.
   moved?: boolean;
   // States after the rest world's.
@@ -334,7 +340,22 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     switchThreshold: 0.05,
     states: 6,
   },
+  {
+    name: 'contrast brain, lesioned',
+    params: currentParams(),
+    rewiring: 1,
+    lesions: ['AVBL', 'VB6', 'ALML', 'SMDDL'],
+    states: 10,
+  },
 ];
+
+// The brain a setup runs, each rewiring made once.
+const rewired = new Map<number, Network>();
+function brainOptions(data: WormlightData, setup: LoopSetup): WorldOptions {
+  const k = setup.rewiring;
+  if (k !== undefined && !rewired.has(k)) rewired.set(k, cookNetwork(contrastData(data, k)));
+  return { network: k === undefined ? undefined : rewired.get(k), lesions: setup.lesions };
+}
 
 export interface LoopCase {
   label: string;
@@ -348,6 +369,7 @@ export function loopCases(data: WormlightData, setup: LoopSetup = LOOP_SETUPS[0]
     seed: setup.seed ?? SEED,
     switchThreshold: setup.switchThreshold,
     odour: assayField(),
+    ...brainOptions(data, setup),
   });
   const cases: LoopCase[] = [{ label: 'rest', setup, state: world.snapshot() }];
   const every = Math.round(INTERVAL / NEURAL_STEP);
@@ -373,6 +395,7 @@ export function cpuWorld(
     solver: { tolerance },
     switchThreshold: setup.switchThreshold,
     odour: assayField(),
+    ...brainOptions(data, setup),
   });
   world.restore(state);
   return world;

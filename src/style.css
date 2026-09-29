@@ -279,6 +279,29 @@ a:hover {
   margin: 0;
 }
 
+.inspector-lesion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.7rem;
+  margin: 0.6rem 0 0;
+}
+
+.inspector-lesioned {
+  margin: 0;
+  color: var(--warn);
+}
+
+/* A connection a lesion cuts. */
+.inspector-row.row-cut .row-name {
+  color: var(--muted);
+  text-decoration-line: line-through;
+}
+
+.row-cut .row-bar {
+  opacity: 0.4;
+}
+
 .inspector-heading {
   margin: 0.9rem 0 0.35rem;
   font-size: 0.8125rem;
@@ -480,6 +503,13 @@ button.inspector-row:focus-visible .row-name {
   color: var(--muted);
 }
 
+/* The brain shown, while it is the contrast brain. */
+.brand-brain {
+  margin: 0.5rem 0 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--muted);
+}
+
 /* The legend and the hint and credit share one row along the bottom, wrapping rather than overlapping. */
 .footer {
   position: absolute;
@@ -520,6 +550,10 @@ button.inspector-row:focus-visible .row-name {
   color: var(--fg);
 }
 
+.legend-item[hidden] {
+  display: none;
+}
+
 .swatch {
   display: inline-block;
   flex: none;
@@ -529,6 +563,12 @@ button.inspector-row:focus-visible .row-name {
   width: 0.6rem;
   height: 0.6rem;
   border-radius: 50%;
+}
+
+/* A lesioned neuron: hollow. */
+.swatch-hollow {
+  box-sizing: border-box;
+  border: 1.5px solid var(--fg);
 }
 
 .swatch-line {
@@ -703,6 +743,49 @@ button.inspector-row:focus-visible .row-name {
   font-weight: 600;
 }
 
+/* What the experiment changes, while it changes anything: the contrast brain, and the lesions. */
+.plate-experiment {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-left: 2px solid var(--muted);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  line-height: 1.45;
+  pointer-events: auto;
+}
+
+.plate-experiment p {
+  margin: 0;
+}
+
+.plate-experiment p:not([hidden]) + p {
+  margin-top: 0.4rem;
+}
+
+.plate-experiment button,
+.inspector-ablate {
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.plate-experiment button:hover,
+.inspector-ablate:hover {
+  background: rgb(255 255 255 / 6%);
+}
+
+.plate-experiment button:focus-visible,
+.inspector-ablate:focus-visible,
+.plate-brain select:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
 .plate-bottom {
   position: absolute;
   left: 1.5rem;
@@ -768,6 +851,22 @@ button.inspector-row:focus-visible .row-name {
 
 .plate-play {
   min-width: 4.5rem;
+}
+
+.plate-brain {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+
+.plate-brain select {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 0.4rem;
+  background: var(--panel);
+  color: var(--fg);
+  font: inherit;
 }
 
 .plate-speeds {

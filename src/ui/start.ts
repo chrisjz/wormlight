@@ -1,17 +1,30 @@
 // The world the app starts from (spec §5): the worm straight at the dish's centre, on the calibrated
 // parameters, or the provisional ones until calibration (PLAN §6.2), heading where its seed says, by a hash
 // no noise draw, head-switch draw, AWC-ON draw or trial's posture draw uses, and adapted to the odour where
-// it lies.
+// it lies. Its brain is the real wiring unless another is given, a rewired one on the same values untuned, with
+// the neurons lesioned that the experiment names (spec §6).
 
 import type { WormlightData } from '../data/schema.ts';
+import type { Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import type { Odour } from '../sim/sensing.ts';
 import { currentParams, World } from '../sim/world.ts';
 
 export const startingHeading = (seed: number): number => 2 * Math.PI * uniform(hash(seed, 0, 0xfffffffc));
 
-export function appWorld(data: WormlightData, seed: number, odour?: Odour): World {
-  const world = new World(data, currentParams(), { seed, heading: startingHeading(seed), odour });
+export interface AppBrain {
+  network?: Network;
+  lesions?: readonly string[];
+}
+
+export function appWorld(data: WormlightData, seed: number, odour?: Odour, brain: AppBrain = {}): World {
+  const world = new World(data, currentParams(), {
+    seed,
+    heading: startingHeading(seed),
+    odour,
+    network: brain.network,
+    lesions: brain.lesions,
+  });
   const { x, y } = world.body;
   const cx = x.reduce((a, b) => a + b, 0) / x.length;
   const cy = y.reduce((a, b) => a + b, 0) / y.length;

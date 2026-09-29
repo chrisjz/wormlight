@@ -91,6 +91,7 @@ describe('the ledger', () => {
       sensing: '4–0',
       body: '3–0',
       environment: '3–0',
+      contrast: '0',
     });
   });
 

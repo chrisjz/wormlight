@@ -2,6 +2,7 @@ import './style.css';
 import { validateWormlightData, type WormlightData } from './data/schema';
 import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
+import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
 import { readParams, readPlateParams } from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
 
@@ -110,9 +111,18 @@ async function start(root: HTMLElement): Promise<void> {
     );
     return Promise.race([starting, failure]);
   };
+  // The experiment both views share, as the link sets it up; the URL follows it.
+  const asked = readExperiment(location.search, data);
+  const experiment = new ExperimentStore(data, asked.experiment, asked.unread);
+  const writeExperiment = (): void =>
+    history.replaceState(history.state, '', experimentUrl(location.href, experiment.get()));
+  writeExperiment();
+  experiment.subscribe(writeExperiment);
   try {
-    if (platePane) plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender));
-    if (graphPane) graph = await guard(startGraph(graphPane, device, data, layout === 'graph'));
+    if (platePane) {
+      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment));
+    }
+    if (graphPane) graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment));
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
   } catch (err) {
     fail('Wormlight could not start', reason(err));

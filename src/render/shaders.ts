@@ -26,8 +26,8 @@ const CORNERS = array<vec2f, 6>(
 );
 `;
 
-// Each neuron: its centre and radius, its colour, and how strongly it is selected (x) or hovered (y). A
-// ring outside the sphere marks either.
+// Each neuron: its centre and radius, its colour, and how strongly it is selected (x) or hovered (y), and whether
+// it is lesioned (z). A ring outside the sphere marks either of the first two; a lesioned neuron is drawn hollow.
 export const NEURON_SHADER = /* wgsl */ `
 ${FRAME}
 struct Neuron {
@@ -44,7 +44,7 @@ struct Out {
   @builtin(position) clip: vec4f,
   @location(0) uv: vec2f,
   @location(1) @interpolate(flat) colour: vec4f,
-  @location(2) @interpolate(flat) mark: vec2f,
+  @location(2) @interpolate(flat) mark: vec3f,
   @location(3) @interpolate(flat) fog: f32,
 }
 
@@ -56,7 +56,7 @@ struct Out {
   out.clip = frame.projection * (centre + vec4f(corner * n.radius, 0.0, 0.0));
   out.uv = corner;
   out.colour = n.colour;
-  out.mark = n.mark.xy;
+  out.mark = n.mark.xyz;
   out.fog = fogAt(-centre.z);
   return out;
 }
@@ -72,6 +72,13 @@ struct Out {
     if (a < 0.02) { discard; }
     return vec4f(vec3f(0.93, 0.95, 0.94), a);
   }
+  let edge = 1.0 - smoothstep(1.0 - aa, 1.0, r);
+  // Hollow: a dark disc inside an outline in its colour, faded by the fog like the rest.
+  if (in.mark.z > 0.5) {
+    let outline = smoothstep(0.8 - aa, 0.8, r);
+    let hollow = in.colour.rgb * mix(0.18, 1.0, outline);
+    return vec4f(mix(hollow, BACKGROUND, in.fog), edge * in.colour.a);
+  }
   let normal = vec3f(in.uv, sqrt(max(1.0 - r * r, 0.0)));
   let light = normalize(vec3f(-0.45, 0.65, 0.62));
   let diffuse = max(dot(normal, light), 0.0);
@@ -79,7 +86,6 @@ struct Out {
   let e = 1.0 - normal.z;
   let rim = e * e * sqrt(e);
   let shade = in.colour.rgb * (0.42 + 0.58 * diffuse) + vec3f(0.10) * rim;
-  let edge = 1.0 - smoothstep(1.0 - aa, 1.0, r);
   return vec4f(mix(shade, BACKGROUND, in.fog), edge * in.colour.a);
 }
 `;

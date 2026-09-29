@@ -34,7 +34,7 @@ export class PlateRenderer {
   // The odour field's grid's width (m), and a binding for each texture the field has been drawn from.
   private readonly extent: number;
   private readonly agarGroups = new Map<GPUTexture, GPUBindGroup>();
-  private readonly wormGroup: GPUBindGroup;
+  private wormGroup: GPUBindGroup;
   private colour: GPUTexture | null = null;
   private readonly uniforms = new Float32Array(FRAME_BYTES / 4);
 
@@ -110,6 +110,11 @@ export class PlateRenderer {
       }),
     ]);
     return new PlateRenderer(device, canvas, context, format, pipelines, body, radii, extent);
+  }
+
+  // Draw the body from another buffer from the next frame on, as when the worm's brain is swapped for another.
+  setBody(body: GPUBuffer): void {
+    this.wormGroup = this.bodyGroup(body);
   }
 
   private bodyGroup(body: GPUBuffer): GPUBindGroup {

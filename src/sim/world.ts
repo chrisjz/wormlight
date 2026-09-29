@@ -404,6 +404,46 @@ export class World {
     this.shamOn = false;
   }
 
+  // Take on the state of another world on the same neurons, body and seed, as a worm whose brain has just changed
+  // under it: a lesion made or undone, or another brain in its place (spec §6). Every neuron keeps its voltage,
+  // activation and noise current, every oscillator both worlds share its recovery, and every touch receptor both
+  // share its pulse; the body, muscles, head switch, AWC-ON and the step count carry over whole. An oscillator only
+  // this world has starts on its w-nullcline at its neuron's voltage, as a new world's do, and a receptor only it has
+  // starts untouched. This world's wiring and thresholds hold from the next step, which restarts the integrator,
+  // as after any jump in the input.
+  carry(state: WorldState, from: World): void {
+    const { brain } = state;
+    if (brain.voltage.length !== this.brain.n) throw new Error('the state has another number of neurons');
+    // Every oscillator on its nullcline at the voltages carried, then the shared ones' recovery carried over.
+    this.brain.setState(brain.voltage, brain.activation, brain.steps);
+    this.brain.setOscillators(this.brain.oscillators);
+    const recovery = Float64Array.from(this.brain.recovery);
+    const previousRecovery = Float64Array.from(this.brain.recovery);
+    const was = new Map(Array.from(from.brain.oscillators?.neurons ?? [], (neuron, k) => [neuron, k]));
+    this.brain.oscillators?.neurons.forEach((neuron, k) => {
+      const at = was.get(neuron);
+      if (at === undefined) return;
+      recovery[k] = brain.recovery[at];
+      previousRecovery[k] = brain.previousRecovery[at];
+    });
+    const receptor = new Map(from.receptors.map((r, k) => [r.name, k]));
+    const pulses = <T extends Int32Array | Float64Array>(values: T, empty: T): T => {
+      this.receptors.forEach((r, k) => {
+        const at = receptor.get(r.name);
+        if (at !== undefined) empty[k] = values[at];
+      });
+      return empty;
+    };
+    const receptors = this.receptors.length;
+    this.restore({
+      ...state,
+      brain: { ...brain, recovery, previousRecovery, history: 0 },
+      touchLeft: pulses(state.touchLeft, new Int32Array(receptors)),
+      touchCurrent: pulses(state.touchCurrent, new Float64Array(receptors)),
+      touchApplied: pulses(state.touchApplied, new Float64Array(receptors)),
+    });
+  }
+
   get time(): number {
     return (this.brain.steps * NEURAL_STEP) / this.substeps;
   }

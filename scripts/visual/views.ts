@@ -16,6 +16,14 @@ export const VIEWS: readonly { name: string; pane: 'graph' | 'plate'; query: str
   { name: 'aval', pane: 'graph', query: 'view=graph&neuron=AVAL' },
   // A ventral-cord motor neuron selected, whose connections run along the body.
   { name: 'vb6', pane: 'graph', query: 'view=graph&neuron=VB6&yaw=-20&pitch=15' },
+  // An experiment (spec §6): VB6 selected on the contrast brain's first rewiring, with its neighbours VB5, VB7, DD3
+  // and VA6 lesioned, drawn hollow, and their links to VB6 faint.
+  {
+    name: 'experiment',
+    pane: 'graph',
+    query: 'view=graph&neuron=VB6&brain=rewired-1&lesions=VB5+VB7+DD3+VA6&tx=1.15&ty=0&tz=0&dist=2&yaw=-25&pitch=30',
+  },
+
   // The worm at its start, straight on the agar at the default field of view: the body, its shading and the
   // agar's texture.
   { name: 'plate', pane: 'plate', query: 'view=plate&seed=1&paused=1', threshold: PLATE },

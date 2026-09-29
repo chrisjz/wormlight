@@ -183,6 +183,22 @@ describe("the loop's parity", () => {
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
+  it('includes the contrast brain, lesioned, whose network, oscillators and receptors the GPU takes', () => {
+    const setup = LOOP_SETUPS.find((s) => s.rewiring !== undefined);
+    if (!setup) throw new Error('no setup runs the contrast brain');
+    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'ALML', 'SMDDL']);
+    const cases = loopCases(data, setup);
+    expect(cases).toHaveLength(setup.states + 1);
+    const world = cpuWorld(data, cases[1].state, undefined, setup);
+    const intact = cpuWorld(data, loopCases(data, LOOP_SETUPS[5])[0].state, undefined, LOOP_SETUPS[5]);
+    expect(world.brain.threshold).not.toEqual(intact.brain.threshold);
+    const vb6 = data.neurons.findIndex((n) => n.name === 'VB6');
+    expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(vb6);
+    const packed = packLoop(world);
+    expect(packed.touch.map((r) => r.name)).not.toContain('ALML');
+    expect(packed.touch).toHaveLength(intact.receptors.length - 1);
+  });
+
   it("includes track R's model, whose muscles move and whose B-types oscillate apart from the A-types", () => {
     const r = LOOP_SETUPS[3];
     expect(r.params).toMatchObject({ relativeDrive: true, oscillatorGainB: 1, gapGainB: 0.5, smdGain: 0.5 });

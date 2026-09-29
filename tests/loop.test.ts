@@ -6,10 +6,12 @@ import { PARAMS } from '../src/science/params.ts';
 import { Body, boyleBody } from '../src/sim/body/body.ts';
 import { Brain, equilibrium, midpointActivation } from '../src/sim/brain/brain.ts';
 import { cookNetwork, lesion } from '../src/sim/brain/network.ts';
+import { contrastData } from '../src/sim/brain/rewire.ts';
 import { hash } from '../src/sim/brain/rng.ts';
 import { Muscles } from '../src/sim/muscles.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean } from '../src/sim/proprio.ts';
+import { FRONT } from '../src/sim/touch.ts';
 import {
   calibratedParams,
   currentParams,
@@ -516,5 +518,88 @@ describe('the world', () => {
     const copy = new World(data, params, { seed: 6 });
     copy.restore(state);
     expect(copy.snapshot()).toEqual(state);
+  });
+});
+
+describe('a world carried into another (spec §6)', () => {
+  const params = { ...TRIAL, noise: 0.05, noiseCorrelation: 0.1 };
+  const cut = ['DB3', 'ALML', 'SMDDL'];
+  // An intact worm 1 s in, a front touch's pulse under way.
+  const running = (): World => {
+    const world = new World(data, params, { seed: 8 });
+    for (let k = 0; k < 360; k++) world.step();
+    world.touch(FRONT);
+    for (let k = 0; k < 40; k++) world.step();
+    return world;
+  };
+  const oscillator = (world: World, name: string): number =>
+    Array.from(world.brain.oscillators?.neurons ?? []).indexOf(at(name));
+
+  it('into the same brain, is a restore with the integrator restarted', () => {
+    const from = running();
+    const state = from.snapshot();
+    const to = new World(data, params, { seed: 8 });
+    to.carry(state, from);
+    expect(to.snapshot()).toEqual({ ...state, brain: { ...state.brain, history: 0 } });
+  });
+
+  it('into a lesioned brain, keeps every neuron, and the oscillators and receptors that survive', () => {
+    const from = running();
+    const state = from.snapshot();
+    expect(state.touchLeft.some((n) => n > 0)).toBe(true);
+    const to = new World(data, params, { seed: 8, lesions: cut });
+    to.carry(state, from);
+    const carried = to.snapshot();
+    expect(carried.brain.voltage).toEqual(state.brain.voltage);
+    expect(carried.brain.activation).toEqual(state.brain.activation);
+    expect(carried.brain.noise).toEqual(state.brain.noise);
+    expect(carried.brain.steps).toBe(state.brain.steps);
+    expect(carried.brain.history).toBe(0);
+    expect(oscillator(to, 'DB3')).toBe(-1);
+    for (const name of ['DB2', 'VA5', 'VB7']) {
+      expect(carried.brain.recovery[oscillator(to, name)]).toBe(state.brain.recovery[oscillator(from, name)]);
+    }
+    expect(to.receptors.map((r) => r.name)).not.toContain('ALML');
+    to.receptors.forEach((r, k) => {
+      const was = from.receptors.findIndex((s) => s.name === r.name);
+      expect([carried.touchLeft[k], carried.touchCurrent[k]]).toEqual([state.touchLeft[was], state.touchCurrent[was]]);
+    });
+    for (const key of ['x', 'y', 'theta', 'velocity', 'muscles', 'h', 'awcThreshold'] as const) {
+      expect(carried[key]).toEqual(state[key]);
+    }
+    // The lesioned brain keeps the intact thresholds (PLAN §3.3), and runs on.
+    expect(to.brain.threshold).toEqual(from.brain.threshold);
+    for (let k = 0; k < 400; k++) to.step();
+    expect(to.snapshot().brain.voltage.every(Number.isFinite)).toBe(true);
+  });
+
+  it('back into the intact brain, starts a restored oscillator on its nullcline and a restored receptor untouched', () => {
+    const intact = running();
+    const lesioned = new World(data, params, { seed: 8, lesions: cut });
+    lesioned.carry(intact.snapshot(), intact);
+    for (let k = 0; k < 40; k++) lesioned.step();
+    const state = lesioned.snapshot();
+    const to = new World(data, params, { seed: 8 });
+    to.carry(state, lesioned);
+    const expected = new World(data, params, { seed: 8 });
+    expected.brain.setState(state.brain.voltage, state.brain.activation);
+    expected.brain.setOscillators(expected.brain.oscillators);
+    const k = oscillator(to, 'DB3');
+    expect(to.brain.recovery[k]).toBe(expected.brain.recovery[k]);
+    expect(to.brain.recovery[oscillator(to, 'DB2')]).toBe(state.brain.recovery[oscillator(lesioned, 'DB2')]);
+    const alml = to.receptors.findIndex((r) => r.name === 'ALML');
+    expect([to.touchLeft[alml], to.touchCurrent[alml], to.touchApplied[alml]]).toEqual([0, 0, 0]);
+  });
+
+  it('into the contrast brain, keeps the worm and takes its thresholds', () => {
+    const from = running();
+    const state = from.snapshot();
+    const to = new World(data, params, { seed: 8, network: cookNetwork(contrastData(data, 1)) });
+    to.carry(state, from);
+    expect(to.snapshot().brain.voltage).toEqual(state.brain.voltage);
+    expect(to.brain.threshold).not.toEqual(from.brain.threshold);
+    for (let k = 0; k < 400; k++) to.step();
+    expect(to.snapshot().brain.voltage.every(Number.isFinite)).toBe(true);
+    expect(to.brain.unconverged).toBe(0);
   });
 });
