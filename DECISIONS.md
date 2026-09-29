@@ -2340,42 +2340,77 @@ A review found, in trials of its own:
 
 **Status.** Done: the survey found a crawl, and round 3's rules followed (the entry below).
 
-## 2026-09-29 — R's third round: its rules, set before any of it runs
+## 2026-09-29 — R's third round: its rules, set before any of it runs (revised after review)
 
-**Why.** The survey found a crawl in the bounded model, so R's third round, its last, runs on it, by rules of its own (the entry above). They are set here, for the maintainer's approval, before any of it is built or runs. They are designed after the survey's results on the real wiring, and they say so:
+**Why.** The survey found a crawl in the bounded model (the entry above), so R's third round, its last, runs on it, by rules of its own. They are set here, for the maintainer's approval, before any of it is built or runs, and were revised after review. They are designed after the survey's results on the real wiring, and they say so:
 
-- **The four best held both partials.** Ranked by their final checks' objective, the survey's four best searches were those of CMA-ES seeds 26 (0.71), 14 (0.91), 18 (0.96) and 25 (1.00), which include both partial picks.
-- **The searches ended unconverged.** Every search's step still stood at 0.09 to 0.24.
-- **The crawls came late.** The partial picks' searches made their first bouts at generations 8 and 10.
-- **Most of the budget went on the plateau.** 84% of the evaluations had no bout.
-- **The spectral frequency held searches on wiggling.** It kept two of them on a plateau of wiggling for 10 to 15 generations.
+- **The four best held both partials.** Ranked by their final checks' objective, the survey's four best searches were those of CMA-ES seeds 26 (0.71), 14 (0.91), 18 (0.96) and 25 (1.00), which include both partial picks. So four searches continue.
+- **The searches ended unconverged.** Every search's step still stood at 0.09 to 0.24, so the continued searches run longer. They won't converge by 750 evaluations either: in the earlier runs of 2,000, the step stood at 0.039 to 0.096 after about 750 evaluations and neared 0.01 only at generations 160 to 180, a review found.
+- **The crawls came late.** The partial picks' searches made their first bouts at generations 8 and 10, so every search runs its 250 evaluations before any is dropped.
+- **Most of the budget went on the plateau.** 84% of the evaluations sat on it, with no bout and a speed of 0.01 or less, and 92% had no bout. So the phases spend most of the budget where a crawl was found. Corrected after review: this said 84% had no bout.
+- **The spectral frequency held searches on wiggling.** It kept two of them on a plateau of wiggling for 10 to 15 generations, so it is dropped.
+- **No search restarted.** So the restart rule the survey ran by is kept for phase 1, where it has done no harm.
 
-**Decision.** The maintainer chose the recommendation each time:
+**The survey's limits** (added after review). What the survey says about round 3 is limited:
 
-- **Two phases, 6,000 evaluations a wiring, for the real wiring and every null alike** (PLAN §7.3).
-  - **Phase 1.** The survey's design: stage 1 on all twelve calibrated parameters in the conductance form, sixteen times at 250 evaluations, with CMA-ES seeds 11 to 26, from the survey's Latin hypercube (`surveyStart`), each with its final check.
-  - **Phase 2.** The 4 searches with the lowest objective on their final check continue to 750 evaluations each, ties going to the lower CMA-ES seed. Their first 250 are replayed exactly, and the search carries on from there, with a final check at its end.
-  - **The fit.** It is the lowest objective, on the fresh seeds 1005 to 1020, among the four continued searches' final checks.
-  - **Restarts.** A search restarts, its population doubled and from a fresh point of the survey's hash, when its step falls below 0.01 in the mapped units, or when its best evaluated objective hasn't fallen by at least 1% of itself over 20 generations. The 1% is ours; round 2's rule counted any fall, however small.
-  - **Where it differs from the survey.** The real wiring's phase 1 runs afresh, not replayed from the survey, since the objective and the restart rule differ.
-  - **Records.** The round is recorded in `data/calibration/r5.json`, since `r4.json` is the bounded calibration's, and the equivalence script takes its fit as `round-3`.
+- **Round 3 won't retrace it.** Under round 3's objective, every search's ranking of its candidates changes by its eighth generation, five of them in their first, and seeds 26's and 18's before their first bouts, a review found: the steeper speed term trades differently against the out-of-box penalty. The survey's trajectories and first bouts describe paths round 3 won't take, and the real wiring gets no head start from the survey's seeds.
+- **On the plateau the objective barely points anywhere.** 70% of the survey's evaluations without a bout moved at 0.001 body lengths per second or less, where the spread of four trials' mean speed is about as wide as the candidates' own. In the generations with no bout, the ranking CMA-ES used follows the out-of-box penalty's, with a median Spearman correlation of 0.85, against 0.50 for the speed term's. That pulls away from the box's faces, where both partial picks sit. First bouts came as jumps, and the speed gives the search a direction only once a worm creeps at about 0.005 body lengths per second or more. No plateau signal is added: one would be untested, and the survey found its crawls without one.
+- **The chance of a crawler.** At the survey's rate of 2 in 16, phase 1 finds at least one partial crawler with a probability of 0.88. Over that rate's 95% interval, 0.016 to 0.38, the probability runs from 0.23 to above 0.999, and the rate under round 3's objective is unknown.
+- **Rescoring.** With the target of 0.15, the survey's final checks change one search's pick, 17's, by 0.0025, and none of the four best. With the spectral frequency dropped as well, search 15's changes too. Under round 3's objective the four best are 26 (0.53), 18 (0.79), 14 (0.81) and 25 (0.90), both partials first and second, the fourth ahead of the fifth, 21's 0.902, by 0.003. Corrected after review: this said the rescoring changed no search's pick.
+
+**Decision.** The maintainer chose the recommendation each time, before review and after it:
+
+- **Two phases, 6,000 evaluations a wiring, for the real wiring, and for every null if round 3's fit is chosen** (PLAN §7.3). If the refit stays, every null gets the refit's procedure, its speed target of 0.22 and its reversal term included.
+  - **Phase 1.** The survey's design, with round 3's objective: stage 1 on all twelve calibrated parameters in the conductance form, sixteen searches of 250 evaluations with CMA-ES seeds 11 to 26, each from its point of the survey's Latin hypercube (`surveyStart`, from seed 0x53555256), each with its final check on seeds 1005 to 1020. Phase 1 grades nothing: the survey's grading on seeds 3001 to 3020 isn't part of it.
+  - **Phase 2.** The 4 searches with the lowest objective on their final check continue, ties going to the lower CMA-ES seed. Each is the same search run to 750 evaluations. Its first 250 are read from phase 1's record, not run again, and replayed exactly, the 22nd generation cut short included. A replay that parts from the record stops the round as a defect. Each continued search's final check replaces its phase 1 check, and adds phase 1's pick, listed first so it is kept on a tie.
+  - **The picks.** Each continued search's pick is the lowest objective on seeds 1005 to 1020 in its final check. The four are ranked by that objective, ties going to the lower CMA-ES seed, and a pick whose trials leave the finite numbers ranks last. These seeds aren't fresh for the picks: they chose phase 2's four, and the survey used them on the real wiring.
+  - **Restarts. Changed after review.** Phase 1 keeps the survey's rule. A search restarts, its population doubled, from its next point of the survey's hash (`surveyStart(j, r)` for restart r), when its step falls below 0.01 in the mapped units, or when the restart's best objective, without the out-of-box penalty, hasn't fallen at all for 20 generations. Phase 2 makes no restart after the 250th evaluation, so a continued search stays in the region it was chosen for.
+    - As first proposed, a search restarted when its best hadn't fallen by at least 1% of itself over 20 generations, in both phases.
+    - A review found that 1% below the objective's noise: a candidate's objective on four seeds differs from its objective on sixteen by a median of 4.4%.
+    - Replayed on round 2's full run, it would have restarted at generation 38, where that run's rule waited until 87, before the best fell from 1.17 to 0.84.
+    - It could be read three ways, each moving the search differently.
+  - **Where it differs from the survey.** The real wiring's phase 1 runs afresh, not replayed from the survey, since the objective differs.
+  - **Records.** The round is recorded in `data/calibration/r5.json`, since `r4.json` is the bounded calibration's: the sixteen searches of phase 1, their ranking, the four continued searches, the picks in their order and the comparisons they took. The equivalence script takes the chosen pick as `round-3`.
   - **Changed after results.** The budget was 2,000 evaluations (PLAN §7.3); this is marked on checkpoints 1 and 6.
-  - **Cost.** About 3.3 hours a wiring on 14 workers, 36 hours for the real wiring and the ten primary nulls.
-  - Considered: sixteen searches of 500, 8,000 a wiring; and two phases continuing the best 2.
-- **The objective reads the crawl alone** (PLAN §7.3).
-  - **The speed target is 0.15 body lengths per second.** It was 0.22, above the targets' own wave speed of 0.195. Karbowski et al. 2006 measured worms at 0.79 of their wave speed, and 0.79 × 0.30 Hz × 0.65 body lengths ≈ 0.154. Changed after results, and marked on checkpoints 1 and 6. The survey is no evidence about the target: rescoring its 4,000 evaluations with 0.15 changed no search's pick, a review found.
-  - **The spectral frequency is dropped.** A worm without a bout of 10 s scores its frequency and wavelength at the error cap, and its speed by its mean forward velocity, which gives the search its direction.
-  - **The reversal rate stays out,** as in round 2's stage 1. The bounded model's crawlers don't reverse, and the head switch's slips would otherwise meet it. That settles, for round 3's procedure and so for every null, the item PLAN §9 left open: slips can't meet the calibration's reversal term, since it has none.
-  - Considered: a speed of 0.15 with the spectral frequency kept; and the survey's objective unchanged.
+  - **Cost.** About 27,500 trials, some 920 worm-hours, taking about 3.3 hours a wiring on 14 workers, and 36 hours for the real wiring and the ten primary nulls.
+  - Considered: sixteen searches of 500, 8,000 a wiring; two phases continuing the best 2; and, after review, the 1% rule in both phases with its reading fixed, or restarts in phase 2 from the search's own best at a smaller step.
+- **The objective reads the crawl alone** (PLAN §7.3). Changed after results, as a whole, and marked on checkpoints 1 and 6.
+  - **The speed target is 0.15 body lengths per second.** It was 0.22, above the targets' own wave speed of 0.195. Karbowski et al. 2006 measured adult wild-type worms crawling on food, a layer of bacteria on agar, at 0.79 ± 0.26 of their wave speed (Table 2, N = 58, checked against the paper), and 0.79 × 0.30 Hz × 0.65 body lengths ≈ 0.154. The code pull request registers the paper in `citations.ts`.
+  - **The spectral frequency is dropped.** A worm without a bout of 10 s scores its frequency and wavelength at the cap, and its speed by its mean forward velocity, which gives the search a direction once the worm creeps (the survey's limits, above).
+  - **The reversal rate stays out,** as in round 2's stage 1. With a reversal term in, the head switch's slips could meet it, while the bounded model's crawlers don't reverse, so the term would favour slipping over crawling. That settles, for round 3's procedure, the item PLAN §9 left open: slips can't meet a reversal term the calibration doesn't have. If the refit stays, the item stays open for the refit's procedure.
+  - **Acknowledged after review: no stage 2 follows,** unlike round 2. So round 3 fits no wiring's reversal rate, though spec §1.2 names it among the calibration's targets, and it tunes σ_n and τ_n on the kinematics alone, without a target of their own, an option round 2's rules considered and set aside (2026-09-28). Each wiring's reversal rate is reported as a prediction.
+  - Considered: a speed of 0.15 with the spectral frequency kept; the survey's objective unchanged; and, after review, a stage 2 on the noise against all four targets, as round 2 had, and a plateau signal, such as the longest forward run's shortfall from 10 s.
 - **The choice, and how a partial at the speed floor reads** (PLAN §9).
-  - **The choice.** Round 3's fit takes checkpoint 1's own trials, seeds 1 to 20, and §7.2's comparison. If it passes the comparison, it replaces the refit whatever the two grade, since the refit's voltages lie outside the model's range. It then becomes the real wiring's final fit: the app and the harness run it, the registry's conductance entries hold its values and name its form, and every null gets round 3's procedure in the conductance form. If it fails the comparison, it can't be chosen, and the refit stays, with its form and procedure for the nulls (step 3).
+  - **The comparison, down the four. Changed after review.** The first-ranked pick takes §7.2's comparison; if it fails, the next takes it, and so on down the four. The first to pass is round 3's fit. If none passes, the refit stays, with its form and procedure for the nulls (step 3).
+    - As first proposed, a failure of the one fit kept the refit.
+    - The review found the risk real: at half the step, seed 26's pick moved 6% in frequency and 8% in wavelength, outside §7.2's margins.
+    - Only the real wiring takes the comparison, so its fit may be its round's second to fourth pick, where each null's is its first.
+  - **It replaces the refit whatever the two grade,** since the refit's voltages lie outside the model's range. That sets step 3's ranking aside for this choice, as the bounded calibration's rule did (the survey's rules, above).
+  - **Checkpoint 1.** Its trials, seeds 1 to 20 at 2.5 ms, are the comparison's first 20 at dt. So round 3's fit is graded from those records by checkpoint 1's grading, as round 2's was, and VALIDATION.md's section follows once the harness runs the fit from the registry.
+  - **Adoption.**
+    - The registry takes all twelve of the fit's values and names the conductance form. The current form's g_sw and g_p go back to no value, since no fit ran them beside round 3's other ten; the refit stays in `data/calibration/r2.json`.
+    - The app, the harness and GPU parity then run the fit. Parity runs again in Chrome and in Safari, where a failure is a defect to fix, not a reason to keep the refit.
+    - If the fit grades partial, §7.2's long runs compare its crawling frequency and speed. Each run's are measured as checkpoint 1 measures them, over that run's forward bouts of 10 s or more; a run without one is left out and counted. The code measuring them is built before any long run on the fit.
+    - Checkpoint 0 runs again on the fit, and its result is reported without undoing the choice: the refit hasn't taken it either.
   - **R ends after round 3 either way.**
-  - **The speed's margin.** Checkpoint 1's grade stands as graded. Its report adds the speed's 95% interval: the 2.5th and 97.5th percentiles of the pooled speed over 1,000 resamples of the 20 trials, with replacement, drawn from a fixed hash. A partial whose interval reaches below 0.06 is reported as partial at the speed floor, and a pass isn't expected.
-  - **What paces the crawl,** reported and not graded, for round 3's fit and in checkpoint 6's report for every null's:
-    - the share of the measured steps with the head switch's gate open;
-    - checkpoint 1's trials run again with g_sw at its lower bound, with the 18 B-types lesioned, with the 21 A-types lesioned, and with AVBL and AVBR lesioned, each with its forward share, speed and bouts.
-  - Considered: counting a partial only if its speed's interval clears 0.06.
-- **GPU parity's velocity floor is raised now,** before any bounded fit exists (PLAN §7.2). The rods' centres' linear floor becomes 10⁻⁴ body lengths a second, 1% of the motion floor and about 48 times the old 10⁻⁴ segment lengths a second. The angular floor, 10⁻⁴ rad/s, and the relative threshold, 1% of the largest velocity, are unchanged. Changed after results: the conductance form's first parity run failed on bodies creeping at under 5 µm/s (the build's entry above). Considered: deciding it when a bounded fit arrives.
-- **Everything else stays:** the model, its bounds, the free-parameter budget of 18, the final check's seeds and size, and checkpoint 1's grading.
+  - **The speed's margin.** Checkpoint 1's grade stands as graded. Its report adds the speed's 95% interval, drawn as §7.2 draws its intervals.
+    - The pooled speed is recomputed as checkpoint 1 computes it, over 1,000 resamples of the 20 trials with replacement, drawn by `hash` from §7.2's resampling seed.
+    - The interval runs from the 26th to the 975th of the sorted values, a resample with no bout counting below every value.
+    - A partial is reported as partial at the speed floor when that interval reaches below 0.06, or when the pooled speed of §7.2's 200 trials at dt/2 lies below 0.06; the review found the step and the gains move the speed more than the seeds do. Added after review: the dt/2 speed and the interval's definition.
+    - The label changes no grade, and not checkpoint 6's crawl gate.
+  - **What paces the crawl,** reported and not graded, for round 3's fit and, in checkpoint 6's report, for every null's, on checkpoint 1's seeds 1 to 20 of 120 s:
+    - the share of the measured steps with the head switch's gate open; the head-switch drive less θ_osc, its mean and standard deviation over the measured steps; and the switch's cycle rate, half its flips a second, beside the spectral peak. The drive and the cycle rate were added after review, since the gate was open throughout in 15 of the survey's 16 picks.
+    - checkpoint 1's trials run again with g_sw at 0, the switch off, and at its lower bound of 0.02 nS; with the 18 B-types lesioned; with the 21 A-types lesioned; and with AVBL and AVBR lesioned. Each is graded by checkpoint 1's grading, with its forward share and mean forward velocity beside the grade. Changed after review: g_sw at 0 was added, since its lower bound moves the SMDs by up to 1 mV.
+    - The run with AVBL and AVBR lesioned previews checkpoint 5's held-out AVB + PVC row. Checkpoint 5's report names it, and no choice depends on it (PLAN §10).
+  - Considered: counting a partial only if its speed's interval clears 0.06; and, after review, the bounded calibration as the fallback, as the survey's rules had it for a miss.
+- **GPU parity's velocity floor is raised now,** before any bounded fit exists (PLAN §7.2). This is the revisit the conductance form's entry promised, made in these rules rather than in an entry of its own.
+  - **The change.** The rods' centres' linear floor becomes 10⁻⁴ body lengths a second, 1% of the motion floor and 48 times the old 10⁻⁴ segment lengths a second. The angular floor, 10⁻⁴ rad/s, and the relative threshold, 1% of the largest velocity, are unchanged; the end points, reported, take the same floors.
+  - **Changed after results.** The conductance form's first parity run failed on bodies creeping at under 5 µm/s (the build's entry above).
+  - **Checked after review.** Parity ran on the Mac's GPU in headless Chrome, with the conductance setups' θ_nmj put back at 0.2, as in that first run. Under the old floor, 13 states failed, the worst at 2.14 shares. Under the new floor every check passed, the worst linear share 0.045. The setups keep θ_nmj at −0.2, where their bodies move fast enough to exercise the relative threshold.
+  - **Its scope.** The floor binds wherever a body's largest rod-centre velocity lies below 0.01 body lengths a second. That includes most of the present setups' states, whose checks it loosens by a median of 1.7 to 3.3 times, a review found. Faster bodies are checked as before.
+  - Considered: deciding it when a bounded fit arrives.
+- **Everything else stays:** the model, its bounds, the free-parameter budget of 18, the final check's size, and checkpoint 1's grading.
 
-**Status.** Set, for approval, before any of it is built; its code comes next, then the real wiring's round.
+**Exploration, disclosed.** The reviews ran 60 trials of 120 s on the real wiring, on seeds 9021 to 9040, at three of the survey's candidates without a bout, to size the plateau's noise. They also rebuilt the loop parity's states on the CPU, and ran GPU parity with the first setups' values under both floors.
+
+**Status.** Set, for approval, before any of it is built, and revised after review; its code comes next, then the real wiring's round.
