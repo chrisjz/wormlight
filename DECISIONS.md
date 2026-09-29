@@ -2257,3 +2257,33 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 - **Round 2's modes are unchanged.** The probe's search and grading now share the survey's code, and its record is the same.
 
 **Status.** Built; the survey runs next.
+
+## 2026-09-29 — The survey finds a crawl in the bounded model, so R's third round runs
+
+**Why.** The survey ran as its rules set (the entries above): `npm run calibrate -- --survey` at 1f574a1, on 14 workers, in 2 h 16 min. It ran 19,136 trials on the real wiring: 4,000 evaluations of 4 trials, 176 finalists on 16 seeds each, and 320 grading trials.
+
+- **The result.** 2 of the 16 picks grade partial by checkpoint 1's grading on seeds 3001 to 3020, those of searches 7 and 15 (CMA-ES seeds 18 and 26). The hit rate is 2 of 16, 0.125 (95% interval 0.016–0.383), close to the one in seven the current form's searches found.
+
+  | CMA-ES seed | Frequency (Hz) | Wavelength | Speed (body lengths/s) | Eigenworms | 20 s bouts  | Reversals |
+  | ----------- | -------------- | ---------- | ---------------------- | ---------- | ----------- | --------- |
+  | 18          | 0.129          | 0.84       | 0.061                  | 98.6%      | every trial | 0         |
+  | 26          | 0.186          | 0.49       | 0.061                  | 97.8%      | every trial | 0         |
+  - **How they crawl.** Both crawl slowly, their speed at partial's floor of 0.06 and their frequency well below the target's 0.30 Hz. Their mid-body spectra peak at 0.119 and 0.164 Hz, with 18% of the power in 0.2–0.45 Hz.
+  - **Where they sit.** Both have the B-types' oscillator off (g_osc,B = 0), κ_gap,B at 0.15 and 0.17, θ_nmj at −0.12 and −0.10, and g_nmj at 33 and 30. That is the region where the current form's corner lay (DECISIONS.md, 2026-09-29). Their g_sw is 1.9 and 14 nS, and their g_p 0.015 and 0.066 nS per unit of κL.
+  - **Their diagnostics,** reported and not graded:
+    - seed 18's voltages ran from −37.7 to +7.2 mV, with 0.1 neurons outside the reversal range on average; seed 26's ran from −73.3 to +29.8 mV, with 3.5 outside and 0.04 more than 10 mV past;
+    - seed 18's switch conductance came to 1.9 times its SMDs' passive loads, and seed 26's to 14 times, all but clamping them; proprioception's came to 0.13 and 0.59;
+    - neither's gate turned.
+
+- **The fourteen that failed.** Nine reversed. In seven of them every reversal began within 3 s after a flip of the head switch: slips. In the other two, 115 of 125 and 8 of 90 did. Three never moved enough to measure a frequency, and one's gate turned 88 times a second, within the band where it chatters.
+- **No search restarted.** 250 evaluations end before round 2's restart rules fire.
+
+**Decision.** This follows the rules set before the survey ran; nothing was chosen here.
+
+- **R's third round, its last, runs on the bounded model.** Its procedure is proposed in a rules pull request of its own, for the maintainer's approval, and every null gets it.
+- **The picks are exploratory.** They can't be chosen, and they took neither checkpoint 1's own trials nor §7.2's comparison.
+- **The speed target** is decided with round 3's rules (PLAN §7.3).
+- **The velocity floor** of GPU parity is revisited before any bounded fit reaches the registry (the entry above).
+- **For round 3's design.** The survey is its evidence, from the real wiring, and its rules will say so. The crawling region is again small, found by two searches in sixteen from spread starts; both crawlers sit at partial's floor of speed, and neither reverses.
+
+**Status.** Done: the survey found a crawl, and round 3's rules come next.

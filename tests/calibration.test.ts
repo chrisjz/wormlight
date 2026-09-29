@@ -13,8 +13,10 @@ import {
   ERROR_CAP,
   MAPPING,
   SECOND_ROUND,
+  SURVEY,
   TARGETS,
   provisionalValues,
+  surveyStart,
 } from '../src/validation/calibration.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { readJson } from './checks.ts';
@@ -136,5 +138,30 @@ describe("R's second round's record", () => {
     expect(probe.runs.map((r) => r.seed)).toEqual([...SECOND_ROUND.probe.seeds]);
     expect(probe.goAhead).toBe(probe.runs.some((r) => r.grade !== 'fail'));
     expect(probe.goAhead).toBe(true);
+  });
+});
+
+describe("the bounded model's survey (PLAN §9)", () => {
+  it('ran as its rules set, from a clean commit, and its verdict follows from its grades', () => {
+    const survey = readJson<{
+      model: string;
+      form: string;
+      commit: string;
+      complete: boolean;
+      starts: number[][];
+      survey: unknown;
+      runs: { seed: number; search: number; start: number[]; grade: string }[];
+      partial: boolean;
+    }>('data/calibration/survey.json');
+    expect(survey).toMatchObject({ model: 'track R, the bounded survey', form: 'conductance', complete: true });
+    expect(survey.commit).not.toMatch(/uncommitted/);
+    expect(survey.survey).toEqual(JSON.parse(JSON.stringify(SURVEY)));
+    // Each search started from its point of the Latin hypercube, in order.
+    expect(survey.starts).toEqual(SURVEY.seeds.map((_, j) => surveyStart(j, 0)));
+    expect(survey.runs.map((r) => r.seed)).toEqual([...SURVEY.seeds]);
+    for (const r of survey.runs) expect(r.start).toEqual(surveyStart(r.search, 0));
+    expect(survey.partial).toBe(survey.runs.some((r) => r.grade !== 'fail'));
+    // Two picks graded partial, so R's third round runs (DECISIONS.md, 2026-09-29).
+    expect(survey.runs.filter((r) => r.grade === 'partial').map((r) => r.seed)).toEqual([18, 26]);
   });
 });
