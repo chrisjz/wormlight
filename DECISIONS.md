@@ -2021,4 +2021,93 @@ The study reports, for each candidate, the points where it converges and where i
 - **Probe 14's pick is recorded as exploratory:** converged, partial, and not choosable.
 - **Everything else, as recommended:** the code fixed and tested, the explanations corrected, and the stale passages brought up to date.
 
-**Status.** Set after review; round 3's rules come next.
+**Status.** Set after review; paused before round 3's rules were written (the entry below).
+
+## 2026-09-29 — Before R's third round: an investigation, and the currents come first (corrected after review)
+
+**Why.** Before designing R's third round, the maintainer asked for a thorough investigation, covering the literature, the design of the search and the science of its likely target. Three investigations reported. The findings marked "checked here" were reproduced before this entry was written; the rest are attributed. Corrected after review: this said every finding that decides it was checked here, but the bounded switch's loss of the crawl wasn't.
+
+- **The corner's crawl rests on impossible voltages.**
+  - Checked here, over 60 s from a straight body at seed 5001: probe 14's pick holds the SMDs between −268 and +254 mV and the B-types between −211 and +178 mV. At each 0.1 s sample, 33 neurons on average sit outside the model's reversal range, −48 to 0 mV.
+  - The refit, which the app runs, holds its SMDs at ±210 mV, with 16 neurons outside.
+  - Two currents take them there, the head switch's and proprioception's. Each is a current source, the same at any voltage, with no reversal potential to stop it: the switch injects a fixed ±g_sw/2, ±200 pA at the corner and ±156 pA in the refit, and proprioception a current in proportion to curvature.
+  - A review of this entry separated them at the corner, removing each current's part with the conductances held: the 32.9 neurons outside fall to 15.1 without the switch's, 20.7 without proprioception's and 2.7 without both, and the B-types' swings are proprioception's. In the refit they are the switch's: its 15.7 fall to 1.0 without it. Corrected after review: this laid the corner's voltages on the head switch alone, and called both currents unbounded, when what they lack is a reversal potential.
+  - The investigation found that the crawl needs those swings: they leak through gap junctions and recruit RMD and SMB. At the corner the switch's gate is open 99.92% of the time, and lesioning AVB changes nothing.
+  - The investigation found that a head switch that is a conductance, driving towards 0 and −48 mV, loses the crawl at every gain tried, 1 to 50 nS, and on a 24-point grid of g_nmj, θ_nmj, κ_SMD and g_p. A review spot-checked four of those gains, with the driven side's reversal at 0 and at +30 mV, and every setting failed.
+  - The two published head switches keep their units bounded: Ji et al. 2021's muscle moment switches between fixed values, and Li et al. 2026's units are binary, with the muscles' activation clipped.
+- **The model has no backward mode.**
+  - Checked here in the runtime data: nothing lets the backward command module (AVA, AVD, AVE, RIM and AIB) inhibit the forward one (AVB, PVC and the B-types). By the transmitter rule, AVA→AVB (9 sections) and AVA→PVC (77) are excitatory, and so are AVB→AVA (47) and, within the backward module, AVA→A-types (282). By expression, so are RIM→AVB (41) and AIB→AVB (34).
+  - The only inhibition between the modules runs from the forward side onto AVE and AIB, by expression: PVC→AVE 21 sections, AVB→AVE 4, the B-types→AVE 1, and 3 onto AIB. Corrected after review: this said every chemical connection between the modules is excitatory.
+  - The investigation drove AVA with up to 400 pA at probe 14's values and got no reversal. Within the bounds, no parameter brings reversals without breaking the crawl; the "reversals" some settings make are dithering at the head switch's flips.
+  - In the animal, AVA sits in quasi-stable depolarised states (Roberts et al. 2016; Meng et al. 2024), and Roberts et al. recorded currents between AVA and AVB that reverse as inhibitory synapses' do. Corrected after review: this called AVA bistable, which Roberts et al.'s model assumes and neither paper measured.
+- **At the corner, the held-out checkpoints look settled in advance.** The investigation's stimulations and lesions were outside the checkpoints' protocols, on exploration seeds; the checkpoints themselves weren't run. They point to:
+  - checkpoint 2 failing, with no reversal;
+  - checkpoint 3 likely failing, since stimulating PLM slows the worm;
+  - checkpoint 4 failing: the worm circles at about 27° per mm, and driving AWC-ON at its full gain changes its speed by at most 0.6%;
+  - checkpoint 5 passing at most one row;
+  - checkpoint 6 unable to tell wirings apart, since the crawl runs through parts no null rewires.
+- **The literature,** a search of work to 2026 with its identifiers checked on Crossref:
+  - Li et al. 2026, read in its bioRxiv version, find forward undulation on agar paced from the head by SMD and SMB, with RMD adding head casts. That is consistent with a head-paced crawler, but with bounded units. Corrected after review: this named RMD among the pacers.
+  - Karbowski et al. 2006 measured worms crawling on food at 0.79 of their wave's speed, the wavelength taken in the lab's frame rather than along the body, as PLAN's is. At 0.30 Hz that is about 0.15 body lengths per second in either frame: 0.154 at the targets' 0.65 body lengths, and 0.147 at Karbowski et al.'s own 0.62, a review found. The calibration's speed target of 0.22 exceeds even the targets' own wave speed, 0.195.
+  - Reimers et al. 2026, a preprint, benchmarked _C. elegans_ connectomes as reservoirs for computing tasks and found randomised null wirings often outperforming them. It is a different test from checkpoint 6's, but "no evidence" is a live outcome for checkpoint 6. Corrected after review: this described it as about other animals' connectomes.
+  - Li et al. 2026 find that ablating RMD, SMD or SMB raises the reversal rate, as Gray et al. 2005 found for SMD and RMD, and for SMB to a lesser extent. Gray et al. read this as the head circuit suppressing reversals rather than making them. Corrected after review: this gave that reading to Li et al. too.
+- **The search,** as the investigation mapped it:
+  - The corner covers about 7 × 10⁻⁴ of the face where g_osc,B = 0, and 237 of 256 points spread across the box (92.6%) make no forward bout or rhythm.
+  - At the one measured rate, one search in seven (the four probes and the full run's three starts; 95% interval 0.004–0.58, every one from the provisional start), the chosen five searches of 400 find the corner about half the time. The entries above counted one in five, the full run as one. Sixteen searches of 250 from a Latin hypercube would find it about nine times in ten, on 4,000 evaluations a wiring.
+  - Its maps ran 4,748 trials on the real wiring, 4,568 of them on the calibration's seeds 1001 to 1004, about 1,140 evaluations' worth.
+- **An exploratory point passes checkpoint 1.** Probe 14's pick with τ_w at 0.34 s passes every clause on seeds 2001 to 2020, reproduced here: 0.308 Hz, 0.58 body lengths, 0.128 body lengths per second and a 20 s bout in every trial. It makes no reversal and has the same impossible voltages, and it can't be chosen.
+  - Added after review: the investigation swept each parameter through probe 14's pick on the calibration's seeds, where τ_w's lowest values crawled fastest, then graded nine crawlers on seeds 2001 to 2020, where this one alone passed. So its pass there was picked on those seeds.
+  - A review ran it on checkpoint 1's own seeds, 1 to 20, where it passes too: 0.306 Hz, 0.58 body lengths and 0.128 body lengths per second, just inside the speed's pass band, which starts at 0.12.
+
+**Decision.** The maintainer chose the recommendation each time:
+
+- **R's third round is paused, and the currents come first.** The head switch's and proprioception's currents become conductances, driving towards the model's reversal potentials. That changes the form of two §1.1 layers rather than adding one. It is proposed in a rules pull request of its own, for approval, and the bounded model's behaviour is looked at before R's future is decided; the refit's own motion may not survive it. Considered: round 3 on the corner as it is, with sixteen searches of 250 and the voltage caveat declared; the same within the budget, eight of 250; and ending R now.
+- **The command circuit's signs are audited** against their sources: a data investigation, reporting what the evidence supports before any change. Any change would go through the pinned data pipeline. Considered: auditing only after the currents are bounded; and leaving the signs, with no backward mode as a known limit.
+- **Checkpoint 1's report gains a voltage diagnostic** (PLAN §7.4, added after results): how many neurons sit outside the reversal range at each sample, and the voltages' extremes. It is reported, not graded. FIDELITY gains a caveat on the two currents. Considered: recording the findings with no diagnostic.
+- **The speed target stays, for now.** Its inconsistency and Karbowski's measured ratio are recorded, and the target is decided, with the maintainer's approval, when the next calibration's rules are set. Considered: changing it now to about 0.15; and leaving it for good.
+- **Whatever follows must disclose:**
+  - that the corner's crawl and the pass point were found by exploring the real wiring;
+  - the investigation's 7,244 trials on it: the search's 4,748, of which 4,568 were on the calibration's seeds 1001 to 1004 and 180 on the probe's grading seeds 2001 to 2020; the science investigation's 2,476, on exploration seeds 5001 to 5020; and 20 reproduced here. Corrected after review: this counted only the search's;
+  - its stimulations and lesions outside the checkpoints' protocols, which foreshadow checkpoints 2 to 5;
+  - added after review: its trials of the bounding's own choices, on seeds 5001 to 5020. The switch as a conductance was tried with its driven side's reversal at +30 and +60 mV. Proprioception as a conductance kept a partial crawl at 0.05–0.1 nS in a push-pull form and lost it rectified. With A-type proprioception turned off, the corner graded pass. The rules for bounding the currents are designed after seeing them.
+
+**Status.** Set, then corrected after review (the entry below).
+
+## 2026-09-29 — After review: two currents, the signs' direction, and a rule for the held-out checkpoints
+
+**Why.** Three reviews of the investigation's record, and the sign audit it set, found its decisions sound and its reproduced voltages right. But some of its claims were wrong or too broad, the voltage diagnostic's code fails at 200 trials, and the investigation's previews of checkpoints 2 to 5 need a rule. Findings reproduced before this entry was written say so; the rest are attributed.
+
+- **Corrected in the entry above:**
+  - the direction of the command circuit's only inhibition;
+  - both currents at the corner, not the head switch alone;
+  - what the currents lack, a reversal potential, rather than a bound;
+  - four citations;
+  - the trials run on the real wiring;
+  - how the pass point was found.
+- **What the currents lack matters for what comes next.** A current of fixed amplitude, clipped or lowered, would still take a neuron past any reversal potential; only a driving force bounds the voltage.
+- **The voltage diagnostic:**
+  - It throws at 200 trials, since its maximum spreads every sample as an argument, and §7.2's comparison grades 200. Checked here: 219,200 samples throw.
+  - It prints "−0" for a voltage just below zero. Checked here.
+  - It reads the voltages every 0.1 s, missing peaks between the samples: in the refit, the B-types reach −93.7 mV at single steps, against −54.5 at the samples, a review found.
+  - Its count mixes the swings with small excursions. In the refit only the four SMDs lie far outside, while about 12 neurons sit 1–14 mV past 0 mV, a review found. Oscillator, touch and AWC-ON currents can take a neuron a few mV past the range, and gap currents from a neuron already past it can pull its neighbours after it.
+- **The sign audit has reported.** It is recorded in a pull request of its own. Its exploratory probe re-signed up to 102 connections at R's refit and found no backward mode under any of them: driving AVA, or the A-types directly, never moved the worm backward, so the mode is missing below the command neurons too.
+- **The real wiring was explored further,** which whatever follows must also disclose:
+  - The reviews ran 79 trials: the pass point on checkpoint 1's own seeds 1 to 20 and on 2001 to 2020; 32 with a conductance switch on seeds 2001 to 2004; 3 driving AVA on seed 2001; and four 60 s voltage runs on seed 5001.
+  - The sign audit's probes ran 1,700, on seeds 7001 to 7010 and 8001 to 8010, with signs changed and command or motor neurons driven.
+
+**Decision.** The maintainer chose the recommendation each time:
+
+- **A held-out checkpoint is reported as fitted if a change its preview prompted follows** (PLAN §10). Spec §1.2 reports a checkpoint as fitted when its result prompts re-tuning. The previews aren't the checkpoints' results, but they foreshadow them, so the rule covers them too.
+  - A change a preview prompted marks the checkpoints that preview foreshadows as fitted rather than predicted. Whether a change was prompted by one is recorded when the change is proposed.
+  - A sign change from the audit, which the missing backward mode prompted, would mark checkpoint 2 and checkpoint 5's rows that read reversals.
+  - Bounding the currents was prompted by checkpoint 1's voltages, not by the previews, so on its own it marks none.
+  - Every report of checkpoints 2 to 5 names the previews either way.
+  - Considered: labelling checkpoints 2 to 5 as informed by the previews whatever follows; and disclosure alone.
+- **The voltage diagnostic gains a count beyond 10 mV** (PLAN §7.4, added after results): the neurons more than 10 mV outside the reversal range, beside the count outside it at all. The 10 mV is ours, and the count is reported, not graded. The extremes are taken at every step of the measured windows, and PLAN §7.4 names what else can take a neuron past the range. Considered: splitting the count by neuron group; and documenting it alone.
+- **Everything else, as recommended:**
+  - the entry above corrected;
+  - the code fixed and tested;
+  - checkpoint 1's section regenerated;
+  - the stale passages brought up to date.
+
+**Status.** Set after review; the rules for bounding the currents come next, then the sign audit's record.

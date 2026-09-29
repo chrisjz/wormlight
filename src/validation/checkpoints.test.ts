@@ -16,6 +16,7 @@ import {
   gradeAtLeast,
   gradeRange,
   meanVelocity,
+  outsideRange,
   overall,
   reversalFrom,
   summariseTrial,
@@ -340,6 +341,37 @@ describe('checkpoint 1', () => {
 });
 
 describe("checkpoint 1's diagnostics", () => {
+  it('count the neurons outside the reversal range, over every sample of every trial that carries them', () => {
+    const quiet = record(new Array<number>(4).fill(0));
+    const d = diagnostics([
+      { ...quiet, outside: [0, 2, 4], far: [0, 1, 2], lowest: -60, highest: -1 },
+      // A trial that left the finite numbers counts too.
+      { ...quiet, finite: false, outside: [6], far: [3], lowest: -50, highest: 12 },
+      quiet,
+      // A record made before the far count carries none of it, and is left out.
+      { ...quiet, outside: [100], lowest: -500, highest: 500 },
+    ]);
+    expect(d.outside).toEqual({ mean: 3, max: 6, far: { mean: 1.5, max: 3 }, lowest: -60, highest: 12 });
+    expect(diagnostics([quiet]).outside).toBeNull();
+  });
+
+  it("count 200 trials' samples, as §7.2's comparison grades, without spreading them as arguments", () => {
+    const quiet = record(new Array<number>(4).fill(0));
+    const samples = (k: number): number[] => Array.from({ length: 1096 }, (_, i) => (i + k) % 7);
+    const records = Array.from({ length: 200 }, (_, k) => ({
+      ...quiet,
+      outside: samples(k),
+      far: samples(k + 1).map((c) => c % 2),
+      lowest: -48 - k,
+      highest: k,
+    }));
+    const d = outsideRange(records);
+    expect(d?.max).toBe(6);
+    expect(d?.far.max).toBe(1);
+    expect(d?.lowest).toBe(-247);
+    expect(d?.highest).toBe(199);
+  });
+
   it('find the spectral peak of the mid-body bend, and its share in 0.2–0.45 Hz', () => {
     // 0.3 Hz over 100 s of samples, 0.1 s apart: every bit of power in the band, at 0.3 Hz.
     const wave = Array.from({ length: 1000 }, (_, k) => Math.sin(2 * Math.PI * 0.3 * (k / 10)));

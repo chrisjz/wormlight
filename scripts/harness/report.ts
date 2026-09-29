@@ -18,6 +18,7 @@ import {
   type TrialSummary,
 } from '../../src/validation/checkpoints.ts';
 import type { Measure, StepComparison } from '../../src/validation/equivalence.ts';
+import { FAR_OUTSIDE } from '../../src/validation/trial.ts';
 import { table } from '../data/render.ts';
 import { formatNumber } from '../docs/page.ts';
 
@@ -58,7 +59,7 @@ const plural = (n: number, one: string, more: string): string => `${n} ${n === 1
 // A signed figure, with a true minus sign, and none on a value that rounds to zero.
 const fixed = (x: number, digits: number): string => {
   const text = x.toFixed(digits);
-  return /^-0\.0*$/.test(text) ? text.slice(1) : text.replace(/^-/, '−');
+  return /^-0(\.0*)?$/.test(text) ? text.slice(1) : text.replace(/^-/, '−');
 };
 const percent = (x: number): string => `${(100 * x).toFixed(0)}%`;
 // Shares as whole percentages that add up to 100, by largest remainder.
@@ -325,6 +326,13 @@ export function diagnosticsText(d: Diagnostics): string {
     d.avaChange === null || d.avaSpread === null
       ? "AVA's activation has no reversal to report"
       : `over reversals AVA's activation changed by ${scientific(d.avaChange)} on average, against a standard deviation of ${scientific(d.avaSpread)}`,
+    ...(d.outside === null
+      ? []
+      : [
+          `${d.outside.mean.toFixed(1)} neurons on average sat outside the model's reversal range, ${fixed(PARAMS.reversalInhibitory.value, 0)} to ${fixed(PARAMS.reversalExcitatory.value, 0)} mV, at each sample, and ${d.outside.max} at most`,
+          `${d.outside.far.mean.toFixed(1)} on average, and ${d.outside.far.max} at most, sat more than ${FAR_OUTSIDE} mV outside it`,
+          `the voltages ran from ${fixed(d.outside.lowest, 1)} to ${fixed(d.outside.highest, 1)} mV over every step of the measured windows`,
+        ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;
 }
