@@ -2207,4 +2207,28 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 
 **After review.** Three reviews found the rules' figures reproducing, but the survey too weak to end R on a miss, and push-pull inhibiting on average. They also found several choices left open that could have been made after results, and errors in the record. The maintainer chose the recommendation each time: sixteen searches of 250 from a Latin hypercube; push-pull kept, its asymmetry stated and a shunt diagnostic reported; θ_nmj's unreachable top declared; and every other fix.
 
-**Status.** Set after review, before any of it is built; the code comes next, then the survey.
+**Status.** Set after review, before any of it was built; built next (the entry below), then the survey.
+
+## 2026-09-29 — The conductance form, built
+
+**Why.** The entry above set the conductance form of the head switch and proprioception before any of it was built. It is built here, on the CPU reference and the GPU, beside the current form the refit runs. No fit uses it yet; the survey's runner comes next.
+
+- **What was built.**
+  - **The brain.** It takes, per neuron, a conductance and the current it would carry at 0 mV, Σ g·E, on the solve's diagonal and right-hand side, as it takes a synapse's. Left at 0, a step is the same bit for bit, and every test that pins the current form's runs passes unchanged.
+  - **The form.** A fit names its form in its parameters; left out, it is the current form, as for every fit so far.
+  - **The world.** It opens the switch's conductance on the four SMDs and proprioception's on the A- and B-types, as the rules set.
+  - **The GPU.** Its kernel does the same while looping. The form is a flag in a word of the uniform block that was padding, and the reversal potentials are the registry's, written into the shader.
+  - **The registry.** g_sw and g_p each gain a conductance entry with the rule's bounds and start. The calibration's bounds, start and mapping take the form. FIDELITY shows both forms, and gains a component for the conductance form.
+  - **The report.** Checkpoint 1's report gains the shunt in the conductance form (PLAN §7.4).
+- **Checked.**
+  - **The bounds.** A unit test recomputes the rule from the runtime data: 0.0215–47.9 nS for g_sw, and 0.000168–7.83 nS per unit of κL for g_p. These round outward to the registry's. With the pinned postures cached, it checks that their 95th percentile over the fields is 8.3.
+  - **The range.** At the box's upper corner, 50 nS and 8 nS per unit of κL, the SMDs stayed between −47.6 and +0.06 mV with the parity setups' noise. With none, a test holds them within half a millivolt of the range.
+  - **The overshoot.** A lone neuron's conductance takes it at most micro-volts past its reversal potential, from BDF2's history at conductances far above C/dt.
+  - **GPU parity.** It passes in headless Chrome and in Safari on the Mac's GPU, both forms, with two new setups in the conductance form: one at gains inside the box, and one at its upper corner, where the gate turns on and off every few steps. P_th is 0.05 in both, where the head flips in that form.
+  - **The corner's tolerance.** There, the CPU reference solved at its own tolerance differs from itself at the GPU's by up to 17.7 shares of the one-step threshold, which is reported, not graded. The solve's relative tolerance loosens as the conductances grow, as the review estimated.
+- **Changed after a failed parity run.** In the first run, the two new setups failed the one-step velocity check, at 1.1 to 2.1 shares, every other check passing.
+  - At their trial values, with θ_nmj at 0.2, the conductance form's muscles barely activated, at most 0.25, and the body crept at under 5 µm/s. The check, 1% of the largest velocity, then graded f32 rounding in the body's solve.
+  - The setups now take θ_nmj at −0.2, inside R's box, and pass. Parity's thresholds are unchanged.
+  - Choosing those values took a few runs of 3 to 7 s in the conductance form on the real wiring, at test values rather than a fit's. They are disclosed as exploration.
+
+**Status.** Built; the survey's runner comes next.

@@ -544,7 +544,7 @@ Measured at milestone 3, checkpoint 1's trials take about 1.4 CPU-minutes per wo
 - a test page, `parity.html`, served by the dev server and never deployed, exposes `window.__parity()` and `window.__bench()`. It builds the states with the CPU reference in the page, runs both brains from them, reads the GPU's buffers back and compares. Opened in a browser, it shows the results, which is how the Safari check is made;
 - the random numbers are checked first: the GPU's hashes and uniforms must equal the CPU's exactly, and each Gaussian must lie within the error WGSL allows `log`, `sqrt` and `cos`, which the one-step check adds to its voltage tolerance;
 - API checks cover what the states don't: a new brain's rest state, a state's round trip, a run split across dispatches, a restart, and the CPU carrying on from a state the GPU read; and one lesioned case, without oscillators or noise, restarts its integrator halfway through its second;
-- from milestone 3 the same states are also whole worlds, and both sides run the whole loop, the body included, from them, from copies moved across the dish and turned, from two variants that make the head switch flip and gate, from milestone 4 from copies pressed against the dish's wall, and since track R's model landed from states of its own and on the registry's values, every world in the assay's odour field, with AWC-ON's threshold compared (`src/gpu/loopParity.ts`);
+- from milestone 3 the same states are also whole worlds, and both sides run the whole loop, the body included, from them, from copies moved across the dish and turned, from two variants that make the head switch flip and gate, from milestone 4 from copies pressed against the dish's wall, and since track R's model landed from states of its own and on the registry's values, and since the conductance form landed from two setups in it, one at the box's upper corner, every world in the assay's odour field, with AWC-ON's threshold compared (`src/gpu/loopParity.ts`);
 - from milestone 4 the odour field's stepping too (`src/gpu/fieldParity.ts`): the GPU's stepped field against `OdourField.step` after one sub-step and one second, and a grid whose rows the read-back pads;
 - long runs (`npm run gpu:parity -- --long`, or `/parity.html?long`) take 11 to 18 minutes on an M5 Max and would take hours on SwiftShader, so they run locally, not in CI;
 - `npm run gpu:parity:safari` runs the same page in Safari, on the Mac's own GPU, through safaridriver, the WebDriver server macOS ships with Safari (`scripts/safari.ts`), once Safari's "Allow remote automation" setting is on. It runs locally only: CI's macOS machines have no GPU to trust;
@@ -663,6 +663,8 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
   - the signs as they stand.
 
   It says nothing about whether the wiring can pace a crawl from the head. A partial pick, in turn, is exploratory and says little about the wiring, since R's crawl runs through parts no null rewires.
+
+**Built (2026-09-29, DECISIONS.md).** The conductance form runs on the CPU reference and the GPU beside the current form, and parity passes in headless Chrome and in Safari; the survey's runner comes next.
 
 **Fairness to the nulls.**
 
