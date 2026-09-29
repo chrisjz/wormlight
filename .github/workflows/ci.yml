@@ -23,8 +23,9 @@ concurrency:
 
 jobs:
   # Which jobs the change needs (scripts/ci/changes.ts): checks runs on every change, and data, visual and gpu
-  # only when a file they read changed, so a change to the docs alone skips them. Each is skipped only on an
-  # explicit false, so if this job fails they all run; a skipped job passes the ruleset's required checks.
+  # only when a file they use changed, their code traced through its imports in the checked-out tree, so a change
+  # to the docs alone skips them. Each is skipped only on an explicit false, so if this job fails they all run; a
+  # skipped job passes the ruleset's required checks.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
