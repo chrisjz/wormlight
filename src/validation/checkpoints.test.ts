@@ -19,6 +19,7 @@ import {
   outsideRange,
   overall,
   reversalFrom,
+  pacing,
   shuntShare,
   summariseTrial,
   touchClause,
@@ -368,6 +369,26 @@ describe("checkpoint 1's diagnostics", () => {
     expect(shuntShare(conducting)).toEqual(expected);
     expect(diagnostics(conducting).shunt).toEqual(expected);
     expect(shuntShare([quiet])).toBeNull();
+  });
+
+  it('give what paces the crawl over every measured step of every trial that carries it, in either form', () => {
+    const quiet = record(new Array<number>(4).fill(0));
+    // The measured window runs from 10 s for 0.4 s: of these flips, three fall within it.
+    const flips = [5, 10.05, 10.15, 10.25, 10.45];
+    const trials = [
+      { ...quiet, switchFlips: flips, gate: { steps: 160, open: 120, margin: 320, marginSquares: 640 } },
+      { ...quiet, gate: { steps: 160, open: 40, margin: -320, marginSquares: 640 } },
+      quiet,
+    ];
+    const p = pacing(trials);
+    expect(p?.open).toBe(0.5);
+    // A margin of +2 mV on every step of one trial and −2 on the other's.
+    expect(p?.margin.mean).toBe(0);
+    expect(p?.margin.sd).toBeCloseTo(Math.sqrt(1280 / 319), 12);
+    // Half the flips a second over the 0.8 s measured in the trials that carry the record.
+    expect(p?.cycleRate).toBeCloseTo(3 / 2 / 0.8, 12);
+    expect(diagnostics(trials).pacing).toEqual(p);
+    expect(pacing([quiet])).toBeNull();
   });
 
   it("count 200 trials' samples, as §7.2's comparison grades, without spreading them as arguments", () => {

@@ -228,10 +228,12 @@ export const rms = (a: Float64Array, b: Float64Array, floor: number): number => 
 export const LOOP_STEP = { velocity: 1e-2, muscle: 1e-4, awcThreshold: 1e-4 };
 export const AWC_FLOOR = 0.01; // µM
 export const LOOP_SECOND = { curvature: 1e-2, centroid: 1e-2 };
-// The floors, absolute tolerances for a body at rest: 10⁻⁴ segment lengths per second and 10⁻⁴ rad/s; and for
-// the centroid's travel, 0.01 body lengths.
+// The floors, absolute tolerances for a slow body: 10⁻⁴ body lengths per second, 1% of the motion floor, and
+// 10⁻⁴ rad/s; and for the centroid's travel, 0.01 body lengths. The linear floor was 10⁻⁴ segment lengths per
+// second, 48 times lower, until the conductance form's first parity run failed on bodies creeping at under 5 µm/s
+// (changed after results, before any bounded fit existed; DECISIONS.md, 2026-09-29).
 export const velocityFloors = (world: World): [number, number, number] => {
-  const floor = 1e-4 * world.body.params.segmentLength;
+  const floor = 1e-4 * world.body.params.segmentLength * world.body.params.segments;
   return [floor, floor, 1e-4];
 };
 export const centroidFloor = (world: World): number =>

@@ -340,6 +340,11 @@ export function diagnosticsText(d: Diagnostics): string {
       : [
           `in the conductance form, ${d.shunt.switch === null ? 'the head switch had no SMD left' : `the head switch's conductance came to ${small(d.shunt.switch)} of its targets' passive loads`} and ${d.shunt.proprioception === null ? 'proprioception no field left' : `proprioception's to ${small(d.shunt.proprioception)}`}, each shunt the mean of per-target ratios, and the switch's gate turned on or off ${d.shunt.gateToggles.toFixed(1)} times a second`,
         ]),
+    ...(d.pacing === null
+      ? []
+      : [
+          `the head switch's gate was open on ${percent(d.pacing.open)} of the measured steps, the head-switch drive sat ${fixed(Math.abs(d.pacing.margin.mean), 1)} mV ${d.pacing.margin.mean < 0 ? 'below' : 'above'} θ_osc on average, with a standard deviation of ${fixed(d.pacing.margin.sd, 1)} mV, and the switch cycled at ${d.pacing.cycleRate.toFixed(3)} Hz, half its flips a second${d.peak === null ? '' : `, beside the spectrum's peak at ${d.peak.toFixed(3)} Hz`}`,
+        ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;
 }
@@ -373,9 +378,82 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
   ].join('\n\n');
 }
 
+// Round 3's chosen pick, the first of its four to pass §7.2's comparison, as data/calibration/r5-chosen.json records
+// it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its speed's interval, and the
+// runs that show what paces its crawl, each graded by checkpoint 1's grading.
+export interface ChosenReport {
+  pick: number;
+  // The CMA-ES seed of the search the pick came from, and where in it.
+  seed: number;
+  from: string;
+  values: Record<string, number>;
+  date: string;
+  commit: string;
+  checkpoint1: Checkpoint1;
+  speed: {
+    value: number | null;
+    interval: [number | null, number | null];
+    unmeasured: number;
+    // The pooled speed over the comparison's trials at dt/2.
+    fine: number | null;
+    atFloor: boolean;
+  };
+  variants: {
+    name: string;
+    grade: Grade;
+    clauses: Clause[];
+    // The share of the measured windows moving forward, and the mean forward velocity over them, over all trials.
+    forward: number;
+    meanVelocity: number;
+  }[];
+}
+
+export function chosenSection(r: ChosenReport): string {
+  const c = r.checkpoint1;
+  const end = (x: number | null): string => (x === null ? 'no bout' : x.toFixed(4));
+  const speed = [
+    `Its pooled speed is ${r.speed.value === null ? 'unmeasured' : `${r.speed.value.toFixed(4)} body lengths per second`}, with a 95% interval of ${end(r.speed.interval[0])} to ${end(r.speed.interval[1])} from 1,000 resamples of the 20 trials${r.speed.unmeasured > 0 ? `, ${grouped(r.speed.unmeasured)} with no bout` : ''}; over §7.2's trials at dt/2 it is ${r.speed.fine === null ? 'unmeasured' : r.speed.fine.toFixed(4)}.`,
+    c.grade === 'partial'
+      ? r.speed.atFloor
+        ? 'So the partial is reported as partial at the speed floor: the interval, or the speed at dt/2, reaches below 0.06.'
+        : 'The interval and the speed at dt/2 clear 0.06, so the partial is not at the speed floor.'
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const show = (v: ChosenReport['variants'][number], name: string): string => {
+    const clause = v.clauses.find((k) => k.name === name);
+    return clause === undefined || clause.value === null ? '—' : CLAUSES[name].show(clause.value);
+  };
+  const rows = r.variants.map((v) => [
+    v.name,
+    GRADE[v.grade],
+    show(v, 'frequency'),
+    show(v, 'speed'),
+    show(v, 'bout'),
+    percent(v.forward),
+    v.meanVelocity.toFixed(4),
+  ]);
+  return [
+    `### R's third round: pick ${r.pick}, from search ${r.seed} — ${GRADE[c.grade]}${c.grade === 'partial' && r.speed.atFloor ? ', at the speed floor' : ''}`,
+    `Checkpoint 1 graded from the first 20 of §7.2's trials at dt, seeds 1 to 20, run on ${r.date} at \`${r.commit}\`, on the pick's values from data/calibration/r5.json (${r.from}), in the conductance form (PLAN §9).`,
+    table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], c.clauses.map(clauseRow)),
+    speed,
+    diagnosticsText(c.diagnostics),
+    "What paces the crawl, reported and not graded (PLAN §7.4): checkpoint 1's trials run again with the head switch off, at its lower bound, and with classes lesioned, each graded by checkpoint 1's grading. The run with AVBL and AVBR lesioned previews checkpoint 5's held-out AVB + PVC row.",
+    table(
+      ['Run', 'Grade', 'Frequency (Hz)', 'Speed (body lengths/s)', '20 s bouts', 'Forward', 'Mean forward velocity'],
+      rows,
+    ),
+    trialTable(c.trials),
+  ].join('\n\n');
+}
+
 // A run of §7.2's comparison with the noise on, as data/equivalence/<fit>.json records it.
 export interface EquivalenceRun {
-  fit: 'refit' | 'round-2' | 'planned';
+  fit: 'refit' | 'round-2' | 'planned' | 'round-3';
+  // Round 3's pick, from 1, in the order its picks take the comparison (PLAN §9).
+  pick?: number;
   // An R fit's values, from its calibration record, so the result stays tied to what ran; null for the planned fit.
   // Runs before 2026-09-29 didn't record them.
   values?: Record<string, number> | null;
@@ -396,7 +474,10 @@ const FITS = {
   refit: "R's refit",
   'round-2': "R's second round's fit",
   planned: "The planned model's fit",
+  'round-3': "R's third round",
 } as const;
+const fitName = (run: EquivalenceRun): string =>
+  run.fit === 'round-3' ? `${FITS[run.fit]}, pick ${run.pick ?? 1}` : FITS[run.fit];
 const MEASURED: Record<Measure, { label: string; digits: number }> = {
   frequency: { label: 'Frequency (Hz)', digits: 4 },
   wavelength: { label: 'Wavelength (body lengths)', digits: 4 },
@@ -434,7 +515,7 @@ export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
     });
     const [dt, half] = run.steps.map((s) => formatNumber(s * 1000));
     parts.push(
-      `#### ${FITS[run.fit]} — ${c.pass ? '**Pass**' : '**Fail**'}`,
+      `#### ${fitName(run)} — ${c.pass ? '**Pass**' : '**Fail**'}`,
       `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, seeds 1 to ${run.trials}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).`,
       table(['Clause', 'dt', 'dt/2', 'Difference', '95% interval', 'Margin', 'Result'], rows),
       `Checkpoint 1's grade over these trials, reported and not compared: ${GRADE[run.grades[0]]} at dt and ${GRADE[run.grades[1]]} at dt/2. Solves that didn't converge: ${grouped(run.unconverged[0])} at dt and ${grouped(run.unconverged[1])} at dt/2. ${c.nonFinite === 0 ? 'Every trial stayed within the finite numbers.' : `${count(c.nonFinite, 'trial')} left the finite numbers, which fails the comparison.`}`,

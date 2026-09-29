@@ -268,12 +268,22 @@ describe('the world in the conductance form', () => {
     const open = smd.reduce((sum, i) => sum + TRIAL.switchGain / loads[i], 0) / smd.length;
     expect(c.gateToggles).toBe(0);
     expect(c.switchShunt).toBeCloseTo(open * c.samples, 10);
+    // What paces the crawl, over the same steps (PLAN §7.4, added before round 3 ran): the gate open on every one,
+    // the head-switch drive above θ_osc throughout; and the record in the current form too.
+    const gate = r.gate;
+    if (!gate) throw new Error('no gate record');
+    expect(gate.steps).toBe(r.velocity.length * Math.round(0.1 / NEURAL_STEP));
+    expect(gate.open).toBe(gate.steps);
+    expect(gate.margin).toBeGreaterThan(0);
+    expect(gate.marginSquares).toBeGreaterThanOrEqual(gate.margin ** 2 / gate.steps);
     // The curved start bends the body, so proprioception opens conductances too.
     expect(c.proprioShunt).toBeGreaterThan(0);
     // With the SMDs lesioned, the switch has no targets.
     const without = runTrial(data, { ...options, params: TRIAL, lesions: ['SMDDL', 'SMDDR', 'SMDVL', 'SMDVR'] });
     expect(without.conductance?.switchShunt).toBeNull();
-    expect(runTrial(data, { ...options, params: { ...TRIAL, form: 'current' } }).conductance).toBeUndefined();
+    const current = runTrial(data, { ...options, params: { ...TRIAL, form: 'current' } });
+    expect(current.conductance).toBeUndefined();
+    expect(current.gate?.steps).toBe(gate.steps);
   });
 });
 

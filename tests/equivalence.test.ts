@@ -12,10 +12,9 @@ describe("VALIDATION.md's comparison section", () => {
   it("is the one the committed results give, in the runner's order", async () => {
     const path = join(ROOT, 'VALIDATION.md');
     const page = readFileSync(path, 'utf8');
-    // The runner's order, R's fits first; the refit and the planned fit have both run.
-    const fits = ['refit', 'round-2', 'planned'].filter((fit) =>
-      existsSync(join(ROOT, 'data', 'equivalence', `${fit}.json`)),
-    );
+    // The runner's order, R's fits first and round 3's picks last; the refit and the planned fit have both run.
+    const order = ['refit', 'round-2', 'planned', ...[1, 2, 3, 4].map((k) => `round-3-pick-${k}`)];
+    const fits = order.filter((fit) => existsSync(join(ROOT, 'data', 'equivalence', `${fit}.json`)));
     expect(fits).toEqual(expect.arrayContaining(['refit', 'planned']));
     const runs = fits.map(
       (fit) => JSON.parse(readFileSync(join(ROOT, 'data', 'equivalence', `${fit}.json`), 'utf8')) as EquivalenceRun,

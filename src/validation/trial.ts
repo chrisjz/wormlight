@@ -92,6 +92,10 @@ export interface TrialRecord {
   // on the SMDs and proprioception's on the A- and B-types with fields, or null for a layer with no targets; and how
   // many times the head switch's gate turned on or off over the measured steps. Trials in the current form have none.
   conductance?: { samples: number; switchShunt: number | null; proprioShunt: number | null; gateToggles: number };
+  // For what paces the crawl (PLAN §7.4, added 2026-09-29 before round 3 ran), over the measured steps, in either
+  // form: their count, those whose step ran with the head switch's gate open, and the sums of the head-switch drive
+  // less θ_osc and of its square after each (mV, mV²). Records made before it have none.
+  gate?: { steps: number; open: number; margin: number; marginSquares: number };
 }
 
 // The voltage diagnostic's second count: neurons more than this far past the reversal range (mV). Ours, and
@@ -161,6 +165,9 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   // The gate's turns on or off, over the 0.1 s from each sample to the next.
   const toggles: number[] = [];
   let [turned, open] = [0, world.switchCurrent !== 0];
+  // The gate over the same stretches: its steps, those it was open, and the drive's margin, summed and squared.
+  const gate: [number, number, number, number][] = [];
+  let [gateSteps, gateOpen, margin, margins] = [0, 0, 0, 0];
   // The voltages' extremes at every step, over the 0.1 s from each sample to the next.
   const extremes: [number, number][] = [];
   let [low, high] = [Infinity, -Infinity];
@@ -222,11 +229,16 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     if (s % every === 0) {
       extremes.push([low, high]);
       toggles.push(turned);
+      gate.push([gateSteps, gateOpen, margin, margins]);
       [low, high, turned] = [Infinity, -Infinity, 0];
+      [gateSteps, gateOpen, margin, margins] = [0, 0, 0, 0];
       sample();
     }
     scan();
     if ((world.switchCurrent !== 0) !== open) [turned, open] = [turned + 1, !open];
+    const m = world.headDrive() - world.params.driveThreshold;
+    [gateSteps, gateOpen] = [gateSteps + 1, gateOpen + (world.switchCurrent !== 0 ? 1 : 0)];
+    [margin, margins] = [margin + m, margins + m * m];
     if (s >= from && s % posturesEvery === 0) {
       const points = resample(body.midline());
       if (selfIntersects(points)) selfIntersecting++;
@@ -235,12 +247,15 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   }
   extremes.push([low, high]);
   toggles.push(turned);
+  gate.push([gateSteps, gateOpen, margin, margins]);
   const velocity = forwardVelocity(centroid, head, length);
   // The curvature samples that line up with the velocity's: from the first 10 s, as many as it has.
   const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
   const aligned = <T>(a: T[]): T[] => a.slice(first, first + velocity.length);
   const measured = aligned(extremes);
   const total = (a: readonly number[]): number => a.reduce((sum, x) => sum + x, 0);
+  const gated = aligned(gate);
+  const column = (c: number): number => total(gated.map((g) => g[c]));
   return {
     seed,
     seconds,
@@ -263,6 +278,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
           far: aligned(farSamples),
           lowest: measured.reduce((m, [lo]) => Math.min(m, lo), Infinity),
           highest: measured.reduce((m, [, hi]) => Math.max(m, hi), -Infinity),
+          gate: { steps: column(0), open: column(1), margin: column(2), marginSquares: column(3) },
           ...(conducting
             ? {
                 conductance: {

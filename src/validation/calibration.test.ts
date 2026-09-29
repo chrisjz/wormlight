@@ -25,6 +25,8 @@ import {
   type Values,
   SURVEY,
   surveyStart,
+  THIRD_ROUND,
+  ranked,
 } from './calibration.ts';
 
 describe("the calibration's settings", () => {
@@ -472,5 +474,87 @@ describe('the search', () => {
     const k = checkpoint1([trial, { ...trial, seed: 2 }], [[1]]).kinematics;
     const m = measure([trial, trial]);
     expect([m.frequency, m.wavelength, m.speed]).toEqual([k.frequency, k.wavelength, k.speed]);
+  });
+});
+
+describe("R's third round (PLAN §7.3, §9; set before any of it ran, revised after review)", () => {
+  it("is the survey's design on the crawl alone, the speed's target 0.15, then four searches continued to 750", () => {
+    expect(THIRD_ROUND).toMatchObject({
+      form: 'conductance',
+      phase1: { budget: 250 },
+      phase2: { budget: 750, continued: 4 },
+    });
+    expect(THIRD_ROUND.seeds).toEqual(SURVEY.seeds);
+    expect(THIRD_ROUND.targets).toEqual(['frequency', 'wavelength', 'speed']);
+    expect(THIRD_ROUND.goals).toEqual({ ...TARGETS, speed: 0.15 });
+    // The survey's restart rule, and none after the 250th evaluation.
+    expect(THIRD_ROUND.restart).toEqual({ ...SECOND_ROUND.restart, until: 250 });
+    // 6,000 evaluations a wiring: sixteen of 250, and four continued by 500 each.
+    const { phase1, phase2 } = THIRD_ROUND;
+    expect(THIRD_ROUND.seeds.length * phase1.budget + phase2.continued * (phase2.budget - phase1.budget)).toBe(6000);
+    // Checkpoint 1's targets stay, which the committed records pin.
+    expect(TARGETS.speed).toBe(0.22);
+  });
+
+  it('scores the speed against its own target, the other targets as before', () => {
+    const m = { finite: true, bouts: 3, frequency: 0.3, wavelength: 0.65, speed: 0.15, reversalRate: 0 };
+    expect(objective(m, THIRD_ROUND.targets, THIRD_ROUND.goals).value).toBe(0);
+    expect(objective(m, THIRD_ROUND.targets).errors.speed).toBeCloseTo(0.07 / 0.22, 12);
+    // A worm without a bout: its frequency and wavelength at the cap, its speed by its mean forward velocity.
+    const still = measure([{ finite: true, velocity: [0.03, 0.03], mid: [0, 0], front: [0, 0], rear: [0, 0] }]);
+    const score = objective(still, THIRD_ROUND.targets, THIRD_ROUND.goals);
+    expect(score.errors).toMatchObject({ frequency: ERROR_CAP, wavelength: ERROR_CAP });
+    expect(score.errors.speed).toBeCloseTo(0.8, 12);
+  });
+
+  it('ranks searches by their objective, the lower seed first on a tie, the infinite last', () => {
+    const runs = [
+      { seed: 14, value: 1 },
+      { seed: 12, value: 1 },
+      { seed: 11, value: Infinity },
+      { seed: 13, value: null },
+      { seed: 15, value: 0.5 },
+    ];
+    expect(ranked(runs).map((r) => r.seed)).toEqual([15, 12, 14, 11, 13]);
+  });
+
+  it('continues a search to 750 evaluations exactly as a fresh one of 750 runs', async () => {
+    const options = {
+      form: 'conductance' as const,
+      restarts: THIRD_ROUND.restart,
+      seed: 26,
+      start: surveyStart(15, 0),
+      restartFrom: (r: number) => surveyStart(15, r),
+    };
+    const first = await calibrate(synthetic(), { ...options, budget: THIRD_ROUND.phase1.budget });
+    const continued = await calibrate(synthetic(), {
+      ...options,
+      budget: THIRD_ROUND.phase2.budget,
+      previous: first.evaluated,
+    });
+    const fresh = await calibrate(synthetic(), { ...options, budget: THIRD_ROUND.phase2.budget });
+    expect(continued.evaluated.slice(0, 250)).toEqual(first.evaluated);
+    expect(continued.evaluated).toEqual(fresh.evaluated);
+    expect(continued.final).toEqual(fresh.final);
+    // The generation phase 1 cut short is whole in phase 2: 22 generations of 11, then 8 of the 23rd.
+    expect(first.generations.at(-1)).toMatchObject({ generation: 22, evaluations: 250 });
+    expect(continued.generations[22]).toMatchObject({ generation: 22, evaluations: 253 });
+  });
+
+  it('restarts a stalled search before the 250th evaluation, and never after', async () => {
+    // A flat objective: nothing ever improves on a restart's first generation.
+    const flat: Scorer = () =>
+      Promise.resolve({
+        value: 1,
+        errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+        measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.15, reversalRate: 0 },
+        unconverged: 0,
+      });
+    // It restarts at the top of generation 21, after 231 evaluations; its second restart would come after 693.
+    const fit = await calibrate(flat, { form: 'conductance', budget: 750, restarts: THIRD_ROUND.restart });
+    expect(new Set(fit.generations.map((g) => g.restart))).toEqual(new Set([0, 1]));
+    expect(fit.generations.find((g) => g.restart === 1)).toMatchObject({ generation: 0, lambda: 22, evaluations: 253 });
+    const unlimited = await calibrate(flat, { form: 'conductance', budget: 750, restarts: SECOND_ROUND.restart });
+    expect(Math.max(...unlimited.generations.map((g) => g.restart))).toBe(2);
   });
 });

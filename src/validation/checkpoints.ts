@@ -144,6 +144,11 @@ export interface Diagnostics {
   // (null for a layer with no targets); and how many times a second the head switch's gate turned on or off. Null in
   // the current form.
   shunt: { switch: number | null; proprioception: number | null; gateToggles: number } | null;
+  // Added 2026-09-29, before round 3 ran (PLAN §7.4): what paces the crawl. Over every measured step of every trial,
+  // in either form, the share whose step ran with the head switch's gate open, and the head-switch drive less θ_osc,
+  // its mean and standard deviation (mV); and the switch's cycle rate, half its flips a second over the measured
+  // windows (Hz), beside the spectral peak. Null when no record carries them.
+  pacing: { open: number; margin: { mean: number; sd: number }; cycleRate: number } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -241,6 +246,27 @@ export function shuntShare(records: readonly TrialRecord[]): Diagnostics['shunt'
   };
 }
 
+// What paces the crawl, over every measured step of every trial that carries it.
+export function pacing(records: readonly TrialRecord[]): Diagnostics['pacing'] {
+  let [steps, open, sum, squares, flips, windows] = [0, 0, 0, 0, 0, 0];
+  for (const r of records) {
+    if (!r.gate) continue;
+    [steps, open] = [steps + r.gate.steps, open + r.gate.open];
+    [sum, squares] = [sum + r.gate.margin, squares + r.gate.marginSquares];
+    const window = r.velocity.length * MOTION_SAMPLE;
+    flips += r.switchFlips.filter((t) => t >= MEASURE_FROM && t < MEASURE_FROM + window).length;
+    windows += window;
+  }
+  if (steps === 0) return null;
+  const mean = sum / steps;
+  const variance = steps > 1 ? Math.max(0, (squares - steps * mean * mean) / (steps - 1)) : 0;
+  return {
+    open: open / steps,
+    margin: { mean, sd: Math.sqrt(variance) },
+    cycleRate: windows > 0 ? flips / 2 / windows : 0,
+  };
+}
+
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
   const { peak, share } = spectralPeak(records);
   let count = 0;
@@ -270,6 +296,7 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
     avaSpread: spread,
     outside: outsideRange(records),
     shunt: shuntShare(records),
+    pacing: pacing(records),
   };
 }
 
