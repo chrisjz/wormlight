@@ -2090,7 +2090,7 @@ The study reports, for each candidate, the points where it converges and where i
   - It prints "−0" for a voltage just below zero. Checked here.
   - It reads the voltages every 0.1 s, missing peaks between the samples: in the refit, the B-types reach −93.7 mV at single steps, against −54.5 at the samples, a review found.
   - Its count mixes the swings with small excursions. In the refit only the four SMDs lie far outside, while about 12 neurons sit 1–14 mV past 0 mV, a review found. Oscillator, touch and AWC-ON currents can take a neuron a few mV past the range, and gap currents from a neuron already past it can pull its neighbours after it.
-- **The sign audit has reported.** It is recorded in a pull request of its own. Its exploratory probe re-signed up to 102 connections at R's refit and found no backward mode under any of them: driving AVA, or the A-types directly, never moved the worm backward, so the mode is missing below the command neurons too.
+- **The sign audit has reported.** It is recorded in a pull request of its own (corrected 2026-09-30: that pull request came later, as `docs/sign-audit.md`). Its exploratory probe re-signed up to 102 connections at R's refit and found no backward mode under any of them: driving AVA, or the A-types directly, never moved the worm backward, so the mode is missing below the command neurons too.
 - **The real wiring was explored further,** which whatever follows must also disclose:
   - The reviews ran 79 trials: the pass point on checkpoint 1's own seeds 1 to 20 and on 2001 to 2020; 32 with a conductance switch on seeds 2001 to 2004; 3 driving AVA on seed 2001; and four 60 s voltage runs on seed 5001.
   - The sign audit's probes ran 1,700, on seeds 7001 to 7010 and 8001 to 8010, with signs changed and command or motor neurons driven.
@@ -2110,7 +2110,7 @@ The study reports, for each candidate, the points where it converges and where i
   - checkpoint 1's section regenerated;
   - the stale passages brought up to date.
 
-**Status.** Set after review; the rules for bounding the currents followed (the entry below), and the sign audit's record comes later.
+**Status.** Set after review; the rules for bounding the currents followed (the entry below), and the sign audit's record comes later. It followed on 2026-09-30 (`docs/sign-audit.md`).
 
 ## 2026-09-29 — The currents become conductances: push-pull, bounded by rule, and a survey before R's future (changed after review)
 
@@ -2616,7 +2616,7 @@ A review found, in trials of its own:
 
 No held-out checkpoint's protocol ran. The fairness list's count of the real wiring's exploration grows by these 1,236 trials, and by round 3's own (PLAN §9).
 
-**Status.** Done: the negative result stands as the headline, and checkpoint 0's rerun on the refit and the sign audit's record come next.
+**Status.** Done: the negative result stands as the headline, and checkpoint 0's rerun on the refit and the sign audit's record come next. Both followed (the entries below).
 
 ## 2026-09-30 — Checkpoint 0's rerun: its sham twins and binomial test, built (revised after review)
 
@@ -2675,26 +2675,41 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - The silenced refit makes no backward move. R's first fit made 18 reversals over the 20 silenced trials, its A-types excited by the noise (the entry of 2026-09-28), and the checkpoint allows for such activity; the refit's A-types stay quiet.
   - The touched receptors reach +854 mV in the silenced network, against +10.5 mV at most untouched. A touch's current is sized for a receptor's load in the intact network, and a silenced receptor keeps only its leak. It moves no muscle and changes no grade.
 
-**Status.** Done: checkpoint 0 passes on the refit. The sign audit's record comes next.
+**Status.** Done: checkpoint 0 passes on the refit. The sign audit's record comes next; it followed (the entry below).
 
-## 2026-09-30 — The sign audit's record
+## 2026-09-30 — The sign audit's record (revised after review)
 
-**Why.** The investigation of 2026-09-29 set an audit of the command circuit's signs against their sources: a data investigation that changes nothing (the entries of 2026-09-29). It reported the same day, and its record was promised a pull request of its own. The negative result's entry (above) named it next.
+**Why.** The investigation of 2026-09-29 set an audit of the command circuit's signs against their sources, a data investigation that changes nothing ("Before R's third round: an investigation…", 2026-09-29). It reported the same day, and its record was promised a pull request of its own. The entry making the negative result the headline ("After R", 2026-09-30) named it next.
 
-**Decision.**
+**What it found.**
 
-- **The record** is `docs/sign-audit.md`: the audit's report as it was made on 2026-09-29, with a note on its status at the top and its list of files rewritten.
-- **Its working folder stays local.** It holds the retrieved full texts, which are the publishers' copyright; third-party data that aren't pinned in `data/sources.json`, such as the CeNGEN 2021 matrices and a copy of `funatlas.h5`; and the scratch scripts that read them. The report names what the folder held.
-- **What it found.**
-  - The evidence contradicts the sign of several connections the model signs + by the transmitter rule, by direct physiology: AIB→RIM, PVP→AVA and AVB→AVA, and AVA→AVB on the fast timescale. It contradicts others, such as RIM→AVB and RIM→AVA, by receptor genetics.
-  - Weaker rows rest on expression or inference alone.
-  - Several other signs are supported as they stand, and some are unresolved.
-- **The probe.** Its exploratory probe, at R's refit, found no backward mode under any set of signs it tried. The command neurons' voltages are set by their gap junctions, which dwarf the chemical synapses between them, and driving the A-types directly didn't move the worm backward either. So the missing mode lies downstream of the command neurons, and the signs are a question of fidelity, not the fix.
-- **No sign is adopted.** The negative result stands as the headline (the entry above). Adopting any sign would:
-  - go through the overrides file, each citation checked against Crossref and entered in `citations.ts` (the audit's §7);
-  - make the refit stale and call for a new calibration;
-  - mark checkpoint 2 and checkpoint 5's reversal rows as fitted, since the missing backward mode prompted the audit (PLAN §10).
+- **Direct physiology contradicts four signs the transmitter rule sets +:** AIB→RIM, PVP→AVA, AVB→AVA, and AVA→AVB on the fast timescale.
+  - AIB→RIM and PVP→AVA rest on patch clamp with receptor rescue in the named cell.
+  - AVA⇄AVB rests on functional recordings that may be polysynaptic, and AVB→AVA is contested by Meng et al. 2024.
+- **Calcium imaging contradicts two more,** AIB→RIB and SAA→RIM.
+- **Receptor genetics contradicts two that expression sets +,** RIM→AVB and RIM→AVA.
+- **Seven weaker rows** rest on expression, inference, or indirect or metabotropic effects.
+- **Several signs are supported as they stand,** and some are unresolved.
+- **The audit's two probes,** at R's refit in the current form, found no backward mode under any set of signs.
+  - The chemical synapses have little leverage beside the command neurons' gap junctions.
+  - Driving the A-types directly, with the B-types held down, made no backward motion either.
+  - So the missing mode lies in the motor layer, and the signs are a question of fidelity, not the fix.
+
+**Decision.** The maintainer chose to adopt none and to put the audit on record:
+
+- **The record** is `docs/sign-audit.md`, the audit's report as it was made on 2026-09-29, with a status note at the top. Revised after review:
+  - errors and lines since overtaken are corrected in place, each marked "Corrected 2026-09-30";
+  - its source table gains two papers its body cites, both checked against Crossref by the audit's earlier run;
+  - its §9 is rewritten to say what stayed local, keeping the list as made.
+- **Its working folder stays local,** `harness-out/sign-audit/`, which is gitignored. It holds the retrieved full texts, which are the publishers' copyright; third-party data that aren't pinned, such as the CeNGEN 2021 matrices and a copy of `funatlas.h5`; and the scratch scripts that read them. Added after review: the probes' per-trial records and variant data, which had been left only in a session's temporary folder, were copied into it, so the disclosed trials can still be checked.
+- **No sign is adopted.** The negative result stands as the headline.
+  - The physiology rows would go through the overrides file, each citation checked and registered.
+  - The genetics and expression rows need the maintainer's decisions first: a sign source for genetics, tyramine's scope, and a CeNGEN rule (the audit's §7).
+  - Any of them would make the refit stale and call for a new calibration.
+  - It would also mark checkpoint 2 and checkpoint 5's reversal rows as fitted, since the missing backward mode prompted the audit (PLAN §10).
+  - No change is proposed, so no checkpoint is marked.
 - Considered: adopting the signs the audit's direct physiology supports, for fidelity alone.
-- **Exploration.** The probe's 1,700 trials on the real wiring were disclosed when it reported (the entry of 2026-09-29), and nothing ran for this record.
 
-**Status.** Done: the audit is on record in `docs/sign-audit.md`, and PLAN §2.4 and §10 point to it.
+**Exploration, disclosed.** The audit's two probes ran 1,700 trials on the real wiring: §6's 520 on seeds 7001 to 7010, and the earlier, superseded probe's 1,180 on 7001 to 7010 and 8001 to 8010. They were disclosed when it reported ("After review: two currents, the signs' direction…", 2026-09-29). Nothing ran for this record.
+
+**Status.** Done: the audit is on record in `docs/sign-audit.md`, and PLAN §2.4, §9 and §10 point to it.

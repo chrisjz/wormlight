@@ -1,8 +1,13 @@
 # Sign audit: the command circuit and its neighbours
 
-> **Recorded 2026-09-30** (DECISIONS.md). This is the audit's report as it was made on 2026-09-29, kept as its record. No sign it discusses has been adopted: track R ended below partial on 2026-09-29, and the negative result stands as the headline. Adopting any of them would go through the route in §7. Its working files stayed local (§9), so the paths it names below, such as `crossref/` and `receptors/`, are to that folder, not to the repository.
+> **Recorded 2026-09-30** (DECISIONS.md). This is the audit's report as it was made on 2026-09-29, kept as its record. Its first person is the auditor's.
+>
+> - **No sign it discusses has been adopted.** Its probe found no backward mode under any set of signs, and the negative result stands as the headline. Adopting any would follow the routes in §7, with the checkpoints marked as PLAN §10 now sets out (§7.6's note).
+> - **Corrections.** Errors and lines since overtaken are corrected in place, each marked "Corrected 2026-09-30", and §9 was rewritten to say what stayed local.
+> - **The probes.** With the earlier probe it supersedes, the audit ran 1,700 trials: §6's 520 on seeds 7001–7010, and the earlier run's 1,180 on 7001–7010 and 8001–8010 (DECISIONS.md, 2026-09-29). Both ran on R's refit in the current form. The bounded model, built since, was never probed for a backward mode.
+> - **Paths.** Paths under `crossref/`, `receptors/`, `probe/`, `probe2/`, `lit-command/`, `lit-head/` and the loose scripts are to the audit's working folder, `harness-out/sign-audit/`, which is gitignored; all others are the repository's.
 
-2026-09-29. A data investigation for the maintainer, as DECISIONS.md (2026-09-29) asked: it reports what the evidence supports and changes nothing. No repository file was modified. The probe in §6 is **exploratory**: it ran on scratch copies of the runtime data, outside every checkpoint protocol, on exploration seeds 7001–7010.
+2026-09-29. A data investigation for the maintainer, as DECISIONS.md (2026-09-29) asked: it reports what the evidence supports and changes nothing. No repository file was modified. The probe in §6 is **exploratory**: it ran on scratch copies of the runtime data, outside every checkpoint protocol, on exploration seeds 7001–7010. (Corrected 2026-09-30: with the earlier probe, seeds 8001–8010 too; see the note above.)
 
 The audit built on an earlier run that stopped part-way. Its work was checked before use:
 
@@ -18,23 +23,23 @@ Its earlier probe flipped every cross-module link before the audit was done; it 
 
 **Contradicted signs.** The evidence contradicts the current sign of these connections. Sections are Cook's, summed over left and right.
 
-| Connection         | Sections | Now (source)   | Evidence supports                      | Strength                                                             |
-| ------------------ | -------- | -------------- | -------------------------------------- | -------------------------------------------------------------------- |
-| AIB→RIM            | 109      | + (rule)       | −                                      | Direct physiology: IPSP at E_Cl, AVR-14 needed and rescued in RIM    |
-| PVP→AVA            | 13       | + (rule)       | −                                      | Direct physiology: IPSPs in AVA, ACC-1/ACC-4 needed and rescued      |
-| AVB→AVA            | 47       | + (rule)       | −                                      | Direct physiology, functional (maybe polysynaptic); one null result  |
-| AVA→AVB            | 9        | + (rule)       | − fast, + slow                         | Direct physiology, functional; timescale-dependent                   |
-| AIB→RIB            | 27       | + (rule)       | −                                      | Calcium imaging, eat-4-dependent; AVR-15 in RIB                      |
-| SAA→RIM            | 121      | + (rule)       | −                                      | Calcium imaging (SAA not isolated) and cell-specific receptor rescue |
-| RIM→AVB            | 41       | + (expression) | − (tyramine via LGC-55; GluCl-leaning) | Receptor-specific genetics and behaviour; expression                 |
-| RIM→AVA (chemical) | 16       | + (expression) | − (glutamate via AVR-14)               | Receptor genetics and behaviour; the RIM–AVA gap junction excites    |
-| AVA→PVC            | 77       | + (rule)       | − (leaning)                            | Receptor expression only, plus model inference                       |
-| AIB→AVB            | 34       | + (expression) | − (leaning)                            | Receptor expression only (CeNGEN 2021)                               |
-| AVM→AVB            | 22       | + (expression) | − (leaning)                            | Expression and model inference; Chalfie 1985 reads it the other way  |
-| AIB→SMD            | 44       | + (expression) | − (leaning)                            | Cell-specific silencing and calcium; not shown to be direct          |
-| SMD→RIA            | 121      | − (expression) | + net, through muscarinic GAR-3        | Calcium and receptor genetics, but metabotropic                      |
-| AVA→AVE            | 8        | − (expression) | +                                      | Functional atlas only (effective connection)                         |
-| AVD→PVC, AVE→PVC   | 3, 3     | + (expression) | − (leaning)                            | Receptor expression only                                             |
+| Connection         | Sections | Now (source)   | Evidence supports                      | Strength                                                                                                                                                     |
+| ------------------ | -------- | -------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AIB→RIM            | 109      | + (rule)       | −                                      | Direct physiology: IPSP at E_Cl, AVR-14 needed and rescued in RIM                                                                                            |
+| PVP→AVA            | 13       | + (rule)       | −                                      | Direct physiology: IPSPs in AVA, ACC-1/ACC-4 needed and rescued                                                                                              |
+| AVB→AVA            | 47       | + (rule)       | −                                      | Direct physiology, functional (maybe polysynaptic); contested by Meng 2024 and, not significantly, Randi 2023 (corrected 2026-09-30: said "one null result") |
+| AVA→AVB            | 9        | + (rule)       | − fast, + slow                         | Direct physiology, functional; timescale-dependent                                                                                                           |
+| AIB→RIB            | 27       | + (rule)       | −                                      | Calcium imaging, eat-4-dependent; AVR-15 in RIB                                                                                                              |
+| SAA→RIM            | 121      | + (rule)       | −                                      | Calcium imaging (SAA not isolated) and cell-specific receptor rescue                                                                                         |
+| RIM→AVB            | 41       | + (expression) | − (tyramine via LGC-55; GluCl-leaning) | Receptor-specific genetics and behaviour; expression                                                                                                         |
+| RIM→AVA (chemical) | 16       | + (expression) | − (glutamate via AVR-14)               | Receptor genetics and behaviour; the RIM–AVA gap junction excites                                                                                            |
+| AVA→PVC            | 77       | + (rule)       | − (leaning)                            | Receptor expression only, plus model inference                                                                                                               |
+| AIB→AVB            | 34       | + (expression) | − (leaning)                            | Receptor expression only (CeNGEN 2021)                                                                                                                       |
+| AVM→AVB            | 22       | + (expression) | − (leaning)                            | Expression and model inference; Chalfie 1985 reads it the other way                                                                                          |
+| AIB→SMD            | 44       | + (expression) | − (leaning)                            | Cell-specific silencing and calcium; not shown to be direct                                                                                                  |
+| SMD→RIA            | 121      | − (expression) | + net, through muscarinic GAR-3        | Calcium and receptor genetics, but metabotropic                                                                                                              |
+| AVA→AVE            | 8        | − (expression) | +                                      | Functional atlas only (effective connection)                                                                                                                 |
+| AVD→PVC, AVE→PVC   | 3, 3     | + (expression) | − (leaning)                            | Receptor expression only                                                                                                                                     |
 
 The last seven rows are weak (expression or inference only). AIB→SMD and SMD→RIA are head-circuit rows.
 
@@ -79,7 +84,7 @@ Any change also invalidates R's refit, which was calibrated on the current signs
 
 How the audited connections got their signs:
 
-- **AVA and AVB outputs are "complex" in Fenyves.** Fenyves gives AVA and AVB GABA as a second transmitter (row example: `AVAL, ACh, GABA → AVBL … complex`). Wang et al. 2024 record uptake only. The pipeline keeps a "complex" call from falling to the rule, so AVA→AVB, AVA→PVC, AVB→AVA and AVA→A-types all take the rule's +. Recomputed on ACh alone with Fenyves's own receptor flags, AVA→AVB and AVA→PVC come out "+" and AVB→AVA "complex". Fenyves would not have given inhibition here either.
+- **AVA and AVB outputs are "complex" in Fenyves.** Fenyves gives AVA and AVB GABA as a second transmitter (row example: `AVAL, ACh, GABA → AVBL … complex`). Wang et al. 2024 record uptake only. The pipeline treats a "complex" call as no prediction, so it falls to the rule (corrected 2026-09-30: this said the pipeline keeps it from falling to the rule), and AVA→AVB, AVA→PVC, AVB→AVA and AVA→A-types all take the rule's +. Recomputed on ACh alone with Fenyves's own receptor flags, AVA→AVB and AVA→PVC come out "+" and AVB→AVA "complex". Fenyves would not have given inhibition here either.
 - **RIM→AVB, AIB→AVB and AVM→AVB are "+" in Fenyves** because its AVB had only cationic glutamate receptors. CeNGEN 2021 puts GluCl subunits in AVB at threshold 4: avr-14 at 166 TPM and glc-4 at 92. Its only cationic glutamate receptors are glr-4 (86, threshold 4) and glr-5 (89, threshold 3); glr-1 reaches threshold 1 only.
 - **PVC→AVA, PVP→AVA, SAA→RIM, AIB→RIM and AIB→RIB are "complex" in Fenyves** and take the rule's +. Each has a more specific source (§4).
 - **PLM→AVA and PLM→AVD** are absent from Fenyves's rows and take the rule.
@@ -94,43 +99,45 @@ What the pipeline missed:
 
 Every DOI below was checked on Crossref with anonymous requests (`crossref/check.sh`; responses cached in `crossref/`) against first author, year, journal, volume and pages. "FT" means I read the full text (PMC, eLife or PLOS XML, or the publisher's PDF converted to text); "Abs" means the abstract only.
 
-| Id             | Citation                                                                          | DOI                                | Read                                        |
-| -------------- | --------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------- |
-| roberts2016    | Roberts WM … Lockery SR (2016) _eLife_ 5:e12572                                   | 10.7554/eLife.12572                | FT                                          |
-| meng2024       | Meng J … Zhen M (2024) _Sci Adv_ 10:eadk0002                                      | 10.1126/sciadv.adk0002             | FT                                          |
-| zhang2025      | Zhang Y … Gao S (2025) _Nat Commun_ 16:4405, "Hierarchical competing inhibition…" | 10.1038/s41467-025-59668-4         | FT                                          |
-| pirri2009      | Pirri JK … Alkema MJ (2009) _Neuron_ 62:526–538                                   | 10.1016/j.neuron.2009.04.013       | FT                                          |
-| piggott2011    | Piggott BJ … Xu XZS (2011) _Cell_ 147:922–933                                     | 10.1016/j.cell.2011.08.053         | FT                                          |
-| wang2020       | Wang Y … Wen Q (2020) _eLife_ 9:e56942                                            | 10.7554/eLife.56942                | FT                                          |
-| huo2024        | Huo J … Wen Q (2024) _PNAS_ 121:e2410789121                                       | 10.1073/pnas.2410789121            | FT                                          |
-| kumar2024      | Kumar S … Leifer AM (2024) _iScience_ 27:110776                                   | 10.1016/j.isci.2024.110776         | FT                                          |
-| kumar2023      | Kumar S … Leifer AM (2023) _PLoS Biol_ 21:e3002280                                | 10.1371/journal.pbio.3002280       | FT                                          |
-| li2023         | Li Z … Xu XZS (2023) _Front Mol Neurosci_ 16:1228980                              | 10.3389/fnmol.2023.1228980         | FT                                          |
-| liu2017        | Liu P, Chen B, Mailler R, Wang ZW (2017) _Nat Commun_ 8:14818                     | 10.1038/ncomms14818                | FT (already in `citations.ts`)              |
-| kawano2011     | Kawano T … Zhen M (2011) _Neuron_ 72:572–586                                      | 10.1016/j.neuron.2011.09.005       | FT (PDF)                                    |
-| chalfie1985    | Chalfie M … Brenner S (1985) _J Neurosci_ 5:956–964                               | 10.1523/JNEUROSCI.05-04-00956.1985 | FT (PDF; in `citations.ts`)                 |
-| wicks1996      | Wicks SR, Roehrig CJ, Rankin CH (1996) _J Neurosci_ 16:4017–4031                  | 10.1523/JNEUROSCI.16-12-04017.1996 | FT (PDF; in `citations.ts`)                 |
-| rakowski2013   | Rakowski F … Karbowski J (2013) _Front Comput Neurosci_ 7:128                     | 10.3389/fncom.2013.00128           | FT                                          |
-| li2014         | Li Z … Xu XZS (2014) _Cell_ 159:751–765                                           | 10.1016/j.cell.2014.09.056         | FT                                          |
-| liu2018        | Liu H … Zhang Y (2018) _Neuron_ 97:390–405.e3                                     | 10.1016/j.neuron.2017.12.003       | FT                                          |
-| lin2024        | Lin C … Guo X (2024) _Nat Commun_ 15:297                                          | 10.1038/s41467-023-44638-5         | FT                                          |
-| hendricks2012  | Hendricks M … Zhang Y (2012) _Nature_ 487:99–103                                  | 10.1038/nature11081                | FT                                          |
-| kaplan2020     | Kaplan HS … Zimmer M (2020) _Neuron_ 105:562–576.e9                               | 10.1016/j.neuron.2019.10.037       | FT                                          |
-| fenyves2020    | Fenyves BG … Csermely P (2020) _PLoS Comput Biol_ 16:e1007974                     | 10.1371/journal.pcbi.1007974       | FT and S1/S5 data                           |
-| hardege2023    | Hardege I, Morud J, Courtney A, Schafer WR (2023) _J Neurosci_ 43:1111–1124       | 10.1523/JNEUROSCI.1516-22.2022     | FT and Zenodo repo files                    |
-| taylor2021     | Taylor SR … Miller DM (2021) _Cell_ 184:4329–4347.e23 (CeNGEN)                    | 10.1016/j.cell.2021.06.023         | FT and 021821 matrices (hashes §5)          |
-| wang2024       | Wang C … Hobert O (2024) _eLife_ 13:RP95402                                       | 10.7554/eLife.95402                | FT                                          |
-| randi2023      | Randi F … Leifer AM (2023) _Nature_ 623:406–414                                   | 10.1038/s41586-023-06683-4         | FT, and the data via wormneuroatlas 0.0.7.3 |
-| gordus2015     | Gordus A … Bargmann CI (2015) _Cell_ 161:215–227                                  | 10.1016/j.cell.2015.02.018         | FT (earlier run's notes)                    |
-| kato2015       | Kato S … Zimmer M (2015) _Cell_ 163:656–669                                       | 10.1016/j.cell.2015.09.034         | Skimmed only                                |
-| sordillo2021   | Sordillo A, Bargmann CI (2021) _eLife_ 10:e67723                                  | 10.7554/eLife.67723                | FT (earlier run's notes)                    |
-| guo2009        | Guo ZV, Hart AC, Ramanathan S (2009) _Nat Methods_ 6:891–896                      | 10.1038/nmeth.1397                 | FT (earlier run's notes)                    |
-| ringstad2009   | Ringstad N, Abe N, Horvitz HR (2009) _Science_ 325:96–100                         | 10.1126/science.1169243            | FT (earlier run)                            |
-| takayanagi2016 | Takayanagi-Kiya S, Zhou K, Jin Y (2016) _eLife_ 5:e21734                          | 10.7554/eLife.21734                | FT (earlier run)                            |
-| putrenko2005   | Putrenko I, Zakikhani M, Dent JA (2005) _J Biol Chem_ 280:6392–6398               | 10.1074/jbc.M412644200             | Abs                                         |
-| dent2000       | Dent JA … Avery L (2000) _PNAS_ 97:2674–2679                                      | 10.1073/pnas.97.6.2674             | FT (earlier run)                            |
-| pereira2015    | Pereira L … Hobert O (2015) _eLife_ 4:e12432                                      | 10.7554/eLife.12432                | FT (earlier run)                            |
-| lindsay2011    | Lindsay TH, Thiele TR, Lockery SR (2011) _Nat Commun_ 2:306                       | 10.1038/ncomms1304                 | Skimmed (ASH→AVA only)                      |
+| Id             | Citation                                                                            | DOI                                | Read                                        |
+| -------------- | ----------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------- |
+| roberts2016    | Roberts WM … Lockery SR (2016) _eLife_ 5:e12572                                     | 10.7554/eLife.12572                | FT                                          |
+| meng2024       | Meng J … Zhen M (2024) _Sci Adv_ 10:eadk0002                                        | 10.1126/sciadv.adk0002             | FT                                          |
+| zhang2025      | Zhang Y … Gao S (2025) _Nat Commun_ 16:4405, "Hierarchical competing inhibition…"   | 10.1038/s41467-025-59668-4         | FT                                          |
+| pirri2009      | Pirri JK … Alkema MJ (2009) _Neuron_ 62:526–538                                     | 10.1016/j.neuron.2009.04.013       | FT                                          |
+| piggott2011    | Piggott BJ … Xu XZS (2011) _Cell_ 147:922–933                                       | 10.1016/j.cell.2011.08.053         | FT                                          |
+| wang2020       | Wang Y … Wen Q (2020) _eLife_ 9:e56942                                              | 10.7554/eLife.56942                | FT                                          |
+| huo2024        | Huo J … Wen Q (2024) _PNAS_ 121:e2410789121                                         | 10.1073/pnas.2410789121            | FT                                          |
+| kumar2024      | Kumar S … Leifer AM (2024) _iScience_ 27:110776                                     | 10.1016/j.isci.2024.110776         | FT                                          |
+| kumar2023      | Kumar S … Leifer AM (2023) _PLoS Biol_ 21:e3002280                                  | 10.1371/journal.pbio.3002280       | FT                                          |
+| li2023         | Li Z … Xu XZS (2023) _Front Mol Neurosci_ 16:1228980                                | 10.3389/fnmol.2023.1228980         | FT                                          |
+| liu2017        | Liu P, Chen B, Mailler R, Wang ZW (2017) _Nat Commun_ 8:14818                       | 10.1038/ncomms14818                | FT (already in `citations.ts`)              |
+| kawano2011     | Kawano T … Zhen M (2011) _Neuron_ 72:572–586                                        | 10.1016/j.neuron.2011.09.005       | FT (PDF)                                    |
+| chalfie1985    | Chalfie M … Brenner S (1985) _J Neurosci_ 5:956–964                                 | 10.1523/JNEUROSCI.05-04-00956.1985 | FT (PDF; in `citations.ts`)                 |
+| wicks1996      | Wicks SR, Roehrig CJ, Rankin CH (1996) _J Neurosci_ 16:4017–4031                    | 10.1523/JNEUROSCI.16-12-04017.1996 | FT (PDF; in `citations.ts`)                 |
+| rakowski2013   | Rakowski F … Karbowski J (2013) _Front Comput Neurosci_ 7:128                       | 10.3389/fncom.2013.00128           | FT                                          |
+| li2014         | Li Z … Xu XZS (2014) _Cell_ 159:751–765                                             | 10.1016/j.cell.2014.09.056         | FT                                          |
+| liu2018        | Liu H … Zhang Y (2018) _Neuron_ 97:390–405.e3                                       | 10.1016/j.neuron.2017.12.003       | FT                                          |
+| lin2024        | Lin C … Guo X (2024) _Nat Commun_ 15:297                                            | 10.1038/s41467-023-44638-5         | FT                                          |
+| hendricks2012  | Hendricks M … Zhang Y (2012) _Nature_ 487:99–103                                    | 10.1038/nature11081                | FT                                          |
+| kaplan2020     | Kaplan HS … Zimmer M (2020) _Neuron_ 105:562–576.e9                                 | 10.1016/j.neuron.2019.10.037       | FT                                          |
+| fenyves2020    | Fenyves BG … Csermely P (2020) _PLoS Comput Biol_ 16:e1007974                       | 10.1371/journal.pcbi.1007974       | FT and S1/S5 data                           |
+| hardege2023    | Hardege I, Morud J, Courtney A, Schafer WR (2023) _J Neurosci_ 43:1111–1124         | 10.1523/JNEUROSCI.1516-22.2022     | FT and Zenodo repo files                    |
+| taylor2021     | Taylor SR … Miller DM (2021) _Cell_ 184:4329–4347.e23 (CeNGEN)                      | 10.1016/j.cell.2021.06.023         | FT and 021821 matrices (hashes §5)          |
+| wang2024       | Wang C … Hobert O (2024) _eLife_ 13:RP95402                                         | 10.7554/eLife.95402                | FT                                          |
+| randi2023      | Randi F … Leifer AM (2023) _Nature_ 623:406–414                                     | 10.1038/s41586-023-06683-4         | FT, and the data via wormneuroatlas 0.0.7.3 |
+| gordus2015     | Gordus A … Bargmann CI (2015) _Cell_ 161:215–227                                    | 10.1016/j.cell.2015.02.018         | FT (earlier run's notes)                    |
+| kato2015       | Kato S … Zimmer M (2015) _Cell_ 163:656–669                                         | 10.1016/j.cell.2015.09.034         | Skimmed only                                |
+| sordillo2021   | Sordillo A, Bargmann CI (2021) _eLife_ 10:e67723                                    | 10.7554/eLife.67723                | FT (earlier run's notes)                    |
+| guo2009        | Guo ZV, Hart AC, Ramanathan S (2009) _Nat Methods_ 6:891–896                        | 10.1038/nmeth.1397                 | FT (earlier run's notes)                    |
+| ringstad2009   | Ringstad N, Abe N, Horvitz HR (2009) _Science_ 325:96–100                           | 10.1126/science.1169243            | FT (earlier run)                            |
+| takayanagi2016 | Takayanagi-Kiya S, Zhou K, Jin Y (2016) _eLife_ 5:e21734                            | 10.7554/eLife.21734                | FT (earlier run)                            |
+| putrenko2005   | Putrenko I, Zakikhani M, Dent JA (2005) _J Biol Chem_ 280:6392–6398                 | 10.1074/jbc.M412644200             | Abs                                         |
+| dent2000       | Dent JA … Avery L (2000) _PNAS_ 97:2674–2679                                        | 10.1073/pnas.97.6.2674             | FT (earlier run)                            |
+| pereira2015    | Pereira L … Hobert O (2015) _eLife_ 4:e12432                                        | 10.7554/eLife.12432                | FT (earlier run)                            |
+| lindsay2011    | Lindsay TH, Thiele TR, Lockery SR (2011) _Nat Commun_ 2:306                         | 10.1038/ncomms1304                 | Skimmed (ASH→AVA only)                      |
+| ouellette2018  | Ouellette MH … Hendricks M (2018) _eNeuro_ 5:ENEURO.0121-18.2018 (added 2026-09-30) | 10.1523/ENEURO.0121-18.2018        | FT (earlier run)                            |
+| hendricks2013  | Hendricks M, Zhang Y (2013) _Worm_ 2:e25546 (added 2026-09-30)                      | 10.4161/worm.25546                 | FT (earlier run)                            |
 
 The receptor-property sources, with their ion selectivities, are tabulated with quotes in `receptors/receptors.md` §3. That is the earlier run's work; its DOIs are in `receptors/sources_table.md`, and the ones cited here were re-checked.
 
@@ -153,7 +160,7 @@ Notation: "AVB ACh−: …" lists ACh-gated anion channels in AVB from CeNGEN 20
   - ACh anion channels at threshold ≥2: none characterised. There are lgc-47 (343, threshold 4; an orphan with no current alone) and acc-4 (35, threshold 3; a subunit only). acc-1 and lgc-46 reach threshold 1 only.
   - ACh cation channels: acr-15 (164), acr-12 (87), unc-38 (59) and acr-16 (58).
   - Zhang et al. 2025 show that PVP excites AVB through ACR-15.
-  - So a monosynaptic ionotropic inhibition of AVB by ACh has no clear receptor. The inhibition may be polysynaptic, for example through AVA–RIM gap junctions and RIM's tyramine, as Kawano 2011 proposed.
+  - So a monosynaptic ionotropic inhibition of AVB by ACh has no clear receptor. The inhibition may be polysynaptic, for example through AVA–RIM gap junctions and RIM's tyramine, a route Kawano 2011 supports after Alkema 2005 and Pirri 2009 (corrected 2026-09-30: this credited the proposal to Kawano).
 - **Randi 2023:** AVA→AVB not significant (5 stimulations).
 - **Ambiguity:** one sign cannot carry Meng's two timescales. The fast component is the one the model's synapse represents.
 
@@ -192,7 +199,7 @@ Notation: "AVB ACh−: …" lists ACh-gated anion channels in AVB from CeNGEN 20
   - "Our data support the hypothesis that tyramine inhibits forward locomotion by activating lgc-55 and hyperpolarizing the AVB forward locomotion command neurons."
   - AVB's voltage was not recorded, and sra-11 also labels AIY and weakly AIA.
 - **Receptors.** CeNGEN places lgc-55 in AVB (80, threshold 4). AVB's glutamate receptors lean anionic (§2), so RIM's glutamate probably also inhibits AVB; that is expression only.
-- **Other support.** Kawano 2011 proposes the AVA→RIM (gap)→AVB tyramine route. Creamer et al.'s fitted weights, already in `data/reports/sign-crosscheck.md`, are negative for RIML→AVBL and RIML→AVBR.
+- **Other support.** Kawano 2011 supports the AVA→RIM (gap)→AVB tyramine route, after Alkema 2005 and Pirri 2009 (corrected 2026-09-30: this said Kawano proposes it). Creamer et al.'s fitted weights, already in `data/reports/sign-crosscheck.md`, are negative for RIML→AVBL and RIML→AVBR.
 - **Randi 2023:** not significant (13 stimulations, mean +0.09).
 
 **RIM→AVA, chemical: 16 sections, + by expression. Evidence supports inhibition by glutamate.**
@@ -269,7 +276,7 @@ Notation: "AVB ACh−: …" lists ACh-gated anion channels in AVB from CeNGEN 20
 - **AVA→DA, VA and AS: 363 sections, + by the rule. It stands, on direct physiology.**
   - Liu et al. 2017: "AVA excites A-MNs by releasing acetylcholine and activating a postsynaptic receptor containing LGC-46". That comes from patch clamp of VA5, AVA-specific unc-17 knockdown, and A-MN-specific lgc-46 knockdown and rescue.
   - LGC-46 is an anion-selective channel (Hardege 2023; Takayanagi-Kiya 2016), so an "inhibitory" receptor family mediates excitation here.
-  - That is a caution against any blanket receptor-polarity rule. Note also that DECISIONS.md (2026-09-29) counted AVA→A-types among the cross-module links; they are within the backward pathway, and + is right.
+  - That is a caution against any blanket receptor-polarity rule. Note also that DECISIONS.md (2026-09-29) counted AVA→A-types among the cross-module links; they are within the backward pathway, and + is right. (Corrected 2026-09-30: DECISIONS has since said so, "within the backward module".)
 - **AVA→DB/VB (10), AVB→DA/VA/AS (28), PVC→DA/AS (10), AVE→DB (3) and AVD→DB (2): all + and unresolved.** Expression leans + because A and B motor neurons are dominated by cationic AChRs. No physiology was found.
 - **AVB→B-types** runs almost entirely through gap junctions: 156 sections, against 3 chemical.
 
@@ -343,8 +350,8 @@ The variants are cumulative:
 
 At 100 and 200 pA, and for AVB at 200 pA, the pattern is the same (`probe2/summary.txt`).
 
-- **No sign set produced backward locomotion.** Driving AVA slows the worm but never reverses it: the backward share in the stimulus window is 0.00 in every variant at every amplitude. Evoked "reversals" (0–1 of 10 at 400 pA) are no more common than without drive (2–5 of 10 at 0 pA), which are the head switch's dithering.
-- **No sign set made the modules inhibit each other at the neural level.** Driving AVA still raises AVB (+0.010) and PVC (+0.060 or more) in every variant, and driving AVB still raises AVA.
+- **No sign set produced backward locomotion.** Driving AVA slows the worm but never reverses it: the backward share in the stimulus window is 0.00 in every variant at every amplitude driven, against 0.04 without drive. Evoked "reversals" (0–1 of 10 at 400 pA) are fewer than without drive (2–5 of 10 at 0 pA), which are the head switch's dithering. (Corrected 2026-09-30: this said the share was 0.00 at every amplitude, and that evoked reversals were no more common than undriven ones at any; at 100 pA, D-maximal made 7 of 10 against its 5 undriven.)
+- **No sign set made the modules inhibit each other at the neural level.** Driving AVA still raises AVB (+0.010) and PVC in every variant, by +0.060 or more except without the AVA–PVC gap junction, where it is +0.020, and driving AVB still raises AVA. (Corrected 2026-09-30: this gave +0.060 or more in every variant.)
 - **The AVA–PVC gap junction dominates PVC's response.** Removing it cuts PVC's rise from +0.061 to +0.020.
 - **The drive itself is out of range.** The injected current takes AVA to about +55 mV, outside the model's reversal range (−48 to 0 mV), which exaggerates the gap-junction currents. It is the same issue as the head switch's unbounded current. A bounded conductance drive was not tried: the brain has no per-neuron conductance hook, and an explicit one would be unstable against AVA's roughly 5 nS of gap coupling at a 2.5 ms step.
 
@@ -393,7 +400,7 @@ The supported signs are worth adopting for fidelity. They would matter behaviour
    - Given §5's cautions, I would not adopt it for these edges alone: the evidence is weak and cuts both ways.
 6. **Calibration and validation.**
    - R's refit was calibrated on the current signs, so any change makes it stale and calls for recalibration under the rules then in force.
-   - The audit was prompted by stimulations outside the checkpoints' protocols, which foreshadow checkpoint 2. Say so in DECISIONS.md, marked changed after results.
+   - The audit was prompted by stimulations outside the checkpoints' protocols, which foreshadow checkpoint 2. Say so in DECISIONS.md, marked changed after results. (Corrected 2026-09-30: a rule set the same day supersedes this. A sign change the audit prompted marks checkpoint 2 and checkpoint 5's reversal rows as fitted rather than predicted (PLAN §10; DECISIONS.md, 2026-09-29).)
    - To avoid selecting signs for their effect on reversals, adopt every verified physiology sign the search found, including those that don't help reversals, such as the SMD→RIA question and AVA→AVE. A systematic literature pass over all edges would be better still.
    - The WGSL kernels read signs from the runtime data, so no kernel or parity change is needed. The visual baselines may need refreshing if neuron activity in the fixed views changes.
 7. **The free-parameter budget is unchanged.** Signs are data, not parameters.
@@ -409,17 +416,22 @@ The supported signs are worth adopting for fidelity. They would matter behaviour
 - **Randi 2023** comes from the `wormneuroatlas` 0.0.7.3 copy of `funatlas.h5` (SHA-256 `53a99055…`), used only as an external cross-check, as spec §2.3 allows. Its orientation was confirmed from the paper's own examples: AVER→AVAR + and SAADL→OLLR −. Most command pairs had 2–13 stimulations, too few to detect inhibition.
 - **Creamer's fitted weights** were read from the repository's existing cross-check report, which lists disagreements only. Agreements, such as whether Creamer has AIB→RIM positive, weren't visible.
 - **CeNGEN** is L4 hermaphrodite single-cell RNA, not protein and not synaptic localisation. The live CengenApp's 2025 tables could not be confirmed identical to the 021821 release.
-- **The probe** is exploratory. It used one parameter set (R's refit), injected currents that take neurons outside the reversal range, 10 seeds, and 5 s stimuli. It says nothing about the bounded-current model now being designed.
+- **The probe** is exploratory. It used one parameter set (R's refit), injected currents that take neurons outside the reversal range, 10 seeds, and 5 s stimuli. It says nothing about the bounded-current model now being designed. (Corrected 2026-09-30: that model was built and surveyed, and R's third round ran on it and ended; it was never probed for a backward mode, and its crawlers don't reverse.)
 
 ## 9. Files
 
-The audit's working folder stayed local and isn't committed. It holds retrieved full texts, which are the publishers' copyright, and third-party data files that aren't pinned in `data/sources.json`, such as the CeNGEN 2021 matrices and a copy of `funatlas.h5`, as well as scratch scripts that read them:
+The audit's working folder, `harness-out/sign-audit/`, stayed local and isn't committed. It holds retrieved full texts, which are the publishers' copyright, and third-party data files that aren't pinned in `data/sources.json`, such as the CeNGEN 2021 matrices and a copy of `funatlas.h5`, as well as scratch scripts that read them. Rewritten 2026-09-30; the list as made follows, with the files the body names that it left out, and the probes' records, which were copied into the folder that day:
 
-- `crossref/`: the Crossref checks (`check.sh` and the cached responses).
-- `cengen_check.py` and its output: the verified receptor calls (§5).
-- `randi_cmd.py` and its output: Randi 2023's pairs for the command circuit.
-- `edges.py`, `hardege_rule.py` and its output: the in-scope edges, with the Fenyves and Hardege-style calls.
-- `probe2/`: the exploratory probe of §6, its scratch variants of the runtime data, and its results.
-- `lit-command/` and `lit-head/`: the retrieved full texts, and the earlier run's notes.
-- `receptors/receptors.md`: the receptor-property sources, with quotes.
-- `probe/`: the earlier run's probe, superseded by `probe2/`.
+- `audit.md`: this report.
+- `crossref/`: the Crossref checks (`check.sh` and cached JSON).
+- `cengen_check.py` and `cengen_check_out.txt`: the verified receptor calls.
+- `randi_cmd.py` and `randi_cmd_out.txt`: Randi 2023 pairs for the command circuit.
+- `edges.py`, `hardege_rule.py` and `hardege_out.txt`: the in-scope edges, with the Fenyves and Hardege-style calls (earlier run, checked).
+- `probe2/`:
+  - `make_variants.py`, `variants-log.json` and `data/`: the scratch variants.
+  - `lib.ts`, `run.ts` and `worker.ts`: the probe, adapted from the earlier run to add diagnostic injections and parameter overrides.
+  - `jobs*.json`, `results*/` and `summary*.txt`: its 520 trials' records and their summaries.
+- `lit-command/ft/` and `lit-head/ft/`: the retrieved full texts.
+- `lit-head/notes.md` and `receptors/receptors.md`: the earlier run's notes, spot-checked; with `receptors/sources_table.md` and `receptors/compact_by_class.md`, which the body cites.
+- `probe/`: the earlier run's probe, superseded by `probe2/`, with its 1,180 trials' records.
+- `randi/wna/wormneuroatlas/data/funatlas.h5` (SHA-256 `53a99055…`), the copy of Randi 2023's data that §8 names, with the `wormneuroatlas` package it came in; `lit-head/wna/` holds the same file.
