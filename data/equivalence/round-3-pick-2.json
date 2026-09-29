@@ -1,0 +1,83 @@
+{
+  "fit": "round-3",
+  "pick": 2,
+  "values": {
+    "oscillatorExcitability": 1179.8055874243535,
+    "oscillatorExcitabilityB": 0,
+    "oscillatorRecoveryTime": 0.44142942727445356,
+    "oscillatorDriveThreshold": -5.116542717056866,
+    "headSwitchGain": 5.277619800492608,
+    "proprioceptiveGain": 0.027485694891194408,
+    "gapGainB": 0.16548406547662178,
+    "neuromuscularGain": 37.67010254363357,
+    "neuromuscularThreshold": -0.11891229997044767,
+    "smdGain": 0.25496122236704427,
+    "noiseIntensity": 0,
+    "noiseCorrelation": 0.08030194225057988
+  },
+  "date": "2026-09-29",
+  "commit": "4042820",
+  "trials": 200,
+  "seconds": 120,
+  "steps": [0.0025, 0.00125],
+  "resamples": 1000,
+  "grades": ["partial", "partial"],
+  "unconverged": [0, 0],
+  "comparison": {
+    "clauses": [
+      {
+        "name": "frequency",
+        "coarse": 0.1796472879202055,
+        "fine": 0.18959371143914813,
+        "difference": -0.009946423518942621,
+        "interval": [-0.013720748413207362, -0.006452574248823062],
+        "margin": 0.005687811343174444,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "wavelength",
+        "coarse": 0.608806001046329,
+        "fine": 0.5664943424457742,
+        "difference": 0.04231165860055475,
+        "interval": [0.0315898194255918, 0.0533205740377225],
+        "margin": 0.016994830273373226,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "speed",
+        "coarse": 0.08129178375877899,
+        "fine": 0.07909167006934358,
+        "difference": 0.002200113689435415,
+        "interval": [0.0021546305425896722, 0.0022441293083966113],
+        "margin": 0.002372750102080307,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "bout",
+        "coarse": 1,
+        "fine": 1,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.1,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "reversals",
+        "coarse": 0.013686131386861315,
+        "fine": 0.013686131386861315,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.3,
+        "unmeasured": 0,
+        "pass": true
+      }
+    ],
+    "nonFinite": 0,
+    "pass": false
+  },
+  "source": "5703120d1807bc96bfdd91b94e3acc4411a6b972 e0bfd7cfbda75fe5bef6a7a48a01826fb1b812e5 3eed1357532edeb8c7ddd88de0aee82fe68f387b d80297c4e6d8a3806d26afb05ba6d38f74a04c7e 56002eea7a3fecc23f6cbff783afd0d5c45a57b9 8cf7cb321b03b377b2479adc9851c4965eb0dd35"
+}
