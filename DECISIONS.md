@@ -2640,4 +2640,24 @@ No held-out checkpoint's protocol ran. The fairness list's count of the real wir
   - 545 tests pass.
   - A shortened run of 3 trials of 44 s went through end to end.
 
-**Status.** Built; checkpoint 0 runs next on the refit, and its result follows.
+**Status.** Built; checkpoint 0 ran on the refit (the entry below).
+
+## 2026-09-30 — Checkpoint 0 passes on the refit, and says little
+
+**Why.** Checkpoint 0 runs again on the chosen fit (PLAN §9, step 4), by its reruns' rules (the entry above).
+
+**The run** (`npm run harness -- --checkpoint 0` at cd8a671, 207 s on 14 workers). It ran 20 trials of 120 s untouched and 20 touched, 5 touches each with a sham twin apiece, and 30 worms in the assay for up to 60 min. Every one stayed finite, and no brain solve failed to converge. Every clause passes:
+
+| Clause          | Measured                                                                                                                                           | Grade |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Crawling        | No forward bout of 10 s or more                                                                                                                    | Pass  |
+| Anterior touch  | A reversal after none of 50 touches, and after none of their twins; p = 1                                                                          | Pass  |
+| Posterior touch | Over the 2 s after 50 touches, the touched copies and their twins alike at −0.0001 body lengths per second, 5.5 × 10⁻¹⁸ apart on average; p = 0.42 | Pass  |
+| Chemotaxis      | No worm reached either spot, so the test can't fail; p = 1                                                                                         | Pass  |
+
+**How it reads.**
+
+- **The crawling pass follows from a bound, not from the wiring.** The intact refit makes forward bouts of 10 s, 12 of them over checkpoint 1's 20 trials, and it moves by its head switch alone (the entry of 2026-09-28). Silenced, the switch's gate stays shut on every step, its drive 0.47 mV below θ_osc. That threshold sits at its floor of −28 mV, which was set so that a silenced head stays gated (PLAN §7.3). So the pass shows that the refit needs the network's drive to open its switch, not that the connectome makes the crawl.
+- **The touch and chemotaxis clauses** ask that a silenced worm which barely moves show no reflex and no chemotaxis. It moved no centroid more than 0.19 mm in an hour, so those passes would mean something only alongside passes of checkpoints 2 to 4, which stay not reached. Each touched copy matches its sham twin to rounding, as the design meant: the touches reach no muscle.
+
+**Status.** Done: checkpoint 0 passes on the refit. The sign audit's record comes next.
