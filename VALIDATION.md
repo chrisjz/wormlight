@@ -239,4 +239,18 @@ Run on 2026-09-28 at `eb76387`: 200 trials of 120 s at each step, seeds 1 to 200
 
 Checkpoint 1's grade over these trials, reported and not compared: **Fail** at dt and **Fail** at dt/2. Solves that didn't converge: 0 at dt and 0 at dt/2. Every trial stayed within the finite numbers.
 
+#### R's third round, pick 1 — **Fail**
+
+Run on 2026-09-29 at `8358a9a`: 200 trials of 120 s at each step, seeds 1 to 200, at dt = 2.5 ms and dt/2 = 1.25 ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from 1,000 resamples of the seeds, and must lie within its margin (PLAN §7.2).
+
+| Clause                           | dt     | dt/2   | Difference | 95% interval       | Margin  | Result   |
+| -------------------------------- | ------ | ------ | ---------- | ------------------ | ------- | -------- |
+| Frequency (Hz)                   | 0.1846 | 0.1886 | −0.0039    | −0.0072 to −0.0006 | ±0.0057 | **Fail** |
+| Wavelength (body lengths)        | 0.5931 | 0.5809 | +0.0122    | +0.0010 to +0.0234 | ±0.0174 | **Fail** |
+| Speed (body lengths/s)           | 0.0812 | 0.0812 | 0.0000     | −0.0005 to +0.0004 | ±0.0024 | **Pass** |
+| Share of trials with a 20 s bout | 1.000  | 1.000  | 0.000      | 0.000 to 0.000     | ±0.100  | **Pass** |
+| Reversals a minute               | 0.003  | 0.000  | +0.003     | 0.000 to +0.011    | ±0.300  | **Pass** |
+
+Checkpoint 1's grade over these trials, reported and not compared: **Partial** at dt and **Partial** at dt/2. Solves that didn't converge: 0 at dt and 0 at dt/2. Every trial stayed within the finite numbers.
+
 <!-- /harness:equivalence -->
