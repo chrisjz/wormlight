@@ -2676,3 +2676,25 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - The touched receptors reach +854 mV in the silenced network, against +10.5 mV at most untouched. A touch's current is sized for a receptor's load in the intact network, and a silenced receptor keeps only its leak. It moves no muscle and changes no grade.
 
 **Status.** Done: checkpoint 0 passes on the refit. The sign audit's record comes next.
+
+## 2026-09-30 — The sign audit's record
+
+**Why.** The investigation of 2026-09-29 set an audit of the command circuit's signs against their sources: a data investigation that changes nothing (the entries of 2026-09-29). It reported the same day, and its record was promised a pull request of its own. The negative result's entry (above) named it next.
+
+**Decision.**
+
+- **The record** is `docs/sign-audit.md`: the audit's report as it was made on 2026-09-29, with a note on its status at the top and its list of files rewritten.
+- **Its working folder stays local.** It holds the retrieved full texts, which are the publishers' copyright; third-party data that aren't pinned in `data/sources.json`, such as the CeNGEN 2021 matrices and a copy of `funatlas.h5`; and the scratch scripts that read them. The report names what the folder held.
+- **What it found.**
+  - The evidence contradicts the sign of several connections the model signs + by the transmitter rule, by direct physiology: AIB→RIM, PVP→AVA and AVB→AVA, and AVA→AVB on the fast timescale. It contradicts others, such as RIM→AVB and RIM→AVA, by receptor genetics.
+  - Weaker rows rest on expression or inference alone.
+  - Several other signs are supported as they stand, and some are unresolved.
+- **The probe.** Its exploratory probe, at R's refit, found no backward mode under any set of signs it tried. The command neurons' voltages are set by their gap junctions, which dwarf the chemical synapses between them, and driving the A-types directly didn't move the worm backward either. So the missing mode lies downstream of the command neurons, and the signs are a question of fidelity, not the fix.
+- **No sign is adopted.** The negative result stands as the headline (the entry above). Adopting any sign would:
+  - go through the overrides file, each citation checked against Crossref and entered in `citations.ts` (the audit's §7);
+  - make the refit stale and call for a new calibration;
+  - mark checkpoint 2 and checkpoint 5's reversal rows as fitted, since the missing backward mode prompted the audit (PLAN §10).
+- Considered: adopting the signs the audit's direct physiology supports, for fidelity alone.
+- **Exploration.** The probe's 1,700 trials on the real wiring were disclosed when it reported (the entry of 2026-09-29), and nothing ran for this record.
+
+**Status.** Done: the audit is on record in `docs/sign-audit.md`, and PLAN §2.4 and §10 point to it.
