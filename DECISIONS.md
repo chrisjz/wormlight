@@ -2338,4 +2338,44 @@ A review found, in trials of its own:
   - 16 with g_nmj at 40;
   - 1 for timing.
 
-**Status.** Done: the survey found a crawl, and round 3's rules come next.
+**Status.** Done: the survey found a crawl, and round 3's rules followed (the entry below).
+
+## 2026-09-29 — R's third round: its rules, set before any of it runs
+
+**Why.** The survey found a crawl in the bounded model, so R's third round, its last, runs on it, by rules of its own (the entry above). They are set here, for the maintainer's approval, before any of it is built or runs. They are designed after the survey's results on the real wiring, and they say so:
+
+- **The four best held both partials.** Ranked by their final checks' objective, the survey's four best searches were those of CMA-ES seeds 26 (0.71), 14 (0.91), 18 (0.96) and 25 (1.00), which include both partial picks.
+- **The searches ended unconverged.** Every search's step still stood at 0.09 to 0.24.
+- **The crawls came late.** The partial picks' searches made their first bouts at generations 8 and 10.
+- **Most of the budget went on the plateau.** 84% of the evaluations had no bout.
+- **The spectral frequency held searches on wiggling.** It kept two of them on a plateau of wiggling for 10 to 15 generations.
+
+**Decision.** The maintainer chose the recommendation each time:
+
+- **Two phases, 6,000 evaluations a wiring, for the real wiring and every null alike** (PLAN §7.3).
+  - **Phase 1.** The survey's design: stage 1 on all twelve calibrated parameters in the conductance form, sixteen times at 250 evaluations, with CMA-ES seeds 11 to 26, from the survey's Latin hypercube (`surveyStart`), each with its final check.
+  - **Phase 2.** The 4 searches with the lowest objective on their final check continue to 750 evaluations each, ties going to the lower CMA-ES seed. Their first 250 are replayed exactly, and the search carries on from there, with a final check at its end.
+  - **The fit.** It is the lowest objective, on the fresh seeds 1005 to 1020, among the four continued searches' final checks.
+  - **Restarts.** A search restarts, its population doubled and from a fresh point of the survey's hash, when its step falls below 0.01 in the mapped units, or when its best evaluated objective hasn't fallen by at least 1% of itself over 20 generations. The 1% is ours; round 2's rule counted any fall, however small.
+  - **Where it differs from the survey.** The real wiring's phase 1 runs afresh, not replayed from the survey, since the objective and the restart rule differ.
+  - **Records.** The round is recorded in `data/calibration/r5.json`, since `r4.json` is the bounded calibration's, and the equivalence script takes its fit as `round-3`.
+  - **Changed after results.** The budget was 2,000 evaluations (PLAN §7.3); this is marked on checkpoints 1 and 6.
+  - **Cost.** About 3.3 hours a wiring on 14 workers, 36 hours for the real wiring and the ten primary nulls.
+  - Considered: sixteen searches of 500, 8,000 a wiring; and two phases continuing the best 2.
+- **The objective reads the crawl alone** (PLAN §7.3).
+  - **The speed target is 0.15 body lengths per second.** It was 0.22, above the targets' own wave speed of 0.195. Karbowski et al. 2006 measured worms at 0.79 of their wave speed, and 0.79 × 0.30 Hz × 0.65 body lengths ≈ 0.154. Changed after results, and marked on checkpoints 1 and 6. The survey is no evidence about the target: rescoring its 4,000 evaluations with 0.15 changed no search's pick, a review found.
+  - **The spectral frequency is dropped.** A worm without a bout of 10 s scores its frequency and wavelength at the error cap, and its speed by its mean forward velocity, which gives the search its direction.
+  - **The reversal rate stays out,** as in round 2's stage 1. The bounded model's crawlers don't reverse, and the head switch's slips would otherwise meet it. That settles, for round 3's procedure and so for every null, the item PLAN §9 left open: slips can't meet the calibration's reversal term, since it has none.
+  - Considered: a speed of 0.15 with the spectral frequency kept; and the survey's objective unchanged.
+- **The choice, and how a partial at the speed floor reads** (PLAN §9).
+  - **The choice.** Round 3's fit takes checkpoint 1's own trials, seeds 1 to 20, and §7.2's comparison. If it passes the comparison, it replaces the refit whatever the two grade, since the refit's voltages lie outside the model's range. It then becomes the real wiring's final fit: the app and the harness run it, the registry's conductance entries hold its values and name its form, and every null gets round 3's procedure in the conductance form. If it fails the comparison, it can't be chosen, and the refit stays, with its form and procedure for the nulls (step 3).
+  - **R ends after round 3 either way.**
+  - **The speed's margin.** Checkpoint 1's grade stands as graded. Its report adds the speed's 95% interval: the 2.5th and 97.5th percentiles of the pooled speed over 1,000 resamples of the 20 trials, with replacement, drawn from a fixed hash. A partial whose interval reaches below 0.06 is reported as partial at the speed floor, and a pass isn't expected.
+  - **What paces the crawl,** reported and not graded, for round 3's fit and in checkpoint 6's report for every null's:
+    - the share of the measured steps with the head switch's gate open;
+    - checkpoint 1's trials run again with g_sw at its lower bound, with the 18 B-types lesioned, with the 21 A-types lesioned, and with AVBL and AVBR lesioned, each with its forward share, speed and bouts.
+  - Considered: counting a partial only if its speed's interval clears 0.06.
+- **GPU parity's velocity floor is raised now,** before any bounded fit exists (PLAN §7.2). The rods' centres' linear floor becomes 10⁻⁴ body lengths a second, 1% of the motion floor and about 48 times the old 10⁻⁴ segment lengths a second. The angular floor, 10⁻⁴ rad/s, and the relative threshold, 1% of the largest velocity, are unchanged. Changed after results: the conductance form's first parity run failed on bodies creeping at under 5 µm/s (the build's entry above). Considered: deciding it when a bounded fit arrives.
+- **Everything else stays:** the model, its bounds, the free-parameter budget of 18, the final check's seeds and size, and checkpoint 1's grading.
+
+**Status.** Set, for approval, before any of it is built; its code comes next, then the real wiring's round.
