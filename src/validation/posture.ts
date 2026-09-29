@@ -77,6 +77,20 @@ export interface PostureSums {
   products: number[];
 }
 
+// The mean scaled curvature κL over body coordinates [from, to] of a posture given as tangent angles at the
+// middles of equal segments, head first: the angle's change across the span over its length, the angles between
+// middles taken linearly and extended linearly past the first and last. PLAN §7.3's 1 mV rule takes
+// proprioception's curvature from it over the model's fields.
+export function spanCurvature(angles: ArrayLike<number>, from: number, to: number): number {
+  const n = angles.length;
+  const at = (s: number): number => {
+    const x = s * n - 0.5;
+    const k = Math.min(n - 2, Math.max(0, Math.floor(x)));
+    return angles[k] + (angles[k + 1] - angles[k]) * (x - k);
+  };
+  return (at(to) - at(from)) / (to - from);
+}
+
 export function emptySums(n = POSTURE_ANGLES): PostureSums {
   return { count: 0, sum: new Array<number>(n).fill(0), products: new Array<number>(n * n).fill(0) };
 }

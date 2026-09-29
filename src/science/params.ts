@@ -42,6 +42,21 @@ export interface Param {
   conductance?: ConductanceForm;
 }
 
+// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
+// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
+export type Form = 'current' | 'conductance';
+
+// The parameters whose entries depend on the form: g_sw and g_p.
+export const FORM_DEPENDENT: readonly string[] = ['headSwitchGain', 'proprioceptiveGain'];
+
+// A parameter's value, bounds and start in a form. In the conductance form, g_sw and g_p take their conductance
+// entries, and one that lacks it is refused rather than read as the current form's.
+export function inForm(id: string, param: Param, form: Form): Pick<Param, 'value' | 'bounds' | 'provisional'> {
+  if (form === 'current' || !FORM_DEPENDENT.includes(id)) return param;
+  if (!param.conductance) throw new Error(`${id} has no conductance form`);
+  return param.conductance;
+}
+
 export interface ConductanceForm {
   value: number | null;
   unit: string;
@@ -331,7 +346,7 @@ export const PARAMS = {
     upgrade: 'The same phase-response fit made on agar',
   },
   headSwitchGain: {
-    name: 'Head switch current gain',
+    name: 'Head switch gain',
     symbol: 'g_sw',
     value: 311.74440224351065,
     unit: 'pA',

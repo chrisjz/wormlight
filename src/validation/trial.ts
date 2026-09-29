@@ -87,10 +87,11 @@ export interface TrialRecord {
   far?: number[];
   lowest?: number;
   highest?: number;
-  // In the conductance form (PLAN §7.4, added 2026-09-29), the shunt: at each sample, aligned with the velocity
-  // samples, the mean over each layer's targets of its conductance over their passive loads at rest, for the head
-  // switch's SMDs and for proprioception's A- and B-types. Trials in the current form have none.
-  shunt?: { switch: number[]; proprioception: number[] };
+  // In the conductance form (PLAN §7.4, added 2026-09-29), over the measured samples: their count; the sums of each
+  // layer's shunt, the mean over its targets of their conductance over their passive loads at rest, the head switch's
+  // on the SMDs and proprioception's on the A- and B-types with fields, or null for a layer with no targets; and how
+  // many times the head switch's gate turned on or off over the measured steps. Trials in the current form have none.
+  conductance?: { samples: number; switchShunt: number | null; proprioShunt: number | null; gateToggles: number };
 }
 
 // The voltage diagnostic's second count: neurons more than this far past the reversal range (mV). Ours, and
@@ -156,9 +157,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const fieldTargets = world.fields.map((f) => f.neuron);
   const shunt: { switch: number[]; proprioception: number[] } = { switch: [], proprioception: [] };
   const share = (targets: readonly number[]): number =>
-    loads && targets.length > 0
-      ? targets.reduce((sum, i) => sum + world.brain.conductance[i] / loads[i], 0) / targets.length
-      : 0;
+    loads ? targets.reduce((sum, i) => sum + world.brain.conductance[i] / loads[i], 0) / targets.length : 0;
+  // The gate's turns on or off, over the 0.1 s from each sample to the next.
+  const toggles: number[] = [];
+  let [turned, open] = [0, world.switchCurrent !== 0];
   // The voltages' extremes at every step, over the 0.1 s from each sample to the next.
   const extremes: [number, number][] = [];
   let [low, high] = [Infinity, -Infinity];
@@ -219,10 +221,12 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     }
     if (s % every === 0) {
       extremes.push([low, high]);
-      [low, high] = [Infinity, -Infinity];
+      toggles.push(turned);
+      [low, high, turned] = [Infinity, -Infinity, 0];
       sample();
     }
     scan();
+    if ((world.switchCurrent !== 0) !== open) [turned, open] = [turned + 1, !open];
     if (s >= from && s % posturesEvery === 0) {
       const points = resample(body.midline());
       if (selfIntersects(points)) selfIntersecting++;
@@ -230,11 +234,13 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     }
   }
   extremes.push([low, high]);
+  toggles.push(turned);
   const velocity = forwardVelocity(centroid, head, length);
   // The curvature samples that line up with the velocity's: from the first 10 s, as many as it has.
   const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
   const aligned = <T>(a: T[]): T[] => a.slice(first, first + velocity.length);
   const measured = aligned(extremes);
+  const total = (a: readonly number[]): number => a.reduce((sum, x) => sum + x, 0);
   return {
     seed,
     seconds,
@@ -258,7 +264,14 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
           lowest: measured.reduce((m, [lo]) => Math.min(m, lo), Infinity),
           highest: measured.reduce((m, [, hi]) => Math.max(m, hi), -Infinity),
           ...(conducting
-            ? { shunt: { switch: aligned(shunt.switch), proprioception: aligned(shunt.proprioception) } }
+            ? {
+                conductance: {
+                  samples: measured.length,
+                  switchShunt: switchTargets.length > 0 ? total(aligned(shunt.switch)) : null,
+                  proprioShunt: fieldTargets.length > 0 ? total(aligned(shunt.proprioception)) : null,
+                  gateToggles: total(aligned(toggles)),
+                },
+              }
             : {}),
         }
       : {}),

@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
-import { CALIBRATED, type LoopParams } from '../../src/sim/world.ts';
+import { CALIBRATED, type Form, type LoopParams } from '../../src/sim/world.ts';
 import { bounds, type Values } from '../../src/validation/calibration.ts';
 import { checkpoint1, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import { compareSteps, EQUIVALENCE, EQUIVALENCE_SEEDS } from '../../src/validation/equivalence.ts';
@@ -62,6 +62,8 @@ interface Manifest {
   fit: Fit;
   // An R fit's values, from its record, so that a set is reused only for the values it ran; null for the planned fit.
   values: Values | null;
+  // Its form, named only when it isn't the current form, so that earlier manifests still match (PLAN §4.3).
+  form?: Form;
   source: string;
   step: number;
   seconds: number;
@@ -79,7 +81,7 @@ type Planned = typeof import('../../src/science/planned.ts');
 
 // A fit's parameters in a tree: an R fit's recorded values, or the planned model's fit.
 function paramsOf(manifest: Manifest, world: World, planned: Planned): LoopParams {
-  if (manifest.values) return world.loopParams(manifest.values);
+  if (manifest.values) return world.loopParams(manifest.values, manifest.form ?? 'current');
   return world.plannedParams(planned.PLANNED.calibrated);
 }
 
@@ -94,10 +96,18 @@ export function valuesOf(fit: Fit): Values | null {
   return checkedValues(JSON.parse(readFileSync(path, 'utf8')) as Parameters<typeof checkedValues>[0], record);
 }
 
+// An R fit's form, from its record: a record that names none is the current form, as every record so far.
+export function formOf(fit: Fit): Form {
+  const record = RECORDS[fit];
+  if (!record) return 'current';
+  const run = JSON.parse(readFileSync(join(ROOT, record), 'utf8')) as { form?: Form };
+  return run.form ?? 'current';
+}
+
 // A calibration summary's final values, once it is known to be a whole run of track R with a value for every
 // calibrated parameter, each within its bounds.
 export function checkedValues(
-  run: { model?: string; complete?: boolean; final?: { values?: Record<string, unknown> } },
+  run: { model?: string; complete?: boolean; form?: Form; final?: { values?: Record<string, unknown> } },
   record: string,
 ): Values {
   if (!run.complete) throw new Error(`${record} isn't a whole run`);
@@ -109,7 +119,7 @@ export function checkedValues(
   }
   for (const id of CALIBRATED) {
     const v = values[id];
-    const [lo, hi] = bounds(id);
+    const [lo, hi] = bounds(id, run.form ?? 'current');
     if (typeof v !== 'number' || !(v >= lo && v <= hi)) throw new Error(`${record}'s ${id} lies outside its bounds`);
   }
   return values as Values;
@@ -176,6 +186,7 @@ if (process.argv[2] === '--worker') {
   const committed = commit();
   if (/uncommitted/.test(committed)) throw new Error('commit first: the trees are taken from HEAD');
   const values = valuesOf(options.fit);
+  const form = values ? formOf(options.fit) : 'current';
   const source = treeSource();
   const seeds = EQUIVALENCE_SEEDS.slice(0, options.trials);
   mkdirSync(OUT, { recursive: true });
@@ -185,6 +196,7 @@ if (process.argv[2] === '--worker') {
     const manifest: Manifest = {
       fit: options.fit,
       values,
+      ...(form === 'conductance' ? { form } : {}),
       source,
       step,
       seconds: TRIAL_SECONDS,

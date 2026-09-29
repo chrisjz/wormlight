@@ -3,8 +3,9 @@
 // the assay's odour field: the rest world and twenty from the trial values' closed loop; copies of them moved
 // across the dish and turned, which the CPU doesn't notice and the GPU must not; copies pressed against the
 // dish's wall, which both push back; copies tapped front and back; states from two variants that make the head
-// switch flip and gate; states from track R's model; states with the coloured noise; and states on the registry's
-// values, which the app runs, the coloured noise's among them. The thresholds are the body's row of §7.2, set
+// switch flip and gate; states from track R's model; states with the coloured noise; states on the registry's
+// values, which the app runs, the coloured noise's among them; and states in the conductance form (PLAN §4.3), one
+// setup at gains inside the box and two at its upper corner. The thresholds are the body's row of §7.2, set
 // before any loop results and changed after them (DECISIONS.md, 2026-09-26), and AWC-ON's threshold's, set before
 // any results (2026-09-27); the brain's are as before, the coloured current's within its rounding bound. Long
 // runs, LONG_SEEDS a side for 60 s on the registry's values, compare the body wave's statistics by Welch's two
@@ -256,10 +257,11 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
 }
 
 // The loop's own API, from a state with a touch pulse under way: it goes in and comes back, and a run split
-// across dispatches is the run. A setup with the coloured noise names its checks, whose state must carry a current.
+// across dispatches is the run. Every setup but the first names its checks: the coloured noise's, whose state must
+// carry a current, and the conductance form's, whose switch records a signed conductance.
 async function checkLoopApi(gpu: GpuWorld, c: LoopCase): Promise<ApiResult[]> {
   const coloured = (c.setup.params.noiseCorrelation ?? 0) > 0;
-  const named = (name: string): string => (coloured ? `${c.setup.name}: ${name}` : name);
+  const named = (name: string): string => (c.setup === LOOP_SETUPS[0] ? name : `${c.setup.name}: ${name}`);
   const results: ApiResult[] = [];
   gpu.restore(c.state);
   const back = (await gpu.read()).state;
@@ -525,7 +527,9 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
       const last = cases[cases.length - 1];
-      if (setup === LOOP_SETUPS[0] || (setup.params.noiseCorrelation ?? 0) > 0) {
+      // The state's round trip, a run split across dispatches and the CPU carrying on from the GPU's state: for the
+      // trial values, the coloured noise and the conductance form, whose switch records a signed conductance.
+      if (setup === LOOP_SETUPS[0] || (setup.params.noiseCorrelation ?? 0) > 0 || setup.params.form === 'conductance') {
         const pulsing = tapped(last.state, gpu.layout.touch, gpu.layout.touchSets, FRONT);
         api.push(...(await checkLoopApi(gpu, { ...last, state: pulsing })));
       }

@@ -4,7 +4,7 @@
 // advances the body.
 
 import type { WormlightData } from '../data/schema.ts';
-import { PARAMS, type Param } from '../science/params.ts';
+import { inForm, PARAMS, type Form, type Param } from '../science/params.ts';
 import type { PlannedValues } from '../science/planned.ts';
 import { Body, boyleBody } from './body/body.ts';
 import {
@@ -27,9 +27,7 @@ import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './t
 const EXCITATORY = PARAMS.reversalExcitatory.value;
 const INHIBITORY = PARAMS.reversalInhibitory.value;
 
-// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
-// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
-export type Form = 'current' | 'conductance';
+export type { Form };
 
 // The calibrated parameters (PLAN §6.2), in the units the simulation uses.
 export interface LoopParams {
@@ -68,7 +66,7 @@ export interface RValues extends PlannedValues {
   // τ_n (s), the coloured noise's correlation time; σ_n is then the coloured current's intensity.
   noiseCorrelation: number;
 }
-export function loopParams(values: RValues, form: Form = 'current'): LoopParams {
+export function loopParams(values: RValues, form: Form): LoopParams {
   return {
     ...plannedParams(values),
     oscillatorGainB: values.oscillatorExcitabilityB / 1000, // pS → nS
@@ -111,27 +109,17 @@ export const CALIBRATED = [
   'noiseCorrelation',
 ] as const;
 
-// The registry's values, once calibrated, or those of a registry standing in for it, in a form: in the conductance
+// The registry's values in a form, once calibrated, or those of a registry standing in for it: in the conductance
 // form, g_sw's and g_p's are their conductance entries'.
-export function calibratedParams(registry: Record<string, Param> = PARAMS, form: Form = 'current'): LoopParams {
-  const values = Object.fromEntries(
-    CALIBRATED.map((id) => [
-      id,
-      form === 'conductance' && registry[id].conductance ? registry[id].conductance.value : registry[id].value,
-    ]),
-  );
+export function calibratedParams(form: Form, registry: Record<string, Param> = PARAMS): LoopParams {
+  const values = Object.fromEntries(CALIBRATED.map((id) => [id, inForm(id, registry[id], form).value]));
   if (Object.values(values).some((v) => v === null)) throw new Error('the loop parameters are not calibrated yet');
   return loopParams(values as unknown as RValues, form);
 }
 
-// The registry's provisional values, which the simulation runs on until calibration (PLAN §6.2), in a form.
-export function provisionalParams(form: Form = 'current'): LoopParams {
-  const values = Object.fromEntries(
-    CALIBRATED.map((id) => {
-      const { conductance } = PARAMS[id] as Param;
-      return [id, form === 'conductance' && conductance ? conductance.provisional : PARAMS[id].provisional];
-    }),
-  );
+// The registry's provisional values in a form, which the simulation runs on until calibration (PLAN §6.2).
+export function provisionalParams(form: Form): LoopParams {
+  const values = Object.fromEntries(CALIBRATED.map((id) => [id, inForm(id, PARAMS[id], form).provisional]));
   return loopParams(values as unknown as RValues, form);
 }
 
@@ -140,7 +128,8 @@ export const isCalibrated = (): boolean => CALIBRATED.every((id) => PARAMS[id].v
 
 // The values the app and the harness run on: the calibrated ones once calibration has set them, the provisional
 // ones until then (PLAN §6.2).
-export const currentParams = (): LoopParams => (isCalibrated() ? calibratedParams() : provisionalParams());
+export const currentParams = (): LoopParams =>
+  isCalibrated() ? calibratedParams('current') : provisionalParams('current');
 
 export interface WorldOptions {
   seed?: number;

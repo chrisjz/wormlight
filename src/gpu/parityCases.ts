@@ -254,10 +254,11 @@ export function assayField(): OdourField {
 // relative drive, g_nmj and θ_nmj in its units, the B-types' oscillator gain apart from the A-types', and the two
 // class gains below 1. A fifth runs the trial values with the coloured noise, which carries a current in each
 // neuron's state (DECISIONS.md, 2026-09-28). A sixth runs the values the app runs, the registry's, so the GPU is
-// checked on whatever a fit sets. The last two run track R's model in the conductance form (PLAN §4.3, §9), with
-// P_th at 0.05, where the head flips in that form: at gains inside the box, the gate open, and at its upper
-// corner, where the conductances weigh most against the solve's tolerance, with θ_osc at −1 mV, where the gate
-// turns on and off every few steps.
+// checked on whatever a fit sets. The last three run track R's model in the conductance form (PLAN §4.3, §9), with
+// P_th at 0.05, where the head flips in that form, and θ_nmj at −0.2, where its muscles move the body: at gains
+// inside the box, the gate open; and at the box's upper corner, where the conductances weigh most against the
+// solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
+// where the gate turns on or off on about half the steps.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
@@ -304,6 +305,19 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     },
     switchThreshold: 0.05,
     states: 10,
+  },
+  {
+    name: 'conductance, upper corner, open',
+    params: {
+      ...R_LOOP,
+      form: 'conductance',
+      switchGain: 50,
+      proprioceptiveGain: 8,
+      driveThreshold: -3,
+      neuromuscularThreshold: -0.2,
+    },
+    switchThreshold: 0.05,
+    states: 6,
   },
   {
     name: 'conductance, upper corner',

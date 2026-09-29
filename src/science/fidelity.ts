@@ -121,7 +121,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison. A third, R's last, is paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, and the model has no backward mode. The two currents become conductances, and a survey of that model decides whether it runs (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison. A third, R's last, is paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, and the model has no backward mode. A conductance form of the two is built beside them, and a survey of it decides whether that round runs (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -459,6 +459,8 @@ export const COMPONENTS: readonly Component[] = [
         check: 'unit',
         detail: 'the conductances hold the SMDs within the reversal range, and the GPU matches them by parity',
       },
+      { check: 'checkpoint0', detail: "the silenced network, where a motor neuron's load is its leak" },
+      { check: 'checkpoint1', detail: "the survey's grading, with the shunt and the gate's toggles" },
     ],
   },
 

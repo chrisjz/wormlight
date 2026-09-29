@@ -3,8 +3,9 @@
 // without a history), solved by Jacobi-preconditioned conjugate gradients warm-started from the last step;
 // then activation and the oscillators' recovery by BDF2 at the new voltages. With `looping` on, each step is
 // World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive inputs, AWC-ON's sensing, touch
-// and the head switch, whose inputs are currents or, in the conductance form, conductances, the brain, the neuromuscular layer, and the body under resistive force theory, whose
-// block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one
+// and the head switch, whose inputs are currents or, in the conductance form, conductances; the brain; the
+// neuromuscular layer; and the body under resistive force theory, whose block-tridiagonal system is solved by
+// block cyclic reduction (PLAN §5.1). The whole simulation runs in one
 // workgroup, each invocation holding its neurons' and its rod's state in registers, so a dispatch can take many
 // steps with nothing but barriers between them.
 //
@@ -885,7 +886,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
           drive_in[k] += constants.switch_side * current;
         } else if (constants.switch_side != 0.0 && current != 0.0) {
           g_in[k] += params.switch_gain;
-          ge_in[k] += params.switch_gain * select(E_INH, E_EXC, constants.switch_side * current > 0.0);
+          // Towards E_exc on the side h names, dorsal at h = 1, as World.step chooses it.
+          ge_in[k] += params.switch_gain * select(E_INH, E_EXC, (constants.switch_side > 0.0) == (h == 1.0));
         }`)}
     }
 

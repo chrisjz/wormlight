@@ -2,17 +2,34 @@
 // conductances towards the model's reversal potentials, bounded by the 1 mV rule, beside the current form the
 // refit runs.
 
-import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readPostures } from '../scripts/harness/pinned.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { BOUND_RULE_CURVATURE, BOUND_RULE_MV, PARAMS, type Param } from '../src/science/params.ts';
 import { Brain, passiveLoads } from '../src/sim/brain/brain.ts';
 import { chemicalRows, gapRows, type Network } from '../src/sim/brain/network.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
-import { CALIBRATED, loopParams, provisionalParams, World, type LoopParams } from '../src/sim/world.ts';
-import { bounds, fromUnit, provisionalValues, toUnit } from '../src/validation/calibration.ts';
+import {
+  CALIBRATED,
+  calibratedParams,
+  currentParams,
+  loopParams,
+  provisionalParams,
+  World,
+  type LoopParams,
+  type WorldOptions,
+} from '../src/sim/world.ts';
+import {
+  bounds,
+  calibrate,
+  fromUnit,
+  provisionalValues,
+  toUnit,
+  type Scorer,
+  type Values,
+} from '../src/validation/calibration.ts';
+import { spanCurvature } from '../src/validation/posture.ts';
 import { runTrial } from '../src/validation/trial.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { readJson } from './checks.ts';
@@ -20,6 +37,32 @@ import { readJson } from './checks.ts';
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
 const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
 const [E_EXC, E_INH] = [PARAMS.reversalExcitatory.value, PARAMS.reversalInhibitory.value];
+
+// Sums of a world's state after 400 steps in the current form, made on main at 6c9a857, before the conductance form
+// was built: the voltages and their squares, the activations, the rods' x, y and θ, the muscles, h and the switch's
+// current. Every figure agreed bit for bit with this branch's when the fixture was made.
+const BEFORE = {
+  registry: [
+    -3973.4718537983567, 198488.94244794626, 21.191677687190385, 0.023731433262365223, -2.9412227835891116e-5,
+    79.29069069220823, 53.558260348837244, 0, -155.87220112175532,
+  ],
+  provisional: [
+    -3485.047844098273, 241075.87241431867, 23.590092216429802, 0.024430617170406305, 8.07234306025568e-7,
+    76.43168041308142, 8.74056982093242, 1, 185.5,
+  ],
+  trial: [
+    -3499.959656684626, 69104.59027305848, 23.06199570056559, 0.02452191489086309, -1.650019148138271e-7,
+    77.17884689789315, 14.409445686647967, 1, 50,
+  ],
+  lesioned: [
+    -3788.0930807836125, 173401.6714019755, 21.577831090823796, 0.023722653518002186, -2.8667187146736217e-5,
+    79.27395686563833, 56.605425730367024, 0, -155.87220112175532,
+  ],
+  silenced: [
+    -10313.737182534032, 378107.89424820256, 4.49564315799689, 0.024515861714778237, -3.517527072866853e-8,
+    76.67730734756074, 25.880112265207458, 0, 0,
+  ],
+};
 
 // Trial values in the conductance form: the switch on at rest, as loop.test.ts's are.
 const TRIAL: LoopParams = {
@@ -48,25 +91,25 @@ const lone: Network = {
 };
 
 describe("a conductance from outside the brain, on the solve's diagonal", () => {
-  it('settles a lone neuron where its leak and the conductance balance, and barely takes it past E', () => {
-    for (const [g, E] of [
-      [0.09, E_EXC],
-      [0.09, E_INH],
-      [1000, E_EXC],
-    ]) {
-      const brain = new Brain(lone, Float64Array.of(-35));
-      brain.conductance[0] = g;
-      brain.conductanceCurrent[0] = g * E;
-      let furthest = -Infinity;
-      for (let k = 0; k < Math.round(1 / NEURAL_STEP); k++) {
-        brain.step(NEURAL_STEP);
-        furthest = Math.max(furthest, (brain.voltage[0] - -35) / (E - -35));
+  it('settles a lone neuron where its leak and the conductance balance, past it by at most 3% of the step', () => {
+    // Across the box's range and beyond: BDF2's first step after the implicit-Euler start overshoots the steady state
+    // by (0.5 − 2/(1 + x))/(1.5 + x) of the step, x = G·dt/C, which peaks at 2.9% near x ≈ 7, about 3 nS here, and
+    // falls away on either side: L-stable, not monotone.
+    for (const E of [E_EXC, E_INH]) {
+      for (const g of [0.02, 0.4, 3, 50, 1000]) {
+        const brain = new Brain(lone, Float64Array.of(-35));
+        brain.conductance[0] = g;
+        brain.conductanceCurrent[0] = g * E;
+        const steady = (lone.leak * lone.leakPotential + g * E) / (lone.leak + g);
+        let furthest = -Infinity;
+        for (let k = 0; k < Math.round(1 / NEURAL_STEP); k++) {
+          brain.step(NEURAL_STEP);
+          furthest = Math.max(furthest, (brain.voltage[0] - -35) / (steady - -35));
+        }
+        // Within the solve's relative tolerance.
+        expect(brain.voltage[0]).toBeCloseTo(steady, 2);
+        expect(furthest, `${g} nS towards ${E} mV`).toBeLessThanOrEqual(1.03);
       }
-      // Within the solve's tolerance.
-      expect(brain.voltage[0]).toBeCloseTo((lone.leak * lone.leakPotential + g * E) / (lone.leak + g), 3);
-      // Never more than a hair past E, even at a conductance far above C/dt, where BDF2's history overshoots it by
-      // micro-volts.
-      expect(furthest).toBeLessThanOrEqual(1.001);
     }
   });
 
@@ -168,29 +211,69 @@ describe('the world in the conductance form', () => {
     expect(high).toBeLessThan(E_EXC + 0.5);
   });
 
-  it('runs the current form when none is named, bit for bit', () => {
-    const current = { ...TRIAL, switchGain: 100, proprioceptiveGain: 10 };
-    delete current.form;
-    const [a, b] = [new World(data, current), new World(data, { ...current, form: 'current' })];
-    for (let k = 0; k < 200; k++) {
-      a.step();
-      b.step();
+  it('runs the current form as main did before the conductance form, on the registry, lesioned and silenced', () => {
+    const trial: LoopParams = {
+      ...TRIAL,
+      oscillatorGain: 2,
+      driveThreshold: -16,
+      switchGain: 100,
+      proprioceptiveGain: 10,
+      noise: 0.01,
+    };
+    delete trial.form;
+    const setups: [keyof typeof BEFORE, LoopParams, WorldOptions][] = [
+      ['registry', currentParams(), { seed: 1 }],
+      ['provisional', provisionalParams('current'), { seed: 2 }],
+      ['trial', trial, { seed: 3, switchThreshold: 0.5 }],
+      ['lesioned', currentParams(), { seed: 4, lesions: ['AVAL', 'AVAR', 'SMDDL'] }],
+      ['silenced', currentParams(), { seed: 5, silenced: true }],
+    ];
+    const sum = (a: ArrayLike<number>, f = (x: number): number => x): number =>
+      Array.from(a).reduce((t, x) => t + f(x), 0);
+    for (const [name, params, options] of setups) {
+      const world = new World(data, params, options);
+      for (let k = 0; k < 400; k++) world.step();
+      const s = world.snapshot();
+      const sums = [
+        sum(s.brain.voltage),
+        sum(s.brain.voltage, (x) => x * x),
+        sum(s.brain.activation),
+        sum(s.x),
+        sum(s.y),
+        sum(s.theta),
+        sum(s.muscles),
+        s.h,
+        s.switchCurrent,
+      ];
+      sums.forEach((x, k) =>
+        expect(Math.abs(x - BEFORE[name][k]), `${name} ${k}`).toBeLessThanOrEqual(
+          1e-9 * Math.max(1, Math.abs(BEFORE[name][k])),
+        ),
+      );
+      expect(Array.from(world.brain.conductance).every((g) => g === 0)).toBe(true);
     }
-    expect(a.snapshot()).toEqual(b.snapshot());
-    expect(Array.from(a.brain.conductance).every((g) => g === 0)).toBe(true);
   });
 
-  it('reports the shunt of each layer at every measured sample, and none in the current form', () => {
+  it('sums the shunt of each layer over the measured samples, counts the gate, and gives none in the current form', () => {
     const postures = [Array.from({ length: 100 }, (_, k) => 0.6 * Math.sin(2 * Math.PI * ((k + 0.5) / 65)))];
-    const r = runTrial(data, { seed: 1, seconds: 11, params: TRIAL, postures });
-    expect(r.shunt?.switch).toHaveLength(r.velocity.length);
-    expect(r.shunt?.proprioception).toHaveLength(r.velocity.length);
-    // The switch's conductance over the SMDs' loads, which lie between 0.86 and 1.15 nS.
-    for (const x of r.shunt?.switch ?? []) {
-      expect(x === 0 || (x > TRIAL.switchGain / 1.2 && x < TRIAL.switchGain / 0.8)).toBe(true);
-    }
-    const current = runTrial(data, { seed: 1, seconds: 11, params: { ...TRIAL, form: 'current' }, postures });
-    expect(current.shunt).toBeUndefined();
+    const options = { seed: 1, seconds: 11, postures };
+    const r = runTrial(data, { ...options, params: TRIAL });
+    const c = r.conductance;
+    if (!c) throw new Error('no shunt in the conductance form');
+    expect(c.samples).toBe(r.velocity.length);
+    // With the gate open throughout, each sample's switch shunt is the mean of g_sw over each SMD's passive load.
+    const world = new World(data, TRIAL);
+    const loads = passiveLoads(world.brain.network);
+    const smd = [...world.dorsalSwitch, ...world.ventralSwitch];
+    const open = smd.reduce((sum, i) => sum + TRIAL.switchGain / loads[i], 0) / smd.length;
+    expect(c.gateToggles).toBe(0);
+    expect(c.switchShunt).toBeCloseTo(open * c.samples, 10);
+    // The curved start bends the body, so proprioception opens conductances too.
+    expect(c.proprioShunt).toBeGreaterThan(0);
+    // With the SMDs lesioned, the switch has no targets.
+    const without = runTrial(data, { ...options, params: TRIAL, lesions: ['SMDDL', 'SMDDR', 'SMDVL', 'SMDVR'] });
+    expect(without.conductance?.switchShunt).toBeNull();
+    expect(runTrial(data, { ...options, params: { ...TRIAL, form: 'current' } }).conductance).toBeUndefined();
   });
 });
 
@@ -207,24 +290,53 @@ describe("the registry and the calibration's search in the conductance form", ()
     }
     expect(bounds('headSwitchGain', 'conductance')).toEqual([0.02, 50]);
     expect(bounds('proprioceptiveGain', 'conductance')).toEqual([0.0001, 8]);
-    expect(bounds('headSwitchGain')).toEqual(PARAMS.headSwitchGain.bounds);
+    expect(bounds('headSwitchGain', 'current')).toEqual(PARAMS.headSwitchGain.bounds);
   });
 
   it('starts from the log midpoints for the two gains and the provisional values for the rest', () => {
     const values = provisionalValues('conductance');
-    expect(values).toEqual({ ...provisionalValues(), headSwitchGain: 1, proprioceptiveGain: 0.028 });
+    expect(values).toEqual({ ...provisionalValues('current'), headSwitchGain: 1, proprioceptiveGain: 0.028 });
     expect(provisionalParams('conductance')).toEqual({
-      ...provisionalParams(),
+      ...provisionalParams('current'),
       switchGain: 1,
       proprioceptiveGain: 0.028,
       form: 'conductance',
     });
-    expect(loopParams(provisionalValues())).not.toHaveProperty('form');
+    expect(loopParams(provisionalValues('current'), 'current')).not.toHaveProperty('form');
     // The search maps the conductance form's bounds, both logarithmically.
-    const u = toUnit(values, CALIBRATED, 'conductance');
+    const u = toUnit(values, 'conductance', CALIBRATED);
     expect(u[CALIBRATED.indexOf('headSwitchGain')]).toBeCloseTo(0.5, 10);
-    const back = fromUnit(u, CALIBRATED, undefined, 'conductance');
+    const back = fromUnit(u, 'conductance', CALIBRATED);
     for (const id of CALIBRATED) expect(back[id]).toBeCloseTo(values[id], 10);
+  });
+});
+
+describe("the calibration's search in a form", () => {
+  it('searches the conductance form within its bounds, from its start, and refuses a registry that lacks it', async () => {
+    const seen: Values[] = [];
+    const scorer: Scorer = (values) => {
+      seen.push(values);
+      return Promise.resolve({
+        value: 0,
+        errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+        measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 },
+        unconverged: 0,
+      });
+    };
+    const fit = await calibrate(scorer, { form: 'conductance', budget: 30 });
+    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues('conductance'), 'conductance'));
+    for (const values of seen) {
+      expect(values.headSwitchGain).toBeGreaterThanOrEqual(0.02);
+      expect(values.headSwitchGain).toBeLessThanOrEqual(50);
+      expect(values.proprioceptiveGain).toBeGreaterThanOrEqual(0.0001);
+      expect(values.proprioceptiveGain).toBeLessThanOrEqual(8);
+    }
+    // A stand-in registry without the conductance entries is refused in that form, not read as the current form's.
+    const bare = Object.fromEntries(
+      Object.entries(PARAMS).map(([id, p]) => [id, { ...(p as Param), conductance: undefined, value: 1 }]),
+    );
+    expect(() => calibratedParams('conductance', bare)).toThrow(/headSwitchGain has no conductance form/);
+    expect(calibratedParams('current', bare).switchGain).toBe(1);
   });
 });
 
@@ -244,7 +356,7 @@ describe("the conductance form's bounds, by PLAN §7.3's 1 mV rule", () => {
   function rule(targets: (world: World) => readonly number[]): [number, number] {
     let [lo, hi] = [Infinity, 0];
     for (const gapGainB of PARAMS.gapGainB.bounds) {
-      const world = new World(data, loopParams({ ...provisionalValues(), gapGainB }));
+      const world = new World(data, loopParams({ ...provisionalValues('current'), gapGainB }, 'current'));
       const loads = passiveLoads(world.brain.network);
       for (const i of targets(world)) {
         for (const E of [E_EXC, E_INH]) {
@@ -270,26 +382,28 @@ describe("the conductance form's bounds, by PLAN §7.3's 1 mV rule", () => {
     expect([down(pLo), up(pHi)].map((x) => +x.toPrecision(6))).toEqual(registered('proprioceptiveGain'));
   });
 
-  // The pinned postures are fetched by the data build, not the unit tests; with them cached, the curvature the rule
-  // takes is checked too.
-  const postures = join(ROOT, 'data/cache/410abb65af193b86d273bdbba670406c088032b9774e5808b02bb138950fb4b1');
-  it.skipIf(!existsSync(postures))(
-    "takes proprioception's curvature at the 95th percentile of real worms' over the model's fields",
-    async () => {
-      const angles = await readPostures();
-      const n = angles[0].length;
-      // Angle k lies at the middle of segment k of n; a field's mean κL is its angle's change over the field.
-      const along = (p: number[], s: number): number => {
-        const x = s * n - 0.5;
-        const k = Math.min(n - 2, Math.max(0, Math.floor(x)));
-        return p[k] + (p[k + 1] - p[k]) * (x - k);
-      };
-      const { fields } = new World(data, provisionalParams());
-      const k = angles.flatMap((p) =>
-        fields.map((f) => Math.abs((along(p, f.to) - along(p, f.from)) / (f.to - f.from))),
+  // The data build, which reads the pinned postures, reports the percentile over the model's fields, and `data:check`
+  // keeps that report current.
+  it("takes proprioception's curvature at the 95th percentile the data build reports, to one decimal place", () => {
+    const report = readFileSync(join(ROOT, 'data/reports/data-build.md'), 'utf8');
+    const found =
+      /proprioceptive fields, the magnitude of the postures' mean scaled curvature κL has a median of ([0-9]+\.[0-9]+) and a 95th percentile of ([0-9]+\.[0-9]+)/.exec(
+        report,
       );
-      k.sort((a, b) => a - b);
-      expect(k[Math.floor(0.95 * (k.length - 1))]).toBeCloseTo(BOUND_RULE_CURVATURE, 1);
-    },
-  );
+    if (!found) throw new Error("the data build's report gives no curvature over the fields");
+    expect(Math.round(Number(found[2]) * 10) / 10).toBe(BOUND_RULE_CURVATURE);
+  });
+
+  it("measures a span of a posture by its angle's change over the span", () => {
+    // Constant curvature c: the angle grows by c over the body, so every span measures c.
+    const c = 6;
+    const angles = Array.from({ length: 100 }, (_, k) => c * ((k + 0.5) / 100));
+    for (const [from, to] of [
+      [0, 0.2],
+      [0.4, 0.6],
+      [0.8, 1],
+    ]) {
+      expect(spanCurvature(angles, from, to)).toBeCloseTo(c, 10);
+    }
+  });
 });

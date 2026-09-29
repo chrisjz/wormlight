@@ -204,6 +204,7 @@ describe("the loop's parity", () => {
   it("includes the conductance form, whose switch flips, and at the box's upper corner turns on and off", () => {
     for (const [name, gating] of [
       ['conductance', false],
+      ['conductance, upper corner, open', false],
       ['conductance, upper corner', true],
     ] as const) {
       const setup = LOOP_SETUPS.find((s) => s.name === name);
@@ -223,7 +224,9 @@ describe("the loop's parity", () => {
         if ((world.switchCurrent !== 0) !== open) [toggles, open] = [toggles + 1, world.switchCurrent !== 0];
       }
       expect(flips, name).toBeGreaterThan(2);
-      if (gating) expect(toggles, name).toBeGreaterThan(2);
+      // The gate that chatters does so on about half the steps; an open one opens once and stays open.
+      if (gating) expect(toggles, name).toBeGreaterThan(100);
+      else expect(toggles, name).toBeLessThanOrEqual(1);
     }
     expect(packLoop(new World(data, LOOP_SETUPS[0].params)).conductance).toBe(false);
   });

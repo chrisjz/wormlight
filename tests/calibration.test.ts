@@ -77,7 +77,7 @@ describe("track R's calibrated values", () => {
     // So the committed code keeps its procedure: the same settings, start, search space and objective, with round 1's
     // scoring measure()'s default. The runner for the nulls, which get this procedure, comes with checkpoint 6.
     expect(fit.calibration).toEqual(JSON.parse(JSON.stringify(CALIBRATION)));
-    expect(fit.start).toEqual(provisionalValues());
+    expect(fit.start).toEqual(provisionalValues('current'));
     expect(fit.mapping).toEqual(MAPPING);
     expect(fit.targets).toEqual(TARGETS);
     expect(fit.errorCap).toBe(ERROR_CAP);
@@ -107,7 +107,7 @@ describe("R's second round's record", () => {
     expect(round.budget).toEqual({ crawl: SECOND_ROUND.crawl.budget, noise: SECOND_ROUND.noise.budget });
     expect(round.calibration).toEqual(JSON.parse(JSON.stringify(CALIBRATION)));
     expect(round.secondRound).toEqual(JSON.parse(JSON.stringify(SECOND_ROUND)));
-    expect(round.start).toEqual(provisionalValues());
+    expect(round.start).toEqual(provisionalValues('current'));
     const { crawl, noise } = round.stages;
     expect(crawl.generations[crawl.generations.length - 1].evaluations).toBe(SECOND_ROUND.crawl.budget);
     expect(noise.generations[noise.generations.length - 1].evaluations).toBe(SECOND_ROUND.noise.budget);

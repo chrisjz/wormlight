@@ -338,7 +338,7 @@ export function diagnosticsText(d: Diagnostics): string {
     ...(d.shunt === null
       ? []
       : [
-          `in the conductance form, the head switch's conductance came to ${small(d.shunt.switch)} of its targets' passive loads on average, and proprioception's to ${small(d.shunt.proprioception)}`,
+          `in the conductance form, ${d.shunt.switch === null ? 'the head switch had no SMD left' : `the head switch's conductance came to ${small(d.shunt.switch)} of its targets' passive loads`} and ${d.shunt.proprioception === null ? 'proprioception no field left' : `proprioception's to ${small(d.shunt.proprioception)}`}, each shunt the mean of per-target ratios, and the switch's gate turned on or off ${d.shunt.gateToggles.toFixed(1)} times a second`,
         ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;

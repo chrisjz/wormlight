@@ -139,9 +139,11 @@ export interface Diagnostics {
     lowest: number;
     highest: number;
   } | null;
-  // Added 2026-09-29, before any of it was built: in the conductance form, the head switch's and proprioception's
-  // mean conductance at their targets over their passive loads, over every sample; null in the current form.
-  shunt: { switch: number; proprioception: number } | null;
+  // Added 2026-09-29, before any of it was built: in the conductance form, over every measured sample of every trial,
+  // the head switch's and proprioception's shunt, each the mean of per-target ratios of conductance to passive load
+  // (null for a layer with no targets); and how many times a second the head switch's gate turned on or off. Null in
+  // the current form.
+  shunt: { switch: number | null; proprioception: number | null; gateToggles: number } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -220,18 +222,23 @@ export function outsideRange(records: readonly TrialRecord[]): Diagnostics['outs
   return { mean: sum / samples, max, far: { mean: farSum / samples, max: farMax }, lowest, highest };
 }
 
-// The shunt's means over every sample of every trial that carries it, in one pass.
+// The shunt's means over every measured sample of every trial in the conductance form, and the gate's turns a second.
 export function shuntShare(records: readonly TrialRecord[]): Diagnostics['shunt'] {
-  let [samples, sw, proprio] = [0, 0, 0];
+  let [samples, toggles, sw, swSamples, proprio, proprioSamples] = [0, 0, 0, 0, 0, 0];
   for (const r of records) {
-    if (!r.shunt) continue;
-    for (let k = 0; k < r.shunt.switch.length; k++) {
-      samples++;
-      sw += r.shunt.switch[k];
-      proprio += r.shunt.proprioception[k];
-    }
+    const c = r.conductance;
+    if (!c) continue;
+    samples += c.samples;
+    toggles += c.gateToggles;
+    if (c.switchShunt !== null) [sw, swSamples] = [sw + c.switchShunt, swSamples + c.samples];
+    if (c.proprioShunt !== null) [proprio, proprioSamples] = [proprio + c.proprioShunt, proprioSamples + c.samples];
   }
-  return samples === 0 ? null : { switch: sw / samples, proprioception: proprio / samples };
+  if (samples === 0) return null;
+  return {
+    switch: swSamples > 0 ? sw / swSamples : null,
+    proprioception: proprioSamples > 0 ? proprio / proprioSamples : null,
+    gateToggles: toggles / (samples * MOTION_SAMPLE),
+  };
 }
 
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {

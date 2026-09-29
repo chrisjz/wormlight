@@ -23,7 +23,7 @@ import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
-import { CALIBRATED, loopParams } from '../../src/sim/world.ts';
+import { CALIBRATED, loopParams, type Form } from '../../src/sim/world.ts';
 import {
   CALIBRATION,
   ERROR_CAP,
@@ -60,6 +60,8 @@ interface ProbeRun {
 
 interface Job {
   values: Values;
+  // The form the values are in (PLAN §4.3).
+  form: Form;
   seed: number;
   // The whole record, for grading by checkpoint 1, not only what the objective reads.
   whole?: boolean;
@@ -74,6 +76,9 @@ interface Result {
   error?: string;
 }
 
+// R's second round, whose code this runner holds, runs the current form (PLAN §4.3).
+const ROUND_FORM: Form = 'current';
+
 const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 export const SUMMARY = join(ROOT, 'data/calibration/r3.json');
 export const PROBE = join(ROOT, 'data/calibration/r3-probe.json');
@@ -85,7 +90,7 @@ async function runJob(job: Job): Promise<TrialResult> {
   const r = runTrial(cached.data, {
     seed: job.seed,
     seconds: CALIBRATION.trialSeconds,
-    params: loopParams(job.values),
+    params: loopParams(job.values, job.form),
     postures: cached.postures,
   });
   if (job.whole) return r;
@@ -178,8 +183,10 @@ export function settings(budget: number, probe = false): Record<string, unknown>
     budget: probe ? { crawl: SECOND_ROUND.probe.budget } : { crawl: budget, noise: SECOND_ROUND.noise.budget },
     calibration: CALIBRATION,
     secondRound: SECOND_ROUND,
-    start: provisionalValues(),
-    bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id)])),
+    // Round 2 runs the current form (PLAN §4.3).
+    form: ROUND_FORM,
+    start: provisionalValues(ROUND_FORM),
+    bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id, ROUND_FORM)])),
     mapping: MAPPING,
     targets: TARGETS,
     errorCap: ERROR_CAP,
@@ -249,7 +256,9 @@ if (process.argv.includes('--worker')) {
   const scorer =
     (targets: readonly Target[]): Scorer =>
     async (values, seeds) => {
-      const records = (await Promise.all(seeds.map((seed) => pool.run({ values, seed })))) as (KinematicRecord & {
+      const records = (await Promise.all(
+        seeds.map((seed) => pool.run({ values, form: ROUND_FORM, seed })),
+      )) as (KinematicRecord & {
         unconverged: number;
       })[];
       const measures = measure(records, { spectral: true });
@@ -287,6 +296,7 @@ if (process.argv.includes('--worker')) {
         if (runs.some((r) => r.seed === seed)) continue;
         const stage = `probe ${seed}`;
         const fit = await calibrate(scorer(crawl.targets), {
+          form: ROUND_FORM,
           budget: probe.budget,
           seed,
           restarts: restart,
@@ -296,7 +306,7 @@ if (process.argv.includes('--worker')) {
         stages[stage] = fit;
         describe(fit, crawl.targets);
         const records = (await Promise.all(
-          probe.gradeSeeds.map((s) => pool.run({ values: fit.final.values, seed: s, whole: true })),
+          probe.gradeSeeds.map((s) => pool.run({ values: fit.final.values, form: ROUND_FORM, seed: s, whole: true })),
         )) as TrialRecord[];
         const graded = checkpoint1(records, basis);
         const clauses = graded.clauses.map((c) => ({ name: c.name, value: c.value, grade: c.grade }));
@@ -329,6 +339,7 @@ if (process.argv.includes('--worker')) {
     } else {
       const { crawl, noise, restart } = SECOND_ROUND;
       const first = await calibrate(scorer(crawl.targets), {
+        form: ROUND_FORM,
         budget: options.budget,
         restarts: restart,
         previous: previous('crawl'),
@@ -338,6 +349,7 @@ if (process.argv.includes('--worker')) {
       save(false);
       describe(first, crawl.targets);
       const second = await calibrate(scorer(noise.targets), {
+        form: ROUND_FORM,
         budget: noise.budget,
         ids: noise.ids,
         fixed: first.final.values,

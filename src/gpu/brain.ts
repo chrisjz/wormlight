@@ -16,6 +16,7 @@ import {
   LOOP_SCALARS,
   LOOP_SCALARS_AT,
   MAX_MUSCLES,
+  CONDUCTANCE_FORM_AT,
   NM_OFFSET_AT,
   MAX_NEURONS,
   MAX_RODS,
@@ -503,7 +504,8 @@ export class GpuBrain {
           LOOP_SCALARS.map((name) => loop.scalars[name]),
           LOOP_SCALARS_AT,
         );
-        new Uint32Array(words).set([at.nmOffset, loop.conductance ? 1 : 0], NM_OFFSET_AT);
+        new Uint32Array(words).set([at.nmOffset], NM_OFFSET_AT);
+        new Uint32Array(words).set([loop.conductance ? 1 : 0], CONDUCTANCE_FORM_AT);
       }
       new Float32Array(words).set(
         [

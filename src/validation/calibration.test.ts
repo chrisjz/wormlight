@@ -26,12 +26,12 @@ import {
 
 describe("the calibration's settings", () => {
   it('start from the provisional values, the connection gains at their upper bound', () => {
-    const values = provisionalValues();
+    const values = provisionalValues('current');
     for (const id of CALIBRATED) expect(values[id], id).toBe(PARAMS[id].provisional);
-    const unit = toUnit(values);
+    const unit = toUnit(values, 'current');
     expect(unit.every((u) => u >= 0 && u <= 1)).toBe(true);
     expect([unit[CALIBRATED.indexOf('gapGainB')], unit[CALIBRATED.indexOf('smdGain')]]).toEqual([1, 1]);
-    const back = fromUnit(unit);
+    const back = fromUnit(unit, 'current');
     for (const id of CALIBRATED) expect(back[id], id).toBeCloseTo(values[id], 9);
   });
 
@@ -49,7 +49,7 @@ describe("the calibration's settings", () => {
     expect(TARGETS).toEqual({ frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 });
     expect(ERROR_CAP).toBe(2);
     // Track R's bounds (PLAN §7.3, §9), in the registry's units: g_osc in pS, g_nmj and θ_nmj in relative drive.
-    expect(Object.fromEntries(CALIBRATED.map((id) => [id, [...bounds(id), MAPPING[id]]]))).toEqual({
+    expect(Object.fromEntries(CALIBRATED.map((id) => [id, [...bounds(id, 'current'), MAPPING[id]]]))).toEqual({
       oscillatorExcitability: [300, 5000, 'log'],
       oscillatorExcitabilityB: [0, 5000, 'linear'],
       oscillatorRecoveryTime: [0.2, 3, 'log'],
@@ -68,26 +68,26 @@ describe("the calibration's settings", () => {
 
 describe('the search space', () => {
   it('maps [0, 1] onto each range, logarithmically or linearly, and back', () => {
-    const lo = fromUnit(new Array<number>(CALIBRATED.length).fill(0));
-    const hi = fromUnit(new Array<number>(CALIBRATED.length).fill(1));
-    const mid = fromUnit(new Array<number>(CALIBRATED.length).fill(0.5));
+    const lo = fromUnit(new Array<number>(CALIBRATED.length).fill(0), 'current');
+    const hi = fromUnit(new Array<number>(CALIBRATED.length).fill(1), 'current');
+    const mid = fromUnit(new Array<number>(CALIBRATED.length).fill(0.5), 'current');
     for (const id of CALIBRATED) {
-      expect(lo[id]).toBeCloseTo(bounds(id)[0], 12);
-      expect(hi[id]).toBeCloseTo(bounds(id)[1], 12);
-      const [a, b] = bounds(id);
+      expect(lo[id]).toBeCloseTo(bounds(id, 'current')[0], 12);
+      expect(hi[id]).toBeCloseTo(bounds(id, 'current')[1], 12);
+      const [a, b] = bounds(id, 'current');
       expect(mid[id]).toBeCloseTo(MAPPING[id] === 'log' ? Math.sqrt(a * b) : (a + b) / 2, 12);
     }
     const u = [0.1, 0.9, 0.3, 0.7, 0.5, 0.2, 0.8, 0.4, 0.6, 0.35, 0.55, 0.45];
-    toUnit(fromUnit(u)).forEach((x, i) => expect(x).toBeCloseTo(u[i], 12));
+    toUnit(fromUnit(u, 'current'), 'current').forEach((x, i) => expect(x).toBeCloseTo(u[i], 12));
   });
 
   it('takes a candidate outside at the nearest point inside, and charges it the squared distance', () => {
     const u = [-0.5, 1.2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
-    expect(fromUnit(u).oscillatorExcitability).toBe(300);
-    expect(fromUnit(u).oscillatorExcitabilityB).toBe(5000);
+    expect(fromUnit(u, 'current').oscillatorExcitability).toBe(300);
+    expect(fromUnit(u, 'current').oscillatorExcitabilityB).toBe(5000);
     expect(outside(u)).toBeCloseTo(0.25 + 0.04, 15);
     expect(outside(new Array<number>(CALIBRATED.length).fill(0.5))).toBe(0);
-    expect(() => fromUnit([0.5])).toThrow(/coordinates/);
+    expect(() => fromUnit([0.5], 'current')).toThrow(/coordinates/);
   });
 });
 
@@ -175,7 +175,7 @@ describe('the measures and the objective', () => {
 
 describe('the final check', () => {
   it('takes the best distinct candidates, the earlier first on a tie', () => {
-    const v = (x: number): Values => fromUnit(new Array<number>(CALIBRATED.length).fill(x));
+    const v = (x: number): Values => fromUnit(new Array<number>(CALIBRATED.length).fill(x), 'current');
     const evaluated = [
       { values: v(0.1), value: 3 },
       { values: v(0.2), value: 1 },
@@ -196,7 +196,7 @@ const target = [0.2, 0.8, 0.5, 0.6, 0.4, 0.7, 0.3, 0.5, 0.45, 0.65, 0.35, 0.55];
 const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
   return (values, seeds) => {
     calls.push({ seeds });
-    const u = toUnit(values);
+    const u = toUnit(values, 'current');
     const value = u.reduce((s, x, i) => s + (x - target[i]) ** 2, 0);
     const measures = { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 };
     return Promise.resolve({
@@ -232,14 +232,14 @@ describe("R's second round", () => {
         unconverged: 0,
       });
     const budget = 21 * 11 + 22 + 5;
-    const fit = await calibrate(flat, { budget, restarts: SECOND_ROUND.restart });
+    const fit = await calibrate(flat, { form: 'current', budget, restarts: SECOND_ROUND.restart });
     const first = fit.generations.filter((g) => g.restart === 0);
     // The first generation sets the best; after 20 more without a fall, the search restarts.
     expect(first).toHaveLength(21);
     expect(first.every((g) => g.lambda === 11)).toBe(true);
     const second = fit.generations.filter((g) => g.restart === 1);
     expect(second[0]).toMatchObject({ generation: 0, lambda: 22 });
-    expect(second[0].mean).toEqual(toUnit(provisionalValues()));
+    expect(second[0].mean).toEqual(toUnit(provisionalValues('current'), 'current'));
     // Its draws continue the seed's stream rather than repeat its start.
     const a = fit.evaluated.find((e) => e.restart === 0 && e.generation === 0 && e.candidate === 0);
     const b = fit.evaluated.find((e) => e.restart === 1 && e.generation === 0 && e.candidate === 0);
@@ -247,15 +247,21 @@ describe("R's second round", () => {
     expect(fit.evaluated).toHaveLength(budget);
     expect(fit.checked[0].from).toMatch(/^restart 0, generation 0, candidate 0$/);
     // And a resumed run with restarts replays exactly.
-    const partial = await calibrate(flat, { budget: 240, restarts: SECOND_ROUND.restart });
-    const resumed = await calibrate(flat, { budget, restarts: SECOND_ROUND.restart, previous: partial.evaluated });
+    const partial = await calibrate(flat, { form: 'current', budget: 240, restarts: SECOND_ROUND.restart });
+    const resumed = await calibrate(flat, {
+      form: 'current',
+      budget,
+      restarts: SECOND_ROUND.restart,
+      previous: partial.evaluated,
+    });
     expect(resumed.evaluated.map((e) => e.unit)).toEqual(fit.evaluated.map((e) => e.unit));
   });
 
   it("searches the noise alone, the rest held, and checks stage 1's values beside its own", async () => {
-    const fixed = { ...provisionalValues(), gapGainB: 0.25 };
+    const fixed = { ...provisionalValues('current'), gapGainB: 0.25 };
     const calls: { seeds: readonly number[] }[] = [];
     const fit = await calibrate(synthetic(calls), {
+      form: 'current',
       budget: 12,
       ids: SECOND_ROUND.noise.ids,
       fixed,
@@ -263,7 +269,7 @@ describe("R's second round", () => {
     });
     // Two parameters: generations of 4 + ⌊3 ln 2⌋ = 6, from the held values' noise.
     expect(fit.generations.map((g) => g.evaluations)).toEqual([6, 12]);
-    expect(fit.generations[0].mean).toEqual(toUnit(fixed, SECOND_ROUND.noise.ids));
+    expect(fit.generations[0].mean).toEqual(toUnit(fixed, 'current', SECOND_ROUND.noise.ids));
     for (const e of fit.evaluated) {
       expect(e.unit).toHaveLength(2);
       for (const id of CALIBRATED) {
@@ -274,21 +280,22 @@ describe("R's second round", () => {
     expect(fit.checked[0].from).toBe("stage 1's final values");
     expect(fit.checked[fit.checked.length - 1].from).toBe('the final mean');
     const tie = await calibrate(synthetic(), {
+      form: 'current',
       budget: 6,
       ids: SECOND_ROUND.noise.ids,
       fixed,
       extra: [{ from: "stage 1's final values", values: fixed }],
     });
     expect(tie.checked.filter((c) => c.from === "stage 1's final values")).toHaveLength(1);
-    expect(() => fromUnit([0.5, 0.5], SECOND_ROUND.noise.ids)).toThrow(/needs the rest/);
+    expect(() => fromUnit([0.5, 0.5], 'current', SECOND_ROUND.noise.ids)).toThrow(/needs the rest/);
   });
 });
 
 describe('the search, as fixed after review', () => {
   // A bowl around the start: CMA-ES converges on it, its step shrinking below the restart's 0.01.
   const bowl: Scorer = (values) => {
-    const u = toUnit(values);
-    const start = toUnit(provisionalValues());
+    const u = toUnit(values, 'current');
+    const start = toUnit(provisionalValues('current'), 'current');
     return Promise.resolve({
       value: u.reduce((s, x, i) => s + (x - start[i]) ** 2, 0),
       errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
@@ -298,7 +305,7 @@ describe('the search, as fixed after review', () => {
   };
 
   it('restarts when its step falls below 0.01, and offers the last told mean, not a fresh start', async () => {
-    const fit = await calibrate(bowl, { budget: 1500, restarts: { sigma: 0.01, stall: 1000 } });
+    const fit = await calibrate(bowl, { form: 'current', budget: 1500, restarts: { sigma: 0.01, stall: 1000 } });
     const first = fit.generations.filter((g) => g.restart === 0);
     // With the stall out of reach, the restart can only be the step's: a generation records its step before its
     // update, so the last recorded one sits just above 0.01.
@@ -306,7 +313,11 @@ describe('the search, as fixed after review', () => {
     expect(first.length).toBeLessThan(1000);
     expect(first[first.length - 1].sigma).toBeLessThan(0.02);
     // A budget that ends as a restart begins: its final mean is the previous restart's, near the bowl's floor.
-    const ended = await calibrate(bowl, { budget: first.length * 11 + 3, restarts: { sigma: 0.01, stall: 1000 } });
+    const ended = await calibrate(bowl, {
+      form: 'current',
+      budget: first.length * 11 + 3,
+      restarts: { sigma: 0.01, stall: 1000 },
+    });
     expect(ended.generations[ended.generations.length - 1].restart).toBe(1);
     const mean = ended.checked.find((c) => c.from === 'the final mean');
     expect(mean?.value).toBeLessThan(1e-3);
@@ -325,13 +336,13 @@ describe('the search, as fixed after review', () => {
           })
         : synthetic()(values, seeds);
     };
-    const whole = await calibrate(broken, { budget: 33 });
+    const whole = await calibrate(broken, { form: 'current', budget: 33 });
     calls = 0;
-    const partial = await calibrate(broken, { budget: 11 });
+    const partial = await calibrate(broken, { form: 'current', budget: 11 });
     const saved = JSON.parse(JSON.stringify(partial.evaluated)) as Evaluated[];
     expect(saved.some((e) => (e.value as number | null) === null)).toBe(true);
     calls = 100;
-    const resumed = await calibrate(broken, { budget: 33, previous: saved });
+    const resumed = await calibrate(broken, { form: 'current', budget: 33, previous: saved });
     expect(resumed.evaluated.map((e) => e.unit)).toEqual(whole.evaluated.map((e) => e.unit));
     expect(resumed.generations[0].best).toBe(whole.generations[0].best);
   });
@@ -340,12 +351,14 @@ describe('the search, as fixed after review', () => {
 describe('the search', () => {
   it('spends its budget, a last generation cut short included, then checks the best on fresh seeds', async () => {
     const calls: { seeds: readonly number[] }[] = [];
-    const fit = await calibrate(synthetic(calls), { budget: 25 });
+    const fit = await calibrate(synthetic(calls), { form: 'current', budget: 25 });
     expect(fit.evaluated).toHaveLength(25);
     // From the provisional values, unless told otherwise.
-    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues()));
+    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues('current'), 'current'));
     const centre = new Array<number>(CALIBRATED.length).fill(0.5);
-    expect((await calibrate(synthetic(), { budget: 11, start: centre })).generations[0].mean).toEqual(centre);
+    expect((await calibrate(synthetic(), { form: 'current', budget: 11, start: centre })).generations[0].mean).toEqual(
+      centre,
+    );
     // Twelve parameters: generations of 4 + ⌊3 ln 12⌋ = 11.
     expect(fit.generations.map((g) => g.evaluations)).toEqual([11, 22, 25]);
     expect(fit.evaluated.map((e) => e.generation)).toEqual([
@@ -366,10 +379,10 @@ describe('the search', () => {
   });
 
   it('resumes a stopped run exactly, and refuses one that parts from the record', async () => {
-    const whole = await calibrate(synthetic(), { budget: 30 });
-    const partial = await calibrate(synthetic(), { budget: 20 });
+    const whole = await calibrate(synthetic(), { form: 'current', budget: 30 });
+    const partial = await calibrate(synthetic(), { form: 'current', budget: 20 });
     const calls: { seeds: readonly number[] }[] = [];
-    const resumed = await calibrate(synthetic(calls), { budget: 30, previous: partial.evaluated });
+    const resumed = await calibrate(synthetic(calls), { form: 'current', budget: 30, previous: partial.evaluated });
     expect(resumed.evaluated).toEqual(whole.evaluated);
     expect(resumed.final).toEqual(whole.final);
     // Only the 10 new candidates, and the final check, were scored.
@@ -377,7 +390,7 @@ describe('the search', () => {
     const tampered: Evaluated[] = partial.evaluated.map((e, k) =>
       k === 12 ? { ...e, unit: e.unit.map((x) => x + 1e-12) } : e,
     );
-    await expect(calibrate(synthetic(), { budget: 30, previous: tampered })).rejects.toThrow(
+    await expect(calibrate(synthetic(), { form: 'current', budget: 30, previous: tampered })).rejects.toThrow(
       /parts from the recorded one/,
     );
   });

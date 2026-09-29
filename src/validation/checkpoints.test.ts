@@ -359,12 +359,14 @@ describe("checkpoint 1's diagnostics", () => {
   it('average the shunt over every sample of every trial in the conductance form, and give none in the current form', () => {
     const quiet = record(new Array<number>(4).fill(0));
     const conducting = [
-      { ...quiet, shunt: { switch: [1, 3], proprioception: [0.5, 1.5] } },
-      { ...quiet, shunt: { switch: [2], proprioception: [1] } },
+      { ...quiet, conductance: { samples: 2, switchShunt: 4, proprioShunt: 2, gateToggles: 3 } },
+      { ...quiet, conductance: { samples: 2, switchShunt: null, proprioShunt: 2, gateToggles: 1 } },
       quiet,
     ];
-    expect(shuntShare(conducting)).toEqual({ switch: 2, proprioception: 1 });
-    expect(diagnostics(conducting).shunt).toEqual({ switch: 2, proprioception: 1 });
+    // The switch's mean over the samples of trials that have its targets; the gate's turns over all 0.4 s measured.
+    const expected = { switch: 2, proprioception: 1, gateToggles: 10 };
+    expect(shuntShare(conducting)).toEqual(expected);
+    expect(diagnostics(conducting).shunt).toEqual(expected);
     expect(shuntShare([quiet])).toBeNull();
   });
 

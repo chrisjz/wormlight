@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   BRAIN_SHADER,
-  LOOP_SCALARS,
   CONDUCTANCE_FORM_AT,
+  LOOP_SCALARS,
   LOOP_SCALARS_AT,
   NEURON_WORDS,
   NM_OFFSET_AT,
