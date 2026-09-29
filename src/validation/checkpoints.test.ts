@@ -23,10 +23,11 @@ import {
   shuntShare,
   summariseTrial,
   touchClause,
+  TOUCH_NEEDS,
   touchSchedule,
 } from './checkpoints.ts';
 import { addPosture, emptySums } from './posture.ts';
-import type { TrialRecord } from './trial.ts';
+import { SHAM_SECONDS, type TrialRecord } from './trial.ts';
 
 // A record whose velocity is given; the rest is still.
 function record(velocity: number[], seed = 1): TrialRecord {
@@ -113,6 +114,7 @@ const touched = (r: TrialRecord, twin: (t: number) => number = () => 0): TrialRe
   shams: touchSchedule(r.seed).map(({ time }) => ({
     time,
     finite: true,
+    unconverged: 0,
     velocity: Array.from({ length: Math.round((time + 3 - 10) * 10) + 1 }, (_, k) =>
       10 + k / 10 < time - 1e-9 ? r.velocity[k] : twin(10 + k / 10),
     ),
@@ -207,14 +209,8 @@ describe("checkpoint 0's touch clause", () => {
     expect(sped.posterior.shamAfter).toBe(0);
   });
 
-  it('compares each touch with its twin over the twin’s samples alone', () => {
-    // A reversal in the touched line that starts after the twin's samples end isn't counted against it.
-    const late = SEEDS.map((seed) =>
-      touched(
-        still(seed, (t) => (touchSchedule(seed).some((a) => t >= a.time + 3.05 && t < a.time + 4.5) ? -0.05 : 0)),
-      ),
-    );
-    expect(touchClause(late).anterior).toMatchObject({ followed: 0, shams: 0 });
+  it("gives each twin as long as a touch's windows need", () => {
+    expect(SHAM_SECONDS).toBe(TOUCH_NEEDS);
   });
 
   it('fails touches not made as the protocol says, without their twins, reaching no receptor, or a broken run', () => {
@@ -226,6 +222,14 @@ describe("checkpoint 0's touch clause", () => {
     const numb = quiet.map((r) => ({ ...r, touches: r.touches.map((t) => ({ ...t, reached: [] })) }));
     expect(touchClause(numb).grade).toBe('fail');
     expect(touchClause([{ ...quiet[0], finite: false }, ...quiet.slice(1)]).grade).toBe('fail');
+    // A trial that broke between touches stops with the touches and twins it had, and fails rather than throws.
+    const cut = {
+      ...quiet[0],
+      finite: false,
+      touches: quiet[0].touches.slice(0, 2),
+      shams: quiet[0].shams?.slice(0, 2),
+    };
+    expect(touchClause([cut, ...quiet.slice(1)])).toMatchObject({ finite: false, grade: 'fail' });
     const brokenTwin = { ...quiet[0], shams: quiet[0].shams?.map((s, k) => (k === 0 ? { ...s, finite: false } : s)) };
     expect(touchClause([brokenTwin, ...quiet.slice(1)])).toMatchObject({ finite: false, grade: 'fail' });
     expect(touchClause([]).grade).toBe('fail');

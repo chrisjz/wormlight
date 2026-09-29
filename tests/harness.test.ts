@@ -8,7 +8,7 @@ import { BACK, FRONT } from '../src/sim/touch.ts';
 import { PARAMS } from '../src/science/params.ts';
 import { PLANNED } from '../src/science/planned.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
-import { plannedParams, World } from '../src/sim/world.ts';
+import { currentParams, plannedParams, World } from '../src/sim/world.ts';
 import { runChemotaxis } from '../src/validation/chemotaxis.ts';
 import { SEEDS } from '../src/validation/checkpoints.ts';
 import { MEASURE_FROM, MOTION_SAMPLE } from '../src/validation/motion.ts';
@@ -115,6 +115,36 @@ describe('a trial', () => {
     const silenced = runTrial(data, { ...options, silenced: true, shams: true });
     const quiet = (silenced.shams ?? [])[0].velocity;
     expect(quiet).toEqual(silenced.velocity.slice(0, quiet.length));
+  });
+
+  it("forks an exact copy of the intact world, noise, solver and head switch included, and refuses twins it can't isolate", () => {
+    // With the front's receptors lesioned, neither the touch nor the sham does anything, so the twin must step as the
+    // touched line does, bit for bit, on the refit with its coloured noise.
+    const options = {
+      seed: 3,
+      seconds: 24,
+      params: currentParams(),
+      postures: POSTURES,
+      lesions: ['ALML', 'ALMR', 'AVM'],
+      touches: [{ time: 20, s: FRONT }],
+      shams: true,
+    };
+    const r = runTrial(data, options);
+    const twin = (r.shams ?? [])[0];
+    expect(twin.finite).toBe(true);
+    expect(twin.velocity).toEqual(r.velocity.slice(0, twin.velocity.length));
+    // A touch inside the twin's run of the one before, or too near the end, is refused.
+    const close = {
+      ...options,
+      lesions: undefined,
+      touches: [
+        { time: 20, s: FRONT },
+        { time: 22, s: BACK },
+      ],
+    };
+    expect(() => runTrial(data, close)).toThrow(/under 3.5 s/);
+    expect(() => runTrial(data, { ...options, seconds: 23 })).toThrow(/under 3.5 s/);
+    expect(runTrial(data, { ...close, shams: false }).touches).toHaveLength(2);
   });
 
   it('counts the voltages past the reversal range at the samples it measures, and finds their extremes at every step', () => {

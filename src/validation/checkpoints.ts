@@ -462,6 +462,9 @@ export interface TouchClause {
   };
   // Whether there were touched trials, and they and their twins all stayed finite.
   finite: boolean;
+  // The sham twins of the sound trials: how many, how many left the finite numbers, and their brain solves that
+  // didn't converge.
+  twins: { count: number; broken: number; unconverged: number };
   touches: TouchOutcome[];
   trials: TrialSummary[];
 }
@@ -470,7 +473,13 @@ export function touchClause(touched: readonly TrialRecord[]): TouchClause {
   const { window } = CHECKPOINT_0_TOUCH;
   const touches: TouchOutcome[] = [];
   let twinsSound = true;
+  const twins = { count: 0, broken: 0, unconverged: 0 };
   for (const r of touched) {
+    // A trial that left the finite numbers stopped there, with the touches and twins it had; it fails the clause.
+    if (!r.finite) {
+      twinsSound = false;
+      continue;
+    }
     const schedule = touchSchedule(r.seed, r.seconds);
     if (
       JSON.stringify(schedule.map(({ time, s }) => [time, s])) !==
@@ -482,7 +491,10 @@ export function touchClause(touched: readonly TrialRecord[]): TouchClause {
     if (JSON.stringify(shams.map((s) => s.time)) !== JSON.stringify(schedule.map((t) => t.time))) {
       throw new Error(`seed ${r.seed}'s touches have no sham twin each`);
     }
-    if (!r.finite || shams.some((s) => !s.finite)) {
+    twins.count += shams.length;
+    twins.broken += shams.filter((s) => !s.finite).length;
+    twins.unconverged += shams.reduce((n, s) => n + s.unconverged, 0);
+    if (shams.some((s) => !s.finite)) {
       twinsSound = false;
       continue;
     }
@@ -552,6 +564,7 @@ export function touchClause(touched: readonly TrialRecord[]): TouchClause {
     anterior,
     posterior,
     finite,
+    twins,
     touches,
     trials: touched.map(summariseTrial),
   };

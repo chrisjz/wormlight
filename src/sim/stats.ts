@@ -1,5 +1,7 @@
 // Statistics for the checks: Student's t distribution and Welch's two one-sided tests of equivalence, and for the
-// harness, Fisher's exact test and the Wilcoxon signed-rank test (PLAN §7.1), each one-sided.
+// harness, Fisher's exact test, the Wilcoxon signed-rank test and McNemar's exact test, each one-sided, and the exact
+// binomial test, two-sided (PLAN §7.1). Checkpoint 0's first run graded by Fisher's test; PLAN §7.1 keeps it for the
+// checkpoints' proportions.
 
 // ln Γ(x), by Lanczos's approximation (g = 7, nine coefficients), good to about 15 digits for x > 0.
 function logGamma(x: number): number {

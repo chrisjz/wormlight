@@ -58,7 +58,8 @@ export interface TrialOptions extends StartOptions {
   shams?: boolean;
 }
 
-// How long a sham twin runs after its touch: as long as the touch's windows need (TOUCH_NEEDS in checkpoints.ts).
+// How long a sham twin runs after its touch: as long as the touch's windows need, TOUCH_NEEDS in checkpoints.ts, which
+// a test holds it to.
 export const SHAM_SECONDS = 3.5;
 
 export interface TrialRecord {
@@ -82,9 +83,10 @@ export interface TrialRecord {
   unconverged: number;
   // The touches made, and the receptors each reached.
   touches: (TrialTouch & { reached: string[] })[];
-  // With shams, each touch's twin, in the touches' order: whether it stayed finite, and its forward velocity from the
-  // first 10 s on, the touched line's up to the touch and the twin's from then, until SHAM_SECONDS after.
-  shams?: { time: number; finite: boolean; velocity: number[] }[];
+  // With shams, each touch's twin, in the touches' order: whether it stayed finite, its brain solves that didn't
+  // converge, and its forward velocity from the first 10 s on, from the touched line's positions up to the touch and
+  // its own after, until 3 s after it, where the touch's windows end.
+  shams?: { time: number; finite: boolean; unconverged: number; velocity: number[] }[];
   // For checkpoint 1's diagnostics (PLAN §7.4): when the head switch flipped (s from the start), and AVA's
   // activation, the mean of AVAL's and AVAR's, aligned with the velocity samples.
   switchFlips: number[];
@@ -157,6 +159,19 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   }
   const touches: TrialRecord['touches'] = [];
   const shams: NonNullable<TrialRecord['shams']> = [];
+  // A twin runs SHAM_SECONDS on, so its touch must leave it that long before the next touch and the trial's end:
+  // otherwise the touched line would take a touch its twin doesn't, or the twin would outrun the trial.
+  if (options.shams) {
+    const times = [...(options.touches ?? [])].map((t) => t.time).sort((a, b) => a - b);
+    times.forEach((time, k) => {
+      const next = k + 1 < times.length ? times[k + 1] : seconds;
+      if (time + SHAM_SECONDS > next + 1e-9) {
+        throw new Error(
+          `a touch at ${time} s leaves its sham twin under ${SHAM_SECONDS} s before the next touch or the end`,
+        );
+      }
+    });
+  }
   const switchFlips: number[] = [];
   let side = world.headSwitch.h;
   const avaIndex = ['AVAL', 'AVAR'].map((name) => data.neurons.findIndex((n) => n.name === name));
@@ -241,6 +256,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
       odour: options.odour,
     });
     twin.restore(world.snapshot());
+    const unconverged = twin.brain.unconverged;
     twin.sham(touch.s);
     const [c, h] = [[...centroid], [...head]];
     let ok = true;
@@ -257,7 +273,12 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
         h.push(twin.body.x[0], twin.body.y[0]);
       }
     }
-    return { time: touch.time, finite: ok, velocity: Array.from(forwardVelocity(c, h, length)) };
+    return {
+      time: touch.time,
+      finite: ok,
+      unconverged: twin.brain.unconverged - unconverged,
+      velocity: Array.from(forwardVelocity(c, h, length)),
+    };
   };
   for (let s = 1; s <= steps; s++) {
     const touch = due.get(s - 1);

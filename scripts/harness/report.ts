@@ -135,17 +135,21 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   const { anterior, posterior } = touch;
   const worms = chemotaxis.runs;
   const trials = [...crawling.trials, ...touch.trials];
-  const unconverged = trials.reduce((n, t) => n + t.unconverged, 0) + worms.reduce((n, w) => n + w.unconverged, 0);
-  const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length;
+  // The touched trials' sham twins count with the trials and worms.
+  const unconverged =
+    trials.reduce((n, t) => n + t.unconverged, 0) +
+    worms.reduce((n, w) => n + w.unconverged, 0) +
+    touch.twins.unconverged;
+  const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length + touch.twins.broken;
   const minutes = (info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds) / 60;
   const run = [
     `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated, info.registry)}.`,
-    `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${plural(infinite, 'trial or worm', 'trials or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
+    `Every trial's measures start after its first 10 s. ${infinite === 0 ? `Every trial, ${touch.twins.count > 0 ? 'sham twin ' : ''}and worm stayed finite` : `${plural(infinite, 'trial, twin or worm', 'trials, twins or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
   const { front, back, window, anteriorPartial, posteriorFloor, first, every } = CHECKPOINT_0_TOUCH;
   // Why a reflex went unmeasured, if it did.
   const unmeasured = (touches: number, place: string): string =>
-    `unmeasured: ${!touch.finite ? 'no touched trials, or one left the finite numbers' : touches === 0 ? `no ${place} touch` : 'a touch reached no receptor'}`;
+    `unmeasured: ${!touch.finite ? 'no touched trials, or one or its sham twin left the finite numbers' : touches === 0 ? `no ${place} touch` : 'a touch reached no receptor'}`;
   const clauses = table(
     ['Clause', 'Measured', 'Passes if', 'Grade'],
     [
@@ -226,7 +230,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
     trialTable(crawling.trials),
     '#### Touch',
-    `The same trials ran again, ${schedule}: ${plural(anterior.touches, 'anterior touch', 'anterior touches')} and ${posterior.touches} posterior. ${reached[0].toUpperCase()}${reached.slice(1)}. At each touch the world forked a sham twin, which took a sham touch in its place, restarting the integrator where the touch's current switched, with no current of its own, and ran ${TOUCH_NEEDS} s on while the touched line ran on; each touch is graded against its twin over the same samples (PLAN §7.4). The signed-rank test takes the ${plural(posterior.pairs, 'posterior touch', 'posterior touches')} whose speed after differed from its twin's at all, with a rank sum of ${posterior.positive} for those the touched copy led. Reported, not graded: the forward velocity before and after the posterior touches, ${fixed(posterior.before, 4)} and ${fixed(posterior.after, 4)} body lengths per second, a rank sum of ${posterior.rise.positive} over ${posterior.rise.n}, ${pValue(posterior.rise.p)}, the before-and-after test the first run graded by. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
+    `The same trials ran again, ${schedule}: ${plural(anterior.touches, 'anterior touch', 'anterior touches')} and ${posterior.touches} posterior. ${reached[0].toUpperCase()}${reached.slice(1)}. At each touch the world forked a sham twin, which took a sham touch in its place, restarting the integrator where the touch's current switched, with no current of its own, and ran ${TOUCH_NEEDS} s on while the touched line ran on; each touch is graded against its twin over the same samples (PLAN §7.4). The signed-rank test takes the ${plural(posterior.pairs, 'posterior touch', 'posterior touches')} whose speed after differed from their twins' at all, with a rank sum of ${posterior.positive} for those the touched copy led; where the touch reaches no muscle, those differences are rounding, and the floor decides. Reported, not graded: the forward velocity before and after the posterior touches, ${fixed(posterior.before, 4)} and ${fixed(posterior.after, 4)} body lengths per second, a rank sum of ${posterior.rise.positive} over ${plural(posterior.rise.n, 'pair', 'pairs')}, ${pValue(posterior.rise.p)}, by the before-and-after test the first run graded by. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
     table(
       [
         'Seed',
