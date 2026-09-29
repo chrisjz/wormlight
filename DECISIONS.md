@@ -2617,3 +2617,27 @@ A review found, in trials of its own:
 No held-out checkpoint's protocol ran. The fairness list's count of the real wiring's exploration grows by these 1,236 trials, and by round 3's own (PLAN §9).
 
 **Status.** Done: the negative result stands as the headline, and checkpoint 0's rerun on the refit and the sign audit's record come next.
+
+## 2026-09-30 — Checkpoint 0's rerun: its sham twins and binomial test, built
+
+**Why.** Checkpoint 0 runs again on the chosen fit, the refit (PLAN §9, step 4). Its reruns grade touches against sham twins, and chemotaxis by an exact binomial test on arrivals, by rules set on 2026-09-27 after its first run (PLAN §7.4). Neither was built.
+
+**Decision.**
+
+- **The sham touch.** `World.sham(s)` restarts the integrator at the steps a touch at s would switch its receptors' currents on and off, with no current of its own. A sham where a touch would reach no receptor, or give none a current, does nothing, as that touch wouldn't restart it either. A restored world has no sham under way. Only the harness uses it, so the GPU has none, and the loop's parity is unchanged.
+- **The fork.** With `shams`, `runTrial` copies the world at each touch, from its snapshot and with its seed, so the copy draws the same noise. The copy takes a sham touch in the touch's place and runs 3.5 s on, sampled on the touched line's grid, while the touched line runs on to its next touch. Each twin's velocity is the touched line's up to the touch and its own after, until 3 s after, where its windows end. The harness forks a twin at every touch of checkpoint 0's touched trials.
+- **The grading.**
+  - Each touch is compared with its twin over the twin's samples alone, so a reversal the touched line starts after the twin has stopped isn't counted.
+  - **Anterior:** found if a reversal follows 40% or more of the touches and McNemar's exact test, one-sided, finds more of them after the touches than after the twins.
+  - **Posterior:** found if the signed-rank test, one-sided and paired, finds the touched copies faster than their twins over the 2 s after, by at least 0.0012 body lengths per second on average: 1% of checkpoint 1's passing floor of speed, 0.12.
+  - **Chemotaxis:** fails only if the exact binomial test at one half finds one spot reached significantly more often. The test is two-sided, doubling the larger count's upper tail, which at one half is the same as summing the outcomes no more likely than the one seen. Its index is still reported.
+  - The before-and-after test the first run graded the posterior touches by is reported beside it, not graded.
+- **Checked.**
+  - A sham restarts at exactly a touch's two steps and applies no current.
+  - Forking twins leaves the touched line's record unchanged, sample for sample.
+  - In the silenced network, whose touches reach no muscle, a twin matches its touched line exactly.
+  - McNemar's and the binomial test match their exact tails, worked by hand.
+  - 545 tests pass.
+  - A shortened run of 3 trials of 44 s went through end to end.
+
+**Status.** Built; checkpoint 0 runs next on the refit, and its result follows.

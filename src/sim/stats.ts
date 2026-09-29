@@ -164,3 +164,30 @@ export function signedRankGreater(differences: readonly number[]): SignedRank {
   for (let w = observed; w <= top; w++) p += chance[w];
   return { n, positive: observed / 2, p: Math.min(1, p) };
 }
+
+// McNemar's exact test, one-sided (PLAN §7.1): of the pairs whose two outcomes differ, `b` with the first's alone
+// and `c` with the second's alone, is the first's outcome the more common? The p-value is the chance of b or more
+// of b + c fair coin tosses; with no such pairs it is 1.
+export function mcnemarGreater(b: number, c: number): number {
+  if (![b, c].every((x) => Number.isInteger(x) && x >= 0))
+    throw new Error(`McNemar's test needs whole counts, not ${b} and ${c}`);
+  return binomialUpper(b, b + c);
+}
+
+// The exact binomial test at a chance of one half, two-sided: is k of n further from half than chance allows? The
+// p-value doubles the upper tail of the larger count, capped at 1; with n = 0 it is 1.
+export function binomialTwoSided(k: number, n: number): number {
+  if (!Number.isInteger(k) || !Number.isInteger(n) || k < 0 || k > n) {
+    throw new Error(`the binomial test needs a whole count within its trials, not ${k} of ${n}`);
+  }
+  return n === 0 ? 1 : Math.min(1, 2 * binomialUpper(Math.max(k, n - k), n));
+}
+
+// The chance of k or more successes in n fair trials.
+function binomialUpper(k: number, n: number): number {
+  if (k <= 0) return 1;
+  const lf = logFactorials(n);
+  let p = 0;
+  for (let x = k; x <= n; x++) p += Math.exp(lf[n] - lf[x] - lf[n - x] - n * Math.LN2);
+  return Math.min(1, p);
+}

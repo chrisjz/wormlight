@@ -9,6 +9,7 @@ import {
   CHECKPOINT_0_CHEMOTAXIS,
   CHECKPOINT_0_TOUCH,
   CHECKPOINT_1,
+  TOUCH_NEEDS,
   touchSchedule,
   type Checkpoint0,
   type Checkpoint1,
@@ -141,10 +142,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated, info.registry)}.`,
     `Every trial's measures start after its first 10 s. ${infinite === 0 ? 'Every trial and worm stayed finite' : `${plural(infinite, 'trial or worm', 'trials or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
-  const { front, back, window, anteriorPartial, first, every } = CHECKPOINT_0_TOUCH;
-  const backs = touch.touches.filter((t) => t.place === 'posterior');
-  const rose = backs.filter((t) => t.after > t.before).length;
-  const rise = backs.length > 0 ? backs.reduce((sum, t) => sum + t.after - t.before, 0) / backs.length : 0;
+  const { front, back, window, anteriorPartial, posteriorFloor, first, every } = CHECKPOINT_0_TOUCH;
   // Why a reflex went unmeasured, if it did.
   const unmeasured = (touches: number, place: string): string =>
     `unmeasured: ${!touch.finite ? 'no touched trials, or one left the finite numbers' : touches === 0 ? `no ${place} touch` : 'a touch reached no receptor'}`;
@@ -160,23 +158,23 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
       [
         'Anterior touch',
         anterior.measured
-          ? `A reversal within ${window} s after ${anterior.followed} of ${plural(anterior.touches, 'touch', 'touches')} (${percent(anterior.share)}), and in ${anterior.matched} of the matched windows; ${pValue(anterior.p)}`
+          ? `A reversal within ${window} s after ${anterior.followed} of ${plural(anterior.touches, 'touch', 'touches')} (${percent(anterior.share)}), and after ${anterior.shams} of their sham twins; ${anterior.touchedOnly} ${anterior.touchedOnly === 1 ? 'pair' : 'pairs'} with the touched copy's alone and ${anterior.shamOnly} with the twin's alone, ${pValue(anterior.p)}`
           : unmeasured(anterior.touches, 'anterior'),
-        `Under ${percent(anteriorPartial)}, or not more often than in the matched windows (Fisher's exact test, one-sided)`,
+        `Under ${percent(anteriorPartial)}, or not more often than after the sham twins (McNemar's exact test, one-sided)`,
         GRADE[anterior.grade],
       ],
       [
         'Posterior touch',
         posterior.measured
-          ? `Forward velocity ${fixed(posterior.before, 4)} before, ${fixed(posterior.after, 4)} after (body lengths/s), rising after ${rose} of ${plural(posterior.touches, 'touch', 'touches')} by ${scientific(rise)} on average; ${pValue(posterior.p)}`
+          ? `Forward velocity over the ${window} s after ${plural(posterior.touches, 'touch', 'touches')}: ${fixed(posterior.after, 4)} touched, ${fixed(posterior.shamAfter, 4)} in the sham twins (body lengths/s), a difference of ${scientific(posterior.difference)} on average; ${pValue(posterior.p)}`
           : unmeasured(posterior.touches, 'posterior'),
-        "No significant rise (Wilcoxon's signed-rank test, one-sided)",
+        `Not significantly faster than the sham twins (Wilcoxon's signed-rank test, one-sided, paired), or by under ${fixed(posteriorFloor, 4)} body lengths/s on average`,
         GRADE[posterior.grade],
       ],
       [
         'Chemotaxis',
-        `CI ${fixed(chemotaxis.index, 2)}: ${chemotaxis.odour} of ${chemotaxis.worms} at the odour, ${chemotaxis.control} at the control`,
-        `Within ±${CHECKPOINT_0_CHEMOTAXIS.within} of zero`,
+        `${plural(chemotaxis.odour + chemotaxis.control, 'arrival', 'arrivals')}: ${chemotaxis.odour} of ${plural(chemotaxis.worms, 'worm', 'worms')} at the odour, ${chemotaxis.control} at the control (CI ${fixed(chemotaxis.index, 2)}); ${pValue(chemotaxis.p)}`,
+        "Neither spot reached significantly more often than the other (the exact binomial test, two-sided, over the worms that reached either); with 5 arrivals or fewer it can't fail",
         GRADE[chemotaxis.grade],
       ],
     ],
@@ -209,9 +207,9 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
       String(t.seed),
       mine.map((o) => (o.place === 'anterior' ? 'F' : 'B')).join(' '),
       ahead.length > 0 ? `${ahead.filter((o) => o.reversal).length} of ${ahead.length}` : '—',
-      ahead.length > 0 ? `${ahead.filter((o) => o.matched).length} of ${ahead.length}` : '—',
+      ahead.length > 0 ? `${ahead.filter((o) => o.sham).length} of ${ahead.length}` : '—',
       behind.length > 0
-        ? `${fixed(mean(behind.map((o) => o.before)), 4)} → ${fixed(mean(behind.map((o) => o.after)), 4)}`
+        ? `${fixed(mean(behind.map((o) => o.after)), 4)} / ${fixed(mean(behind.map((o) => o.shamAfter)), 4)}`
         : '—',
       String(t.reversals),
     ];
@@ -228,14 +226,14 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
     trialTable(crawling.trials),
     '#### Touch',
-    `The same trials ran again, ${schedule}: ${plural(anterior.touches, 'anterior touch', 'anterior touches')} and ${posterior.touches} posterior. ${reached[0].toUpperCase()}${reached.slice(1)}. The matched windows are the untouched trials', at the same seed and time. The signed-rank test takes the ${plural(posterior.pairs, 'posterior touch', 'posterior touches')} whose forward velocity changed at all, with a rank sum of ${posterior.positive} for those after which it rose. Reported, not graded: over the same windows in the untouched trials, the same test gives a rank sum of ${posterior.twin.positive}, ${pValue(posterior.twin.p)}, and no velocity sample of a touched trial differs from its twin's by more than ${scientific(touch.largestChange)} body lengths per second. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
+    `The same trials ran again, ${schedule}: ${plural(anterior.touches, 'anterior touch', 'anterior touches')} and ${posterior.touches} posterior. ${reached[0].toUpperCase()}${reached.slice(1)}. At each touch the world forked a sham twin, which took a sham touch in its place, restarting the integrator where the touch's current switched, with no current of its own, and ran ${TOUCH_NEEDS} s on while the touched line ran on; each touch is graded against its twin over the same samples (PLAN §7.4). The signed-rank test takes the ${plural(posterior.pairs, 'posterior touch', 'posterior touches')} whose speed after differed from its twin's at all, with a rank sum of ${posterior.positive} for those the touched copy led. Reported, not graded: the forward velocity before and after the posterior touches, ${fixed(posterior.before, 4)} and ${fixed(posterior.after, 4)} body lengths per second, a rank sum of ${posterior.rise.positive} over ${posterior.rise.n}, ${pValue(posterior.rise.p)}, the before-and-after test the first run graded by. Backward activity in the touched trials, reported and not graded: ${backward(touch.trials)}.`,
     table(
       [
         'Seed',
         'Touches',
         'Anterior touches followed by a reversal',
-        'Matched windows with one',
-        'Posterior touches: forward velocity before → after (body lengths/s)',
+        'Sham twins with one',
+        'Posterior touches: forward velocity after, touched / sham (body lengths/s)',
         'Reversals',
       ],
       bySeed,

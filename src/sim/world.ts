@@ -198,6 +198,10 @@ export class World {
   // The head-switch current into the dorsal SMDs, the opposite into the ventral ones; in the conductance form, the
   // conductance it opens, positive when it drives the dorsal side and 0 while its gate is shut.
   switchCurrent = 0;
+  // A sham touch's steps left, and whether it was on at the last step: the harness's alone (PLAN §7.4), so the GPU
+  // has none.
+  private shamLeft = 0;
+  private shamOn = false;
   // The SMDs the switch drives, and the body coordinates whose curvature it reads.
   readonly dorsalSwitch: readonly number[];
   readonly ventralSwitch: readonly number[];
@@ -329,6 +333,16 @@ export class World {
     });
   }
 
+  // A sham touch at s (PLAN §7.4): for the steps a touch there would switch its receptors' currents on and off, the
+  // integrator restarts, with no current of its own. A sham where a touch would reach no receptor, or give none a
+  // current, does nothing, as that touch wouldn't restart it either. Returns the receptors the touch would reach.
+  sham(s: number): TouchReceptor[] {
+    const { mask, currents } = tap(this.touchSets, s);
+    const reached = this.receptors.filter((r) => (mask & (1 << r.index)) !== 0);
+    this.shamLeft = reached.some((r) => currents[r.index] !== 0) ? TOUCH_STEPS : 0;
+    return reached;
+  }
+
   // The concentration (µM) where AWC senses.
   smell(): number {
     if (!this.odour) return 0;
@@ -385,6 +399,9 @@ export class World {
     this.touchLeft.set(state.touchLeft);
     this.touchCurrent.set(state.touchCurrent);
     this.touchApplied.set(state.touchApplied);
+    // A sham belongs to no state: a restored world has none under way.
+    this.shamLeft = 0;
+    this.shamOn = false;
   }
 
   get time(): number {
@@ -457,6 +474,11 @@ export class World {
       this.touchApplied[k] = applied;
       brain.input[r.neuron] += applied;
     });
+    // A sham touch switches on and off where a touch would, with no current.
+    const shamOn = this.shamLeft > 0;
+    if (this.shamLeft > 0) this.shamLeft--;
+    const shamJumped = shamOn !== this.shamOn;
+    this.shamOn = shamOn;
     const gated = this.headDrive() > params.driveThreshold;
     this.headSwitch.update(regionMean(this.curvature, this.headFrom, this.headTo), dt, gated);
     const dorsal = this.headSwitch.h === 1;
@@ -469,8 +491,8 @@ export class World {
       : 0;
     // The switch's input jumps when it flips or is gated on or off, a touch current when it switches on or off
     // or a new tap changes it, and AWC-ON's when the odour at the nose changes fast; BDF2 across a jump is first
-    // order.
-    if (current !== this.switchCurrent || touchJumped || awcJumped) brain.restart();
+    // order. A sham touch restarts it as a touch would.
+    if (current !== this.switchCurrent || touchJumped || awcJumped || shamJumped) brain.restart();
     this.switchCurrent = current;
     if (conducting) {
       if (current !== 0) {

@@ -2,7 +2,7 @@
 // clauses for it; §7.4's checkpoint 1), from the trials' and the assay runs' records.
 
 import { PARAMS } from '../science/params.ts';
-import { fisherGreater, signedRankGreater, type SignedRank } from '../sim/stats.ts';
+import { binomialTwoSided, mcnemarGreater, signedRankGreater, type SignedRank } from '../sim/stats.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
 import type { ChemotaxisRecord } from './chemotaxis.ts';
 import {
@@ -360,10 +360,12 @@ export function crawlingClause(records: readonly TrialRecord[]): Crawling {
 }
 
 // Checkpoint 0's touch clause (PLAN §7.4, set 2026-09-27): the trials run again with 5 touches each, 20 s apart
-// from t = 20 s, alternating front and back, odd seeds starting at the front. A reflex counts as found if it
-// reaches its checkpoint's partial level: for anterior touches, a reversal starting within 2 s after 40% or
-// more of them and more often than in the untouched trials' matched windows (checkpoint 2); for posterior
-// ones, a significant rise in forward speed from the 2 s before to the 2 s after (checkpoint 3).
+// from t = 20 s, alternating front and back, odd seeds starting at the front. Changed after results (2026-09-27): from
+// its first rerun, each touch forks a sham twin, and the touched line runs on. A reflex counts as found if it reaches
+// its checkpoint's partial level against the twins: for anterior touches, a reversal starting within 2 s after 40% or
+// more of them, and after more of them than of their twins (McNemar's exact test); for posterior ones, the touched
+// copies' mean speed over the 2 s after significantly above their twins' (the signed-rank test, paired), by at least
+// `posteriorFloor` on average: checkpoint 3's 1% floor of the slowest crawling speed checkpoint 1 passes.
 export const CHECKPOINT_0_TOUCH = {
   touches: 5,
   first: 20, // s
@@ -372,6 +374,7 @@ export const CHECKPOINT_0_TOUCH = {
   back: BACK,
   window: 2, // s
   anteriorPartial: 0.4, // share of anterior touches followed by a reversal
+  posteriorFloor: 0.01 * CHECKPOINT_1.speed.pass[0], // body lengths per second
 } as const;
 
 export type Place = 'anterior' | 'posterior';
@@ -409,32 +412,34 @@ export function meanVelocity(velocity: ArrayLike<number>, from: number, to: numb
   return sum / (b - a + 1);
 }
 
-// One touch as graded: whether a reversal followed it, and one started in its matched window, and the mean
-// forward velocity (body lengths per second) over the 2 s before and after it, in the touched trial and, for
-// context, in its untouched twin.
+// One touch as graded: whether a reversal followed it, in the touched line and in its sham twin, and the mean forward
+// velocity (body lengths per second) over the 2 s after it in each, and over the 2 s before, which they share.
 export interface TouchOutcome {
   seed: number;
   time: number;
   place: Place;
   reached: string[];
   reversal: boolean;
-  matched: boolean;
+  sham: boolean;
   before: number;
   after: number;
-  twinBefore: number;
-  twinAfter: number;
+  shamAfter: number;
 }
 
-// Each reflex's grade is a pass if it was measured, on sound trials, and not found; the clause passes if both
-// reflexes' grades do.
+// Each reflex's grade is a pass if it was measured, on sound trials and twins, and not found; the clause passes if
+// both reflexes' grades do.
 export interface TouchClause {
   grade: Grade;
   anterior: {
     grade: Grade;
     measured: boolean;
     touches: number;
+    // Touches followed by a reversal, twins with one, and the pairs in which only the touched copy or only the twin
+    // reversed, which McNemar's test weighs.
     followed: number;
-    matched: number;
+    shams: number;
+    touchedOnly: number;
+    shamOnly: number;
     share: number;
     p: number;
     reflex: boolean;
@@ -443,32 +448,29 @@ export interface TouchClause {
     grade: Grade;
     measured: boolean;
     touches: number;
-    before: number;
+    // The mean speed over the 2 s after, touched and sham, and the touched less the sham on average.
     after: number;
+    shamAfter: number;
+    difference: number;
     pairs: number;
     positive: number;
     p: number;
     reflex: boolean;
-    // Reported, not graded: the same test over the same windows in the untouched twins.
-    twin: SignedRank;
+    // Reported, not graded: the before-and-after test the first run graded by (checkpoint 3's cited measure).
+    before: number;
+    rise: SignedRank;
   };
-  // Reported, not graded: the largest difference between any velocity sample of a touched trial and its twin's.
-  largestChange: number;
   // Whether there were touched trials, and they and their twins all stayed finite.
   finite: boolean;
   touches: TouchOutcome[];
   trials: TrialSummary[];
 }
 
-export function touchClause(touched: readonly TrialRecord[], untouched: readonly TrialRecord[]): TouchClause {
+export function touchClause(touched: readonly TrialRecord[]): TouchClause {
   const { window } = CHECKPOINT_0_TOUCH;
-  const matching = new Map(untouched.map((r) => [r.seed, r]));
   const touches: TouchOutcome[] = [];
-  let largestChange = 0;
+  let twinsSound = true;
   for (const r of touched) {
-    const twin = matching.get(r.seed);
-    if (!twin) throw new Error(`no untouched trial for seed ${r.seed}`);
-    if (!r.finite || !twin.finite) continue;
     const schedule = touchSchedule(r.seed, r.seconds);
     if (
       JSON.stringify(schedule.map(({ time, s }) => [time, s])) !==
@@ -476,74 +478,90 @@ export function touchClause(touched: readonly TrialRecord[], untouched: readonly
     ) {
       throw new Error(`seed ${r.seed} wasn't touched as the protocol says`);
     }
+    const shams = r.shams ?? [];
+    if (JSON.stringify(shams.map((s) => s.time)) !== JSON.stringify(schedule.map((t) => t.time))) {
+      throw new Error(`seed ${r.seed}'s touches have no sham twin each`);
+    }
+    if (!r.finite || shams.some((s) => !s.finite)) {
+      twinsSound = false;
+      continue;
+    }
     schedule.forEach((t, k) => {
+      // Both copies over the same samples: the twin's, which end as its run does.
+      const twin = shams[k].velocity;
+      const line = r.velocity.slice(0, twin.length);
       touches.push({
         seed: r.seed,
         time: t.time,
         place: t.place,
         reached: r.touches[k].reached,
-        reversal: reversalFrom(r.velocity, t.time),
-        matched: reversalFrom(twin.velocity, t.time),
-        before: meanVelocity(r.velocity, t.time - window, t.time),
-        after: meanVelocity(r.velocity, t.time, t.time + window),
-        twinBefore: meanVelocity(twin.velocity, t.time - window, t.time),
-        twinAfter: meanVelocity(twin.velocity, t.time, t.time + window),
+        reversal: reversalFrom(line, t.time),
+        sham: reversalFrom(twin, t.time),
+        before: meanVelocity(line, t.time - window, t.time),
+        after: meanVelocity(line, t.time, t.time + window),
+        shamAfter: meanVelocity(twin, t.time, t.time + window),
       });
     });
-    for (let k = 0; k < Math.min(r.velocity.length, twin.velocity.length); k++) {
-      largestChange = Math.max(largestChange, Math.abs(r.velocity[k] - twin.velocity[k]));
-    }
   }
   const front = touches.filter((t) => t.place === 'anterior');
   const back = touches.filter((t) => t.place === 'posterior');
-  const followed = front.filter((t) => t.reversal).length;
-  const matched = front.filter((t) => t.matched).length;
-  const share = front.length > 0 ? followed / front.length : 0;
-  const pFront = front.length > 0 ? fisherGreater(followed, front.length, matched, front.length) : 1;
-  const rise = signedRankGreater(back.map((t) => t.after - t.before));
   const mean = (x: number[]): number => (x.length > 0 ? x.reduce((a, b) => a + b, 0) / x.length : 0);
-  // A reflex is measured if it had touches, every one reaching a receptor, on trials that all stayed finite; one
-  // that wasn't fails.
-  const finite = touched.length > 0 && [...touched, ...untouched].every((r) => r.finite);
+  const followed = front.filter((t) => t.reversal).length;
+  const touchedOnly = front.filter((t) => t.reversal && !t.sham).length;
+  const shamOnly = front.filter((t) => !t.reversal && t.sham).length;
+  const share = front.length > 0 ? followed / front.length : 0;
+  const pFront = mcnemarGreater(touchedOnly, shamOnly);
+  const differences = back.map((t) => t.after - t.shamAfter);
+  const paired = signedRankGreater(differences);
+  const difference = mean(differences);
+  // A reflex is measured if it had touches, every one reaching a receptor, on trials and twins that all stayed
+  // finite; one that wasn't fails.
+  const finite = touched.length > 0 && twinsSound;
   const measured = (list: readonly TouchOutcome[]): boolean =>
     finite && list.length > 0 && list.every((t) => t.reached.length > 0);
-  const found = share >= CHECKPOINT_0_TOUCH.anteriorPartial && pFront < ALPHA;
+  const frontFound = share >= CHECKPOINT_0_TOUCH.anteriorPartial && pFront < ALPHA;
+  const backFound = paired.p < ALPHA && difference >= CHECKPOINT_0_TOUCH.posteriorFloor;
   const anterior = {
-    grade: measured(front) && !found ? ('pass' as const) : ('fail' as const),
+    grade: measured(front) && !frontFound ? ('pass' as const) : ('fail' as const),
     measured: measured(front),
     touches: front.length,
     followed,
-    matched,
+    shams: front.filter((t) => t.sham).length,
+    touchedOnly,
+    shamOnly,
     share,
     p: pFront,
-    reflex: found,
+    reflex: frontFound,
   };
   const posterior = {
-    grade: measured(back) && rise.p >= ALPHA ? ('pass' as const) : ('fail' as const),
+    grade: measured(back) && !backFound ? ('pass' as const) : ('fail' as const),
     measured: measured(back),
     touches: back.length,
-    before: mean(back.map((t) => t.before)),
     after: mean(back.map((t) => t.after)),
-    pairs: rise.n,
-    positive: rise.positive,
-    p: rise.p,
-    reflex: rise.p < ALPHA,
-    twin: signedRankGreater(back.map((t) => t.twinAfter - t.twinBefore)),
+    shamAfter: mean(back.map((t) => t.shamAfter)),
+    difference,
+    pairs: paired.n,
+    positive: paired.positive,
+    p: paired.p,
+    reflex: backFound,
+    before: mean(back.map((t) => t.before)),
+    rise: signedRankGreater(back.map((t) => t.after - t.before)),
   };
   return {
     grade: overall([anterior.grade, posterior.grade]),
     anterior,
     posterior,
-    largestChange,
     finite,
     touches,
     trials: touched.map(summariseTrial),
   };
 }
 
-// Checkpoint 0's chemotaxis clause (PLAN §7.4, set 2026-09-27): 30 worms of 60 min in checkpoint 4's assay,
-// every worm counted, so no arrivals give 0; it passes with the index within ±0.1 of zero.
-export const CHECKPOINT_0_CHEMOTAXIS = { worms: 30, seconds: 3600, within: 0.1 } as const;
+// Checkpoint 0's chemotaxis clause (PLAN §7.4, set 2026-09-27): 30 worms of 60 min in checkpoint 4's assay, every
+// worm counted, so no arrivals give a chemotaxis index of 0. Changed after results (2026-09-27): from its first rerun,
+// it passes unless one spot gets significantly more arrivals than the other, by the exact binomial test, two-sided,
+// over the worms that reached either; with 5 arrivals or fewer it can't fail.
+export const CHECKPOINT_0_CHEMOTAXIS = { worms: 30, seconds: 3600 } as const;
 
 export interface ChemotaxisClause {
   grade: Grade;
@@ -551,6 +569,7 @@ export interface ChemotaxisClause {
   odour: number;
   control: number;
   index: number;
+  p: number;
   runs: ChemotaxisRecord[];
 }
 
@@ -563,14 +582,16 @@ export function chemotaxisIndex(runs: readonly ChemotaxisRecord[]): { odour: num
 
 export function chemotaxisClause(runs: readonly ChemotaxisRecord[]): ChemotaxisClause {
   const { odour, control, index } = chemotaxisIndex(runs);
+  const p = binomialTwoSided(odour, odour + control);
   // With no worms, or any that left the finite numbers, the clause fails.
   const sound = runs.length > 0 && runs.every((r) => r.finite);
   return {
-    grade: sound && Math.abs(index) <= CHECKPOINT_0_CHEMOTAXIS.within ? 'pass' : 'fail',
+    grade: sound && p >= ALPHA ? 'pass' : 'fail',
     worms: runs.length,
     odour,
     control,
     index,
+    p,
     runs: [...runs],
   };
 }
@@ -589,7 +610,7 @@ export function checkpoint0(
   worms: readonly ChemotaxisRecord[],
 ): Checkpoint0 {
   const crawling = crawlingClause(trials);
-  const touch = touchClause(touched, trials);
+  const touch = touchClause(touched);
   const chemotaxis = chemotaxisClause(worms);
   return { grade: overall([crawling.grade, touch.grade, chemotaxis.grade]), crawling, touch, chemotaxis };
 }

@@ -99,6 +99,24 @@ describe('a trial', () => {
     expect(r.posture).toBe(startingPosture(2, POSTURES.length).index);
   });
 
+  it('forks a sham twin at each touch, leaving the touched line as it was (PLAN §7.4)', () => {
+    const options = { seed: 2, seconds: 24, params: MECHANICS, postures: POSTURES, touches: [{ time: 20, s: FRONT }] };
+    const plain = runTrial(data, options);
+    const { shams, ...line } = runTrial(data, { ...options, shams: true });
+    expect(line).toEqual(plain);
+    expect(shams).toHaveLength(1);
+    const twin = (shams ?? [])[0];
+    expect(twin).toMatchObject({ time: 20, finite: true });
+    // Its velocity runs to 3 s after the touch, and matches the touched line's wherever its window ends by the touch.
+    expect(twin.velocity).toHaveLength(Math.round((20 + 3 - 10) * 10) + 1);
+    const shared = Math.round((20 - 0.5 - 10) / MOTION_SAMPLE) + 1;
+    expect(twin.velocity.slice(0, shared)).toEqual(plain.velocity.slice(0, shared));
+    // Silenced, the touch reaches no muscle, so the twin, drawing the same noise, matches the touched line throughout.
+    const silenced = runTrial(data, { ...options, silenced: true, shams: true });
+    const quiet = (silenced.shams ?? [])[0].velocity;
+    expect(quiet).toEqual(silenced.velocity.slice(0, quiet.length));
+  });
+
   it('counts the voltages past the reversal range at the samples it measures, and finds their extremes at every step', () => {
     const options = { seed: 2, seconds: 12, params: MECHANICS, postures: POSTURES };
     const r = runTrial(data, options);
