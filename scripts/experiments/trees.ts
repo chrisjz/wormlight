@@ -17,10 +17,10 @@ export function firstFit(world: WorldModule): LoopParams {
   const fit = JSON.parse(readFileSync(join(ROOT, 'data/calibration/r1.json'), 'utf8')) as {
     final: { values: Omit<RValues, 'noiseCorrelation'> };
   };
-  return world.loopParams({ ...fit.final.values, noiseCorrelation: 0 });
+  return world.loopParams({ ...fit.final.values, noiseCorrelation: 0 }, 'current');
 }
 export function firstStart(world: WorldModule): LoopParams {
-  return { ...world.provisionalParams(), noise: WHITE_PROVISIONAL, noiseCorrelation: 0 };
+  return { ...world.provisionalParams('current'), noise: WHITE_PROVISIONAL, noiseCorrelation: 0 };
 }
 // R's provisional σ_n before the coloured noise, the white noise's (DECISIONS.md, 2026-09-27).
 const WHITE_PROVISIONAL = 0.0834;

@@ -6,11 +6,13 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { SCHEMA, validateWormlightData, type Neuromuscular, type WormlightData } from '../../src/data/schema.ts';
 import { CITATIONS, reference, type CitationId } from '../../src/science/citations.ts';
+import { PARAMS } from '../../src/science/params.ts';
+import { proprioceptiveFields } from '../../src/sim/proprio.ts';
 import { bodyFrame, checkAxes, muscles, oscillator, position, sensing } from './anatomy.ts';
 import { dataSourcesPage, noticePage } from './docs.ts';
 import { parseMorphology, type Morphology } from './nml.ts';
 import { formatMarkdown, renderJson } from './render.ts';
-import { addPosture, covariance, emptySums, varianceCaptured } from '../../src/validation/posture.ts';
+import { addPosture, covariance, emptySums, spanCurvature, varianceCaptured } from '../../src/validation/posture.ts';
 import { checkEigenworms, checkPostures, parseMatrix } from './eigenworms.ts';
 import { checkExport, type NematodeExport } from './export.ts';
 import { buildReport, crossCheckReport, parseCreamer } from './reports.ts';
@@ -132,6 +134,14 @@ async function build(): Promise<Map<string, string>> {
   const sums = emptySums();
   for (const row of postureRows) addPosture(sums, row);
   const postures = { ...checkPostures(postureRows, 100), captured: varianceCaptured(covariance(sums), basis) };
+  // The curvature PLAN §7.3's 1 mV rule takes for proprioception's bounds in the conductance form: the magnitude of
+  // the mean κL over each of the model's proprioceptive fields, in every posture (DECISIONS.md, 2026-09-29).
+  const fields = proprioceptiveFields(data, PARAMS.proprioceptiveReach.value);
+  const bends = postureRows
+    .flatMap((row) => fields.map((f) => Math.abs(spanCurvature(row, f.from, f.to))))
+    .sort((a, b) => a - b);
+  const quantile = (q: number): number => bends[Math.floor(q * (bends.length - 1))];
+  const fieldCurvature = { fields: fields.length, median: quantile(0.5), p95: quantile(0.95) };
   const report = buildReport({
     data,
     fenyves: [fenyvesS1, fenyvesS5],
@@ -142,6 +152,7 @@ async function build(): Promise<Map<string, string>> {
     exportCommit: exported.provenance.nematodeCommit,
     eigenworms,
     postures,
+    fieldCurvature,
   });
 
   const outputs = new Map<string, string>();

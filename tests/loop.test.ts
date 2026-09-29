@@ -137,10 +137,10 @@ describe('proprioceptive fields', () => {
 describe('the world', () => {
   it("runs track R's model on its refit's values, coloured noise and all, its provisional values kept beside them (PLAN §9)", () => {
     expect(isCalibrated()).toBe(true);
-    expect(currentParams()).toEqual(calibratedParams());
+    expect(currentParams()).toEqual(calibratedParams('current'));
     // A registry without the fit's values has none to give.
     const uncalibrated = { ...PARAMS, noiseCorrelation: { ...PARAMS.noiseCorrelation, value: null } };
-    expect(() => calibratedParams(uncalibrated)).toThrow(/not calibrated/);
+    expect(() => calibratedParams('current', uncalibrated)).toThrow(/not calibrated/);
     expect(currentParams()).toMatchObject({
       relativeDrive: true,
       oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,
@@ -148,7 +148,7 @@ describe('the world', () => {
       noise: PARAMS.noiseIntensity.value,
       noiseCorrelation: PARAMS.noiseCorrelation.value,
     });
-    expect(provisionalParams()).toMatchObject({
+    expect(provisionalParams('current')).toMatchObject({
       gapGainB: 1,
       smdGain: 1,
       oscillatorGainB: 2.14,
@@ -400,20 +400,23 @@ describe('the world', () => {
       noise: 0.01,
     });
     expect(
-      loopParams({
-        oscillatorExcitability: 1500,
-        oscillatorExcitabilityB: 500,
-        oscillatorRecoveryTime: 2,
-        oscillatorDriveThreshold: -6,
-        headSwitchGain: 40,
-        proprioceptiveGain: 7,
-        gapGainB: 0.3,
-        neuromuscularGain: 20,
-        neuromuscularThreshold: 0.1,
-        smdGain: 0.5,
-        noiseIntensity: 0.01,
-        noiseCorrelation: 0.1,
-      }),
+      loopParams(
+        {
+          oscillatorExcitability: 1500,
+          oscillatorExcitabilityB: 500,
+          oscillatorRecoveryTime: 2,
+          oscillatorDriveThreshold: -6,
+          headSwitchGain: 40,
+          proprioceptiveGain: 7,
+          gapGainB: 0.3,
+          neuromuscularGain: 20,
+          neuromuscularThreshold: 0.1,
+          smdGain: 0.5,
+          noiseIntensity: 0.01,
+          noiseCorrelation: 0.1,
+        },
+        'current',
+      ),
     ).toMatchObject({
       oscillatorGain: 1.5,
       oscillatorGainB: 0.5,

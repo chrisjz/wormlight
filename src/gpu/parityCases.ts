@@ -28,8 +28,8 @@ const PARITY_LOOP: LoopParams = {
   noise: 0.01,
 };
 export const SEED = 1;
-const WARMUP = 2; // s before the first state
-const INTERVAL = 0.5; // s between states
+export const WARMUP = 2; // s before the first state
+export const INTERVAL = 0.5; // s between states
 const STATES = 20;
 export const SECOND = Math.round(1 / NEURAL_STEP);
 export const SAMPLES = 10; // over the second
@@ -254,7 +254,11 @@ export function assayField(): OdourField {
 // relative drive, g_nmj and θ_nmj in its units, the B-types' oscillator gain apart from the A-types', and the two
 // class gains below 1. A fifth runs the trial values with the coloured noise, which carries a current in each
 // neuron's state (DECISIONS.md, 2026-09-28). A sixth runs the values the app runs, the registry's, so the GPU is
-// checked on whatever a fit sets.
+// checked on whatever a fit sets. The last three run track R's model in the conductance form (PLAN §4.3, §9), with
+// P_th at 0.05, where the head flips in that form, and θ_nmj at −0.2, where its muscles move the body: at gains
+// inside the box, the gate open; and at the box's upper corner, where the conductances weigh most against the
+// solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
+// where the gate turns on or off on about half the steps.
 export interface LoopSetup {
   name: string;
   params: LoopParams;
@@ -265,6 +269,16 @@ export interface LoopSetup {
   // States after the rest world's.
   states: number;
 }
+// Track R's model on the trial values (PLAN §9).
+const R_LOOP: LoopParams = {
+  ...PARITY_LOOP,
+  oscillatorGainB: 1,
+  gapGainB: 0.5,
+  smdGain: 0.5,
+  relativeDrive: true,
+  neuromuscularGain: 10,
+  neuromuscularThreshold: 0.2,
+};
 export const LOOP_SETUPS: readonly LoopSetup[] = [
   { name: 'trial', params: PARITY_LOOP, states: STATES },
   { name: 'flipping', params: PARITY_LOOP, switchThreshold: 0.5, states: 10 },
@@ -276,21 +290,48 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     moved: true,
     states: 10,
   },
-  {
-    name: 'track R',
-    params: {
-      ...PARITY_LOOP,
-      oscillatorGainB: 1,
-      gapGainB: 0.5,
-      smdGain: 0.5,
-      relativeDrive: true,
-      neuromuscularGain: 10,
-      neuromuscularThreshold: 0.2,
-    },
-    states: 10,
-  },
+  { name: 'track R', params: R_LOOP, states: 10 },
   { name: 'coloured', params: { ...PARITY_LOOP, noiseCorrelation: 0.05 }, states: 10 },
   { name: 'registry', params: currentParams(), states: 10 },
+  {
+    name: 'conductance',
+    params: {
+      ...R_LOOP,
+      form: 'conductance',
+      switchGain: 1,
+      proprioceptiveGain: 0.05,
+      driveThreshold: -3,
+      neuromuscularThreshold: -0.2,
+    },
+    switchThreshold: 0.05,
+    states: 10,
+  },
+  {
+    name: 'conductance, upper corner, open',
+    params: {
+      ...R_LOOP,
+      form: 'conductance',
+      switchGain: 50,
+      proprioceptiveGain: 8,
+      driveThreshold: -3,
+      neuromuscularThreshold: -0.2,
+    },
+    switchThreshold: 0.05,
+    states: 6,
+  },
+  {
+    name: 'conductance, upper corner',
+    params: {
+      ...R_LOOP,
+      form: 'conductance',
+      switchGain: 50,
+      proprioceptiveGain: 8,
+      driveThreshold: -1,
+      neuromuscularThreshold: -0.2,
+    },
+    switchThreshold: 0.05,
+    states: 6,
+  },
 ];
 
 export interface LoopCase {

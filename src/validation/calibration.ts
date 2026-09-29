@@ -1,7 +1,7 @@
 // PLAN §7.3's calibration, all but its trials: the search space, the measures and the objective, and the choice
 // of the final parameters. The runner (scripts/calibrate/run.ts) evaluates candidates on the CPU reference.
 
-import { PARAMS } from '../science/params.ts';
+import { inForm, PARAMS, type Form } from '../science/params.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { spectralPeak } from './checkpoints.ts';
 import { Cmaes, defaultLambda } from './cmaes.ts';
@@ -68,8 +68,10 @@ export const SECOND_ROUND = {
 // Each target's relative error is capped at this, and an unmeasured one takes the cap.
 export const ERROR_CAP = 2;
 
-export function bounds(id: CalibratedId): readonly [number, number] {
-  const b = PARAMS[id].bounds;
+// A parameter's bounds in a form: in the conductance form, g_sw's and g_p's are their conductance entries' (PLAN
+// §7.3).
+export function bounds(id: CalibratedId, form: Form): readonly [number, number] {
+  const b = inForm(id, PARAMS[id], form).bounds;
   if (!b) throw new Error(`${id} has no bounds`);
   if (MAPPING[id] === 'log' && !(b[0] > 0))
     throw new Error(`${id} is searched logarithmically, so its lower bound must be above 0`);
@@ -78,11 +80,11 @@ export function bounds(id: CalibratedId): readonly [number, number] {
 
 const clip = (u: number): number => Math.min(1, Math.max(0, u));
 
-// The calibrated parameters' provisional values (PLAN §6.2), where the search starts.
-export function provisionalValues(): Values {
+// The calibrated parameters' provisional values in a form (PLAN §6.2), where the search starts.
+export function provisionalValues(form: Form): Values {
   return Object.fromEntries(
     CALIBRATED.map((id) => {
-      const v = PARAMS[id].provisional;
+      const v = inForm(id, PARAMS[id], form).provisional;
       if (v === undefined) throw new Error(`${id} has no provisional value`);
       return [id, v];
     }),
@@ -90,13 +92,18 @@ export function provisionalValues(): Values {
 }
 
 // A point in [0, 1]ⁿ, one coordinate for each of `ids` in their order, as parameter values in the registry's
-// units, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point inside.
-export function fromUnit(u: readonly number[], ids: readonly CalibratedId[] = CALIBRATED, fixed?: Values): Values {
+// units for a form, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point inside.
+export function fromUnit(
+  u: readonly number[],
+  form: Form,
+  ids: readonly CalibratedId[] = CALIBRATED,
+  fixed?: Values,
+): Values {
   if (u.length !== ids.length) throw new Error(`a candidate needs ${ids.length} coordinates`);
   if (ids.length !== CALIBRATED.length && !fixed) throw new Error('a search over some parameters needs the rest');
   const mapped = Object.fromEntries(
     ids.map((id, i) => {
-      const [lo, hi] = bounds(id);
+      const [lo, hi] = bounds(id, form);
       const t = clip(u[i]);
       // Held within the bounds, so rounding can't carry a value at a bound past it.
       const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
@@ -106,9 +113,9 @@ export function fromUnit(u: readonly number[], ids: readonly CalibratedId[] = CA
   return { ...fixed, ...mapped } as Values;
 }
 
-export function toUnit(values: Values, ids: readonly CalibratedId[] = CALIBRATED): number[] {
+export function toUnit(values: Values, form: Form, ids: readonly CalibratedId[] = CALIBRATED): number[] {
   return ids.map((id) => {
-    const [lo, hi] = bounds(id);
+    const [lo, hi] = bounds(id, form);
     const v = values[id];
     return MAPPING[id] === 'log' ? Math.log(v / lo) / Math.log(hi / lo) : (v - lo) / (hi - lo);
   });
@@ -273,6 +280,8 @@ export interface Fit {
 export async function calibrate(
   score: Scorer,
   options: {
+    // The form of the model searched, whose bounds and start g_sw and g_p take (PLAN §4.3).
+    form: Form;
     budget: number;
     ids?: readonly CalibratedId[];
     fixed?: Values;
@@ -286,8 +295,9 @@ export async function calibrate(
   },
 ): Promise<Fit> {
   const ids = options.ids ?? CALIBRATED;
-  const at = (u: readonly number[]): Values => fromUnit(u, ids, options.fixed);
-  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(), ids))];
+  const { form } = options;
+  const at = (u: readonly number[]): Values => fromUnit(u, form, ids, options.fixed);
+  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(form), form, ids))];
   if (start.length !== ids.length) throw new Error(`the start needs ${ids.length} coordinates`);
   const seed = options.seed ?? CALIBRATION.seed;
   let restart = 0;

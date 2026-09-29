@@ -96,3 +96,5 @@ The pinned basis for checkpoint 1 has 100 modes over 100 tangent angles, which c
 ## Starting postures
 
 The pinned real postures, which checkpoints 0 and 1 start their trials from, are 6,655 rows of 100 tangent angles, each with its mean removed to within 6.5e-6 rad. The first four eigenworms capture 96.46% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.
+
+Over the model's 37 proprioceptive fields, the magnitude of the postures' mean scaled curvature κL has a median of 4.22 and a 95th percentile of 8.34. PLAN §7.3's 1 mV rule takes the percentile, to one decimal place, for proprioception's bounds in the conductance form, and a test holds the registry's figure to it.

@@ -37,7 +37,7 @@ describe("the calibration's record", () => {
     expect(s.budget).toEqual({ crawl: 20, noise: 200 });
     // The probe records its own budget, stage 1 alone.
     expect(settings(2000, true).budget).toEqual({ crawl: 400 });
-    expect(s.start).toEqual(provisionalValues());
+    expect(s.start).toEqual(provisionalValues('current'));
     expect(SUMMARY.endsWith('data/calibration/r3.json')).toBe(true);
     expect(PROBE.endsWith('data/calibration/r3-probe.json')).toBe(true);
   });

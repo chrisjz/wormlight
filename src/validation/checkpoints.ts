@@ -139,6 +139,11 @@ export interface Diagnostics {
     lowest: number;
     highest: number;
   } | null;
+  // Added 2026-09-29, before any of it was built: in the conductance form, over every measured sample of every trial,
+  // the head switch's and proprioception's shunt, each the mean of per-target ratios of conductance to passive load
+  // (null for a layer with no targets); and how many times a second the head switch's gate turned on or off. Null in
+  // the current form.
+  shunt: { switch: number | null; proprioception: number | null; gateToggles: number } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -217,6 +222,25 @@ export function outsideRange(records: readonly TrialRecord[]): Diagnostics['outs
   return { mean: sum / samples, max, far: { mean: farSum / samples, max: farMax }, lowest, highest };
 }
 
+// The shunt's means over every measured sample of every trial in the conductance form, and the gate's turns a second.
+export function shuntShare(records: readonly TrialRecord[]): Diagnostics['shunt'] {
+  let [samples, toggles, sw, swSamples, proprio, proprioSamples] = [0, 0, 0, 0, 0, 0];
+  for (const r of records) {
+    const c = r.conductance;
+    if (!c) continue;
+    samples += c.samples;
+    toggles += c.gateToggles;
+    if (c.switchShunt !== null) [sw, swSamples] = [sw + c.switchShunt, swSamples + c.samples];
+    if (c.proprioShunt !== null) [proprio, proprioSamples] = [proprio + c.proprioShunt, proprioSamples + c.samples];
+  }
+  if (samples === 0) return null;
+  return {
+    switch: swSamples > 0 ? sw / swSamples : null,
+    proprioception: proprioSamples > 0 ? proprio / proprioSamples : null,
+    gateToggles: toggles / (samples * MOTION_SAMPLE),
+  };
+}
+
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
   const { peak, share } = spectralPeak(records);
   let count = 0;
@@ -245,6 +269,7 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
     avaChange: changes.length > 0 ? mean(changes) : null,
     avaSpread: spread,
     outside: outsideRange(records),
+    shunt: shuntShare(records),
   };
 }
 

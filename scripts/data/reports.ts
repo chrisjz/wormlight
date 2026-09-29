@@ -82,6 +82,9 @@ export interface BuildFacts {
   eigenworms: EigenwormCheck;
   // The real postures, and the share of their variance the first four modes capture.
   postures: PostureCheck & { captured: number };
+  // The magnitude of their mean κL over the model's proprioceptive fields: the fields, its median and its 95th
+  // percentile, which PLAN §7.3's 1 mV rule takes.
+  fieldCurvature: { fields: number; median: number; p95: number };
 }
 
 export function buildReport({
@@ -94,6 +97,7 @@ export function buildReport({
   exportCommit,
   eigenworms,
   postures,
+  fieldCurvature,
 }: BuildFacts): string {
   const chemical = data.chemical;
   const connections = chemical.length;
@@ -236,5 +240,6 @@ export function buildReport({
     `The pinned basis for checkpoint 1 has ${eigenworms.modes} modes over ${eigenworms.angles} tangent angles, which checkpoint 1 reads head first (an inferred orientation; see \`DATA_SOURCES.md\`). Its columns are orthonormal to within ${eigenworms.orthonormalError.toExponential(1)}, column ${eigenworms.rotationMode} is the constant rotation mode, and the first four modes, the ones checkpoint 1 uses, are free of rotation. It is read from its pinned URL and never redistributed.`,
     '## Starting postures',
     `The pinned real postures, which checkpoints 0 and 1 start their trials from, are ${grouped(postures.count)} rows of ${postures.angles} tangent angles, each with its mean removed to within ${postures.largestMean.toExponential(1)} rad. The first four eigenworms capture ${(100 * postures.captured).toFixed(2)}% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.`,
+    `Over the model's ${fieldCurvature.fields} proprioceptive fields, the magnitude of the postures' mean scaled curvature κL has a median of ${fieldCurvature.median.toFixed(2)} and a 95th percentile of ${fieldCurvature.p95.toFixed(2)}. PLAN §7.3's 1 mV rule takes the percentile, to one decimal place, for proprioception's bounds in the conductance form, and a test holds the registry's figure to it.`,
   ].join('\n\n');
 }

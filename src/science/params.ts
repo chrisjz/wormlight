@@ -37,7 +37,40 @@ export interface Param {
   // track R's model, the planned model's fit carried over (PLAN.md §6.2, §7.3; DECISIONS.md 2026-09-27), and
   // the coloured noise's set for it (DECISIONS.md 2026-09-28).
   provisional?: number;
+  // The head switch's and proprioception's gains in the conductance form (PLAN.md §4.3, set 2026-09-29): the same
+  // parameter, counted once, since a fit uses one form. The entry above is the current form's, which the refit runs.
+  conductance?: ConductanceForm;
 }
+
+// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
+// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
+export type Form = 'current' | 'conductance';
+
+// The parameters whose entries depend on the form: g_sw and g_p.
+export const FORM_DEPENDENT: readonly string[] = ['headSwitchGain', 'proprioceptiveGain'];
+
+// A parameter's value, bounds and start in a form. In the conductance form, g_sw and g_p take their conductance
+// entries, and one that lacks it is refused rather than read as the current form's.
+export function inForm(id: string, param: Param, form: Form): Pick<Param, 'value' | 'bounds' | 'provisional'> {
+  if (form === 'current' || !FORM_DEPENDENT.includes(id)) return param;
+  if (!param.conductance) throw new Error(`${id} has no conductance form`);
+  return param.conductance;
+}
+
+export interface ConductanceForm {
+  value: number | null;
+  unit: string;
+  bounds: readonly [number, number];
+  provisional: number;
+  rule: string;
+}
+
+// PLAN §7.3's 1 mV rule for the conductance form's bounds: at the lower bound no target moves more than 1 mV at
+// rest, and at the upper every target is held within 1 mV of the reversal potential it is driven towards, over
+// κ_gap,B's bounds; proprioception's taken per unit of the curvature below.
+export const BOUND_RULE_MV = 1;
+// The 95th percentile of real worms' |mean κL| over the model's proprioceptive fields, in the pinned postures.
+export const BOUND_RULE_CURVATURE = 8.3;
 
 export const FREE_PARAMETER_BUDGET = 18;
 const CALIBRATION_TARGETS =
@@ -313,7 +346,7 @@ export const PARAMS = {
     upgrade: 'The same phase-response fit made on agar',
   },
   headSwitchGain: {
-    name: 'Head switch current gain',
+    name: 'Head switch gain',
     symbol: 'g_sw',
     value: 311.74440224351065,
     unit: 'pA',
@@ -325,6 +358,13 @@ export const PARAMS = {
     upgrade: 'Recordings of the head rhythm generator',
     bounds: [20, 400],
     provisional: 371,
+    conductance: {
+      value: null,
+      unit: 'nS',
+      bounds: [0.02, 50],
+      provisional: 1,
+      rule: "PLAN §7.3's 1 mV rule over the SMDs, which gives 0.022–48 nS, rounded outward to one significant figure; it starts at the bounds' log midpoint",
+    },
   },
   oscillatorExcitability: {
     name: 'A-type oscillator excitability',
@@ -406,6 +446,13 @@ export const PARAMS = {
     upgrade: 'Identified stretch receptors and their gain',
     bounds: [0.1, 30],
     provisional: 0.308,
+    conductance: {
+      value: null,
+      unit: 'nS per unit of κL',
+      bounds: [0.0001, 8],
+      provisional: 0.028,
+      rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gives 0.00017–7.8, rounded outward to one significant figure; it starts at the bounds' log midpoint, 0.028 as the rules give it",
+    },
   },
 
   // Neuromuscular transfer and muscles (PLAN §4.4).

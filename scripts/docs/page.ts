@@ -109,7 +109,18 @@ function paramRows(ids: ParamId[]): string[][] {
         : p.bounds === null
           ? 'Its bounds are set before calibration runs.'
           : `Bounds ${formatNumber(p.bounds[0])} to ${formatNumber(p.bounds[1])}.`;
-    const note = [p.note, p.rule, p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '', bounds]
+    const c = p.conductance;
+    // The conductance form's entry beside the current form's (PLAN §4.3).
+    const conductance = c
+      ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
+      : '';
+    const note = [
+      p.note,
+      p.rule,
+      p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '',
+      bounds,
+      conductance,
+    ]
       .filter(Boolean)
       .join(' ');
     return [p.name, `\`${p.symbol}\``, formatValue(p), p.unit, String(p.level), cite(p.sources), note, p.upgrade];
@@ -145,7 +156,7 @@ export function fidelityPage(facts: Facts): string {
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    `> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling as checkpoint 1 asks for it does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), ${values} (DECISIONS.md, 2026-09-28). R's refit passes §7.2's equivalence test and fails checkpoint 1, so R's first round ended; a second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, so its fit wasn't chosen. A third, R's last, is paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, so they become conductances, and a survey of that model decides whether it runs (DECISIONS.md, 2026-09-29). Checkpoints 0 and 1 have run in the harness (\`VALIDATION.md\`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
+    `> **Status: milestone 4 done.** The CPU reference and the GPU simulate the network, the layers outside it, AWC-ON's sense of odour, touch and the body, and the app shows the worm on its dish, with food lawns the user can drop, move and remove, whose odour field is stepped on the GPU and smelt, a wall, and a way to touch it, but crawling as checkpoint 1 asks for it does not yet emerge (DECISIONS.md, 2026-09-26). The calibrated parameters are research track R's model's (PLAN §9), ${values} (DECISIONS.md, 2026-09-28). R's refit passes §7.2's equivalence test and fails checkpoint 1, so R's first round ended; a second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, so its fit wasn't chosen. A third, R's last, is paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, and a conductance form of them is built beside them, a survey of which decides whether it runs (DECISIONS.md, 2026-09-29). Checkpoints 0 and 1 have run in the harness (\`VALIDATION.md\`) and the other checkpoints haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],

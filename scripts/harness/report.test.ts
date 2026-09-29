@@ -9,7 +9,7 @@ import { formatNumber } from '../docs/page.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../data/sources.ts';
-import { checkedValues, parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
+import { checkedValues, formOf, parseArgs as equivalenceArgs, valuesOf } from './equivalence.ts';
 import { diagnosticsText } from './report.ts';
 import {
   checkpoint0Section,
@@ -355,10 +355,18 @@ describe('the harness report', () => {
     expect(() => checkedValues({ ...good, final: { values: short } }, 'x')).toThrow(/calibrated parameters/);
     const outside = { ...good.final.values, gapGainB: 7 };
     expect(() => checkedValues({ ...good, final: { values: outside } }, 'x')).toThrow(/bounds/);
+    // A record's form sets g_sw's and g_p's bounds: the refit's 312 pA lies outside the conductance form's 0.02–50 nS,
+    // and 1 nS outside the current form's 20–400 pA. A record that names none is the current form.
+    expect(formOf('refit')).toBe('current');
+    const conducting = { ...good, form: 'conductance' as const };
+    expect(() => checkedValues(conducting, 'x')).toThrow(/headSwitchGain lies outside/);
+    const inBox = { ...good.final.values, headSwitchGain: 1, proprioceptiveGain: 0.028 };
+    expect(checkedValues({ ...conducting, final: { values: inBox } }, 'x')).toEqual(inBox);
+    expect(() => checkedValues({ ...good, final: { values: inBox } }, 'x')).toThrow(/headSwitchGain lies outside/);
   });
 
   it("reports the voltage diagnostic when the trials carry it, and says nothing of it when they don't", () => {
-    const base = { peak: 0.3, share: 0.5, reversals: 0, afterFlip: 0, avaChange: null, avaSpread: null };
+    const base = { peak: 0.3, share: 0.5, reversals: 0, afterFlip: 0, avaChange: null, avaSpread: null, shunt: null };
     const outside = { mean: 16.04, max: 23, far: { mean: 4.26, max: 6 }, lowest: -217.84, highest: 203.16 };
     expect(diagnosticsText({ ...base, outside })).toContain(
       "16.0 neurons on average sat outside the model's reversal range, −48 to 0 mV, at each sample, and 23 at most; 4.3 on average, and 6 at most, sat more than 10 mV outside it; the voltages ran from −217.8 to 203.2 mV over every step of the measured windows.",
@@ -367,5 +375,16 @@ describe('the harness report', () => {
     const inside = { ...outside, lowest: -47.96, highest: -0.04 };
     expect(diagnosticsText({ ...base, outside: inside })).toContain('the voltages ran from −48.0 to 0.0 mV');
     expect(diagnosticsText({ ...base, outside: null })).not.toContain('reversal range');
+  });
+
+  it('reports the shunt in the conductance form, and says nothing of it in the current form', () => {
+    const base = { peak: 0.3, share: 0.5, reversals: 0, afterFlip: 0, avaChange: null, avaSpread: null, outside: null };
+    expect(diagnosticsText({ ...base, shunt: { switch: 1.234, proprioception: 0.0456, gateToggles: 0.25 } })).toContain(
+      "in the conductance form, the head switch's conductance came to 123% of its targets' passive loads and proprioception's to 4.6%, each shunt the mean of per-target ratios, and the switch's gate turned on or off 0.3 times a second.",
+    );
+    expect(diagnosticsText({ ...base, shunt: { switch: null, proprioception: 0.5, gateToggles: 0 } })).toContain(
+      "the head switch had no SMD left and proprioception's to 50%",
+    );
+    expect(diagnosticsText({ ...base, shunt: null })).not.toContain('conductance form');
   });
 });
