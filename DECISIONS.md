@@ -2457,7 +2457,7 @@ A review found, in trials of its own:
 
   Checkpoint 1's diagnostics report the open share, the margin's mean and standard deviation, and the switch's cycle rate: half its flips a second within the measured windows, beside the spectral peak. They appear in every fit's checkpoint 1 report from now on, the refit's included when the harness next runs it, and grade nothing.
 
-- **GPU parity's linear velocity floor** is 10⁻⁴ body lengths a second, as the rules set.
+- **GPU parity's linear velocity floor** is 10⁻⁴ body lengths a second, as the rules set. Changed after results: CI's GPU job timed out on this pull request, its checks running past their limit of 600 s on CI's software GPU. Its passing runs had taken 462 s on this pull request and 599 s on main, and the code the checks run hadn't changed. So the checks' limit is now 900 s and the job's 25 minutes. The checks' thresholds are unchanged.
 - **The targets' sources are registered**, as the rules said, and more widely.
   - Changed after review: the build first left Karbowski et al. 2006 out of `citations.ts`, since no registry entry cited it, nor the other targets' sources, and a test fails on a registered citation nothing uses.
   - The code uses their values, though, which CLAUDE.md's rule covers. So Fang-Yen et al. 2010, Ramot et al. 2008 and Karbowski et al. 2006 are registered, each checked against Crossref, and Karbowski's Table 2 against the arXiv preprint, not the published version.
