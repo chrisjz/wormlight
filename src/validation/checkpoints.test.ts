@@ -23,10 +23,11 @@ import {
   shuntShare,
   summariseTrial,
   touchClause,
+  TOUCH_NEEDS,
   touchSchedule,
 } from './checkpoints.ts';
 import { addPosture, emptySums } from './posture.ts';
-import type { TrialRecord } from './trial.ts';
+import { SHAM_SECONDS, type TrialRecord } from './trial.ts';
 
 // A record whose velocity is given; the rest is still.
 function record(velocity: number[], seed = 1): TrialRecord {
@@ -105,10 +106,19 @@ function still(seed: number, moves: (t: number) => number = () => 0): TrialRecor
   const velocity = Array.from({ length: SAMPLES }, (_, k) => moves(10 + k / 10));
   return { ...record(velocity, seed), seconds: TRIAL_SECONDS };
 }
-// The same trial touched as the protocol says, every touch reaching a receptor.
-const touched = (r: TrialRecord): TrialRecord => ({
+// The same trial touched as the protocol says, every touch reaching a receptor, and each touch's sham twin: the
+// trial's velocity up to the touch, then `twin`'s, until 3 s after it, where a twin's velocity ends.
+const touched = (r: TrialRecord, twin: (t: number) => number = () => 0): TrialRecord => ({
   ...r,
   touches: touchSchedule(r.seed).map(({ time, s }) => ({ time, s, reached: ['X'] })),
+  shams: touchSchedule(r.seed).map(({ time }) => ({
+    time,
+    finite: true,
+    unconverged: 0,
+    velocity: Array.from({ length: Math.round((time + 3 - 10) * 10) + 1 }, (_, k) =>
+      10 + k / 10 < time - 1e-9 ? r.velocity[k] : twin(10 + k / 10),
+    ),
+  })),
 });
 
 describe("checkpoint 0's touch clause", () => {
@@ -121,6 +131,7 @@ describe("checkpoint 0's touch clause", () => {
       back: 0.8,
       window: 2,
       anteriorPartial: 0.4,
+      posteriorFloor: 0.0012,
     });
     expect(touchSchedule(1).map((t) => [t.time, t.s, t.place])).toEqual([
       [20, 0.2, 'anterior'],
@@ -164,51 +175,67 @@ describe("checkpoint 0's touch clause", () => {
     expect(() => meanVelocity(r.velocity, 118, 121)).toThrow(/no velocity samples/);
   });
 
-  it('passes a network that ignores touch, and fails one that reverses or speeds up', () => {
+  it('passes a network that ignores touch, and fails one that reverses or speeds up against its sham twins', () => {
     const untouched = SEEDS.map((seed) => still(seed));
-    expect(touchClause(untouched.map(touched), untouched)).toMatchObject({
+    expect(touchClause(untouched.map((r) => touched(r)))).toMatchObject({
       grade: 'pass',
-      anterior: { touches: 50, followed: 0, matched: 0, p: 1, grade: 'pass' },
+      anterior: { touches: 50, followed: 0, shams: 0, touchedOnly: 0, shamOnly: 0, p: 1, grade: 'pass' },
       posterior: { touches: 50, pairs: 0, p: 1, grade: 'pass' },
     });
-    // Reversing after every anterior touch, and never in the matched windows.
-    const reversing = untouched.map((r) => {
-      const at = touchSchedule(r.seed).filter((t) => t.place === 'anterior');
-      return touched(still(r.seed, (t) => (at.some((a) => t >= a.time + 0.5 && t < a.time + 2) ? -0.05 : 0)));
-    });
-    const reversed = touchClause(reversing, untouched);
-    expect(reversed.anterior).toMatchObject({ followed: 50, share: 1, reflex: true, grade: 'fail' });
+    // Reversing after every anterior touch, the twins never: found, with McNemar's p of 2⁻⁵⁰.
+    const backing = (r: TrialRecord) => (t: number) =>
+      touchSchedule(r.seed).some((a) => a.place === 'anterior' && t >= a.time + 0.5 && t < a.time + 2) ? -0.05 : 0;
+    const reversing = untouched.map((r) => touched(still(r.seed, backing(r))));
+    const reversed = touchClause(reversing);
+    expect(reversed.anterior).toMatchObject({ followed: 50, touchedOnly: 50, share: 1, reflex: true, grade: 'fail' });
+    expect(reversed.anterior.p).toBeCloseTo(2 ** -50, 25);
     expect(reversed.grade).toBe('fail');
-    // As often in the matched windows: no reflex, however often.
-    expect(touchClause(reversing, reversing).anterior).toMatchObject({ followed: 50, matched: 50, reflex: false });
-    // Speeding up after every posterior touch.
-    const speeding = untouched.map((r) => {
-      const at = touchSchedule(r.seed).filter((t) => t.place === 'posterior');
-      return touched(still(r.seed, (t) => (at.some((a) => t > a.time && t < a.time + 2) ? 0.005 : 0)));
-    });
-    const sped = touchClause(speeding, untouched);
+    // Reversing as often in the twins: no reflex, however often.
+    const both = untouched.map((r) => touched(still(r.seed, backing(r)), backing(r)));
+    expect(touchClause(both).anterior).toMatchObject({ followed: 50, shams: 50, touchedOnly: 0, reflex: false });
+    // Faster than the twins after every posterior touch, by 0.005 body lengths a second: found.
+    const faster = (by: number) => (r: TrialRecord) => (t: number) =>
+      touchSchedule(r.seed).some((a) => a.place === 'posterior' && t > a.time && t < a.time + 2) ? by : 0;
+    const sped = touchClause(untouched.map((r) => touched(still(r.seed, faster(0.005)(r)))));
     expect(sped.posterior).toMatchObject({ pairs: 50, positive: 1275, reflex: true, grade: 'fail' });
+    expect(sped.posterior.difference).toBeCloseTo(0.005, 12);
     expect(sped.posterior.p).toBeCloseTo(2 ** -50, 20);
-    expect(sped.grade).toBe('fail');
-    // For context, the untouched twins over the same windows, and how far the touched trials moved from them.
-    expect(sped.posterior.twin).toEqual({ n: 0, positive: 0, p: 1 });
-    expect(sped.largestChange).toBe(0.005);
-    expect(touchClause(speeding, speeding).posterior.twin).toMatchObject({ n: 50, positive: 1275 });
-    expect(touchClause(speeding, speeding).largestChange).toBe(0);
+    // By 0.001, under the floor of 0.0012: significant, but no reflex.
+    const barely = touchClause(untouched.map((r) => touched(still(r.seed, faster(0.001)(r)))));
+    expect(barely.posterior).toMatchObject({ pairs: 50, reflex: false, grade: 'pass' });
+    // The before-and-after rise the first run graded by is reported beside it.
+    expect(sped.posterior.rise).toMatchObject({ n: 50, positive: 1275 });
+    expect(sped.posterior.after).toBeCloseTo(0.005, 12);
+    expect(sped.posterior.shamAfter).toBe(0);
   });
 
-  it('fails touches not made as the protocol says, or reaching no receptor, or a broken trial', () => {
+  it("gives each twin as long as a touch's windows need", () => {
+    expect(SHAM_SECONDS).toBe(TOUCH_NEEDS);
+  });
+
+  it('fails touches not made as the protocol says, without their twins, reaching no receptor, or a broken run', () => {
     const untouched = SEEDS.map((seed) => still(seed));
-    const quiet = untouched.map(touched);
-    expect(() => touchClause(untouched, untouched)).toThrow(/wasn't touched as the protocol says/);
-    expect(() => touchClause(quiet, untouched.slice(1))).toThrow(/no untouched trial/);
+    const quiet = untouched.map((r) => touched(r));
+    expect(() => touchClause(untouched)).toThrow(/wasn't touched as the protocol says/);
+    const twinless = quiet.map((r) => ({ ...r, shams: undefined }));
+    expect(() => touchClause(twinless)).toThrow(/no sham twin each/);
     const numb = quiet.map((r) => ({ ...r, touches: r.touches.map((t) => ({ ...t, reached: [] })) }));
-    expect(touchClause(numb, untouched).grade).toBe('fail');
-    expect(touchClause([{ ...quiet[0], finite: false }, ...quiet.slice(1)], untouched).grade).toBe('fail');
-    expect(touchClause([], untouched).grade).toBe('fail');
+    expect(touchClause(numb).grade).toBe('fail');
+    expect(touchClause([{ ...quiet[0], finite: false }, ...quiet.slice(1)]).grade).toBe('fail');
+    // A trial that broke between touches stops with the touches and twins it had, and fails rather than throws.
+    const cut = {
+      ...quiet[0],
+      finite: false,
+      touches: quiet[0].touches.slice(0, 2),
+      shams: quiet[0].shams?.slice(0, 2),
+    };
+    expect(touchClause([cut, ...quiet.slice(1)])).toMatchObject({ finite: false, grade: 'fail' });
+    const brokenTwin = { ...quiet[0], shams: quiet[0].shams?.map((s, k) => (k === 0 ? { ...s, finite: false } : s)) };
+    expect(touchClause([brokenTwin, ...quiet.slice(1)])).toMatchObject({ finite: false, grade: 'fail' });
+    expect(touchClause([]).grade).toBe('fail');
     // Trials too short for any touch leave both reflexes unmeasured; one kind alone leaves the other so.
-    const short = untouched.map((r) => ({ ...r, seconds: 23 }));
-    expect(touchClause(short, short)).toMatchObject({
+    const short = untouched.map((r) => ({ ...r, seconds: 23, shams: [] }));
+    expect(touchClause(short)).toMatchObject({
       grade: 'fail',
       anterior: { measured: false, touches: 0, grade: 'fail' },
       posterior: { measured: false, touches: 0, grade: 'fail' },
@@ -216,10 +243,10 @@ describe("checkpoint 0's touch clause", () => {
     const odd = untouched.filter((r) => r.seed % 2 === 1).map((r) => ({ ...r, seconds: 30 }));
     const once = touchClause(
       odd.map((r) => ({
-        ...r,
+        ...touched(r),
         touches: touchSchedule(r.seed, 30).map(({ time, s }) => ({ time, s, reached: ['X'] })),
+        shams: touched(r).shams?.slice(0, 1),
       })),
-      odd,
     );
     expect(once.anterior).toMatchObject({ measured: true, touches: 10, grade: 'pass' });
     expect(once.posterior).toMatchObject({ measured: false, touches: 0, grade: 'fail' });
@@ -244,19 +271,22 @@ const worm = (seed: number, reached: ChemotaxisRecord['reached']): ChemotaxisRec
 });
 
 describe("checkpoint 0's chemotaxis clause", () => {
-  it('counts every worm run, so none arriving gives 0, and passes within ±0.1', () => {
-    expect(CHECKPOINT_0_CHEMOTAXIS).toEqual({ worms: 30, seconds: 3600, within: 0.1 });
+  it('counts every worm run for the index, and fails only a significant lean to either spot', () => {
+    expect(CHECKPOINT_0_CHEMOTAXIS).toEqual({ worms: 30, seconds: 3600 });
     const none = Array.from({ length: 30 }, (_, i) => worm(i + 1, null));
-    expect(chemotaxisClause(none)).toMatchObject({ grade: 'pass', odour: 0, control: 0, index: 0 });
-    // 3 at the odour of 30: 0.1, on the edge.
-    const three = none.map((w, i) => (i < 3 ? worm(w.seed, 'odour') : w));
-    expect(chemotaxisClause(three)).toMatchObject({ grade: 'pass', index: 0.1 });
-    const four = none.map((w, i) => (i < 4 ? worm(w.seed, 'odour') : w));
-    expect(chemotaxisClause(four).grade).toBe('fail');
-    // Drawn to the control as much fails too.
-    const away = none.map((w, i) => (i < 4 ? worm(w.seed, 'control') : w));
-    expect(chemotaxisClause(away)).toMatchObject({ grade: 'fail', control: 4 });
-    expect(chemotaxisClause(away).index).toBeCloseTo(-4 / 30, 15);
+    expect(chemotaxisClause(none)).toMatchObject({ grade: 'pass', odour: 0, control: 0, index: 0, p: 1 });
+    // Five arrivals can't fail, all at one spot.
+    const five = none.map((w, i) => (i < 5 ? worm(w.seed, 'odour') : w));
+    expect(chemotaxisClause(five)).toMatchObject({ grade: 'pass', odour: 5 });
+    expect(chemotaxisClause(five).p).toBeCloseTo(0.0625, 12);
+    // Six at the odour, none at the control, fails; so does the same lean to the control.
+    const six = none.map((w, i) => (i < 6 ? worm(w.seed, 'odour') : w));
+    expect(chemotaxisClause(six)).toMatchObject({ grade: 'fail', odour: 6, index: 0.2 });
+    const away = none.map((w, i) => (i < 6 ? worm(w.seed, 'control') : w));
+    expect(chemotaxisClause(away)).toMatchObject({ grade: 'fail', control: 6 });
+    // Many arrivals split evenly pass, whatever the index would have said.
+    const even = none.map((w, i) => worm(w.seed, i % 2 === 0 ? 'odour' : 'control'));
+    expect(chemotaxisClause(even)).toMatchObject({ grade: 'pass', odour: 15, control: 15, p: 1 });
   });
 
   it('fails a worm that left the finite numbers, and a run with no worms', () => {
@@ -269,9 +299,19 @@ describe('checkpoint 0', () => {
   it('passes only if every clause passes', () => {
     const untouched = SEEDS.map((seed) => still(seed));
     const worms = Array.from({ length: 30 }, (_, i) => worm(i + 1, null));
-    expect(checkpoint0(untouched, untouched.map(touched), worms).grade).toBe('pass');
-    const drawn = worms.map((w, i) => (i < 4 ? worm(w.seed, 'odour') : w));
-    const result = checkpoint0(untouched, untouched.map(touched), drawn);
+    expect(
+      checkpoint0(
+        untouched,
+        untouched.map((r) => touched(r)),
+        worms,
+      ).grade,
+    ).toBe('pass');
+    const drawn = worms.map((w, i) => (i < 6 ? worm(w.seed, 'odour') : w));
+    const result = checkpoint0(
+      untouched,
+      untouched.map((r) => touched(r)),
+      drawn,
+    );
     expect([result.crawling.grade, result.touch.grade, result.chemotaxis.grade]).toEqual(['pass', 'pass', 'fail']);
     expect(result.grade).toBe('fail');
   });

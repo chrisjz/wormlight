@@ -68,7 +68,7 @@ const record: TrialRecord = {
   switchFlips: [],
   ava: zeros,
 };
-// The same trial touched as the protocol says, at 20, 40 and 60 s, and still throughout.
+// The same trial touched as the protocol says, at 20, 40 and 60 s, and still throughout, as are its sham twins.
 const touched: TrialRecord = {
   ...record,
   velocity: Array<number>(600).fill(0),
@@ -76,6 +76,12 @@ const touched: TrialRecord = {
     time,
     s,
     reached: s < 0.5 ? ['ALML', 'ALMR', 'AVM'] : ['PLML', 'PLMR'],
+  })),
+  shams: touchSchedule(1, 70).map(({ time }) => ({
+    time,
+    finite: true,
+    unconverged: 0,
+    velocity: Array<number>(Math.round((time + 3 - 10) * 10) + 1).fill(0),
   })),
 };
 const worm: ChemotaxisRecord = {
@@ -144,10 +150,10 @@ describe('the harness report', () => {
     expect(section).toContain('1 trial of 70 s, seed 1, each run untouched and touched, and 1 worm in the assay');
     expect(section).toContain('| Crawling | 0 forward bouts of 10 s or more | None in any trial | **Pass** |');
     expect(section).toContain(
-      'A reversal within 2 s after 0 of 2 touches (0%), and in 0 of the matched windows; p = 1.0',
+      "A reversal within 2 s after 0 of 2 touches (0%), and after 0 of their sham twins; 0 pairs with the touched copy's alone and 0 with the twin's alone, p = 1.0",
     );
     expect(section).toContain(
-      '| Chemotaxis | CI 0.00: 0 of 1 at the odour, 0 at the control | Within ±0.1 of zero | **Pass** |',
+      '| Chemotaxis | 0 arrivals: 0 of 1 worm at the odour, 0 at the control (CI 0.00); p = 1.0 |',
     );
     expect(section).toContain('1 reversal of 1 s or more, 1.00 a minute');
     expect(section).toContain('| 1 | 42 |');
@@ -156,10 +162,11 @@ describe('the harness report', () => {
     expect(section).toContain('each touched 3 times, 20 s apart from t = 20 s');
     expect(section).toContain('2 anterior touches and 1 posterior');
     expect(section).toContain('Each front touch reached ALML, ALMR, AVM; each back touch reached PLML, PLMR.');
-    expect(section).toContain('rising after 0 of 1 touch by 0 on average; p = 1.0');
-    expect(section).toContain('| 1 | F B F | 0 of 2 | 0 of 2 | 0.0000 → 0.0000 | 0 |');
-    // The touched trial lies still where its twin backed up at 0.05 body lengths per second.
-    expect(section).toContain("differs from its twin's by more than 5.0 × 10⁻² body lengths per second");
+    expect(section).toContain(
+      'Forward velocity over the 2 s after 1 touch: 0.0000 touched, 0.0000 in the sham twins (body lengths/s), a difference of 0 on average; p = 1.0',
+    );
+    expect(section).toContain('| 1 | F B F | 0 of 2 | 0 of 2 | 0.0000 / 0.0000 | 0 |');
+    expect(section).toContain('At each touch the world forked a sham twin');
     expect(section).toContain('| 1 | 7 | AWCR | Neither | 44.62 | 44.71 | 0.015 |');
     // A figure that rounds to zero carries no minus sign.
     const still = { ...record, velocity: Array<number>(600).fill(-0.00001) };
@@ -180,6 +187,7 @@ describe('the harness report', () => {
       ...touched,
       seconds: 30,
       touches: touchSchedule(1, 30).map(({ time, s }) => ({ time, s, reached: ['ALML', 'ALMR', 'AVM'] })),
+      shams: touched.shams?.slice(0, 1),
     };
     const section = checkpoint0Section(checkpoint0([record], [once], [worm]), { ...info, seconds: 30 });
     expect(section).toContain('each touched once, at t = 20 s, at the front (F, s = 0.2) on odd seeds');
@@ -192,9 +200,36 @@ describe('the harness report', () => {
       checkpoint0([record], [{ ...touched, finite: false }], [{ ...worm, finite: false, end: null }]),
       info,
     );
-    expect(broken).toContain('2 trials or worms left the finite numbers');
-    expect(broken).toContain('| Anterior touch | unmeasured: no touched trials, or one left the finite numbers |');
+    expect(broken).toContain('2 trials, twins or worms left the finite numbers');
+    expect(broken).toContain(
+      '| Anterior touch | unmeasured: no touched trials, or one or its sham twin left the finite numbers |',
+    );
     expect(broken).toContain('### Checkpoint 0: the silenced network — **Fail**');
+    // A twin that left the finite numbers, or whose solves didn't converge, counts with the trials.
+    const twinBroke: TrialRecord = {
+      ...touched,
+      shams: touched.shams?.map((s, k) => (k === 0 ? { ...s, finite: false, unconverged: 3 } : s)),
+    };
+    const twinned = checkpoint0Section(checkpoint0([record], [twinBroke], [worm]), info);
+    expect(twinned).toContain('1 trial, twin or worm left the finite numbers, and 3 brain solves failed to converge');
+    expect(twinned).toContain('unmeasured: no touched trials, or one or its sham twin left the finite numbers');
+  });
+
+  it('writes a failing touch and a single arrival as such', () => {
+    // The touched line backs up after its first anterior touch, at 20 s, where its twin lies still.
+    const backing: TrialRecord = {
+      ...touched,
+      velocity: touched.velocity.map((v, k) => (10 + k / 10 >= 20.5 && 10 + k / 10 < 22 ? -0.05 : v)),
+    };
+    const arrived = { ...worm, reached: 'odour' as const, time: 100 };
+    const section = checkpoint0Section(checkpoint0([record], [backing], [arrived]), info);
+    expect(section).toContain(
+      "A reversal within 2 s after 1 of 2 touches (50%), and after 0 of their sham twins; 1 pair with the touched copy's alone and 0 with the twin's alone, p = 0.50",
+    );
+    expect(section).toContain(
+      '| Chemotaxis | 1 arrival: 1 of 1 worm at the odour, 0 at the control (CI 1.00); p = 1.0 |',
+    );
+    expect(section).toContain('| 1 | F B F | 1 of 2 | 0 of 2 |');
   });
 
   it('writes small numbers with powers of ten', () => {

@@ -52,7 +52,15 @@ export interface TrialOptions extends StartOptions {
   seconds: number;
   // Touches, each starting with the step after its time (PLAN §7.4, checkpoint 0's touch clause).
   touches?: readonly TrialTouch[];
+  // Whether each touch forks a sham twin, as checkpoint 0's reruns grade them (PLAN §7.4, changed after results
+  // 2026-09-27): at the touch the world is copied, the copy takes a sham touch in its place, and it runs SHAM_SECONDS
+  // on while the touched line runs on.
+  shams?: boolean;
 }
+
+// How long a sham twin runs after its touch: as long as the touch's windows need, TOUCH_NEEDS in checkpoints.ts, which
+// a test holds it to.
+export const SHAM_SECONDS = 3.5;
 
 export interface TrialRecord {
   seed: number;
@@ -75,6 +83,10 @@ export interface TrialRecord {
   unconverged: number;
   // The touches made, and the receptors each reached.
   touches: (TrialTouch & { reached: string[] })[];
+  // With shams, each touch's twin, in the touches' order: whether it stayed finite, its brain solves that didn't
+  // converge, and its forward velocity from the first 10 s on, from the touched line's positions up to the touch and
+  // its own after, until 3 s after it, where the touch's windows end.
+  shams?: { time: number; finite: boolean; unconverged: number; velocity: number[] }[];
   // For checkpoint 1's diagnostics (PLAN §7.4): when the head switch flipped (s from the start), and AVA's
   // activation, the mean of AVAL's and AVAR's, aligned with the velocity samples.
   switchFlips: number[];
@@ -128,7 +140,7 @@ export function startingWorld(
 
 export function runTrial(data: WormlightData, options: TrialOptions): TrialRecord {
   const { seed, seconds } = options;
-  const { world, start } = startingWorld(data, options);
+  const { world, start, posture } = startingWorld(data, options);
   const { body } = world;
   const length = body.params.segmentLength * body.params.segments;
   const every = Math.round(MOTION_SAMPLE / NEURAL_STEP);
@@ -146,6 +158,20 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     due.set(step, t);
   }
   const touches: TrialRecord['touches'] = [];
+  const shams: NonNullable<TrialRecord['shams']> = [];
+  // A twin runs SHAM_SECONDS on, so its touch must leave it that long before the next touch and the trial's end:
+  // otherwise the touched line would take a touch its twin doesn't, or the twin would outrun the trial.
+  if (options.shams) {
+    const times = [...(options.touches ?? [])].map((t) => t.time).sort((a, b) => a - b);
+    times.forEach((time, k) => {
+      const next = k + 1 < times.length ? times[k + 1] : seconds;
+      if (time + SHAM_SECONDS > next + 1e-9) {
+        throw new Error(
+          `a touch at ${time} s leaves its sham twin under ${SHAM_SECONDS} s before the next touch or the end`,
+        );
+      }
+    });
+  }
   const switchFlips: number[] = [];
   let side = world.headSwitch.h;
   const avaIndex = ['AVAL', 'AVAR'].map((name) => data.neurons.findIndex((n) => n.name === name));
@@ -216,8 +242,47 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   };
   sample();
   scan();
+  // A sham twin of the world as it stands, at the touch before step s: a copy that takes a sham touch in its place
+  // and runs SHAM_SECONDS on, sampled as the touched line is. It draws the same noise, since its state and seed are
+  // the touched line's.
+  const shamTwin = (touch: TrialTouch, s: number): NonNullable<TrialRecord['shams']>[number] => {
+    const twin = new World(data, options.params, {
+      seed,
+      silenced: options.silenced,
+      lesions: options.lesions,
+      neuralSubsteps: options.neuralSubsteps,
+      noiseGrid: options.noiseGrid,
+      posture,
+      odour: options.odour,
+    });
+    twin.restore(world.snapshot());
+    const unconverged = twin.brain.unconverged;
+    twin.sham(touch.s);
+    const [c, h] = [[...centroid], [...head]];
+    let ok = true;
+    for (let j = 0; j < Math.round(SHAM_SECONDS / NEURAL_STEP); j++) {
+      twin.step();
+      if (!twin.body.x.every(Number.isFinite) || !twin.body.y.every(Number.isFinite)) {
+        ok = false;
+        break;
+      }
+      if ((s + j) % every === 0) {
+        let [x, y] = [0, 0];
+        for (let i = 0; i < twin.body.rods; i++) [x, y] = [x + twin.body.x[i], y + twin.body.y[i]];
+        c.push(x / twin.body.rods, y / twin.body.rods);
+        h.push(twin.body.x[0], twin.body.y[0]);
+      }
+    }
+    return {
+      time: touch.time,
+      finite: ok,
+      unconverged: twin.brain.unconverged - unconverged,
+      velocity: Array.from(forwardVelocity(c, h, length)),
+    };
+  };
   for (let s = 1; s <= steps; s++) {
     const touch = due.get(s - 1);
+    if (touch && options.shams) shams.push(shamTwin(touch, s));
     if (touch) touches.push({ ...touch, reached: world.touch(touch.s).map((r) => r.name) });
     // The margin this step's gate reads: the step computes the same drive before it moves anything.
     const m = world.headDrive() - world.params.driveThreshold;
@@ -273,6 +338,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     selfIntersecting,
     unconverged: world.brain.unconverged,
     touches,
+    ...(options.shams ? { shams } : {}),
     switchFlips,
     ava: aligned(avaSamples),
     ...(measured.length > 0

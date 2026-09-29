@@ -1,12 +1,12 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 //
-// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, and checkpoint 1 (PLAN §7.2, §7.4),
-// run on the CPU reference in parallel worker processes, one per core by default, on the calibrated
-// parameters, or the provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and touched, and 30 worms in the
-// chemotaxis assay for 60 min each. Each checkpoint's records and summary go to
-// harness-out/checkpoint-<n>.json, and its section of VALIDATION.md is regenerated. --trials and --seconds
-// shorten a run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run
-// leaves VALIDATION.md alone, since the checkpoints are fixed.
+// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, and checkpoint 1 (PLAN §7.2, §7.4), run on the
+// CPU reference in parallel worker processes, one per core by default, on the calibrated parameters, or the
+// provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and touched, each touch forking a sham
+// twin, and 30 worms in the chemotaxis assay for 60 min each. Each checkpoint's records and summary go to
+// harness-out/checkpoint-<n>.json, and its section of VALIDATION.md is regenerated. --trials and --seconds shorten a
+// run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run leaves VALIDATION.md
+// alone, since the checkpoints are fixed.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -84,9 +84,10 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
     assay ??= steadyField('assay');
     return runChemotaxis(cached.data, { ...common, odour: assay });
   }
+  // Each touched trial's touches fork sham twins, as checkpoint 0's reruns grade them (PLAN §7.4).
   return runTrial(cached.data, {
     ...common,
-    touches: job.kind === 'touched' ? touchSchedule(job.seed, job.seconds) : undefined,
+    ...(job.kind === 'touched' ? { touches: touchSchedule(job.seed, job.seconds), shams: true } : {}),
   });
 }
 

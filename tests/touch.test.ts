@@ -128,6 +128,28 @@ describe('the world touched', () => {
     expect(restartedAt).toEqual([40, 40 + TOUCH_STEPS]);
   });
 
+  it('restarts a sham touch where a touch would, with no current of its own (PLAN §7.4)', () => {
+    const [touched, sham] = [new World(data, QUIET, { seed: 1 }), new World(data, QUIET, { seed: 1 })];
+    const [a, b] = [restarts(touched), restarts(sham)];
+    expect(touched.touch(FRONT).map((r) => r.name)).toEqual(names(FRONT));
+    expect(sham.sham(FRONT).map((r) => r.name)).toEqual(names(FRONT));
+    for (let k = 0; k < TOUCH_STEPS + 20; k++) {
+      touched.step();
+      sham.step();
+      expect(Array.from(sham.touchApplied).every((c) => c === 0)).toBe(true);
+    }
+    // On at the first step and off after the pulse's 200, in both.
+    expect(a).toHaveLength(2);
+    expect(b).toEqual(a);
+    // A restored world has no sham under way.
+    const again = new World(data, QUIET, { seed: 1 });
+    again.sham(FRONT);
+    again.restore(new World(data, QUIET, { seed: 1 }).snapshot());
+    const c = restarts(again);
+    for (let k = 0; k < TOUCH_STEPS + 20; k++) again.step();
+    expect(c).toEqual([]);
+  });
+
   it('restarts a pulse already on, without a jump when the current is the same', () => {
     const world = new World(data, QUIET, { seed: 3 });
     const restartedAt = restarts(world);

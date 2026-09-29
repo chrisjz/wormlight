@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { equivalence, fisherGreater, incompleteBeta, signedRankGreater, spreadRatio, studentCdf } from './stats.ts';
+import {
+  binomialTwoSided,
+  equivalence,
+  fisherGreater,
+  incompleteBeta,
+  mcnemarGreater,
+  signedRankGreater,
+  spreadRatio,
+  studentCdf,
+} from './stats.ts';
 
 describe("Student's t", () => {
   it('matches the tables', () => {
@@ -108,5 +117,33 @@ describe('the Wilcoxon signed-rank test, one-sided', () => {
   it('finds nothing in differences that are all zero', () => {
     expect(signedRankGreater([0, 0, 0])).toEqual({ n: 0, positive: 0, p: 1 });
     expect(() => signedRankGreater([1, Number.NaN])).toThrow(/finite/);
+  });
+});
+
+// The exact binomial tails at one half, by hand: P(X ≥ k) for X ~ Binomial(n, ½) is the sum of C(n, x) / 2ⁿ over x ≥ k.
+describe("McNemar's exact test, one-sided", () => {
+  it('is the upper binomial tail of the discordant pairs at one half', () => {
+    expect(mcnemarGreater(0, 0)).toBe(1);
+    expect(mcnemarGreater(5, 0)).toBeCloseTo(1 / 32, 12);
+    // P(X ≥ 3 | n = 6) = (20 + 15 + 6 + 1) / 64.
+    expect(mcnemarGreater(3, 3)).toBeCloseTo(42 / 64, 12);
+    expect(mcnemarGreater(0, 4)).toBe(1);
+    expect(mcnemarGreater(50, 0)).toBeCloseTo(2 ** -50, 25);
+    expect(() => mcnemarGreater(-1, 2)).toThrow(/whole counts/);
+    expect(() => mcnemarGreater(1.5, 2)).toThrow(/whole counts/);
+  });
+});
+
+describe('the exact binomial test at one half, two-sided', () => {
+  it('doubles the larger count’s upper tail, capped at 1', () => {
+    expect(binomialTwoSided(0, 0)).toBe(1);
+    // Five arrivals can't fail at α = 0.05: all five at one spot gives 2 / 32.
+    expect(binomialTwoSided(5, 5)).toBeCloseTo(0.0625, 12);
+    expect(binomialTwoSided(0, 5)).toBeCloseTo(0.0625, 12);
+    expect(binomialTwoSided(6, 6)).toBeCloseTo(2 / 64, 12);
+    // P(X ≥ 9 | n = 10) = 11 / 1024, doubled.
+    expect(binomialTwoSided(9, 10)).toBeCloseTo(22 / 1024, 12);
+    expect(binomialTwoSided(3, 6)).toBe(1);
+    expect(() => binomialTwoSided(4, 3)).toThrow(/within its trials/);
   });
 });
