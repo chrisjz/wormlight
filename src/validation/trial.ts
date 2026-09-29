@@ -79,12 +79,18 @@ export interface TrialRecord {
   switchFlips: number[];
   ava: number[];
   // For the voltage diagnostic (PLAN §7.4, added 2026-09-29): how many neurons lie outside the model's reversal
-  // range at each sample, aligned with the velocity samples, and the lowest and highest voltages over them (mV).
-  // Records made before it have none.
+  // range at each sample, and how many lie more than FAR_OUTSIDE past it, aligned with the velocity samples; and
+  // the lowest and highest voltages at every step of the 0.1 s each of those samples starts (mV). Records made
+  // before it have none, and so does a trial too short to measure.
   outside?: number[];
+  far?: number[];
   lowest?: number;
   highest?: number;
 }
+
+// The voltage diagnostic's second count: neurons more than this far past the reversal range (mV). Ours, and
+// reported, not graded (PLAN §7.4, added after review 2026-09-29).
+export const FAR_OUTSIDE = 10;
 
 // The world at its start: the real posture its seed draws, turned, head at the dish's centre.
 export function startingWorld(
@@ -133,10 +139,20 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   let side = world.headSwitch.h;
   const avaIndex = ['AVAL', 'AVAR'].map((name) => data.neurons.findIndex((n) => n.name === name));
   const avaSamples: number[] = [];
-  // The reversal range: no synaptic or leak current can take a neuron past it; only injected currents can.
+  // The reversal range: no chemical synapse or leak can take a neuron past it. Injected currents can, and so can
+  // gap currents from a neuron already past it.
   const [floor, ceiling] = [PARAMS.reversalInhibitory.value as number, PARAMS.reversalExcitatory.value as number];
   const outsideSamples: number[] = [];
+  const farSamples: number[] = [];
+  // The voltages' extremes at every step, over the 0.1 s from each sample to the next.
   const extremes: [number, number][] = [];
+  let [low, high] = [Infinity, -Infinity];
+  const scan = (): void => {
+    for (const v of world.brain.voltage) {
+      if (v < low) low = v;
+      if (v > high) high = v;
+    }
+  };
   const centroid: number[] = [];
   const head: number[] = [];
   const bend: [number[], number[], number[]] = [[], [], []];
@@ -158,17 +174,18 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     bend[1].push(k[FRONT_ROD]);
     bend[2].push(k[REAR_ROD]);
     avaSamples.push(avaIndex.reduce((a, i) => a + world.brain.activation[i], 0) / avaIndex.length);
+    // A voltage that isn't a number counts as outside, in both counts.
     let outside = 0;
-    let [low, high] = [Infinity, -Infinity];
+    let far = 0;
     for (const v of world.brain.voltage) {
-      if (v < floor || v > ceiling) outside++;
-      low = Math.min(low, v);
-      high = Math.max(high, v);
+      if (!(v >= floor && v <= ceiling)) outside++;
+      if (!(v >= floor - FAR_OUTSIDE && v <= ceiling + FAR_OUTSIDE)) far++;
     }
     outsideSamples.push(outside);
-    extremes.push([low, high]);
+    farSamples.push(far);
   };
   sample();
+  scan();
   for (let s = 1; s <= steps; s++) {
     const touch = due.get(s - 1);
     if (touch) touches.push({ ...touch, reached: world.touch(touch.s).map((r) => r.name) });
@@ -181,13 +198,19 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
       side = world.headSwitch.h;
       switchFlips.push(s * NEURAL_STEP);
     }
-    if (s % every === 0) sample();
+    if (s % every === 0) {
+      extremes.push([low, high]);
+      [low, high] = [Infinity, -Infinity];
+      sample();
+    }
+    scan();
     if (s >= from && s % posturesEvery === 0) {
       const points = resample(body.midline());
       if (selfIntersects(points)) selfIntersecting++;
       else addPosture(sums, tangentAngles(points));
     }
   }
+  extremes.push([low, high]);
   const velocity = forwardVelocity(centroid, head, length);
   // The curvature samples that line up with the velocity's: from the first 10 s, as many as it has.
   const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
@@ -209,8 +232,13 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     touches,
     switchFlips,
     ava: aligned(avaSamples),
-    outside: aligned(outsideSamples),
-    lowest: Math.min(...measured.map(([low]) => low)),
-    highest: Math.max(...measured.map(([, high]) => high)),
+    ...(measured.length > 0
+      ? {
+          outside: aligned(outsideSamples),
+          far: aligned(farSamples),
+          lowest: measured.reduce((m, [lo]) => Math.min(m, lo), Infinity),
+          highest: measured.reduce((m, [, hi]) => Math.max(m, hi), -Infinity),
+        }
+      : {}),
   };
 }

@@ -5,12 +5,15 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { CAPTURE_RADIUS, CONTROL, SPOT, steadyField } from '../src/sim/env/dish.ts';
 import { BACK, FRONT } from '../src/sim/touch.ts';
+import { PARAMS } from '../src/science/params.ts';
 import { PLANNED } from '../src/science/planned.ts';
+import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { plannedParams, World } from '../src/sim/world.ts';
 import { runChemotaxis } from '../src/validation/chemotaxis.ts';
 import { SEEDS } from '../src/validation/checkpoints.ts';
+import { MEASURE_FROM, MOTION_SAMPLE } from '../src/validation/motion.ts';
 import { resample, tangentAngles } from '../src/validation/posture.ts';
-import { runTrial, startingPosture, startingWorld } from '../src/validation/trial.ts';
+import { FAR_OUTSIDE, runTrial, startingPosture, startingWorld } from '../src/validation/trial.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -88,12 +91,50 @@ describe('a trial', () => {
     // Velocity from 10 s to the last sample whose second-long window ends by 12 s: 10.0 to 11.5 s.
     expect(r.velocity.length).toBe(16);
     for (const a of [r.mid, r.front, r.rear]) expect(a.length).toBe(r.velocity.length);
-    // The voltage diagnostic, sample for sample, and its extremes over the same samples.
+    // The voltage diagnostic, sample for sample (its values are checked below).
     expect(r.outside).toHaveLength(r.velocity.length);
-    expect(r.lowest).toBeLessThanOrEqual(r.highest as number);
+    expect(r.far).toHaveLength(r.velocity.length);
     // Postures at 10.0, 10.25, … 12.0 s.
     expect(r.postures.count + r.selfIntersecting).toBe(9);
     expect(r.posture).toBe(startingPosture(2, POSTURES.length).index);
+  });
+
+  it('counts the voltages past the reversal range at the samples it measures, and finds their extremes at every step', () => {
+    const options = { seed: 2, seconds: 12, params: MECHANICS, postures: POSTURES };
+    const r = runTrial(data, options);
+    // The same world stepped alone: each measured sample stands for the 0.1 s it starts, from 10 s on.
+    const { world } = startingWorld(data, options);
+    const every = Math.round(MOTION_SAMPLE / NEURAL_STEP);
+    const first = Math.round(MEASURE_FROM / MOTION_SAMPLE) * every;
+    const end = first + r.velocity.length * every;
+    const [floor, ceiling] = [PARAMS.reversalInhibitory.value as number, PARAMS.reversalExcitatory.value as number];
+    const outside: number[] = [];
+    const far: number[] = [];
+    let [lowest, highest] = [Infinity, -Infinity];
+    for (let s = 1; s < end; s++) {
+      world.step();
+      if (s < first) continue;
+      const v = Array.from(world.brain.voltage);
+      lowest = Math.min(lowest, ...v);
+      highest = Math.max(highest, ...v);
+      if (s % every !== 0) continue;
+      outside.push(v.filter((x) => x < floor || x > ceiling).length);
+      far.push(v.filter((x) => x < floor - FAR_OUTSIDE || x > ceiling + FAR_OUTSIDE).length);
+    }
+    expect(r.outside).toEqual(outside);
+    expect(r.far).toEqual(far);
+    expect([r.lowest, r.highest]).toEqual([lowest, highest]);
+    // The planned model's head switch takes the SMDs well past the range, so the test isn't vacuous.
+    expect(Math.min(...far)).toBeGreaterThan(0);
+    // A trial too short to measure carries no diagnostic.
+    const short = runTrial(data, { ...options, seconds: 10.4 });
+    expect(short.velocity).toHaveLength(0);
+    expect([short.outside, short.far, short.lowest, short.highest]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });
 

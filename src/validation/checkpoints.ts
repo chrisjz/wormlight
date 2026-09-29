@@ -129,9 +129,16 @@ export interface Diagnostics {
   // deviation over the measured windows; null with no reversals, or no samples.
   avaChange: number | null;
   avaSpread: number | null;
-  // Added after results (2026-09-29): how many neurons sit outside the model's reversal range at a sample, on
-  // average and at most, and the lowest and highest voltages (mV); null when no record carries them.
-  outside: { mean: number; max: number; lowest: number; highest: number } | null;
+  // Added after results (2026-09-29): how many neurons sit outside the model's reversal range at a sample, and
+  // how many more than FAR_OUTSIDE past it, each on average and at most, and the lowest and highest voltages at
+  // any step (mV); null when no record carries them. The far count and every step came after review.
+  outside: {
+    mean: number;
+    max: number;
+    far: { mean: number; max: number };
+    lowest: number;
+    highest: number;
+  } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -188,16 +195,26 @@ export function spectralPeak(records: readonly { finite: boolean; mid: ArrayLike
 }
 
 // The voltage diagnostic over the trials that carry it, every sample weighted alike.
+// Over every sample of every trial that carries the diagnostic, in one pass: a spread of 200 trials' samples
+// would pass the engine's limit on arguments. Trials that left the finite numbers count too, since their
+// voltages up to then are the model's.
 export function outsideRange(records: readonly TrialRecord[]): Diagnostics['outside'] {
-  const carrying = records.filter((r) => r.outside && r.outside.length > 0);
-  if (carrying.length === 0) return null;
-  const all = carrying.flatMap((r) => r.outside as number[]);
-  return {
-    mean: all.reduce((a, b) => a + b, 0) / all.length,
-    max: Math.max(...all),
-    lowest: Math.min(...carrying.map((r) => r.lowest as number)),
-    highest: Math.max(...carrying.map((r) => r.highest as number)),
-  };
+  let [samples, sum, max, farSum, farMax] = [0, 0, 0, 0, 0];
+  let [lowest, highest] = [Infinity, -Infinity];
+  for (const r of records) {
+    if (!r.outside || !r.far || r.lowest === undefined || r.highest === undefined) continue;
+    for (let k = 0; k < r.outside.length; k++) {
+      samples++;
+      sum += r.outside[k];
+      max = Math.max(max, r.outside[k]);
+      farSum += r.far[k];
+      farMax = Math.max(farMax, r.far[k]);
+    }
+    lowest = Math.min(lowest, r.lowest);
+    highest = Math.max(highest, r.highest);
+  }
+  if (samples === 0) return null;
+  return { mean: sum / samples, max, far: { mean: farSum / samples, max: farMax }, lowest, highest };
 }
 
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
