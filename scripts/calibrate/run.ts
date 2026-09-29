@@ -24,9 +24,10 @@
 //
 // --round-3 runs R's third round, its last (PLAN §7.3, §9; THIRD_ROUND): phase 1, sixteen searches of 250 evaluations in
 // the conductance form from the survey's starts, on the crawl alone with a speed target of 0.15; then phase 2, the four
-// whose final checks score lowest continued to 750 each, their first 250 replayed from phase 1's. It grades nothing:
-// its four picks, in the order of their objective, take §7.2's comparison (npm run equivalence -- --fit round-3). It
-// writes harness-out/calibration-r5.json and data/calibration/r5.json; a resumed run keeps every search it had finished.
+// whose final checks score lowest continued to 750 each, their first 250 replayed from phase 1's record. It grades
+// nothing: its four picks, in the order of their objective, take §7.2's comparison (npm run equivalence -- --fit
+// round-3). It writes harness-out/calibration-r5.json and data/calibration/r5.json; a resumed run keeps every search it
+// had finished. It runs once, only after a survey that found a crawl.
 //
 // --bounded calibrates the bounded model once by the refit's procedure, should the survey find no crawl (PLAN §9): one
 // search of 2,000 evaluations on all four targets in the conductance form, from its provisional values, without
@@ -35,6 +36,7 @@
 // before it runs (PLAN §7.3).
 //
 // Every record is written whole or not at all; a trial past TRIAL_TIMEOUT is killed, and each worker's heap is capped.
+// No run starts afresh over a stopped one: --resume takes it up.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
