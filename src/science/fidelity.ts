@@ -383,7 +383,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       'Ji et al. 2021 (threshold 2.33 and derivative weight 46 ms, on curvature averaged over the 0.1–0.3 head region; level 2 on agar); Yeon et al. 2018 (SMDD proprioceptive)',
     caveats:
-      "The gain is calibrated (1); gating by network drive is ours (0). Its injected current has no reversal potential, where published switches keep their units bounded: R's refit holds the SMDs near ±210 mV, far outside the model's reversal range; a conductance form is set, to be built beside it (DECISIONS.md)",
+      "The gain is calibrated (1); gating by network drive is ours (0). Its injected current has no reversal potential, where published switches keep their units bounded: R's refit holds the SMDs near ±210 mV, far outside the model's reversal range; a conductance form is built beside it, which no fit uses yet (DECISIONS.md)",
     upgrade: 'Recordings of the head rhythm generator',
     sources: ['ji2021', 'yeon2018'],
     testedBy: [
@@ -424,7 +424,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3, 1],
     basis: "Wen et al. 2012: driven by bending of the ~200 µm in front of each neuron's muscles",
     caveats:
-      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; a conductance form is set, to be built beside it (DECISIONS.md)",
+      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; a conductance form is built beside it, which no fit uses yet (DECISIONS.md)",
     upgrade: 'Identified stretch receptors and their gain',
     sources: ['wen2012'],
     testedBy: [
@@ -438,10 +438,28 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1],
     basis: "Mirror of Wen's coupling; Gao et al. 2018 infer motor neurons are likely proprioceptive",
     caveats:
-      'No direct evidence; shares the B-type gain, and its injected current likewise has no reversal potential; a conductance form is set, to be built beside it (DECISIONS.md)',
+      'No direct evidence; shares the B-type gain, and its injected current likewise has no reversal potential; a conductance form is built beside it, which no fit uses yet (DECISIONS.md)',
     upgrade: 'Direct evidence on A-type sensing',
     sources: ['wen2012', 'gao2018'],
     testedBy: [{ check: 'checkpoint2' }],
+  },
+
+  {
+    name: 'Head switch and proprioception as conductances',
+    subsystem: 'rhythm',
+    levels: [1, 0],
+    basis:
+      "Push-pull conductances towards the synapses' reversal potentials (Wicks et al. 1996) in place of the injected currents (PLAN §4.3); the SMDs' stretch-sensing TRPC channels (Yeon et al. 2018) suit the excitatory half",
+    caveats:
+      "Built beside the current form, which the refit runs; no fit uses it yet. The form is ours (0) and its gains are calibrated (1), within bounds set by a 1 mV rule; using the synapses' reversal potentials for these channels is ours (0), and nothing is cited for the inhibitory halves. Since the targets' thresholds sit 4–15 mV below E_exc and 33–44 mV above E_inh, push-pull inhibits on average (DECISIONS.md)",
+    upgrade: 'Measured reversal potentials of the stretch-sensitive channels in SMD and the motor neurons',
+    sources: ['wicks1996', 'yeon2018'],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: 'the conductances hold the SMDs within the reversal range, and the GPU matches them by parity',
+      },
+    ],
   },
 
   // Sensing.

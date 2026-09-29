@@ -95,6 +95,8 @@ export interface LoopLayout {
   segmentConstants: Float32Array;
   // The scalars, by their names in the shader.
   scalars: Record<LoopScalar, number>;
+  // Whether the head switch and proprioception take the conductance form (PLAN §4.3).
+  conductance: boolean;
 }
 
 // What of the loop depends on a world's seed: which AWC is ON, and so its neuron, its gain and where it senses.
@@ -232,5 +234,6 @@ export function packLoop(world: World): LoopLayout {
       ...awc.scalars,
       odour_cell: odour.cell,
     },
+    conductance: params.form === 'conductance',
   };
 }

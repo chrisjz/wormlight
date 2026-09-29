@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BRAIN_SHADER,
   LOOP_SCALARS,
+  CONDUCTANCE_FORM_AT,
   LOOP_SCALARS_AT,
   NEURON_WORDS,
   NM_OFFSET_AT,
@@ -27,6 +28,8 @@ describe("the kernel's layout", () => {
     expect(params.slice(LOOP_SCALARS_AT, LOOP_SCALARS_AT + LOOP_SCALARS.length)).toEqual([...LOOP_SCALARS]);
     // GpuBrain writes where the muscles' offsets start after the scalars, and the block is whole 16 bytes.
     expect(params[NM_OFFSET_AT]).toBe('nm_offset_at');
+    // And whether the loop takes the conductance form in the word after it.
+    expect(params[CONDUCTANCE_FORM_AT]).toBe('conductance_form');
     expect(PARAM_WORDS % 4).toBe(0);
     expect(fields('NeuronConstants')[2]).toBe('osc_gain');
     expect(fields('State')).toHaveLength(STATE_WORDS);

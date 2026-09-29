@@ -14,6 +14,7 @@ import {
   cpuWorld,
   endVelocities,
   gaussianBound,
+  INTERVAL,
   LOOP_SETUPS,
   longWorld,
   loopCases,
@@ -27,8 +28,10 @@ import {
   tapped,
   WALL_COPIES,
   seededWorld,
+  SEED,
   variantSetup,
   VARIANT_LESIONS,
+  WARMUP,
 } from '../src/gpu/parityCases.ts';
 import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
 import { awcLayout, checkOdour, checkRing, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
@@ -196,6 +199,33 @@ describe("the loop's parity", () => {
     // The muscles aren't pinned off or on in relative units: their activations spread.
     const a = cases[cases.length - 1].state.muscles;
     expect(Math.max(...a) - Math.min(...a)).toBeGreaterThan(0.05);
+  });
+
+  it("includes the conductance form, whose switch flips, and at the box's upper corner turns on and off", () => {
+    for (const [name, gating] of [
+      ['conductance', false],
+      ['conductance, upper corner', true],
+    ] as const) {
+      const setup = LOOP_SETUPS.find((s) => s.name === name);
+      if (!setup) throw new Error(`no ${name} setup`);
+      expect(setup.params.form).toBe('conductance');
+      const world = new World(data, setup.params, {
+        seed: setup.seed ?? SEED,
+        switchThreshold: setup.switchThreshold,
+        odour: assayField(),
+      });
+      expect(packLoop(world).conductance).toBe(true);
+      // Over the span its states are taken from.
+      let [flips, toggles, h, open] = [0, 0, world.headSwitch.h, world.switchCurrent !== 0];
+      for (let k = 0; k < Math.round((WARMUP + INTERVAL * setup.states) / NEURAL_STEP); k++) {
+        world.step();
+        if (world.headSwitch.h !== h) [flips, h] = [flips + 1, world.headSwitch.h];
+        if ((world.switchCurrent !== 0) !== open) [toggles, open] = [toggles + 1, world.switchCurrent !== 0];
+      }
+      expect(flips, name).toBeGreaterThan(2);
+      if (gating) expect(toggles, name).toBeGreaterThan(2);
+    }
+    expect(packLoop(new World(data, LOOP_SETUPS[0].params)).conductance).toBe(false);
   });
 
   it("includes the values the app runs, the registry's, whatever a fit sets", () => {

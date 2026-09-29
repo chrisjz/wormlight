@@ -139,6 +139,9 @@ export interface Diagnostics {
     lowest: number;
     highest: number;
   } | null;
+  // Added 2026-09-29, before any of it was built: in the conductance form, the head switch's and proprioception's
+  // mean conductance at their targets over their passive loads, over every sample; null in the current form.
+  shunt: { switch: number; proprioception: number } | null;
 }
 
 export const SPECTRUM = { from: 0.02, band: [0.2, 0.45] } as const; // Hz
@@ -217,6 +220,20 @@ export function outsideRange(records: readonly TrialRecord[]): Diagnostics['outs
   return { mean: sum / samples, max, far: { mean: farSum / samples, max: farMax }, lowest, highest };
 }
 
+// The shunt's means over every sample of every trial that carries it, in one pass.
+export function shuntShare(records: readonly TrialRecord[]): Diagnostics['shunt'] {
+  let [samples, sw, proprio] = [0, 0, 0];
+  for (const r of records) {
+    if (!r.shunt) continue;
+    for (let k = 0; k < r.shunt.switch.length; k++) {
+      samples++;
+      sw += r.shunt.switch[k];
+      proprio += r.shunt.proprioception[k];
+    }
+  }
+  return samples === 0 ? null : { switch: sw / samples, proprioception: proprio / samples };
+}
+
 export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
   const { peak, share } = spectralPeak(records);
   let count = 0;
@@ -245,6 +262,7 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
     avaChange: changes.length > 0 ? mean(changes) : null,
     avaSpread: spread,
     outside: outsideRange(records),
+    shunt: shuntShare(records),
   };
 }
 

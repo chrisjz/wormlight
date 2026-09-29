@@ -4,6 +4,7 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
+import { passiveLoads } from '../sim/brain/brain.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { curvature } from '../sim/proprio.ts';
@@ -86,6 +87,10 @@ export interface TrialRecord {
   far?: number[];
   lowest?: number;
   highest?: number;
+  // In the conductance form (PLAN §7.4, added 2026-09-29), the shunt: at each sample, aligned with the velocity
+  // samples, the mean over each layer's targets of its conductance over their passive loads at rest, for the head
+  // switch's SMDs and for proprioception's A- and B-types. Trials in the current form have none.
+  shunt?: { switch: number[]; proprioception: number[] };
 }
 
 // The voltage diagnostic's second count: neurons more than this far past the reversal range (mV). Ours, and
@@ -144,6 +149,16 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const [floor, ceiling] = [PARAMS.reversalInhibitory.value as number, PARAMS.reversalExcitatory.value as number];
   const outsideSamples: number[] = [];
   const farSamples: number[] = [];
+  // The shunt's targets, and their passive loads in this world's network, lesioned or silenced as it is.
+  const conducting = world.params.form === 'conductance';
+  const loads = conducting ? passiveLoads(world.brain.network) : null;
+  const switchTargets = [...world.dorsalSwitch, ...world.ventralSwitch];
+  const fieldTargets = world.fields.map((f) => f.neuron);
+  const shunt: { switch: number[]; proprioception: number[] } = { switch: [], proprioception: [] };
+  const share = (targets: readonly number[]): number =>
+    loads && targets.length > 0
+      ? targets.reduce((sum, i) => sum + world.brain.conductance[i] / loads[i], 0) / targets.length
+      : 0;
   // The voltages' extremes at every step, over the 0.1 s from each sample to the next.
   const extremes: [number, number][] = [];
   let [low, high] = [Infinity, -Infinity];
@@ -183,6 +198,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     }
     outsideSamples.push(outside);
     farSamples.push(far);
+    if (conducting) {
+      shunt.switch.push(share(switchTargets));
+      shunt.proprioception.push(share(fieldTargets));
+    }
   };
   sample();
   scan();
@@ -238,6 +257,9 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
           far: aligned(farSamples),
           lowest: measured.reduce((m, [lo]) => Math.min(m, lo), Infinity),
           highest: measured.reduce((m, [, hi]) => Math.max(m, hi), -Infinity),
+          ...(conducting
+            ? { shunt: { switch: aligned(shunt.switch), proprioception: aligned(shunt.proprioception) } }
+            : {}),
         }
       : {}),
   };

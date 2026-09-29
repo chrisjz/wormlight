@@ -62,6 +62,8 @@ const fixed = (x: number, digits: number): string => {
   return /^-0(\.0*)?$/.test(text) ? text.slice(1) : text.replace(/^-/, '−');
 };
 const percent = (x: number): string => `${(100 * x).toFixed(0)}%`;
+// A share that may be small, as a percentage: two significant figures below 10%, whole ones above.
+const small = (x: number): string => `${100 * x < 10 ? (100 * x).toPrecision(2) : (100 * x).toFixed(0)}%`;
 // Shares as whole percentages that add up to 100, by largest remainder.
 export function shares(parts: readonly number[]): string[] {
   const total = parts.reduce((a, b) => a + b, 0);
@@ -332,6 +334,11 @@ export function diagnosticsText(d: Diagnostics): string {
           `${d.outside.mean.toFixed(1)} neurons on average sat outside the model's reversal range, ${fixed(PARAMS.reversalInhibitory.value, 0)} to ${fixed(PARAMS.reversalExcitatory.value, 0)} mV, at each sample, and ${d.outside.max} at most`,
           `${d.outside.far.mean.toFixed(1)} on average, and ${d.outside.far.max} at most, sat more than ${FAR_OUTSIDE} mV outside it`,
           `the voltages ran from ${fixed(d.outside.lowest, 1)} to ${fixed(d.outside.highest, 1)} mV over every step of the measured windows`,
+        ]),
+    ...(d.shunt === null
+      ? []
+      : [
+          `in the conductance form, the head switch's conductance came to ${small(d.shunt.switch)} of its targets' passive loads on average, and proprioception's to ${small(d.shunt.proprioception)}`,
         ]),
   ];
   return `Diagnostics, reported and not graded (PLAN §7.4): ${parts.join('; ')}.`;

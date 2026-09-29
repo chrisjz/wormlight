@@ -1,6 +1,6 @@
 // One simulated worm (PLAN §1): the brain, the layers outside it (spec §1.1) and the body, stepped in the
 // plan's order. A step reads the body's curvature and the odour at the nose, sets the proprioceptive, AWC,
-// touch and head-switch currents, advances the brain, turns its activation into muscle activation and
+// touch and head-switch inputs, advances the brain, turns its activation into muscle activation and
 // advances the body.
 
 import type { WormlightData } from '../data/schema.ts';
@@ -23,15 +23,25 @@ import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } f
 import { AWC_GAIN, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
 
+// The model's reversal potentials (mV), which the conductance form drives towards.
+const EXCITATORY = PARAMS.reversalExcitatory.value;
+const INHIBITORY = PARAMS.reversalInhibitory.value;
+
+// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
+// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
+export type Form = 'current' | 'conductance';
+
 // The calibrated parameters (PLAN §6.2), in the units the simulation uses.
 export interface LoopParams {
   // g_osc (nS), τ_w (s) and θ_osc (mV).
   oscillatorGain: number;
   recoveryTime: number;
   driveThreshold: number;
-  // g_sw and g_p (pA per unit of scaled curvature).
+  // g_sw and g_p: in the current form pA (g_p per unit of scaled curvature), in the conductance form nS.
   switchGain: number;
   proprioceptiveGain: number;
+  // Their form; left out, the current form.
+  form?: Form;
   // g_nmj (per EM section) and θ_nmj (EM sections), or with relativeDrive per unit of relative drive and in it.
   neuromuscularGain: number;
   neuromuscularThreshold: number;
@@ -58,7 +68,7 @@ export interface RValues extends PlannedValues {
   // τ_n (s), the coloured noise's correlation time; σ_n is then the coloured current's intensity.
   noiseCorrelation: number;
 }
-export function loopParams(values: RValues): LoopParams {
+export function loopParams(values: RValues, form: Form = 'current'): LoopParams {
   return {
     ...plannedParams(values),
     oscillatorGainB: values.oscillatorExcitabilityB / 1000, // pS → nS
@@ -66,6 +76,7 @@ export function loopParams(values: RValues): LoopParams {
     smdGain: values.smdGain,
     relativeDrive: true,
     noiseCorrelation: values.noiseCorrelation,
+    ...(form === 'conductance' ? { form } : {}),
   };
 }
 
@@ -100,16 +111,28 @@ export const CALIBRATED = [
   'noiseCorrelation',
 ] as const;
 
-// The registry's values, once calibrated, or those of a registry standing in for it.
-export function calibratedParams(registry: Record<string, Param> = PARAMS): LoopParams {
-  const values = Object.fromEntries(CALIBRATED.map((id) => [id, registry[id].value]));
+// The registry's values, once calibrated, or those of a registry standing in for it, in a form: in the conductance
+// form, g_sw's and g_p's are their conductance entries'.
+export function calibratedParams(registry: Record<string, Param> = PARAMS, form: Form = 'current'): LoopParams {
+  const values = Object.fromEntries(
+    CALIBRATED.map((id) => [
+      id,
+      form === 'conductance' && registry[id].conductance ? registry[id].conductance.value : registry[id].value,
+    ]),
+  );
   if (Object.values(values).some((v) => v === null)) throw new Error('the loop parameters are not calibrated yet');
-  return loopParams(values as unknown as RValues);
+  return loopParams(values as unknown as RValues, form);
 }
 
-// The registry's provisional values, which the simulation runs on until calibration (PLAN §6.2).
-export function provisionalParams(): LoopParams {
-  return loopParams(Object.fromEntries(CALIBRATED.map((id) => [id, PARAMS[id].provisional])) as unknown as RValues);
+// The registry's provisional values, which the simulation runs on until calibration (PLAN §6.2), in a form.
+export function provisionalParams(form: Form = 'current'): LoopParams {
+  const values = Object.fromEntries(
+    CALIBRATED.map((id) => {
+      const { conductance } = PARAMS[id] as Param;
+      return [id, form === 'conductance' && conductance ? conductance.provisional : PARAMS[id].provisional];
+    }),
+  );
+  return loopParams(values as unknown as RValues, form);
 }
 
 // Whether calibration has set every calibrated parameter's value.
@@ -158,7 +181,8 @@ export interface WorldState {
   velocity: Float64Array;
   // Each muscle's activation.
   muscles: Float64Array;
-  // The head switch: its state, the head's curvature at its last update, and the current it drove.
+  // The head switch: its state, the head's curvature at its last update, and the current it drove, or in the
+  // conductance form the conductance it opened, signed by the side it drove, dorsal positive.
   h: number;
   previousCurvature: number | null;
   switchCurrent: number;
@@ -182,7 +206,8 @@ export class World {
   readonly headSwitch: HeadSwitch;
   readonly fields: Field[];
   readonly curvature: Float64Array;
-  // The head-switch current into the dorsal SMDs, the opposite into the ventral ones.
+  // The head-switch current into the dorsal SMDs, the opposite into the ventral ones; in the conductance form, the
+  // conductance it opens, positive when it drives the dorsal side and 0 while its gate is shut.
   switchCurrent = 0;
   // The SMDs the switch drives, and the body coordinates whose curvature it reads.
   readonly dorsalSwitch: readonly number[];
@@ -408,11 +433,26 @@ export class World {
   step(): void {
     const dt = NEURAL_STEP;
     const { brain, body, params } = this;
+    const conducting = params.form === 'conductance';
     curvature(body, this.curvature);
     brain.input.fill(0);
+    brain.conductance.fill(0);
+    brain.conductanceCurrent.fill(0);
+    // In the conductance form, a conductance g towards a reversal potential E (PLAN §4.3).
+    const open = (i: number, g: number, excitatory: boolean): void => {
+      brain.conductance[i] += g;
+      brain.conductanceCurrent[i] += g * (excitatory ? EXCITATORY : INHIBITORY);
+    };
     for (const field of this.fields) {
-      brain.input[field.neuron] +=
-        params.proprioceptiveGain * field.side * regionMean(this.curvature, field.from, field.to);
+      if (conducting) {
+        // K_f, positive when the body bends towards the neuron's own side, opens g_p·|K_f| towards E_exc when
+        // positive and towards E_inh when negative, both taken at the step's start.
+        const bend = field.side * regionMean(this.curvature, field.from, field.to);
+        if (bend !== 0) open(field.neuron, params.proprioceptiveGain * Math.abs(bend), bend > 0);
+      } else {
+        brain.input[field.neuron] +=
+          params.proprioceptiveGain * field.side * regionMean(this.curvature, field.from, field.to);
+      }
     }
     // AWC-ON's threshold follows the odour at the nose, and the difference drives it (PLAN §4.1).
     const awc = this.awc.step(this.smell(), dt);
@@ -430,14 +470,28 @@ export class World {
     });
     const gated = this.headDrive() > params.driveThreshold;
     this.headSwitch.update(regionMean(this.curvature, this.headFrom, this.headTo), dt, gated);
-    const current = gated ? params.switchGain * (this.headSwitch.h - 0.5) : 0;
-    // The switch current jumps when it flips or is gated on or off, a touch current when it switches on or off
+    const dorsal = this.headSwitch.h === 1;
+    // In the conductance form, the whole g_sw on each SMD: towards E_exc on the side h names, towards E_inh on the
+    // other.
+    const current = gated
+      ? conducting
+        ? (dorsal ? 1 : -1) * params.switchGain
+        : params.switchGain * (this.headSwitch.h - 0.5)
+      : 0;
+    // The switch's input jumps when it flips or is gated on or off, a touch current when it switches on or off
     // or a new tap changes it, and AWC-ON's when the odour at the nose changes fast; BDF2 across a jump is first
     // order.
     if (current !== this.switchCurrent || touchJumped || awcJumped) brain.restart();
     this.switchCurrent = current;
-    for (const i of this.dorsalSwitch) brain.input[i] += current;
-    for (const i of this.ventralSwitch) brain.input[i] -= current;
+    if (conducting) {
+      if (current !== 0) {
+        for (const i of this.dorsalSwitch) open(i, params.switchGain, dorsal);
+        for (const i of this.ventralSwitch) open(i, params.switchGain, !dorsal);
+      }
+    } else {
+      for (const i of this.dorsalSwitch) brain.input[i] += current;
+      for (const i of this.ventralSwitch) brain.input[i] -= current;
+    }
     for (let k = 0; k < this.substeps; k++) brain.step(dt / this.substeps);
     this.muscles.step(dt, brain.activation);
     this.muscles.segments(body.dorsal, body.ventral);

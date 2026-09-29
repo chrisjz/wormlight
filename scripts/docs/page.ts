@@ -109,7 +109,18 @@ function paramRows(ids: ParamId[]): string[][] {
         : p.bounds === null
           ? 'Its bounds are set before calibration runs.'
           : `Bounds ${formatNumber(p.bounds[0])} to ${formatNumber(p.bounds[1])}.`;
-    const note = [p.note, p.rule, p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '', bounds]
+    const c = p.conductance;
+    // The conductance form's entry beside the current form's (PLAN §4.3).
+    const conductance = c
+      ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
+      : '';
+    const note = [
+      p.note,
+      p.rule,
+      p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '',
+      bounds,
+      conductance,
+    ]
       .filter(Boolean)
       .join(' ');
     return [p.name, `\`${p.symbol}\``, formatValue(p), p.unit, String(p.level), cite(p.sources), note, p.upgrade];

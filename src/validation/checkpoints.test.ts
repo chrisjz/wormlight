@@ -19,6 +19,7 @@ import {
   outsideRange,
   overall,
   reversalFrom,
+  shuntShare,
   summariseTrial,
   touchClause,
   touchSchedule,
@@ -353,6 +354,18 @@ describe("checkpoint 1's diagnostics", () => {
     ]);
     expect(d.outside).toEqual({ mean: 3, max: 6, far: { mean: 1.5, max: 3 }, lowest: -60, highest: 12 });
     expect(diagnostics([quiet]).outside).toBeNull();
+  });
+
+  it('average the shunt over every sample of every trial in the conductance form, and give none in the current form', () => {
+    const quiet = record(new Array<number>(4).fill(0));
+    const conducting = [
+      { ...quiet, shunt: { switch: [1, 3], proprioception: [0.5, 1.5] } },
+      { ...quiet, shunt: { switch: [2], proprioception: [1] } },
+      quiet,
+    ];
+    expect(shuntShare(conducting)).toEqual({ switch: 2, proprioception: 1 });
+    expect(diagnostics(conducting).shunt).toEqual({ switch: 2, proprioception: 1 });
+    expect(shuntShare([quiet])).toBeNull();
   });
 
   it("count 200 trials' samples, as §7.2's comparison grades, without spreading them as arguments", () => {

@@ -82,6 +82,11 @@ function held(network: Network, s: number, input?: Float64Array): { d: Float64Ar
   return { d, b };
 }
 
+// Each neuron's passive load at rest (nS): its leak, its gap junctions and its synapses at the midpoint activation,
+// with its partners held and the oscillators off. The conductance form's bounds and shunt are taken against it
+// (PLAN §4.3, §7.3).
+export const passiveLoads = (network: Network): Float64Array => held(network, midpointActivation(network)).d;
+
 function solveHeld(network: Network, d: Float64Array, b: Float64Array, x: Float64Array, tolerance: number): void {
   const n = network.names.length;
   const solve = new ConjugateGradient(n).solve(d, network.gap, b, x, tolerance, 10 * n);
@@ -137,6 +142,11 @@ export class Brain {
   readonly threshold: Float64Array;
   // The external current during the next step, applied at its end as the implicit scheme reads it.
   readonly input: Float64Array;
+  // The conductances the layers outside the brain open during the next step (nS), and the current each would carry
+  // at 0 mV, Σ g·E (pA). The solve takes them as it takes a synapse's, on its diagonal and its right-hand side, so
+  // they hold a neuron between their reversal potentials; left at 0, the step is the same, bit for bit.
+  readonly conductance: Float64Array;
+  readonly conductanceCurrent: Float64Array;
   // The current noise's intensity, σ_n in current·√s. As white noise, each step adds σ_n/√dt times a standard
   // normal draw.
   noise = 0;
@@ -180,6 +190,8 @@ export class Brain {
     this.voltage = new Float64Array(n);
     this.activation = new Float64Array(n);
     this.input = new Float64Array(n);
+    this.conductance = new Float64Array(n);
+    this.conductanceCurrent = new Float64Array(n);
     this.previousVoltage = new Float64Array(n);
     this.previousActivation = new Float64Array(n);
     this.d = new Float64Array(n);
@@ -287,8 +299,12 @@ export class Brain {
     const noise = this.noise > 0 && plain ? this.noise / Math.sqrt(dt) : 0;
     const drawn = this.noise > 0 && !plain ? this.drawNoise(dt) : null;
     for (let i = 0; i < n; i++) {
-      let g = a * c + network.leak;
-      let current = c * (bdf2 ? 2 * v[i] - 0.5 * vp[i] : v[i]) + network.leak * network.leakPotential + this.input[i];
+      let g = a * c + network.leak + this.conductance[i];
+      let current =
+        c * (bdf2 ? 2 * v[i] - 0.5 * vp[i] : v[i]) +
+        network.leak * network.leakPotential +
+        this.input[i] +
+        this.conductanceCurrent[i];
       if (noise > 0) current += noise * gaussian(this.seed, this.steps, i);
       else if (drawn) current += drawn[i];
       for (let k = gap.start[i]; k < gap.start[i + 1]; k++) g += gap.weight[k];

@@ -2,8 +2,8 @@
 // order. The brain (PLAN §3.4) is Brain.step in src/sim/brain/brain.ts: the voltages by BDF2 (implicit Euler
 // without a history), solved by Jacobi-preconditioned conjugate gradients warm-started from the last step;
 // then activation and the oscillators' recovery by BDF2 at the new voltages. With `looping` on, each step is
-// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive currents, AWC-ON's sensing, touch
-// and the head switch, the brain, the neuromuscular layer, and the body under resistive force theory, whose
+// World.step in src/sim/world.ts (PLAN §1): curvature, the proprioceptive inputs, AWC-ON's sensing, touch
+// and the head switch, whose inputs are currents or, in the conductance form, conductances, the brain, the neuromuscular layer, and the body under resistive force theory, whose
 // block-tridiagonal system is solved by block cyclic reduction (PLAN §5.1). The whole simulation runs in one
 // workgroup, each invocation holding its neurons' and its rod's state in registers, so a dispatch can take many
 // steps with nothing but barriers between them.
@@ -17,6 +17,7 @@
 // None of this changes the model. Compilers that reassociate floating-point arithmetic, as Metal's does, give
 // back some of the precision; parity measures what is left (DECISIONS.md, 2026-09-26).
 
+import { PARAMS } from '../science/params.ts';
 import { AWC_JUMP, WALL_SOFTENING } from '../sim/numerics.ts';
 import { RNG_WGSL } from './rngShader.ts';
 
@@ -31,10 +32,12 @@ export const MAX_RODS = BCR_ROWS;
 export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
-// loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS, and where in the weights the muscles' offsets
-// start, padded to a whole 16 bytes.
+// loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS, where in the weights the muscles' offsets
+// start, and whether the head switch and proprioception take the conductance form (PLAN §4.3), padded to a whole
+// 16 bytes.
 export const PARAM_WORDS = 60;
 export const NM_OFFSET_AT = 56;
+export const CONDUCTANCE_FORM_AT = 57;
 export const LOOP_SCALARS_AT = 32;
 export const LOOP_SCALARS = [
   'proprio_gain',
@@ -183,7 +186,7 @@ struct Params {
   awc_along: f32,
   odour_cell: f32,
   nm_offset_at: u32,
-  _pad2: u32,
+  conductance_form: u32,
   _pad3: u32,
   _pad4: u32,
 }
@@ -250,6 +253,9 @@ struct Status {
 
 const FHN_A: f32 = 0.7;
 const FHN_B: f32 = 0.8;
+// The model's reversal potentials (mV), which the conductance form drives towards.
+const E_EXC: f32 = ${PARAMS.reversalExcitatory.value}f;
+const E_INH: f32 = ${PARAMS.reversalInhibitory.value}f;
 
 // Workgroup memory comes to 15,364 bytes of the 16,384 WebGPU guarantees, and the bindings above hold the 8
 // storage buffers a stage may have by default; the tests hold both to those limits.
@@ -652,6 +658,7 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
     coloured,
   );
   let looping = params.looping == 1u;
+  let conducting = params.conductance_form == 1u;
   let rods = params.rods;
   let segments = rods - 1u;
 
@@ -669,6 +676,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var p: array<f32, ${per}>;
   var q: array<f32, ${per}>;
   var drive_in: array<f32, ${per}>;
+  // In the conductance form, each neuron's conductance from the layers outside the brain (nS) and Σ g·E (pA).
+  var g_in: array<f32, ${per}>;
+  var ge_in: array<f32, ${per}>;
   var touch_left: array<f32, ${per}>;
   var touch_last: array<f32, ${per}>;
   var eta: array<f32, ${per}>;
@@ -724,7 +734,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var failures = 0u;
   for (var t = 0u; t < params.steps; t++) {
     ${own(`
-        drive_in[k] = input[i];`)}
+        drive_in[k] = input[i];
+        g_in[k] = 0.0;
+        ge_in[k] = 0.0;`)}
     var restart = false;
     if (looping) {
       // Each segment's run from its first rod to its second, the coarse parts' difference and the remainders'
@@ -823,8 +835,10 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
           h = 1.0;
         }
       }
-      let current = select(0.0, params.switch_gain * (h - 0.5), gated);
-      // The switch current jumps when it flips or is gated on or off, and a touch current when it switches on
+      // In the conductance form, the whole g_sw on each SMD, signed by the side h names, dorsal positive.
+      let signed = select(-params.switch_gain, params.switch_gain, h == 1.0);
+      let current = select(0.0, select(params.switch_gain * (h - 0.5), signed, conducting), gated);
+      // The switch's input jumps when it flips or is gated on or off, and a touch current when it switches on
       // or off or a new tap changes it; BDF2 across a jump is first order.
       restart = current != switch_current || drive.z > 0.0;
       switch_current = current;
@@ -843,11 +857,20 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
       awc_last = awc_current;
 
       // Each neuron's input: its proprioceptive field's curvature, AWC-ON's current, a touch pulse's and the
-      // switch's.
+      // switch's. In the conductance form, proprioception and the switch open conductances instead: towards E_exc
+      // when the body bends towards the neuron's side, or on the side the switch drives, and towards E_inh
+      // otherwise.
       ${own(`
         let constants = neurons[i];
         if (constants.field_side != 0.0) {
-          drive_in[k] += params.proprio_gain * constants.field_side * region_mean(constants.field_from, constants.field_to);
+          if (conducting) {
+            let bend = constants.field_side * region_mean(constants.field_from, constants.field_to);
+            let opened = params.proprio_gain * abs(bend);
+            g_in[k] += opened;
+            ge_in[k] += opened * select(E_INH, E_EXC, bend > 0.0);
+          } else {
+            drive_in[k] += params.proprio_gain * constants.field_side * region_mean(constants.field_from, constants.field_to);
+          }
         }
         if (i == params.awc_on) {
           drive_in[k] += awc_current;
@@ -858,7 +881,12 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         }
         touch_last[k] = applied;
         drive_in[k] += applied;
-        drive_in[k] += constants.switch_side * current;`)}
+        if (!conducting) {
+          drive_in[k] += constants.switch_side * current;
+        } else if (constants.switch_side != 0.0 && current != 0.0) {
+          g_in[k] += params.switch_gain;
+          ge_in[k] += params.switch_gain * select(E_INH, E_EXC, constants.switch_side * current > 0.0);
+        }`)}
     }
 
     // BDF2: (3y′ − 4y + y₋₁) / 2dt = f(y′), written as (a y′ − h) / dt with a = 3/2 and h = 2y − y₋₁/2.
@@ -874,8 +902,8 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
     // activation extrapolated to the new step, and the oscillator's current linearised about this step's
     // voltage, implicit where the cubic stabilises and explicit where it destabilises.
     ${own(`
-        var g = a * c + params.leak;
-        var current = c * select(v[k], 2.0 * v[k] - 0.5 * v_prev[k], bdf2) + params.leak * params.leak_potential + drive_in[k];
+        var g = a * c + params.leak + g_in[k];
+        var current = c * select(v[k], 2.0 * v[k] - 0.5 * v_prev[k], bdf2) + params.leak * params.leak_potential + drive_in[k] + ge_in[k];
         if (params.noise > 0.0) {
           if (coloured) {
             eta[k] = eta[k] * eta_decay + eta_spread * gaussian(params.seed, steps, i);
