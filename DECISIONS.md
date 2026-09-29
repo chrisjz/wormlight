@@ -2110,4 +2110,101 @@ The study reports, for each candidate, the points where it converges and where i
   - checkpoint 1's section regenerated;
   - the stale passages brought up to date.
 
-**Status.** Set after review; the rules for bounding the currents come next, then the sign audit's record.
+**Status.** Set after review; the rules for bounding the currents followed (the entry below), and the sign audit's record comes later.
+
+## 2026-09-29 — The currents become conductances: push-pull, bounded by rule, and a survey before R's future (changed after review)
+
+**Why.** The investigation found two currents with no reversal potential, and the review of its record separated them (the entries above). The corner's crawl rests on both, the head switch's and proprioception's. The refit's motion rests on the switch's alone. Both currents become conductances driving towards the model's own reversal potentials, E_exc = 0 mV and E_inh = −48 mV. That changes the form of two §1.1 layers, which the maintainer asked to approve before it is built. The rules are set here, before any of it is built or runs. They follow checkpoint 1's results and the investigation's previews of these forms at the corner, and they say so.
+
+Checked here, from the runtime data and the pinned postures, with no simulation. A target's load is its passive conductance: its leak, its gap junctions, and its chemical synapses at the resting activation, with its partners held and the oscillators off. κ_gap,B scales the B-types' gap junctions and so their loads and thresholds; κ_SMD scales only neuromuscular junctions (corrected after review: this said the figures spanned κ_SMD's bounds too).
+
+- **The neurons' headroom.** Each neuron rests at its threshold. Over κ_gap,B's range, 0.1 to 1:
+  - the A- and B-types' thresholds sit 4.2 to 15.0 mV below E_exc, and the SMDs' 5.2 to 8.3 mV;
+  - so a conductance towards E_exc, which can't take a neuron past it, can lift a neuron's sigmoid from 0.5 to at most 0.63–0.87, and the SMDs' to 0.66–0.74;
+  - one towards E_inh can shut a neuron almost off;
+  - the switch as a current drove the SMDs' sigmoids to 1.
+- **The loads.** At rest, the SMDs carry 0.86 to 1.15 nS, and the A- and B-types with proprioceptive fields 0.050 to 1.63 nS. So about 10 pA moves the least-loaded B-types by 200 mV; at the corner they reached −211 and +178 mV. Corrected after review: this gave the leak's 0.01 nS as the cause, and the largest load as 1.64 nS, which belongs to VA12, a neuron with no field.
+- **The curvature.** Over the 6,655 pinned postures, the magnitude of the signed mean scaled curvature κL over each A- and B-type's proprioceptive field has a median of 4.2 and a 95th percentile of 8.3. These come from the postures' 100 tangent angles; the model's 48-segment body reads 8.2, which gives the same rounded bounds, a review found.
+- **The previews, disclosed** (the entries above). Before these rules, the real wiring was explored in these forms:
+  - The investigation found a switch conductance losing the crawl at the corner at every gain from 1 to 50 nS, on a 24-point grid of g_nmj, θ_nmj, κ_SMD and g_p, and with its driven side's reversal at +30 or +60 mV. The switch's form set here is the one that lost the crawl.
+  - The investigation found proprioception as push-pull conductances at 0.05–0.1 nS keeping a partial crawl while the switch stayed a current, and rectified proprioception losing it.
+  - The investigation found the corner grading pass with A-type proprioception turned off. The rules keep it on, since spec §1.1 names it.
+  - The review of the investigation's record ran 32 trials with a conductance switch on seeds 2001 to 2004, all of which lost the crawl.
+  - Added after review: the last three weren't listed here.
+
+**Decision.** The maintainer chose the recommendation each time, and again after review:
+
+- **Both become push-pull conductances** (PLAN §4.3).
+  - **The head switch.** The switch's state h names the side it drives: at h = 1 the dorsal SMDs. While the gate is open, both SMDs on that side get g_sw towards E_exc, and both on the other side get g_sw towards E_inh. With the gate shut, neither side gets a conductance. Each SMD gets the whole g_sw, where the current form gave each ±g_sw/2.
+  - **The gate is unchanged.** It reads the drive from the SMDs' partners and leak, not their own voltages, so the conductance doesn't enter it directly. Through the partners it moves the drive by 1 to 2 mV, against the refit's current's 5.7 mV, a review found with the activations held. θ_osc's bound keeps the silenced network's gate shut, by a margin of 0.47 mV, and it stays as it is.
+  - **Proprioception.** For each A- and B-type, K_f is the signed mean κL over its field, positive when the body bends towards the neuron's own side. The neuron gets g_p·max(K_f, 0) towards E_exc and g_p·max(−K_f, 0) towards E_inh.
+  - **In the voltage solve.** Both conductances take the curvature and the switch's state at the step's start, as the currents do, and only the voltage they multiply is implicit, on the solve's diagonal. The BDF2 restarts at the switch's flips and gating stay. Proprioception's conductance passes through 0 as K_f changes sign, without a jump, so it needs no restart. Where the current form records the switch's current, the conductance form records the signed g_sw while the gate is open and 0 while it is shut.
+  - **The asymmetry, added after review.** Push-pull isn't symmetric here: E_inh lies 33–44 mV below the targets' thresholds and E_exc 4–15 mV above, so the inhibitory half's small-signal gain is 2 to 10 times the excitatory's. On average, then, the layers inhibit. A review found:
+    - the SMDs' mean activation over the switch's two states falling by 36% at any g_sw from 1 to 50 nS, where the refit's current lowers it by 9%;
+    - the A- and B-types' mean activation falling by 20–33% under proprioception at median curvature;
+    - at the box's top, proprioception all but clamping weakly coupled B-types, which keep about 1% of their network input.
+
+    Every synapse in the model has the same asymmetry. No balanced variant will be added after results. A shunt diagnostic is reported beside the voltage diagnostic (PLAN §7.4).
+
+  - **Other injected inputs keep their forms.** These are:
+    - the oscillators, whose cubic limits their own excursions;
+    - touch, which holds its receptors 10 mV above rest;
+    - AWC-ON's current, which is bounded (PLAN §4.1, §4.2);
+    - the noise, whose bound lets IL2DL spread 20 mV at rest (§7.3).
+
+    Checkpoint 1's trials have no touch or odour, so there the voltage diagnostic reports the oscillators' and the noise's excursions.
+
+  - **Levels and budget.** The forms are ours (level 0), and the gains calibrated (level 1). The reversal potentials are the synapses' (level 3), and their use for these channels is ours (level 0). The SMDs' stretch-sensing TRPC channels (Yeon et al. 2018) suit the excitatory half, and nothing is cited for either inhibitory half. g_sw and g_p stay one parameter each, since a fit uses one form, so the budget stays 18. Every null gets the chosen fit's form.
+  - **Spec §1.1.** It needs no rewording, since its layers name inputs, not currents. Neither form is a deviation: each is per class, shared by every brain, and reads only curvature and h.
+  - **The previews and PLAN §10.** Checkpoint 1's voltages prompted the change, not the previews of checkpoints 2 to 5, so it marks none of those checkpoints as fitted. Push-pull followed the investigation's previews of the crawl, which checkpoint 1, a calibration target, grades.
+  - Considered: push-pull for the switch with rectified proprioception, which the preview found losing the crawl; and excitation alone for both, the weakest drive given the headroom. After review: balancing the inhibitory half by each target's headroom.
+- **Their bounds come from a 1 mV rule** (PLAN §7.3).
+  - For each target, with G its load at rest, V_th its threshold and E each reversal potential in turn, over κ_gap,B's bounds: the lower bound is the least of G / (|E − V_th| − 1), and the upper bound the greatest of G·(|E − V_th| − 1). At the lower bound no target moves more than 1 mV at rest; at the upper, every target is held within 1 mV of the reversal potential it is driven towards.
+  - For proprioception, both are divided by 8.3, the 95th percentile of real worms' curvature over the fields.
+  - Rounded outward to one significant figure, g_sw runs from 0.02 to 50 nS (the rule gives 0.022–48), and g_p from 0.0001 to 8 nS per unit of κL (0.00017–7.8). Both are searched logarithmically. Their provisional values are the log midpoints, 1 nS and 0.028 nS. The other ten parameters keep R's provisional values.
+  - The rule holds for the intact network at rest. With every chemical input at its maximum, the tops would be 71 nS and 8.6 nS, a review found. In the silenced network, where an A- or B-type's load is its 10 pS leak, the same conductance acts up to 160 times more strongly:
+    - at g_p's lower bound, a silenced B-type moves 2.5 to 3.3 mV;
+    - at the provisional g_p and median curvature, a silenced B-type bent towards its side is pulled from the leak's −35 mV to about −3 mV, past its threshold, a review found;
+    - the current form, at the refit's g_p, went to about +80 mV.
+
+    Checkpoint 0, which runs again on the chosen fit, is the guard.
+
+  - The code pull request adds a test that recomputes the rule's values from the data and the postures.
+  - **θ_nmj's box, declared after review.** Relative drive's range assumes every excitatory synapse at its greatest activation, a_r/(a_r + a_d) = 1/6, which no neuron held at or below E_exc reaches. With every excitatory input at its ceiling, a muscle's drive reaches 0.46–0.82 of its range, a review found. So above about 0.46, θ_nmj leaves some muscles out of reach. The box keeps its top of 0.8, the same for every wiring.
+  - Considered: a 1% rule, in which no target moves more than 1% of the way to its reversal potential at the lower bound, about a decade wider for each. After review: narrowing θ_nmj's box, which would draw on the investigation's finding that the crawl sits at low θ_nmj.
+- **A survey decides R's future** (PLAN §9). It is exploratory, on the real wiring, and disclosed. Changed after review: this was four searches of 400 from spread starts. A review found that at the one measured rate, one search in seven, four would miss a crawling region 54% of the time, and that 0 of 4 would bound the rate only below 0.53. About 70% of random starts sit on dead ground, where a restart to the same start stays.
+  - **The searches.** Stage 1 of round 2's procedure, on the kinematics alone and all twelve calibrated parameters, runs sixteen times at 250 evaluations, with CMA-ES seeds 11 to 26. Each search has its own final check on seeds 1005 to 1020. The survey takes about 2 hours on 18 cores.
+  - **The starts.** The starts form a Latin hypercube in the mapped units, from `hash` and `uniform` (src/sim/brain/rng.ts) with seed S = 0x53555256, which no trial seed reaches. For search j from 0 to 15 and parameter k, in `CALIBRATED`'s order, a_jk = uniform(hash(S, j, k)) and b_jk = uniform(hash(S, j, 64 + k)). With π_k(j) the rank of b_jk among the sixteen, the start is u_jk = (π_k(j) + a_jk)/16. A search's r-th restart starts afresh from uniform(hash(S, 16r + j, k)), with round 2's step and population rules. Each start is recorded.
+  - **The grading.** Each pick is graded by checkpoint 1's grading on 20 trials of 120 s, on fresh seeds 3001 to 3020. Changed after review: this used seeds 2001 to 2020, which the investigation and its review had already run. "Partial" means checkpoint 1's overall grade, every clause at least partial, as round 2's probe read it. The voltage and shunt diagnostics are reported, not graded, and can't overrule a grade.
+  - **Its standing.** No pick can be chosen, or takes checkpoint 1's own trials or §7.2's comparison. The survey's record is `data/calibration/survey.json`, committed.
+  - **If any pick grades at least partial,** R's third round, its last, runs on the bounded model. Its procedure is proposed in a rules pull request of its own, for the maintainer's approval, and every null gets it. The five searches of 400 set for it earlier are withdrawn.
+  - **If none does,** R ends. Sixteen misses bound the rate at which a search finds a crawl below 0.17 (one-sided 95%); at one in seven, sixteen searches all miss 8% of the time. The bounded model is then calibrated once by the refit's procedure, from the provisional values, and its record is `data/calibration/r4.json`.
+    - If that fit passes §7.2's comparison, it replaces the refit whatever their grades, since the refit's voltages lie outside the model's range; that sets step 3's ranking aside for this choice. It becomes the real wiring's final fit, which the app and the harness run, and every null gets its form and procedure.
+    - If it fails the comparison, it can't be chosen (step 3), and the refit stays, with its form and procedure for the nulls. Corrected after review: this said no choice is made.
+  - **The speed target.** The survey keeps the present target of 0.22, since it asks only whether the bounded model reaches partial, which checkpoint 1's grading judges. The target is decided, with the maintainer's approval, before whichever calibration follows the survey. That reads the investigation's "when the next calibration's rules are set" as the calibration after the survey, and a changed target may move the survey's hit rate.
+  - **The signs.** The survey runs on the signs as they stand, and the sign audit's record changes none. A sign change, if one is ever proposed, is a model change. It would need its own calibration, and since the missing backward mode prompted the audit, it would mark checkpoint 2 as fitted (PLAN §10).
+  - Considered: calibrating once and ending R, with no survey; and round 3 straight away. After review: four searches, then four more; and a screen of 256 points, then eight searches.
+- **How a result reads, set with the survey.**
+  - **A miss.** If no pick grades partial, the survey found no crawl; it doesn't show that none exists. R's ending then speaks to the model as bounded:
+    - its rest thresholds, set at the midpoint activation (§3.3) with Kunert et al.'s constants, which leave 4–15 mV below E_exc;
+    - these layers' forms;
+    - the search, its bounds and its starts;
+    - the speed target;
+    - the signs as they stand.
+
+    It says nothing about whether the wiring can pace a crawl from the head.
+
+  - **A hit.** A partial pick is exploratory and can't be chosen. It says little about the wiring, since R's crawl runs through parts no null rewires (§9).
+  - Changed after review: this read a miss as the bounded model being unable to crawl.
+- **Both forms are kept until a bounded fit is chosen.**
+  - The conductance form lands beside the current one, on the CPU reference and the GPU.
+  - The loop's parity checks it under §7.2's thresholds, with setups that flip and gate the switch at gains inside the new box. One setup sits at the box's upper corner, where the solve's relative tolerance loosens as the conductances grow: to about 0.02 mV on the CPU and 0.2 mV on the GPU in the weakest row, a review estimated.
+  - **The registry.** g_sw and g_p each keep their current-form entry as it stands, for the refit, and gain a conductance-form entry beside it, with its unit, bounds and provisional value.
+  - **The records.** Each fit's record names its form, and a record without one, as every record so far, is the current form. The survey and the bounded model's calibration are new modes of the calibration's runner, which leave round 2's as they are.
+  - The app and the harness run the refit as it stands; the survey and any calibration use the bounded form. FIDELITY shows both forms while both exist.
+  - The current form is removed once a bounded fit is chosen.
+  - Considered: replacing it now, with the app on the uncalibrated provisional values.
+
+**After review.** Three reviews found the rules' figures reproducing, but the survey too weak to end R on a miss, and push-pull inhibiting on average. They also found several choices left open that could have been made after results, and errors in the record. The maintainer chose the recommendation each time: sixteen searches of 250 from a Latin hypercube; push-pull kept, its asymmetry stated and a shunt diagnostic reported; θ_nmj's unreachable top declared; and every other fix.
+
+**Status.** Set after review, before any of it is built; the code comes next, then the survey.
