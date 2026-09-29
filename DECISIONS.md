@@ -2414,3 +2414,57 @@ A review found, in trials of its own:
 **Exploration, disclosed.** The reviews ran 60 trials of 120 s on the real wiring, on seeds 9021 to 9040, at three of the survey's candidates without a bout, to size the plateau's noise. They also rebuilt the loop parity's states on the CPU, and ran GPU parity with the first setups' values under both floors.
 
 **Status.** Set, for approval, before any of it is built, and revised after review; its code comes next, then the real wiring's round.
+
+## 2026-09-29 — R's third round, built
+
+**Why.** Round 3's rules are set (the entry above). This builds them, so the real wiring's round can run.
+
+**Decision.**
+
+- **The runner** (`npm run calibrate -- --round-3`). Phase 1 runs the sixteen searches of 250 from the survey's starts, each with its final check, and ranks them by that check's objective, ties to the lower CMA-ES seed. Phase 2 continues the four best to 750 each. It replays each search's first 250 evaluations from phase 1's, generation 22 made whole, and restarts nothing after the 250th. Phase 1's pick joins each final check first, so it is kept on a tie. The objective takes a round's own targets, so checkpoint 1's, which the committed records pin, stay as they are. A resumed run keeps every search it had finished, its final check included.
+- **The record.** `data/calibration/r5.json` holds:
+  - the round's settings;
+  - each phase 1 search's pick and restarts;
+  - the four continued;
+  - the four picks in the order they take §7.2's comparison;
+  - every search's generations and final check, without its evaluations.
+- **The comparison, down the four** (`npm run equivalence -- --fit round-3 --pick N`). A full run of pick N is refused until picks 1 to N − 1 have failed it, at the values `r5.json` holds for them. Each result is `data/equivalence/round-3-pick-N.json`, and VALIDATION.md's section shows them after the other fits. A shortened run takes any pick, for a look, and writes only to `harness-out/`.
+- **The chosen pick's report.** The full run of the first pick to pass also writes `data/calibration/r5-chosen.json`, and prints it for this page:
+  - checkpoint 1, graded from the comparison's first 20 trials at dt;
+  - the speed's interval, and the partial-at-the-floor label;
+  - the five runs that show what paces the crawl, each graded by checkpoint 1's grading.
+
+  VALIDATION.md's checkpoint 1 section waits until the harness runs the fit from the registry.
+
+- **What paces the crawl.** Trials now record, over the measured steps and in either form:
+  - how many steps ran with the head switch's gate open;
+  - the head-switch drive less θ_osc after each step, the value the next step's gate reads, summed and squared.
+
+  Checkpoint 1's diagnostics report the open share, the margin's mean and standard deviation, and the switch's cycle rate: half its flips a second within the measured windows, beside the spectral peak. They appear in any fit's report from now on, the refit's included when the harness next runs it, and grade nothing.
+
+- **GPU parity's linear velocity floor** is 10⁻⁴ body lengths a second, as the rules set.
+- **Karbowski et al. 2006 isn't registered in `citations.ts`,** contrary to the rules' note. Nothing the registry holds cites it: no code, runtime data or generated page names it, as none names the other targets' sources, Fang-Yen et al. 2010 and Ramot et al. 2008. A test fails on a registered citation that nothing uses. PLAN §7.3 cites all three.
+
+**Checked.**
+
+- **Unit tests.** 532 pass, among them:
+  - a search continued from 250 to 750 evaluations equals a fresh one of 750, bit for bit, its final check included;
+  - a stalled search restarts before the 250th evaluation and never after;
+  - the ranking;
+  - round 3's objective;
+  - the speed's interval, a resample with no bout counting below every value, and the floor's label;
+  - the pacing diagnostic, and the gate record in both forms;
+  - the refusal of a pick out of turn;
+  - the five diagnostic runs' settings.
+- **GPU parity** passes with the new floor in headless Chrome and in Safari, both on the Mac's GPU.
+- **A smoke run, in a scratch copy of the tree.**
+  - **The calibration.** Round 3 was cut to three searches of 22 evaluations and two continued to 44, with trials of 30 s and three candidates rechecked. It ran to its end through a stop in phase 2 and a resume: phase 2 replayed phase 1's evaluations exactly, and in one search phase 1's pick outscored phase 2's own and was kept.
+  - **The comparison.** Its first pick then took the comparison on 20 trials, with the chosen pick's report forced, and every part of that report came out.
+  - **Its standing.** The values were a smoke run's, and nothing from it is kept.
+
+**Exploration, disclosed.** The smoke run's trials ran on the real wiring:
+
+- about 840 of 30 s on the calibration's seeds;
+- 140 of 120 s on checkpoint 1's seeds 1 to 20, at a smoke pick's values, which no rule chooses.
+
+**Status.** Built; the real wiring's round comes next.
