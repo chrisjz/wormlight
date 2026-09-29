@@ -2246,3 +2246,14 @@ Checked here, from the runtime data and the pinned postures, with no simulation.
 **After review.** Three reviews found the build matching the rules on every point, the current form unchanged, and no bug in the model; but the search itself not taking the form, several claims wrong or unsupported, and the curvature unguarded in CI. The maintainer chose the recommendation each time: the form threaded through and required now; a gate-open corner added to parity; the curvature computed by the data build; and every other fix.
 
 **Status.** Built. Still to come with the survey's runner: its Latin-hypercube starts, its record, and the bounded model's calibration mode.
+
+## 2026-09-29 — The survey's runner, built
+
+**Why.** The survey of the bounded model, and the bounded model's calibration should the survey find no crawl, were set before either was built (the entries above). Their runner is built here, before either runs; no rule changes.
+
+- **The survey** (`npm run calibrate -- --survey`). Stage 1 of R's second round, on the kinematics alone and with its spectral frequency for a worm without a bout, runs sixteen times at 250 evaluations in the conductance form, with CMA-ES seeds 11 to 26, each with its final check. Each pick is graded by checkpoint 1's grading on seeds 3001 to 3020, and the record keeps each search's start, its pick, its grade and its diagnostics, the shunt and the gate's toggles among them. It is written to `data/calibration/survey.json`, and a stopped survey resumes with the searches it had graded.
+- **Its starts.** They are the Latin hypercube the rules give, computed by `surveyStart` in `src/validation/calibration.ts`. A search's restarts, by round 2's rules on its step and its stalls, start from fresh points of the same hash rather than its own start again, through a new option of the search. Tests hold the starts to one cell a parameter for each search, strictly inside the box, and a restart to the point it is given.
+- **The bounded calibration** (`npm run calibrate -- --bounded`). The refit's procedure in the conductance form: one search of 2,000 evaluations on all four targets, without the spectral frequency or restarts, from the conductance form's provisional values, with the final check. It is written to `data/calibration/r4.json`, and it runs only if the survey finds no crawl, after the speed target is decided (PLAN §7.3). The equivalence script gains its fit when it has a record.
+- **Round 2's modes are unchanged.** The probe's search and grading now share the survey's code, and its record is the same.
+
+**Status.** Built; the survey runs next.

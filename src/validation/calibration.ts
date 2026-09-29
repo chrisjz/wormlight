@@ -2,6 +2,7 @@
 // of the final parameters. The runner (scripts/calibrate/run.ts) evaluates candidates on the CPU reference.
 
 import { inForm, PARAMS, type Form } from '../science/params.ts';
+import { hash, uniform } from '../sim/brain/rng.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { spectralPeak } from './checkpoints.ts';
 import { Cmaes, defaultLambda } from './cmaes.ts';
@@ -65,6 +66,37 @@ export const SECOND_ROUND = {
     gradeSeeds: Array.from({ length: 20 }, (_, i) => 2001 + i),
   },
 } as const;
+// The survey of the bounded model (PLAN §9; DECISIONS.md, 2026-09-29, set after review before any of it ran): stage 1
+// of R's second round, on the kinematics alone, sixteen times at 250 evaluations in the conductance form, with
+// CMA-ES seeds 11 to 26, each with its final check; its starts a Latin hypercube drawn by `hash` with a seed no trial
+// reaches (surveyStart), each restart from a fresh point of the same hash; each pick graded by checkpoint 1's grading
+// on 20 fresh seeds.
+export const SURVEY = {
+  form: 'conductance' as Form,
+  budget: 250,
+  seeds: Array.from({ length: 16 }, (_, i) => 11 + i),
+  hashSeed: 0x53555256,
+  gradeSeeds: Array.from({ length: 20 }, (_, i) => 3001 + i),
+} as const;
+
+// Where search j of the survey starts (restart 0) and restarts, in [0, 1]ⁿ over the calibrated parameters in their
+// order. Its start is a Latin hypercube: coordinate k is (π_k(j) + a_jk)/16, with a_jk = uniform(hash(S, j, k)) and
+// π_k(j) the rank of b_jk = uniform(hash(S, j, 64 + k)) among the sixteen searches'. Restart r starts afresh at
+// uniform(hash(S, 16r + j, k)). Every coordinate lies strictly inside (0, 1).
+export function surveyStart(search: number, restart: number): number[] {
+  const S = SURVEY.hashSeed;
+  const n = SURVEY.seeds.length;
+  if (!Number.isInteger(search) || search < 0 || search >= n) throw new Error(`the survey has no search ${search}`);
+  return CALIBRATED.map((_, k) => {
+    if (restart > 0) return uniform(hash(S, n * restart + search, k));
+    const b = (j: number): number => uniform(hash(S, j, 64 + k));
+    // Ties, which distinct hashes make unlikely, rank by the search's number.
+    let rank = 0;
+    for (let j = 0; j < n; j++) if (b(j) < b(search) || (b(j) === b(search) && j < search)) rank++;
+    return (rank + uniform(hash(S, search, k))) / n;
+  });
+}
+
 // Each target's relative error is capped at this, and an unmeasured one takes the cap.
 export const ERROR_CAP = 2;
 
@@ -273,8 +305,8 @@ export interface Fit {
 
 // PLAN §7.3's search, from the provisional values or `start`, up to `budget` evaluations, then the final check. It
 // searches `ids`, every calibrated parameter by default, the rest held at `fixed`; with `restarts`, R's second
-// round's (SECOND_ROUND), CMA-ES starts again from the same point with its population doubled whenever its step
-// falls below `restarts.sigma` or its best hasn't fallen for `restarts.stall` generations. A run resumes from the
+// round's (SECOND_ROUND), CMA-ES starts again, from the same point or from `restartFrom`'s, with its population doubled
+// whenever its step falls below `restarts.sigma` or its best hasn't fallen for `restarts.stall` generations. A run resumes from the
 // evaluations of an earlier one with the same settings: CMA-ES replays them, and each candidate must come out as
 // recorded, bit for bit. `extra` candidates join the final check, and `progress` sees each generation as it ends.
 export async function calibrate(
@@ -287,6 +319,8 @@ export async function calibrate(
     fixed?: Values;
     // A point in [0, 1]ⁿ, one coordinate for each of `ids`, to start from instead of the provisional values.
     start?: readonly number[];
+    // Where each restart starts, in the same units; by default the search's own start again.
+    restartFrom?: (restart: number) => readonly number[];
     seed?: number;
     restarts?: { sigma: number; stall: number };
     extra?: readonly { from: string; values: Values }[];
@@ -304,7 +338,7 @@ export async function calibrate(
   let drawn = 0;
   const search = (): Cmaes =>
     new Cmaes({
-      mean: start,
+      mean: restart > 0 && options.restartFrom ? [...options.restartFrom(restart)] : start,
       sigma: CALIBRATION.sigma,
       seed,
       lambda: defaultLambda(ids.length) * 2 ** restart,

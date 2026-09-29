@@ -22,6 +22,8 @@ import {
   type KinematicRecord,
   type Scorer,
   type Values,
+  SURVEY,
+  surveyStart,
 } from './calibration.ts';
 
 describe("the calibration's settings", () => {
@@ -207,6 +209,43 @@ const synthetic = (calls: { seeds: readonly number[] }[] = []): Scorer => {
     });
   };
 };
+
+describe('the survey of the bounded model (PLAN §9, set after review before any of it ran)', () => {
+  it('is sixteen searches of 250 in the conductance form, with CMA-ES seeds 11 to 26, graded on 3001 to 3020', () => {
+    expect(SURVEY).toMatchObject({ form: 'conductance', budget: 250, hashSeed: 0x53555256 });
+    expect(SURVEY.seeds).toEqual(Array.from({ length: 16 }, (_, i) => 11 + i));
+    expect(SURVEY.gradeSeeds).toEqual(Array.from({ length: 20 }, (_, i) => 3001 + i));
+  });
+
+  it('starts from a Latin hypercube strictly inside the box, and restarts from fresh points of the same hash', () => {
+    const starts = SURVEY.seeds.map((_, j) => surveyStart(j, 0));
+    for (let k = 0; k < CALIBRATED.length; k++) {
+      // Each parameter's sixteen starts fill its sixteen cells, one each.
+      const cells = starts.map((u) => Math.floor(u[k] * 16)).sort((a, b) => a - b);
+      expect(cells).toEqual(Array.from({ length: 16 }, (_, i) => i));
+      for (const u of starts) expect(u[k] > 0 && u[k] < 1).toBe(true);
+    }
+    const again = surveyStart(3, 1);
+    expect(again).toHaveLength(CALIBRATED.length);
+    expect(again).not.toEqual(surveyStart(3, 0));
+    expect(again).not.toEqual(surveyStart(4, 1));
+    for (const x of again) expect(x > 0 && x < 1).toBe(true);
+    expect(() => surveyStart(16, 0)).toThrow(/no search 16/);
+  });
+
+  it("restarts a search from restartFrom's point", async () => {
+    const point = CALIBRATED.map(() => 0.25);
+    // A step below 10 restarts it after its first generation.
+    const fit = await calibrate(synthetic(), {
+      form: 'current',
+      budget: 60,
+      restarts: { sigma: 10, stall: 20 },
+      restartFrom: () => point,
+    });
+    expect(fit.generations[0].mean).toEqual(toUnit(provisionalValues('current'), 'current'));
+    expect(fit.generations.find((g) => g.restart === 1)?.mean).toEqual(point);
+  });
+});
 
 describe("R's second round", () => {
   it("is PLAN §7.3's: the crawl, then the noise, with restarts and a probe", () => {
