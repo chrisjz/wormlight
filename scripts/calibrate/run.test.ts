@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { provisionalValues, SURVEY, surveyStart } from '../../src/validation/calibration.ts';
-import { BOUNDED, parseArgs, PROBE, settings, SUMMARY, summary, SURVEYED } from './run.ts';
+import { ALL_TARGETS, provisionalValues, SECOND_ROUND, SURVEY, surveyStart } from '../../src/validation/calibration.ts';
+import { BOUNDED, boundedAllowed, parseArgs, PROBE, procedure, settings, SUMMARY, summary, SURVEYED } from './run.ts';
 
 describe("the calibration's options", () => {
   it("default to PLAN §7.3's budget and R's second round, and refuse anything but whole numbers", () => {
@@ -18,7 +18,15 @@ describe("the calibration's options", () => {
     expect(() => parseArgs(['--probe', '--budget', '20'])).toThrow(/--probe/);
     expect(() => parseArgs(['--survey', '--budget', '20'])).toThrow(/--survey/);
     expect(() => parseArgs(['--probe', '--survey'])).toThrow(/one mode/);
-    for (const args of [['--budget'], ['--budget', '0'], ['--budget', '2.5'], ['--seeds', '3'], ['--jobs', 'x']]) {
+    for (const args of [
+      ['--budget'],
+      ['--budget', '0'],
+      ['--budget', '2.5'],
+      ['--seeds', '3'],
+      ['--jobs', 'x'],
+      ['constructor'],
+      ['toString'],
+    ]) {
       expect(() => parseArgs(args), args.join(' ')).toThrow(/usage/);
     }
   });
@@ -30,6 +38,27 @@ describe("the calibration's options", () => {
     });
     const run = { stages: { crawl: { evaluated: [1], final: { value: 2 } }, noise: { evaluated: [3], checked: [] } } };
     expect(summary(run)).toEqual({ stages: { crawl: { final: { value: 2 } }, noise: { checked: [] } } });
+  });
+});
+
+describe("each mode's procedure (PLAN §7.3, §9)", () => {
+  it("searches the survey as round 2's stage 1 in the conductance form, and the bounded model by the refit's procedure", () => {
+    expect(procedure('survey')).toEqual({
+      form: 'conductance',
+      targets: SECOND_ROUND.crawl.targets,
+      spectral: true,
+      restarts: SECOND_ROUND.restart,
+    });
+    // The refit's: all four targets, without the spectral frequency or restarts.
+    expect(procedure('bounded')).toEqual({ form: 'conductance', targets: ALL_TARGETS, spectral: false });
+    expect(procedure('probe')).toEqual({ ...procedure('round 2'), form: 'current' });
+  });
+
+  it('runs the bounded calibration only once a whole survey has found no partial pick', () => {
+    expect(boundedAllowed({ complete: true, partial: false })).toBe(true);
+    expect(boundedAllowed({ complete: true, partial: true })).toBe(false);
+    expect(boundedAllowed({ complete: false, partial: false })).toBe(false);
+    expect(boundedAllowed(null)).toBe(false);
   });
 });
 
