@@ -2362,7 +2362,7 @@ A review found, in trials of its own:
 
 - **Two phases, 6,000 evaluations a wiring, for the real wiring, and for every null if round 3's fit is chosen** (PLAN §7.3). If the refit stays, every null gets the refit's procedure, its speed target of 0.22 and its reversal term included.
   - **Phase 1.** The survey's design, with round 3's objective: stage 1 on all twelve calibrated parameters in the conductance form, sixteen searches of 250 evaluations with CMA-ES seeds 11 to 26, each from its point of the survey's Latin hypercube (`surveyStart`, from seed 0x53555256), each with its final check on seeds 1005 to 1020. Phase 1 grades nothing: the survey's grading on seeds 3001 to 3020 isn't part of it.
-  - **Phase 2.** The 4 searches with the lowest objective on their final check continue, ties going to the lower CMA-ES seed. Each is the same search run to 750 evaluations. Its first 250 are read from phase 1's record, not run again, and replayed exactly, the 22nd generation cut short included. A replay that parts from the record stops the round as a defect. Each continued search's final check replaces its phase 1 check, and adds phase 1's pick, listed first so it is kept on a tie.
+  - **Phase 2.** The 4 searches with the lowest objective on their final check continue, ties going to the lower CMA-ES seed. Each is the same search run to 750 evaluations. Its first 250 are read from phase 1's record, not run again, and replayed exactly, the 23rd generation cut short included. Corrected after review of the build: this said the 22nd; the code counts it from 0, as generation 22. A replay that parts from the record stops the round as a defect. Each continued search's final check replaces its phase 1 check, and adds phase 1's pick, listed first so it is kept on a tie.
   - **The picks.** Each continued search's pick is the lowest objective on seeds 1005 to 1020 in its final check. The four are ranked by that objective, ties going to the lower CMA-ES seed, and a pick whose trials leave the finite numbers ranks last. These seeds aren't fresh for the picks: they chose phase 2's four, and the survey used them on the real wiring.
   - **Restarts. Changed after review.** Phase 1 keeps the survey's rule. A search restarts, its population doubled, from its next point of the survey's hash (`surveyStart(j, r)` for restart r), when its step falls below 0.01 in the mapped units, or when the restart's best objective, without the out-of-box penalty, hasn't fallen at all for 20 generations. Phase 2 makes no restart after the 250th evaluation, so a continued search stays in the region it was chosen for.
     - As first proposed, a search restarted when its best hadn't fallen by at least 1% of itself over 20 generations, in both phases.
@@ -2370,12 +2370,12 @@ A review found, in trials of its own:
     - Replayed on round 2's full run, it would have restarted at generation 38, where that run's rule waited until 87, before the best fell from 1.17 to 0.84.
     - It could be read three ways, each moving the search differently.
   - **Where it differs from the survey.** The real wiring's phase 1 runs afresh, not replayed from the survey, since the objective differs.
-  - **Records.** The round is recorded in `data/calibration/r5.json`, since `r4.json` is the bounded calibration's: the sixteen searches of phase 1, their ranking, the four continued searches, the picks in their order and the comparisons they took. The equivalence script takes the chosen pick as `round-3`.
+  - **Records.** The round is recorded in `data/calibration/r5.json`, since `r4.json` is the bounded calibration's: the sixteen searches of phase 1, their ranking, the four continued searches, the picks in their order and the comparisons they took. The equivalence script takes the chosen pick as `round-3`. Built (the entry below): the comparisons are recorded apart, in `data/equivalence/round-3-pick-N.json`, and the chosen pick's report in `data/calibration/r5-chosen.json`.
   - **Changed after results.** The budget was 2,000 evaluations (PLAN §7.3); this is marked on checkpoints 1 and 6.
   - **Cost.** About 27,500 trials, some 920 worm-hours, taking about 3.3 hours a wiring on 14 workers, and 36 hours for the real wiring and the ten primary nulls.
   - Considered: sixteen searches of 500, 8,000 a wiring; two phases continuing the best 2; and, after review, the 1% rule in both phases with its reading fixed, or restarts in phase 2 from the search's own best at a smaller step.
 - **The objective reads the crawl alone** (PLAN §7.3). Changed after results, as a whole, and marked on checkpoints 1 and 6.
-  - **The speed target is 0.15 body lengths per second.** It was 0.22, above the targets' own wave speed of 0.195. Karbowski et al. 2006 measured adult wild-type worms crawling on food, a layer of bacteria on agar, at 0.79 ± 0.26 of their wave speed (Table 2, N = 58, checked against the paper), and 0.79 × 0.30 Hz × 0.65 body lengths ≈ 0.154. The code pull request registers the paper in `citations.ts`.
+  - **The speed target is 0.15 body lengths per second.** It was 0.22, above the targets' own wave speed of 0.195. Karbowski et al. 2006 measured adult wild-type worms crawling on food, a layer of bacteria on agar, at 0.79 ± 0.26 of their wave speed (Table 2, N = 58, checked against the paper), and 0.79 × 0.30 Hz × 0.65 body lengths ≈ 0.154. The code pull request registers the paper in `citations.ts`. Done, with the other targets' sources (the entry below).
   - **The spectral frequency is dropped.** A worm without a bout of 10 s scores its frequency and wavelength at the cap, and its speed by its mean forward velocity, which gives the search a direction once the worm creeps (the survey's limits, above).
   - **The reversal rate stays out,** as in round 2's stage 1. With a reversal term in, the head switch's slips could meet it, while the bounded model's crawlers don't reverse, so the term would favour slipping over crawling. That settles, for round 3's procedure, the item PLAN §9 left open: slips can't meet a reversal term the calibration doesn't have. If the refit stays, the item stays open for the refit's procedure.
   - **Acknowledged after review: no stage 2 follows,** unlike round 2. So round 3 fits no wiring's reversal rate, though spec §1.2 names it among the calibration's targets, and it tunes σ_n and τ_n on the kinematics alone, without a target of their own, an option round 2's rules considered and set aside (2026-09-28). Each wiring's reversal rate is reported as a prediction.
@@ -2413,4 +2413,80 @@ A review found, in trials of its own:
 
 **Exploration, disclosed.** The reviews ran 60 trials of 120 s on the real wiring, on seeds 9021 to 9040, at three of the survey's candidates without a bout, to size the plateau's noise. They also rebuilt the loop parity's states on the CPU, and ran GPU parity with the first setups' values under both floors.
 
-**Status.** Set, for approval, before any of it is built, and revised after review; its code comes next, then the real wiring's round.
+**Status.** Set before any of it was built, and revised after review; built (the entry below), and the real wiring's round comes next.
+
+## 2026-09-29 — R's third round, built (revised after review)
+
+**Why.** Round 3's rules are set (the entry above). This builds them, so the real wiring's round can run.
+
+**Decision.**
+
+- **The runner** (`npm run calibrate -- --round-3`).
+  - Phase 1 runs the sixteen searches of 250 from the survey's starts, each with its final check, and ranks them by that check's objective, ties to the lower CMA-ES seed.
+  - Phase 2 continues the four best to 750 each. It replays each search's first 250 evaluations from phase 1's record, then completes the generation phase 1 cut short, and restarts nothing after the 250th evaluation. Phase 1's pick joins each continued search's final check first, so it is kept on a tie.
+  - The objective takes a round's own targets, so checkpoint 1's, which the committed records pin, stay as they are.
+  - A resumed run keeps every search it had finished, its final check included, and replays a stopped search's evaluations. Changed after review: a resumed phase 2 replays phase 1's record until its own is longer, so no evaluation of phase 1's is scored again. As first built, a stop during phase 2's replay, or in the generation that crosses the 250th evaluation, would have scored some of them again: 8 in that generation, or 19 after a restart.
+  - **Guards, added after review.** The runner refuses to start afresh over a stopped run, which only `--resume` takes up. It runs round 3 once, and only after a survey that found a crawl. It writes the committed record before it marks its working file complete, so a stop between the two leaves a run that `--resume` can finish.
+- **The record.** `data/calibration/r5.json` holds:
+  - the round's settings;
+  - each phase 1 search's pick and restarts;
+  - phase 1's ranking (added after review);
+  - the four continued;
+  - the four picks in the order they take §7.2's comparison;
+  - every search's generations and final check, without its evaluations.
+
+  The comparisons are recorded apart, as the next bullet says, where the rules had them in `r5.json`.
+
+- **The comparison, down the four** (`npm run equivalence -- --fit round-3 --pick N`).
+  - A full run of pick N is refused until picks 1 to N − 1 have failed it, at the values `r5.json` holds for them.
+  - Each result is `data/equivalence/round-3-pick-N.json`, and VALIDATION.md's section shows them after the other fits.
+  - A shortened run takes any pick, for a look, and writes only to `harness-out/`.
+  - The comparison's workers, and the numerics studies', now get the calibration's cap of 2 GB each and its limit of 300 s a job (added after review).
+- **The chosen pick's report.** The full run of the first pick to pass also writes `data/calibration/r5-chosen.json`, and prints it as Markdown for DECISIONS.md:
+  - checkpoint 1, graded from the comparison's first 20 trials at dt;
+  - the speed's interval, and the partial-at-the-floor label, which a grade other than partial doesn't carry;
+  - the five runs that show what paces the crawl, each graded by checkpoint 1's grading, the lesioned classes named by the step tree's own runtime data.
+
+  VALIDATION.md's checkpoint 1 section waits until the harness runs the fit from the registry.
+
+- **What paces the crawl.** Trials now record, over the measured steps and in either form:
+  - how many steps' gates were open;
+  - the head-switch drive less θ_osc that each step's gate read, its sum and the sum of its squares.
+
+  Changed after review: the gate is read from that margin, open above 0, not from the switch's current. Otherwise a switch at 0 would read as a gate always shut, and the open count would sit a step off the margin. The shunt diagnostic's older count of the gate's turns still reads the switch's current, which gives the same count wherever g_sw is above 0.
+
+  Checkpoint 1's diagnostics report the open share, the margin's mean and standard deviation, and the switch's cycle rate: half its flips a second within the measured windows, beside the spectral peak. They appear in every fit's checkpoint 1 report from now on, the refit's included when the harness next runs it, and grade nothing.
+
+- **GPU parity's linear velocity floor** is 10⁻⁴ body lengths a second, as the rules set. Changed after results: CI's GPU job timed out on this pull request, its checks running past their limit of 600 s on CI's software GPU. Its passing runs had taken 462 s on this pull request and 599 s on main, and the code the checks run hadn't changed. So the checks' limit is now 900 s and the job's 25 minutes. The checks' thresholds are unchanged.
+- **The targets' sources are registered**, as the rules said, and more widely.
+  - Changed after review: the build first left Karbowski et al. 2006 out of `citations.ts`, since no registry entry cited it, nor the other targets' sources, and a test fails on a registered citation nothing uses.
+  - The code uses their values, though, which CLAUDE.md's rule covers. So Fang-Yen et al. 2010, Ramot et al. 2008 and Karbowski et al. 2006 are registered, each checked against Crossref, and Karbowski's Table 2 against the arXiv preprint, not the published version.
+  - A new registry list, `CALIBRATION_TARGETS` in `src/science/validation.ts`, gives each target's source, Gray, Hill & Bargmann 2005's for the reversal rate among them. FIDELITY.md shows it, and a test holds its values to the calibration's.
+- **Noted, not built.**
+  - A search the stall rule restarts late in phase 1, from evaluation 231 on, carries its restart's fresh region into phase 2, though its pick, which ranked it, may come from restart 0. The rules continue the same search, and the picks' origins name their restarts. No survey search restarted.
+  - Adopting round 3's fit still needs two things. §7.2's long runs need their bout-based measure, which the rules set before any long run on it. And the registry's note on what the calibrated parameters were tuned against (`CALIBRATION_TARGETS` in `params.ts`) names the reversal rate, which round 3 leaves out.
+
+**Checked.**
+
+- **Unit tests.** 538 pass, among them:
+  - a search continued from 250 to 750 evaluations equals a fresh one of 750, bit for bit, its final check included, with and without a restart in phase 1; continued from phase 1's record, it scores only the 500 new;
+  - phase 2's resume choosing phase 1's record over a shorter one of its own;
+  - a stalled search restarting before the 250th evaluation and never after;
+  - the ranking, round 3's objective, and the run guards;
+  - the speed's interval, a resample with no bout counting below every value, and the floor's label;
+  - the pacing diagnostic, and the gate record against a world stepped independently, a switch at 0 included;
+  - the refusal of a pick out of turn;
+  - the diagnostic runs against the runtime data: 18 B-types, 21 A-types, AVBL and AVBR;
+  - the registry's targets against the calibration's.
+- **GPU parity** passes with the new floor in headless Chrome and in Safari, both on the Mac's GPU.
+- **Two smoke runs, each in a scratch copy of the tree,** with round 3 cut to three searches, two continued, trials of 30 s and three candidates rechecked.
+  - **The first, as first built,** ran searches of 22 evaluations continued to 44. It went through a stop in phase 2 and a resume, and phase 2 replayed phase 1 exactly. In one search phase 1's pick outscored phase 2's own and was kept. Its first pick then took the comparison on 20 trials at each step and failed, and the chosen pick's report was forced: every part of it came out. Its budgets were whole generations, and its stop came just after phase 2's replay, so it tried neither a generation cut short nor the stop the review found.
+  - **The second, after review,** ran searches of 25 continued to 47. Phase 1 cut its third generation at 3 of 11, and phase 2 completed it and replayed phase 1 exactly. The record held phase 1's ranking, and the run-once guard refused a second start. The comparison and the forced report came out as fixed, the report without a floor label for its failing pick.
+  - The values were the smoke runs', and nothing from them is kept.
+
+**Exploration, disclosed.** The smoke runs' trials ran on the real wiring, at the values of picks no rule chooses:
+
+- the first: 792 recorded trials of 30 s on the calibration's seeds, and 6 to 44 more in the generation its stop cut off; and 140 of 120 s on checkpoint 1's seeds 1 to 20, 40 for the comparison, 20 at each step, and 100 for the diagnostic runs;
+- the second: 828 of 30 s on the calibration's seeds, and 140 of 120 s as in the first.
+
+**Status.** Built; the real wiring's round comes next.

@@ -91,6 +91,15 @@ export const CITATIONS = {
     venue: 'PLoS Biology 22:e3002939',
     doi: '10.1371/journal.pbio.3002939',
   },
+  fangyen2010: {
+    short: 'Fang-Yen et al. 2010',
+    authors: 'Fang-Yen C, Wyart M, Xie J, Kawai R, Kodger T, Chen S, Wen Q, Samuel ADT',
+    year: 2010,
+    title: 'Biomechanical analysis of gait adaptation in the nematode Caenorhabditis elegans',
+    venue: 'PNAS 107:20323–20328',
+    doi: '10.1073/pnas.1003016107',
+    note: "Table 1: 0.30 ± 0.02 Hz and 0.65 ± 0.03 body lengths (mean ± SEM, N > 10), the calibration's frequency and wavelength targets (PLAN §7.3).",
+  },
   fenyves2020: {
     short: 'Fenyves et al. 2020',
     authors: 'Fenyves BG, Szilágyi GS, Vassy Z, Sőti C, Csermely P',
@@ -166,6 +175,15 @@ export const CITATIONS = {
       'Phase response analyses support a relaxation oscillator model of locomotor rhythm generation in Caenorhabditis elegans',
     venue: 'eLife 10:e69905',
     doi: '10.7554/eLife.69905',
+  },
+  karbowski2006: {
+    short: 'Karbowski et al. 2006',
+    authors: 'Karbowski J, Cronin CJ, Seah A, Mendel JE, Cleary D, Sternberg PW',
+    year: 2006,
+    title: 'Conservation rules, their breakdown, and optimality in Caenorhabditis sinusoidal locomotion',
+    venue: 'Journal of Theoretical Biology 242:652–669',
+    doi: '10.1016/j.jtbi.2006.04.012',
+    note: "Table 2: adult wild-type worms crawling on food move at 0.79 ± 0.26 of their wave speed (N = 58), which sets R's third round's speed target (PLAN §7.3); checked against the arXiv preprint, q-bio/0606027.",
   },
   kim2019: {
     short: 'Kim, Leahy & Shlizerman 2019',
@@ -243,6 +261,15 @@ export const CITATIONS = {
     venue: 'Zenodo (CC BY 4.0)',
     doi: '10.5281/zenodo.15099731',
     note: 'Its data/shapes.csv holds 6,655 real postures that the tutorial introduces as coming from the experiment of Stephens et al. 2008.',
+  },
+  ramot2008: {
+    short: 'Ramot et al. 2008',
+    authors: 'Ramot D, Johnson BE, Berry TL, Carnell L, Goodman MB',
+    year: 2008,
+    title: 'The Parallel Worm Tracker: a platform for measuring average speed and drug-induced paralysis in nematodes',
+    venue: 'PLoS ONE 3:e2208',
+    doi: '10.1371/journal.pone.0002208',
+    note: "219 ± 29 µm/s off food (mean ± s.d.), the calibration's speed target (PLAN §7.3).",
   },
   randi2023: {
     short: 'Randi et al. 2023',

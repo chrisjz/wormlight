@@ -79,6 +79,46 @@ export function percentileInterval(
   return spare < 0 ? [null, null] : [measured[spare], measured[measured.length - 1 - spare]];
 }
 
+// Checkpoint 1's speed with its 95% interval, drawn as the comparison draws its intervals (PLAN §7.4, added after
+// results 2026-09-29, before round 3 ran): the pooled speed over resamples of the trials with replacement, from the
+// comparison's resampling seed, and the 26th to the 975th of 1,000, sorted, a resample with no bout counting below
+// every value. An end is null where those reach it.
+export function speedInterval(
+  records: readonly TrialRecord[],
+  resamples: number = EQUIVALENCE.resamples,
+): { speed: number | null; interval: [number | null, number | null]; unmeasured: number } {
+  const outside = (EQUIVALENCE.outside * resamples) / EQUIVALENCE.resamples;
+  if (!Number.isInteger(outside) || outside < 1) throw new Error('the resamples must be a multiple of 40');
+  const a = bouted(records);
+  const n = a.length;
+  const speeds: (number | null)[] = [];
+  for (let s = 0; s < resamples; s++) {
+    const picks = Array.from({ length: n }, (_, k) => Math.floor(uniform(hash(EQUIVALENCE.resamplingSeed, s, k)) * n));
+    speeds.push(measuresOf(picks.map((k) => a[k])).speed);
+  }
+  const unmeasured = speeds.filter((v) => v === null).length;
+  const sorted = [
+    ...speeds.filter((v) => v === null),
+    ...speeds.filter((v): v is number => v !== null).sort((u, v) => u - v),
+  ];
+  return {
+    speed: measuresOf(a).speed,
+    interval: [sorted[outside], sorted[resamples - 1 - outside]],
+    unmeasured,
+  };
+}
+
+// Whether a partial is reported as partial at the speed floor (PLAN §7.4, §9): its speed's interval reaches below
+// the partial band's floor, or, for a fit that took the comparison, its pooled speed over the comparison's trials at
+// dt/2 does. It changes no grade.
+export function atSpeedFloor(
+  interval: readonly [number | null, number | null],
+  fineSpeed: number | null,
+  floor: number = CHECKPOINT_1.speed.partial[0],
+): boolean {
+  return interval[0] === null || interval[0] < floor || (fineSpeed !== null && fineSpeed < floor);
+}
+
 // The comparison of `coarse`, the trials at dt, with `fine`, the same seeds' at dt/2, in the same order. The
 // resamples must leave a whole number outside each end, as 1,000 leave 25.
 export function compareSteps(

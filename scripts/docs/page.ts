@@ -25,7 +25,7 @@ import {
   type Subsystem,
 } from '../../src/science/params.ts';
 import { usedCitations } from '../../src/science/used.ts';
-import { REFERENCE_DATA } from '../../src/science/validation.ts';
+import { CALIBRATION_TARGETS, REFERENCE_DATA } from '../../src/science/validation.ts';
 import { table } from '../data/render.ts';
 
 const TAG_SYMBOL: Record<Tag, string> = { omitted: '—', presentation: '◇' };
@@ -203,6 +203,8 @@ export function fidelityPage(facts: Facts): string {
       (r) =>
         `- **${checkpoints(r.checkpoints)}** (pin \`${r.pin}\` in \`data/sources.json\`): ${r.use} Sources: ${cite(r.sources)}.`,
     ).join('\n'),
+    "The calibration's targets (PLAN §7.3), which the calibrated parameters are tuned against:",
+    CALIBRATION_TARGETS.map((r) => `- **${r.target}**: ${r.use} Sources: ${cite(r.sources)}.`).join('\n'),
     '## Parameters',
     `Every constant the plan fixes so far, from \`src/science/params.ts\`. A parameter is free when we set it ourselves, at level 1 or 0. There are ${free.length} free parameters, ${calibrated.length} calibrated and ${free.length - calibrated.length} fixed in advance, against a budget of ${FREE_PARAMETER_BUDGET} (PLAN.md §6.2). Constants that only later milestones use, such as the body's spring constants and the oscillator's fixed coefficients, join the registry with the code that uses them.`,
     ...groups.flatMap((group) => [

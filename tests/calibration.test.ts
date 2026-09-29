@@ -15,9 +15,11 @@ import {
   SECOND_ROUND,
   SURVEY,
   TARGETS,
+  THIRD_ROUND,
   provisionalValues,
   surveyStart,
 } from '../src/validation/calibration.ts';
+import { CALIBRATION_TARGETS } from '../src/science/validation.ts';
 import { settings } from '../scripts/calibrate/run.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { readJson } from './checks.ts';
@@ -176,5 +178,20 @@ describe("the bounded model's survey (PLAN §9)", () => {
     expect(survey.partial).toBe(survey.runs.some((r) => r.grade !== 'fail'));
     // Two picks graded partial, so R's third round runs (DECISIONS.md, 2026-09-29).
     expect(survey.runs.filter((r) => r.grade === 'partial').map((r) => r.seed)).toEqual([18, 26]);
+  });
+});
+
+describe("the calibration's targets in the registry (PLAN §7.3)", () => {
+  it('give the values the calibration takes, each with its source', () => {
+    const uses = CALIBRATION_TARGETS.map((t) => t.use);
+    const [kinematics, speed, third, reversals] = uses;
+    expect(kinematics).toMatch(
+      new RegExp(`^${TARGETS.frequency.toFixed(2)} Hz and ${TARGETS.wavelength} body lengths`),
+    );
+    expect(speed).toMatch(new RegExp(`^${TARGETS.speed} body lengths per second`));
+    expect(third).toMatch(new RegExp(`^${THIRD_ROUND.goals.speed} body lengths per second`));
+    expect(reversals).toMatch(new RegExp(`^${TARGETS.reversalRate} a minute`));
+    // Round 3's speed is the other targets' wave speed times Karbowski et al.'s ratio, to two figures.
+    expect(0.79 * TARGETS.frequency * TARGETS.wavelength).toBeCloseTo(THIRD_ROUND.goals.speed, 2);
   });
 });

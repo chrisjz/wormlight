@@ -197,7 +197,8 @@ try {
   const browser = (driver = safari ? await safariDriver(url) : await chrome(url));
   console.log(browser.name);
   console.log(`GPU adapter: ${await browser.adapter()}`);
-  const report = await withTimeout(browser.call<Report>('__parity'), 600000, 'the parity checks');
+  // CI's software GPU took 462 to 599 s over the checks in September 2026, against a limit of 600 s then.
+  const report = await withTimeout(browser.call<Report>('__parity'), 900000, 'the parity checks');
   writeFileSync(join(outDir, 'parity.json'), `${JSON.stringify(report, null, 2)}\n`);
   const { noise, thresholds } = report;
   console.log(

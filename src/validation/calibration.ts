@@ -79,6 +79,33 @@ export const SURVEY = {
   gradeSeeds: Array.from({ length: 20 }, (_, i) => 3001 + i),
 } as const;
 
+// R's third round, its last (PLAN §7.3, §9; DECISIONS.md, 2026-09-29, set before any of it ran and revised after
+// review). Phase 1 is the survey's design with this objective: sixteen searches of 250 evaluations in the conductance
+// form, CMA-ES seeds 11 to 26, each from its point of the survey's Latin hypercube and each restart from a fresh one,
+// with the survey's restart rule, each with its final check. Phase 2 continues the 4 whose final checks score lowest,
+// ties to the lower seed, to 750 evaluations each: the same search, its first 250 replayed, with no restart after the
+// 250th, its final check taking phase 1's pick too. The objective reads the frequency, wavelength and speed alone, the
+// speed's target 0.15 body lengths per second rather than checkpoint 1's 0.22 (PLAN §7.3 gives its source), and a worm
+// without a bout of 10 s takes the cap on its frequency. The fit is the first of the four picks, in the order of their
+// objective, to pass §7.2's comparison.
+export const THIRD_ROUND = {
+  form: 'conductance' as Form,
+  targets: ['frequency', 'wavelength', 'speed'] as readonly Target[],
+  goals: { ...TARGETS, speed: 0.15 },
+  spectral: false,
+  seeds: SURVEY.seeds,
+  phase1: { budget: 250 },
+  phase2: { budget: 750, continued: 4 },
+  restart: { ...SECOND_ROUND.restart, until: 250 },
+} as const;
+
+// Searches or picks in the order of their objective, the lower CMA-ES seed first on a tie; one that left the finite
+// numbers, whose objective is infinite, or written to JSON as null, last.
+export function ranked<T extends { seed: number; value: number | null }>(runs: readonly T[]): T[] {
+  const key = (x: number | null): number => (x === null || Number.isNaN(x) ? Infinity : x);
+  return [...runs].sort((a, b) => key(a.value) - key(b.value) || a.seed - b.seed);
+}
+
 // Where search j of the survey starts (restart 0) and restarts, in [0, 1]ⁿ over the calibrated parameters in their
 // order. Its start is a Latin hypercube: coordinate k is (π_k(j) + a_jk)/16, with a_jk = uniform(hash(S, j, k)) and
 // π_k(j) the rank of b_jk = uniform(hash(S, j, 64 + k)) among the sixteen searches'. Restart r starts afresh at
@@ -218,15 +245,20 @@ export interface Score {
   errors: Record<Target, number>;
 }
 
-// The errors on every target, and their sum over `targets`: all four, or a stage's (SECOND_ROUND).
-export function objective(m: Measures, targets: readonly Target[] = ALL_TARGETS): Score {
+// The errors on every target, and their sum over `targets`: all four, or a stage's (SECOND_ROUND). The errors are
+// relative to `goals`, checkpoint 1's targets unless a round sets its own (THIRD_ROUND).
+export function objective(
+  m: Measures,
+  targets: readonly Target[] = ALL_TARGETS,
+  goals: Readonly<Record<Target, number>> = TARGETS,
+): Score {
   const error = (x: number | null, target: number): number =>
     x === null || !Number.isFinite(x) ? ERROR_CAP : Math.min(ERROR_CAP, Math.abs((x - target) / target));
   const errors: Record<Target, number> = {
-    frequency: error(m.frequency, TARGETS.frequency),
-    wavelength: error(m.wavelength, TARGETS.wavelength),
-    speed: error(m.speed, TARGETS.speed),
-    reversalRate: error(m.reversalRate, TARGETS.reversalRate),
+    frequency: error(m.frequency, goals.frequency),
+    wavelength: error(m.wavelength, goals.wavelength),
+    speed: error(m.speed, goals.speed),
+    reversalRate: error(m.reversalRate, goals.reversalRate),
   };
   const value = m.finite ? targets.reduce((s, t) => s + errors[t] ** 2, 0) : Infinity;
   return { value, errors };
@@ -306,9 +338,11 @@ export interface Fit {
 // PLAN §7.3's search, from the provisional values or `start`, up to `budget` evaluations, then the final check. It
 // searches `ids`, every calibrated parameter by default, the rest held at `fixed`; with `restarts`, R's second
 // round's (SECOND_ROUND), CMA-ES starts again, from the same point or from `restartFrom`'s, with its population doubled
-// whenever its step falls below `restarts.sigma` or its best hasn't fallen for `restarts.stall` generations. A run resumes from the
-// evaluations of an earlier one with the same settings: CMA-ES replays them, and each candidate must come out as
-// recorded, bit for bit. `extra` candidates join the final check, and `progress` sees each generation as it ends.
+// whenever its step falls below `restarts.sigma` or its best hasn't fallen for `restarts.stall` generations, until
+// `restarts.until` evaluations are done, if it is set (THIRD_ROUND). A run resumes from the evaluations of an earlier
+// one with the same settings, or continues one to a larger budget: CMA-ES replays them, and each candidate must come
+// out as recorded, bit for bit. `extra` candidates join the final check, and `progress` sees each generation as it
+// ends.
 export async function calibrate(
   score: Scorer,
   options: {
@@ -322,7 +356,7 @@ export async function calibrate(
     // Where each restart starts, in the same units; by default the search's own start again.
     restartFrom?: (restart: number) => readonly number[];
     seed?: number;
-    restarts?: { sigma: number; stall: number };
+    restarts?: { sigma: number; stall: number; until?: number };
     extra?: readonly { from: string; values: Values }[];
     previous?: readonly Evaluated[];
     progress?: (fit: Omit<Fit, 'checked' | 'final'>) => void;
@@ -356,7 +390,8 @@ export async function calibrate(
   const previous = options.previous ?? [];
   while (evaluated.length < options.budget) {
     const { restarts } = options;
-    if (restarts && es.generation > 0 && (es.sigma < restarts.sigma || stalled >= restarts.stall)) {
+    const restarting = restarts && evaluated.length < (restarts.until ?? Infinity);
+    if (restarting && es.generation > 0 && (es.sigma < restarts.sigma || stalled >= restarts.stall)) {
       drawn += es.generation;
       restart++;
       es = search();

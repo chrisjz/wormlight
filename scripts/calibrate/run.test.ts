@@ -1,6 +1,28 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_TARGETS, provisionalValues, SECOND_ROUND, SURVEY, surveyStart } from '../../src/validation/calibration.ts';
-import { BOUNDED, boundedAllowed, parseArgs, PROBE, procedure, settings, SUMMARY, summary, SURVEYED } from './run.ts';
+import {
+  ALL_TARGETS,
+  provisionalValues,
+  SECOND_ROUND,
+  SURVEY,
+  surveyStart,
+  THIRD_ROUND,
+  type Evaluated,
+} from '../../src/validation/calibration.ts';
+import {
+  BOUNDED,
+  boundedAllowed,
+  continuedFrom,
+  mayStartAfresh,
+  parseArgs,
+  PROBE,
+  procedure,
+  ROUND_3,
+  roundThreeAllowed,
+  settings,
+  SUMMARY,
+  summary,
+  SURVEYED,
+} from './run.ts';
 
 describe("the calibration's options", () => {
   it("default to PLAN §7.3's budget and R's second round, and refuse anything but whole numbers", () => {
@@ -17,6 +39,9 @@ describe("the calibration's options", () => {
     expect(parseArgs(['--bounded', '--budget', '40'])).toMatchObject({ mode: 'bounded', budget: 40 });
     expect(() => parseArgs(['--probe', '--budget', '20'])).toThrow(/--probe/);
     expect(() => parseArgs(['--survey', '--budget', '20'])).toThrow(/--survey/);
+    expect(parseArgs(['--round-3', '--resume'])).toMatchObject({ mode: 'round 3', resume: true });
+    expect(() => parseArgs(['--round-3', '--budget', '20'])).toThrow(/--round-3 takes its own budget/);
+    expect(() => parseArgs(['--round-3', '--survey'])).toThrow(/one mode/);
     expect(() => parseArgs(['--probe', '--survey'])).toThrow(/one mode/);
     for (const args of [
       ['--budget'],
@@ -52,6 +77,14 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     // The refit's: all four targets, without the spectral frequency or restarts.
     expect(procedure('bounded')).toEqual({ form: 'conductance', targets: ALL_TARGETS, spectral: false });
     expect(procedure('probe')).toEqual({ ...procedure('round 2'), form: 'current' });
+    // Round 3's: the crawl alone against its own targets, without the spectral frequency, restarting only in phase 1.
+    expect(procedure('round 3')).toEqual({
+      form: 'conductance',
+      targets: ['frequency', 'wavelength', 'speed'],
+      goals: THIRD_ROUND.goals,
+      spectral: false,
+      restarts: { sigma: 0.01, stall: 20, until: 250 },
+    });
   });
 
   it('runs the bounded calibration only once a whole survey has found no partial pick', () => {
@@ -59,6 +92,32 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     expect(boundedAllowed({ complete: true, partial: true })).toBe(false);
     expect(boundedAllowed({ complete: false, partial: false })).toBe(false);
     expect(boundedAllowed(null)).toBe(false);
+  });
+
+  it('runs round 3 once, only after a whole survey found a partial pick', () => {
+    expect(roundThreeAllowed({ complete: true, partial: true }, false)).toBe(true);
+    expect(roundThreeAllowed({ complete: true, partial: true }, true)).toBe(false);
+    expect(roundThreeAllowed({ complete: true, partial: false }, false)).toBe(false);
+    expect(roundThreeAllowed({ complete: false, partial: true }, false)).toBe(false);
+    expect(roundThreeAllowed(null, false)).toBe(false);
+  });
+
+  it('never starts afresh over a stopped run, which only --resume takes up', () => {
+    expect(mayStartAfresh(null)).toBe(true);
+    expect(mayStartAfresh({ complete: true })).toBe(true);
+    expect(mayStartAfresh({ complete: false })).toBe(false);
+    expect(mayStartAfresh({})).toBe(false);
+  });
+
+  it("replays phase 1's record in phase 2 until phase 2's own is longer", () => {
+    const evaluations = (n: number) => Array.from({ length: n }, (_, k) => ({ candidate: k }) as unknown as Evaluated);
+    const first = evaluations(250);
+    // A stop in the generation that crosses the 250th evaluation leaves phase 2's own record at 242.
+    expect(continuedFrom(evaluations(242), first)).toBe(first);
+    expect(continuedFrom(undefined, first)).toBe(first);
+    const own = evaluations(253);
+    expect(continuedFrom(own, first)).toBe(own);
+    expect(continuedFrom(own, undefined)).toBe(own);
   });
 });
 
@@ -80,6 +139,20 @@ describe("the calibration's record", () => {
     expect(s.starts).toEqual(SURVEY.seeds.map((_, j) => surveyStart(j, 0)));
     expect((s.bounds as Record<string, unknown>).headSwitchGain).toEqual([0.02, 50]);
     expect(SURVEYED.endsWith('data/calibration/survey.json')).toBe(true);
+  });
+
+  it("names round 3's form, its settings, the survey's starts and its own targets, and is committed as r5.json", () => {
+    const s = settings(2000, 'round 3');
+    expect(s).toMatchObject({
+      model: 'track R, round 3',
+      form: 'conductance',
+      thirdRound: THIRD_ROUND,
+      survey: SURVEY,
+    });
+    expect(s.starts).toEqual(SURVEY.seeds.map((_, j) => surveyStart(j, 0)));
+    expect((s.targets as Record<string, number>).speed).toBe(0.15);
+    expect((s.bounds as Record<string, unknown>).proprioceptiveGain).toEqual([0.0001, 8]);
+    expect(ROUND_3.endsWith('data/calibration/r5.json')).toBe(true);
   });
 
   it("names the bounded calibration's form and start, the conductance form's, and is committed as r4.json", () => {

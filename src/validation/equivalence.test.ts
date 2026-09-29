@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkpoint1 } from './checkpoints.ts';
-import { compareSteps, EQUIVALENCE, measures, percentileInterval } from './equivalence.ts';
+import { atSpeedFloor, compareSteps, EQUIVALENCE, measures, percentileInterval, speedInterval } from './equivalence.ts';
 import { emptySums } from './posture.ts';
 import type { TrialRecord } from './trial.ts';
 
@@ -136,5 +136,38 @@ describe("§7.2's comparison with the noise on", () => {
     for (const name of ['frequency', 'wavelength', 'speed', 'bout'] as const) {
       expect(m[name]).toBe(c.clauses.find((k) => k.name === name)?.value);
     }
+  });
+});
+
+describe("round 3's speed interval (PLAN §7.4, added 2026-09-29 before round 3 ran)", () => {
+  // Twenty crawlers at speeds spread from 0.05 to 0.088 body lengths per second.
+  const spread = set(0.3).map((r, k) => ({ ...r, velocity: r.velocity.map((v) => (v > 0 ? 0.05 + 0.002 * k : v)) }));
+
+  it("resamples the trials as the comparison does, its speed checkpoint 1's", { timeout: 30000 }, () => {
+    const s = speedInterval(spread, 40);
+    expect(s.speed).toBe(checkpoint1(spread, []).clauses.find((c) => c.name === 'speed')?.value);
+    expect(s.unmeasured).toBe(0);
+    const [lower, upper] = s.interval as [number, number];
+    expect(lower).toBeLessThan(s.speed as number);
+    expect(upper).toBeGreaterThan(s.speed as number);
+    expect(speedInterval(spread, 40)).toEqual(s);
+    expect(() => speedInterval(spread, 100)).toThrow(/multiple of 40/);
+  });
+
+  it('counts a resample with no bout below every value', { timeout: 30000 }, () => {
+    // Only the first two trials crawl, so many resamples draw neither.
+    const few = spread.map((r, k) => (k < 2 ? r : { ...r, velocity: r.velocity.map(() => 0) }));
+    const s = speedInterval(few, 40);
+    expect(s.unmeasured).toBeGreaterThan(1);
+    expect(s.interval[0]).toBeNull();
+    expect(s.interval[1]).not.toBeNull();
+  });
+
+  it('reports a partial at the speed floor when its interval, or its speed at dt/2, reaches below 0.06', () => {
+    expect(atSpeedFloor([0.061, 0.07], 0.062)).toBe(false);
+    expect(atSpeedFloor([0.061, 0.07], null)).toBe(false);
+    expect(atSpeedFloor([0.0599, 0.07], 0.062)).toBe(true);
+    expect(atSpeedFloor([null, 0.07], 0.062)).toBe(true);
+    expect(atSpeedFloor([0.061, 0.07], 0.0599)).toBe(true);
   });
 });
