@@ -1,0 +1,83 @@
+{
+  "fit": "round-3",
+  "pick": 4,
+  "values": {
+    "oscillatorExcitability": 4948.039233637306,
+    "oscillatorExcitabilityB": 0,
+    "oscillatorRecoveryTime": 0.4696692602150499,
+    "oscillatorDriveThreshold": -11.044396858828271,
+    "headSwitchGain": 50,
+    "proprioceptiveGain": 0.01893221429543516,
+    "gapGainB": 0.3822890901296461,
+    "neuromuscularGain": 40,
+    "neuromuscularThreshold": -0.1227656917094366,
+    "smdGain": 0.40279019803092225,
+    "noiseIntensity": 0.08849055043679074,
+    "noiseCorrelation": 0.02
+  },
+  "date": "2026-09-29",
+  "commit": "c5539c3",
+  "trials": 200,
+  "seconds": 120,
+  "steps": [0.0025, 0.00125],
+  "resamples": 1000,
+  "grades": ["partial", "partial"],
+  "unconverged": [0, 0],
+  "comparison": {
+    "clauses": [
+      {
+        "name": "frequency",
+        "coarse": 0.149971238392637,
+        "fine": 0.15787069812053256,
+        "difference": -0.007899459727895547,
+        "interval": [-0.011250433641244478, -0.004604587087742834],
+        "margin": 0.004736120943615977,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "wavelength",
+        "coarse": 0.6129294256416088,
+        "fine": 0.5878012841493427,
+        "difference": 0.025128141492266054,
+        "interval": [0.01216672146134401, 0.03861021682697585],
+        "margin": 0.01763403852448028,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "speed",
+        "coarse": 0.06301757068514191,
+        "fine": 0.06351763486437706,
+        "difference": -0.000500064179235149,
+        "interval": [-0.0007945932911268411, -0.00023293602361157406],
+        "margin": 0.0019055290459313117,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "bout",
+        "coarse": 1,
+        "fine": 1,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.1,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "reversals",
+        "coarse": 0,
+        "fine": 0,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.3,
+        "unmeasured": 0,
+        "pass": true
+      }
+    ],
+    "nonFinite": 0,
+    "pass": false
+  },
+  "source": "5703120d1807bc96bfdd91b94e3acc4411a6b972 e0bfd7cfbda75fe5bef6a7a48a01826fb1b812e5 3eed1357532edeb8c7ddd88de0aee82fe68f387b d80297c4e6d8a3806d26afb05ba6d38f74a04c7e 56002eea7a3fecc23f6cbff783afd0d5c45a57b9 8cf7cb321b03b377b2479adc9851c4965eb0dd35"
+}

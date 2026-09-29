@@ -1,0 +1,83 @@
+{
+  "fit": "round-3",
+  "pick": 1,
+  "values": {
+    "oscillatorExcitability": 2392.161974407998,
+    "oscillatorExcitabilityB": 0,
+    "oscillatorRecoveryTime": 0.9227310665459885,
+    "oscillatorDriveThreshold": -8.142441631108152,
+    "headSwitchGain": 50,
+    "proprioceptiveGain": 0.01999547537244798,
+    "gapGainB": 0.1,
+    "neuromuscularGain": 40,
+    "neuromuscularThreshold": -0.1320415517111507,
+    "smdGain": 0.37086441854496854,
+    "noiseIntensity": 0.13526625891766725,
+    "noiseCorrelation": 0.09567643406497062
+  },
+  "date": "2026-09-29",
+  "commit": "8358a9a",
+  "trials": 200,
+  "seconds": 120,
+  "steps": [0.0025, 0.00125],
+  "resamples": 1000,
+  "grades": ["partial", "partial"],
+  "unconverged": [0, 0],
+  "comparison": {
+    "clauses": [
+      {
+        "name": "frequency",
+        "coarse": 0.18464203550773123,
+        "fine": 0.18858758667467154,
+        "difference": -0.003945551166940314,
+        "interval": [-0.007189136095583387, -0.0006266600940257883],
+        "margin": 0.005657627600240146,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "wavelength",
+        "coarse": 0.5931096658910909,
+        "fine": 0.5808661883529651,
+        "difference": 0.012243477538125824,
+        "interval": [0.0009730399861623829, 0.023399052911359686],
+        "margin": 0.017425985650588952,
+        "unmeasured": 0,
+        "pass": false
+      },
+      {
+        "name": "speed",
+        "coarse": 0.08120524195774358,
+        "fine": 0.08121391469349876,
+        "difference": -0.000008672735755180239,
+        "interval": [-0.0004831131621984702, 0.00044414842600590254],
+        "margin": 0.0024364174408049626,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "bout",
+        "coarse": 1,
+        "fine": 1,
+        "difference": 0,
+        "interval": [0, 0],
+        "margin": 0.1,
+        "unmeasured": 0,
+        "pass": true
+      },
+      {
+        "name": "reversals",
+        "coarse": 0.002737226277372263,
+        "fine": 0,
+        "difference": 0.002737226277372263,
+        "interval": [0, 0.010948905109489052],
+        "margin": 0.3,
+        "unmeasured": 0,
+        "pass": true
+      }
+    ],
+    "nonFinite": 0,
+    "pass": false
+  },
+  "source": "5703120d1807bc96bfdd91b94e3acc4411a6b972 e0bfd7cfbda75fe5bef6a7a48a01826fb1b812e5 3eed1357532edeb8c7ddd88de0aee82fe68f387b d80297c4e6d8a3806d26afb05ba6d38f74a04c7e 56002eea7a3fecc23f6cbff783afd0d5c45a57b9 8cf7cb321b03b377b2479adc9851c4965eb0dd35"
+}

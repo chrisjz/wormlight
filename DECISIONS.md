@@ -2338,7 +2338,7 @@ A review found, in trials of its own:
   - 16 with g_nmj at 40;
   - 1 for timing.
 
-**Status.** Done: the survey found a crawl, and round 3's rules followed (the entry below).
+**Status.** Done: the survey found a crawl, and round 3's rules followed (the entry below). Round 3 ran, and none of its picks passed §7.2's comparison (the entries below).
 
 ## 2026-09-29 — R's third round: its rules, set before any of it runs (revised after review)
 
@@ -2413,7 +2413,7 @@ A review found, in trials of its own:
 
 **Exploration, disclosed.** The reviews ran 60 trials of 120 s on the real wiring, on seeds 9021 to 9040, at three of the survey's candidates without a bout, to size the plateau's noise. They also rebuilt the loop parity's states on the CPU, and ran GPU parity with the first setups' values under both floors.
 
-**Status.** Set before any of it was built, and revised after review; built (the entry below), and the real wiring's round comes next.
+**Status.** Set before any of it was built, and revised after review; built (the entry below). The round ran, and no pick passed (the entries below).
 
 ## 2026-09-29 — R's third round, built (revised after review)
 
@@ -2489,4 +2489,131 @@ A review found, in trials of its own:
 - the first: 792 recorded trials of 30 s on the calibration's seeds, and 6 to 44 more in the generation its stop cut off; and 140 of 120 s on checkpoint 1's seeds 1 to 20, 40 for the comparison, 20 at each step, and 100 for the diagnostic runs;
 - the second: 828 of 30 s on the calibration's seeds, and 140 of 120 s as in the first.
 
-**Status.** Built; the real wiring's round comes next.
+**Status.** Built. The round ran, and no pick passed (the entry below), so the adoption steps noted above are moot.
+
+## 2026-09-29 — R's third round: no pick holds at half the step, so the refit stays and R ends (revised after review)
+
+**Why.** R's third round, its last, ran on the real wiring by the rules set before it (the entries above). This records its search, its four picks' comparisons with §7.2, and what the rules make of them.
+
+**The search** (`npm run calibrate -- --round-3` at 7aa7a9f; 3.2 hours on 14 workers; `data/calibration/r5.json`).
+
+- **Phase 1.** Sixteen searches of 250 evaluations; none restarted. Ranked by their final checks' objective, the best four were those of CMA-ES seeds 12 (0.711), 23 (0.716), 14 (0.726) and 18 (0.869). The survey's two partial searches, seeds 18 and 26, ranked fourth and fifth. The picks of two searches, seeds 15 and 22, made no bout in their final checks.
+- **Phase 2.** The four continued to 750 evaluations each, with no restart. In each, the final check preferred a candidate of phase 2's to phase 1's pick.
+- **The picks,** in the order they took the comparison, measured on the final check's seeds 1005 to 1020, on which they were chosen:
+
+  | Pick | CMA-ES seed | From                       | Objective | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) |
+  | ---- | ----------- | -------------------------- | --------- | -------------- | ------------------------- | ---------------------- |
+  | 1    | 12          | generation 64, candidate 2 | 0.366     | 0.189          | 0.57                      | 0.081                  |
+  | 2    | 14          | the final mean             | 0.375     | 0.180          | 0.61                      | 0.081                  |
+  | 3    | 18          | generation 61, candidate 3 | 0.552     | 0.217          | 0.46                      | 0.057                  |
+  | 4    | 23          | generation 67, candidate 1 | 0.592     | 0.149          | 0.62                      | 0.063                  |
+
+- **Where they sit.** Picks 1, 2 and 4 turned the B-types' oscillator off (g_osc,B at 0). Picks 1 and 4 also have g_sw and g_nmj at the tops of their boxes. Pick 1 has κ_gap,B at its floor, pick 2 has σ_n at 0, pick 4 has τ_n at its floor, and pick 3 has τ_w at its top.
+- **Trials.** 27,568 of 120 s: 6,000 evaluations of 4, and 223 candidates rechecked on 16 seeds each.
+
+**The comparison, down the four** (`npm run equivalence -- --fit round-3 --pick N`, at 8358a9a, 4042820, d888332 and c5539c3). Every pick failed on its frequency and wavelength; each one's speed, share of trials with a 20 s bout and reversals passed:
+
+| Pick | Frequency, dt → dt/2 | Interval (margin)            | Wavelength, dt → dt/2 | Interval (margin)            | Checkpoint 1 over the 200 trials, dt and dt/2 |
+| ---- | -------------------- | ---------------------------- | --------------------- | ---------------------------- | --------------------------------------------- |
+| 1    | 0.1846 → 0.1886      | −0.0072 to −0.0006 (±0.0057) | 0.5931 → 0.5809       | +0.0010 to +0.0234 (±0.0174) | Partial, partial                              |
+| 2    | 0.1796 → 0.1896      | −0.0137 to −0.0065 (±0.0057) | 0.6088 → 0.5665       | +0.0316 to +0.0533 (±0.0170) | Partial, partial                              |
+| 3    | 0.2091 → 0.2001      | +0.0002 to +0.0170 (±0.0060) | 0.4754 → 0.4991       | −0.0453 to −0.0005 (±0.0150) | Fail, fail                                    |
+| 4    | 0.1500 → 0.1579      | −0.0113 to −0.0046 (±0.0047) | 0.6129 → 0.5878       | +0.0122 to +0.0386 (±0.0176) | Partial, partial                              |
+
+- Pick 1 failed narrowly: its differences, −2.1% in frequency and +2.1% in wavelength, lie within their margins, but their intervals reach past them.
+- Picks 1, 2 and 4 made a forward bout of 20 s in every one of their 200 trials at both steps; pick 3 in 92% and 96%. On checkpoint 1's own seeds, 1 to 20, the first 20 of these trials, picks 1, 2 and 4 grade partial and pick 3 fails.
+- Pick 3 fails checkpoint 1 on its speed alone, 0.0569 and 0.0573 body lengths a second against partial's floor of 0.06, as it did on the final check's seeds. Had it passed the comparison, the rules would have had it replace the refit while failing checkpoint 1.
+- **Added after review: pick 2 is noiseless.** Its σ_n is 0, so its trials differ only by their starting postures, and §7.2 holds a noise-off run to the plain 2% rule (the entry of 2026-09-28). By that rule its speed, 2.8% apart between the steps, fails too; the noise-on reading used here passes it, its interval 0.00215 to 0.00224 against a margin of 0.00237. It fails either way.
+- No pick passed, so the chosen fit's report, checkpoint 1 on its own trials, the speed's interval and the runs that show what paces the crawl, was not written.
+- **Corrected after review:** the messages of commits d888332 and c5539c3 give the direction at dt/2 backwards; the records and this entry are right. The history stays as it is, so that the commits the records name remain on main.
+
+**Decision.** By the rules:
+
+- **The refit stays** the real wiring's final fit, with its form, and with its procedure for any null tuned later (PLAN §9, step 3). Any such null would take the refit's speed target of 0.22, which PLAN §7.3 notes exceeds the targets' own wave speed.
+- **R ends,** after its third round, as the rules said it would either way.
+- **The consequences carry over.** The refit's voltages lie outside the model's range (the investigation's entry above), and that stands. The item PLAN §9 left open, whether the head switch's slips can meet the calibration's reversal term, stays open for the refit's procedure, to be settled before any null is tuned.
+
+**Reported, not acted on. Corrected after review:** the first of these read the wave's speed as holding, when the measure fixes it.
+
+- **What moves with the step is the counted frequency.** Checkpoint 1's wavelength is the rods' separation over the frequency times the lag between them (`kinematics` in `src/validation/motion.ts`), so the frequency times the wavelength is the separation over the lag, and the two clauses fail together by construction. The lag itself holds: its product's intervals run −0.6% to +0.6%, +1.8% to +1.9%, −1.9% to +1.0% and −1.5% to −0.4% in picks 1 to 4, a review found. The frequency, a count of crossings of each bout's mean, moves by 2.1% to 5.3%, and the wavelength follows it, by up to 7.5%. The mid-body spectrum's peak, at a resolution of 0.009 Hz, doesn't track the count: 0.155 at both steps in pick 1, 0.182 to 0.173 in pick 2, 0.091 at both in pick 3 and 0.119 to 0.128 in pick 4. The entry after this one looks into why.
+- **The head switch runs unconditionally.** In every pick, at both steps, its gate was open on every measured step and never turned, the head-switch drive sitting 2.2 to 9.6 mV above θ_osc with a spread of about 0.5 mV; and in picks 1, 2 and 4 the spectrum's peak lies at the switch's cycle rate, half its flips a second: at dt, 0.155 and 0.154 Hz, 0.182 and 0.179, and 0.119 and 0.122. Pick 3's peak, 0.091 Hz, lies below its switch's 0.142. These are the chosen fit's diagnostics, which the rules ask of no unchosen pick; a review read them from the comparison's uncommitted trial records.
+- **Picks 1 and 2 crawl faster than the survey's.** Over the comparison's 200 trials at dt they move at 0.081 body lengths per second, a third above the survey's two partial picks, graded at 0.061 on seeds of their own. Pick 4 moves at 0.063, about the survey's speed, and pick 3 at 0.057, below it. All stay below a pass, 0.12.
+
+**Exploration, disclosed.** The comparisons ran by the rules on seeds 1 to 200, checkpoint 1's own 20 among them: 1,600 trials of 120 s, 400 a pick.
+
+**Status.** Done: track R has ended, and the refit remains the real wiring's final fit. The refit's checkpoint 1 stays a fail, so checkpoints 2 to 6, which need forward crawling, stay not reached (milestone 0c's outcome, PLAN §9). The nulls' procedure, and the open item on the reversal term, come into play only if checkpoint 6 is ever reached. An assessment of the paths left followed (the entry below).
+
+## 2026-09-30 — After R: its last crawl is the head switch's, and the negative result is the headline
+
+**Why.** R ended below partial (the entry above). The maintainer asked for a holistic look at whether any path to the project's goals is left: how likely each is to succeed, and whether another day or more of evaluations would be worth it. Three investigations ran on it: the numerics of round 3's step dependence, what drives its best pick's crawl with a preview of the wiring test, and the model's structural gaps against its history and the literature.
+
+**The step dependence is mostly the frequency's measure.**
+
+- **The counted frequency.** Checkpoint 1 counts crossings of each bout's mean, and these gaits linger near it: 17% to 23% of the crossings in picks 1 and 4 are pairs under 1 s apart, how many depending on the noise and the step. The count is the frequency that moves with the step (the entry above).
+- **The rhythm.** The head switch's cycle, where the body's spectral peak lies, moves 1.4% to 1.8% from 2.5 to 1.25 ms and 0.7% or less at each halving after, in picks 1, 2 and 4, over steps down to 0.3125 ms.
+- **Where the error lives.** In the brain's integration: sub-steps of the brain alone reproduce the finer loop, and sub-steps of the body don't. The gate's chatter is ruled out, since it never turned, and so is the solver's tolerance. The oscillators couldn't be separated from the rest: without the A-types' the worm doesn't crawl at all. With its noise off, pick 4 is independent of the step to four figures; its coloured noise, at τ_n's floor, brings in both the step dependence and most of the short crossings.
+- **Exploratory, and not acted on.**
+  - Pick 1 passes every clause of a comparison of 1.25 against 0.625 ms on the rule's 200 seeds, its frequency interval −0.0029 to +0.0041 against ±0.0056. The other picks' counts don't converge at any step tried.
+  - Counting only crossings that leave a band of ±0.5 κL around the mean would pass the frequency clause for picks 1, 2 and 4 at 2.5 against 1.25 ms, though not pick 3's.
+  - Either would change the rules after results: the model's step, which §7.2's comparison of 2026-09-28 declined to choose after results, or checkpoint 1's measure.
+  - An inference, untested: the calibration's objective reads the same count against a target of 0.30 Hz, so the search may have been rewarded for short crossings. At 2.5 ms, picks 1, 3 and 4 count 21%, 114% and 22% more crossings than their rhythm makes.
+
+**What drives the crawl** (pick 1, checkpoint 1's seeds 1 to 20, at dt; pick 4 alike unless noted):
+
+| Run                                   | Grade   | Speed (body lengths/s)  | Forward share | Switch's cycle / spectral peak (Hz) |
+| ------------------------------------- | ------- | ----------------------- | ------------- | ----------------------------------- |
+| As picked                             | Partial | 0.082                   | 99.6%         | 0.152 / 0.155                       |
+| g_sw at 0, or at 0.02 nS              | Fail    | none, −0.001 on average | 0%            | 0 / 0.027                           |
+| SMDs lesioned                         | Fail    | none                    | 4%            | 0 / 0.027                           |
+| 18 B-types lesioned                   | Fail    | 0.014 on average        | 61%           | 0.301 / 0.301                       |
+| Proprioception at its floor, or 0     | Fail    | 0.021 on average        | 71%           | 0.138 / 0.137                       |
+| 21 A-types lesioned                   | Fail    | 0.024                   | 93%           | 0.146 / 0.146                       |
+| AVBL and AVBR lesioned (pick 4 fails) | Partial | 0.076                   | 99%           | 0.167 / 0.164                       |
+| Every chemical synapse cut            | Fail    | 0.038                   | 93%           | 0.114 / 0.109                       |
+| The B-types' chemical inputs cut      | Partial | 0.088                   | 100%          | 0.139 / 0.137                       |
+
+- **The pace.** The head switch sets it: its gate is open throughout, its conductance about 50 times the SMDs' passive load, and the body's peak follows its cycle in every run.
+- **The wave.** It travels tailward by a proprioceptive relay. The switch bends the front through the SMDs' junctions, and the B-types, locked to the switch's cycle, carry each bend back to their own muscles: their phase runs from VB1 to VB11 along the body. With proprioception off they unlock, and the tail stops undulating.
+- **The network's part.** It sets the relay's operating point and the speed: AVB, and the B-types' chemical inputs, aren't needed.
+
+**A preview of the wiring test** (exploratory; not checkpoint 6's protocol, which tunes each null).
+
+- **The nulls.** Ten primary nulls were built in a scratch copy: directed double-edge swaps of the chemical synapses, as the sibling project's degree-preserving rewiring does them, keeping each neuron's in- and out-degree, each presynaptic neuron's sections and signs, the autapses, the gap junctions and the neuromuscular map. Each null has its own thresholds, κ_gap,B applied.
+- **Untuned.** At pick 1's values, 2 of the 10 grade partial on seeds 1 to 20, and in every null the gate stays open and the body follows the switch.
+- **Nudged.** One nudge of one parameter, the best of six by a fixed rule on seeds 4001 to 4010, brings 6 of the 10 to partial: the 2 already there, and 4 more, each by tripling g_p.
+- **At pick 4's values** none of five reaches partial, pick 4 itself sitting just above the floor.
+- **How it would read.** The verdict map reads 5 or more crawling nulls as no evidence. An untuned run understates how many nulls a tuned search would make crawl, so the wiring test would most likely read no evidence, a judgement of about 65%, against about 10% for "wiring matters".
+
+**The structural gaps.**
+
+- **No backward mode.** The sign audit's probe re-signed up to 102 connections and found none (the entry of 2026-09-29), so checkpoints 2 and 4, which need reversals, and checkpoint 5's reversal rows would fail even with a converged crawl.
+- **The parameter budget** of 18 free parameters is spent (PLAN §6.2).
+- **The literature.** Crawling models built from connectome data have fitted their weights or polarities, per connection or in reduced circuits. Examples are Olivares, Izquierdo & Beer 2018 (Network Neuroscience 2:323–343) and 2021 (Frontiers in Computational Neuroscience 15:572339), Rakowski & Karbowski 2017 (PLoS Computational Biology 13:e1005834), and Chung & Kim 2026 (Scientific Reports 16:21630), which optimised the connectome's weights. Each was checked against Crossref. The spec (§1.2) forbids such fitting.
+
+**The paths weighed** (the investigations' coarse judgements, not measurements):
+
+| Path                                                                                               | Effort                                                                                           | A converged checkpoint 1 partial | Checkpoints 2 to 6 then informative                                                     |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------- |
+| A numerics round: recalibrate at 1.25 ms, or with a debounced count                                | About a week with reviews; 6.4 h on the real wiring, about 72 h with the nulls                   | 50% to 70%                       | 10% to 20%: the wiring test probably reads no evidence, and checkpoints 2, 4 and 5 fail |
+| A backward mode: autonomous A-types, the head gated by the command state, inhibitory command signs | Weeks; past the budget of 18, and possibly against the spec; marks checkpoints 2 and 5 as fitted | 25% to 40%                       | 5% to 15% overall                                                                       |
+| Accept the negative result                                                                         | A day or two of write-up                                                                         | —                                | Not reached                                                                             |
+
+**Decision.** The maintainer chose the recommendation: **the negative result is the headline.** The connectome, with its anatomical weights, class-level gains and the layers the spec permits, doesn't crawl at the level set in advance. Its best crawl is paced by the head switch, relayed by proprioception, and largely indifferent to the chemical wiring.
+
+- Checkpoints 2 to 6 are reported as not reached.
+- Round 3's picks, and the findings here, stay on record as exploratory.
+- Next come checkpoint 0's rerun on the refit (PLAN §9) and the sign audit's record, which never landed, each in its own pull request.
+- Considered:
+  - a numerics round, likely to buy a formal partial and nothing about the wiring;
+  - a backward-mode track, weeks long, with poor odds;
+  - showing pick 1 in the app as a labelled exploratory crawler.
+
+**Exploration, disclosed.** The investigations ran 2,178 trials of 120 s, at most 3 workers each:
+
+- **The numerics:** 788 on the real wiring at the picks' values, on seeds 1 to 200, checkpoint 1's own among them, at steps from 2.5 to 0.3125 ms, with cause variants on seeds 1 to 12.
+- **The mechanism:** 448 on the real wiring on seeds 1 to 20, the lesion runs among them. They are diagnostics on checkpoint 1's measures, not checkpoint 5's protocol, run on picks no rule chose.
+- **The preview:** 942 on the scratch nulls, on seeds 1 to 20 and 4001 to 4010.
+
+No held-out checkpoint's protocol ran. The fairness list's count of the real wiring's exploration grows by these 1,236 trials, and by round 3's own (PLAN §9).
+
+**Status.** Done: the negative result stands as the headline, and checkpoint 0's rerun on the refit and the sign audit's record come next.
