@@ -5,6 +5,7 @@ import { validateWormlightData } from '../../src/data/schema.ts';
 import { countFacts } from '../../src/science/facts.ts';
 import { ROOT } from '../data/sources.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
+import { ledgerStatus } from '../../src/science/ledger.ts';
 import { calibratedText, fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
 
 const facts = countFacts(
@@ -112,5 +113,12 @@ describe('calibrated values on the page', () => {
         { ...sigma, value: null },
       ]),
     ).toMatch(/^not yet calibrated/);
+  });
+});
+
+describe('the status', () => {
+  it("opens FIDELITY.md's status, as it opens the app's About the science", () => {
+    const page = fidelityPage(facts);
+    expect(page).toContain(`\n> ${ledgerStatus()} Figures quoted from the data`);
   });
 });

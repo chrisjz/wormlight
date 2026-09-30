@@ -2843,3 +2843,36 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
 - **Found and left.** With the plate alone, the glow is still read each frame though nothing draws it; the cost is a copy of 11 KB a frame.
 
 **Status.** Built and revised after review.
+
+## 2026-09-30 — About the science: the ledger in the app (set before its build; revised after review)
+
+**Why.** Spec §1.3: "Surface the same registry in the app. An 'About the science' view shows each subsystem's level". It is milestone 6's second pull request (the entry on the glow). The maintainer chose its form and content before it was built; this entry was written with the build.
+
+**Decision.**
+
+- **A dialog over the views.** An "About the science" link in the plate's header, or in the graph's when it is alone, opens a native modal dialog over the running worm, full screen on a phone held upright. Escape, Close or a press on the backdrop closes it, and the keyboard's place goes back to the link that opened it. `?about=science` opens it from a link, and the URL carries it while it is open. Considered: a page of its own, `?view=about`, replacing the views.
+- **The whole ledger, folded.** From the same registry and the same helpers as FIDELITY.md (`src/science/ledger.ts`, moved out of the page's builder so both use them):
+  - the scale, each level with its meaning and example;
+  - every subsystem with its levels, what's solid, what isn't and what would raise it, and its components folded beneath it, each with its basis, caveats, upgrade, checks and linked sources;
+  - the biology left out and the presentation's choices, with their sources;
+  - what the model is tuned and tested against: the calibration's targets and the checkpoints' reference data, folded (added after review);
+  - the free-parameter count against the budget, with every parameter folded by group, its value, level, notes (its rule, what it is calibrated against, its bounds and its conductance form's entry), upgrade and sources (widened after review from a table of value, unit and level);
+  - the works the ledger cites, with their DOIs, and links to FIDELITY.md, VALIDATION.md, DECISIONS.md and PLAN.md.
+
+  Considered: the subsystems alone, with a link to FIDELITY.md for the rest.
+
+- **One status, shared.** The status that heads FIDELITY.md heads the view too, from one function, `ledgerStatus` in `src/science/ledger.ts`, which also works out the calibrated values it names, so the two can't drift. It was rewritten to read as a summary where the old one was a log of track R's rounds: what the model and the app do; that crawling as checkpoint 1 asks for it does not yet emerge; that no fit R's rules could choose reaches partial, the chosen refit holding at half the time step but failing checkpoint 1 and round 3's crawlers changing at half the step, while one probe search found a partial crawler that holds, which the rules didn't let R choose; that the negative result is the headline, and what it is, a best crawl paced by the head switch, relayed by proprioception and largely indifferent to the chemical wiring; where checkpoints 0 and 1 stand; and that "Tested by" lists planned checks. FIDELITY.md keeps one sentence of its own after it, on its figures. Considered: no status, a link to VALIDATION.md only.
+  - Corrected after review: the first rewrite said R found no model both crawling as checkpoint 1 asks and holding at half the step, which the probe's crawler contradicts (the entry "After review: what round 2's fits are", 2026-09-29); it said "does not emerge" where the notice, the ledger and VALIDATION.md say "does not yet emerge"; its "AWC-ON's sense of odour and touch" read as though AWC-ON sensed touch; and it left out the caveat on "Tested by", which the app then lacked.
+
+**Built.**
+
+- The registry's text carries three marks, **strong**, _emphasis_ and `code`; a pure tokenizer in `src/science/ledger.ts` reads them, emphasis only where no letter, digit or underscore of any script stands beside it, so symbols such as κ_gap,B stay as written, and the view makes elements of them. A level, a range such as 5–4 or a tag shows as a badge like the inspector's, whose face assistive technology doesn't read; it hears "Levels 5 to 4" instead.
+- The app now imports the ledger, so CI redeploys the site and runs the visual tests when it changes; its tests of which jobs run say so, where they had held that no page imports it.
+- **Checked.** In headless Chrome at 1440 × 900, 390 × 844 and 320 × 640, from the link and from `?about=science`, in the split view and with the graph alone: every subsystem, 11, and every component, 40, is shown; the body takes focus on opening, so Space scrolls it; a drag across the dialog's edge leaves it open while a press on the backdrop closes it; Escape closes it, clears the URL and gives the keyboard's place back to the link, or to the page when a link opened it; nothing overflows sideways with every fold open; no page reports an error. FIDELITY.md opens with the shared status, which a test checks against the page; the tokenizer is tested on every text the view shows; and `?about=science` is read and written by tested helpers. The visual tests capture the canvases alone, so their baselines stand.
+
+**Review: decisions, settled by the maintainer before the fixes.** Three reviews found the refactor clean, FIDELITY.md changed only in its status, every count right and every DOI resolving. They found:
+
+- **One design point,** settled as recommended: the view showed less than "the whole ledger", without the calibration's targets, the reference data or each parameter's source, bounds and notes, so a calibrated value never said what it was tuned to, and 13 of the works it listed were attached to nothing it showed. They are added, folded. Considered: keeping the view lean and saying so.
+- **Fixed as recommended:** the status (above); the body, not Close, takes focus on opening, since Space pressed Close and the arrows couldn't scroll; a drag from inside the dialog to its backdrop closed it; the view overflowed sideways on a phone and at 320 px, where the scale's labels squeezed their meanings; the link sat against the search field with the graph alone; a click before the views were ready could lose the link that opened it; badges read as bare glyphs; Close and the link were small to touch; the graph's `/` was held back inside the dialog; links opening a new tab now say so; the dialog is built within the start's failure handling; and "from each view's header" in README and PLAN, which holds only with the graph alone.
+
+**Status.** Built and revised after review.

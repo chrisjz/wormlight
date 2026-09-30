@@ -158,3 +158,15 @@ export function readPlateParams(search: string): PlateParams {
     foodIgnored: p.get('food') !== null && readFood(p.get('food')) === null,
   };
 }
+
+// About the science (src/ui/about.ts) as a URL parameter: ?about=science opens it.
+// Whether a URL asks for About the science open.
+export const aboutAsked = (search: string): boolean => new URLSearchParams(search).get('about') === 'science';
+
+// The page's URL with About the science open or closed; its other parameters stay as they are.
+export function aboutUrl(href: string, open: boolean): string {
+  const url = new URL(href);
+  if (open) url.searchParams.set('about', 'science');
+  else url.searchParams.delete('about');
+  return url.toString();
+}

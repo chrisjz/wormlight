@@ -2,9 +2,10 @@ import './style.css';
 import { validateWormlightData, type WormlightData } from './data/schema';
 import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
+import { About } from './ui/about';
 import { Activity } from './ui/activity';
 import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
-import { readParams, readPlateParams } from './ui/params';
+import { aboutAsked, readParams, readPlateParams } from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
@@ -51,6 +52,7 @@ async function start(root: HTMLElement): Promise<void> {
   const { device } = support;
   let graph: GraphHandle | null = null;
   let plate: PlateHandle | null = null;
+  let about: About | null = null;
   let failed = false;
   // Rejects when anything fails, so no wait outlasts a failure.
   let reject: (err: Error) => void = () => undefined;
@@ -63,6 +65,7 @@ async function start(root: HTMLElement): Promise<void> {
     failed = true;
     graph?.stop();
     plate?.stop();
+    about?.remove();
     message(root, 'failed', title, body);
     reject(new Error(title));
   };
@@ -136,11 +139,17 @@ async function start(root: HTMLElement): Promise<void> {
     return unseen;
   };
   try {
+    // About the science, which the plate's header opens, or the graph's when it is alone. A link may ask for it open,
+    // as the link was when the page loaded: it opens once the views are up.
+    const askedAbout = aboutAsked(location.search);
+    about = new About(data);
     if (platePane) {
-      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity));
+      plate = await guard(
+        startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity, about),
+      );
     }
     if (graphPane) {
-      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity));
+      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity, about));
     }
     if (layout === 'graph' && colour === 'activity') await runUnseen();
     else if (layout === 'graph') {
@@ -150,6 +159,8 @@ async function start(root: HTMLElement): Promise<void> {
       };
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
+    // A link may open About the science over the views.
+    if (askedAbout) about.open();
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;
