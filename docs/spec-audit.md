@@ -5,7 +5,7 @@
 > - **The tables are kept as they were made.** Their line numbers and their "draft" and "HEAD" are that day's. They were not changed to match what followed.
 > - **What followed** is listed at the end: what the pull request fixed, what it built, and what it left and why.
 > - **Corrections,** from a review of the pull request, are made in place, each marked with its date, 2026-10-01.
-> - **Follow-ups** that settle an item left are noted under it, each with its date and the DECISIONS.md entry that records it.
+> - **Follow-ups** that settle an item left are noted after it, in brackets, each with its date and the DECISIONS.md entry that records it (added 2026-10-01).
 > - **Paths** are relative to the repository; `nematode:` is the sibling Quantum Nematode checkout, and `S/` the app reviewer's folder of screenshots, which is not kept.
 
 ## The core rule, the neural model and validation (spec §1, §4, §8)

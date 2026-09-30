@@ -457,7 +457,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3, 1],
     basis: "Wen et al. 2012: driven by bending of the ~200 µm in front of each neuron's muscles",
     caveats:
-      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; a conductance form is built beside it, which no fit uses yet (DECISIONS.md). No delay is added beyond the body's own lags: at the go/no-go, delays of 80, 300 and 550 ms changed nothing, and Kim et al. 2025's delayed feedback of the network's own state, rebuilt as their code has it, gave no crawl (PLAN §10; DECISIONS.md, 2026-09-26)",
+      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; a conductance form is built beside it, which no fit uses yet (DECISIONS.md). No delay is added beyond the muscles' and body's own lags (PLAN §4.3): at the go/no-go, on the planned model, delays of 80, 300 and 550 ms in this loop changed nothing, and Kim et al. 2025's delayed feedback of the network's own state, rebuilt as their code has it in place of curvature sensing, gave no crawl (PLAN §10; DECISIONS.md, 2026-09-26)",
     upgrade: 'Identified stretch receptors and their gain',
     sources: ['wen2012', 'kim2025'],
     testedBy: [

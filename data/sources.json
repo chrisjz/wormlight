@@ -298,7 +298,7 @@
       "id": "modworm",
       "use": "consulted",
       "dataset": "Kim et al. 2025, `shlizee/modWorm` (BSD-3-Clause)",
-      "takes": "Reviewed as prior art, and read for the go/no-go's rebuild of its feedback (`scripts/experiments/go-no-go/kim.ts`; DECISIONS.md, 2026-09-26), at the repository's head since 2026-02-19, commit `10912b4e09c7` (tag v1.0.42), beside the paper's arXiv v2. Its muscle map is not used, because Wormlight takes neuromuscular connections straight from Cook et al. 2019; the rebuild takes only the size of its largest row, to scale their muscles' gain. No code is bundled"
+      "takes": "Reviewed as prior art, and read for the go/no-go's rebuild of its mechanism (`scripts/experiments/go-no-go/kim.ts`; DECISIONS.md, 2026-09-26), at the repository's head since 2026-02-19, commit `10912b4e09c7` (tag v1.0.42), beside the paper's arXiv v2. Its muscle map is not used, because Wormlight takes neuromuscular connections straight from Cook et al. 2019; the rebuild takes only the size of its largest row, to scale their muscles' gain. No code is bundled"
     },
     {
       "id": "boyle-code",
@@ -310,13 +310,13 @@
       "id": "ji2021-data",
       "use": "consulted",
       "dataset": "Ji et al. 2021 data and code (Dryad, doi:10.5061/dryad.wwpzgmsk2)",
-      "takes": "Neither opened nor used: the DOI comes from the paper's statement of its data, and Dryad lists one version of the deposit, published 2021-11-12 (CC0), its code archived at doi:10.5281/zenodo.5611015 (MIT). The head switch's parameters are taken from the paper"
+      "takes": "Its files were neither opened nor used: the DOI comes from the paper's statement of its data, and Dryad lists one version of the deposit, published 2021-11-12 (CC0), its code archived at doi:10.5281/zenodo.5611015 (MIT). The head switch's parameters are taken from the paper"
     },
     {
       "id": "cook2019-si5",
       "use": "consulted",
       "dataset": "Cook et al. 2019 SI 5, original and \"corrected July 2020\" versions (wormwiring.org; the original is vendored in nematode via cect)",
-      "takes": "Compared cell by cell with Emmons 2024's S1 File: identical chemical synapses, and gap junctions that differ only by the 2020 corrections and the 2023 BDU junctions. The original was read from nematode's copy at its pinned commit (SHA-256 `559989daa02c`), byte for byte WormWiring's `SI 5 Connectome adjacency matrices.xlsx`, last modified there on 2020-04-16; the corrected version was downloaded from WormWiring on 2026-09-25 (SHA-256 `1f4fdbf84746`), last modified there on 2020-07-09. Neither states a licence; WormWiring shows only \"Emmons Lab Copyright (c) 2020\""
+      "takes": "Compared cell by cell with Emmons 2024's S1 File: identical chemical synapses, and gap junctions that differ only by the 2020 corrections and the 2023 BDU junctions. The original was read from nematode's copy at its pinned commit (SHA-256 `559989daa02c`, its Git LFS object), byte for byte WormWiring's `SI 5 Connectome adjacency matrices.xlsx`, last modified there on 2020-04-16; the corrected version was downloaded from WormWiring on 2026-09-25 (SHA-256 `1f4fdbf84746`), last modified there on 2020-07-09. Neither states a licence; WormWiring shows only \"Emmons Lab Copyright (c) 2020\""
     }
   ]
 }

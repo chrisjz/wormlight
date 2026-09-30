@@ -64,8 +64,8 @@ const HOME_PITCH = (20 * Math.PI) / 180;
 const HOME_X = -0.8;
 const FRAME = 0.88; // the share of the half-frame the fitted graph may reach
 const MIN_DISTANCE = 0.6;
-// How close Find or a double-click flies to a neuron: a share of the distance that frames the whole graph beside
-// the overlays, near enough to single it out and far enough to keep its neighbours in view.
+// How close Find, a double-click or a pick in the inspector flies to a neuron: a share of the distance that frames
+// the whole graph beside the overlays, near enough to single it out and far enough to keep its neighbours in view.
 const FOCUS_SHARE = 1 / 3;
 const NEAR = 0.02; // the near plane, as a share of the camera's distance
 const SLOP = { mouse: 4, touch: 10 }; // px a press may move and still be a click
@@ -589,8 +589,9 @@ export async function startGraph(
   // Fly the camera to a neuron.
   const fly = (i: number): void => {
     const target: Orbit['target'] = [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]];
-    // Framed as the overlays stand now the inspector is open, so a first find flies as far as a later one.
-    const distance = FOCUS_SHARE * fit(homeBase(), aspect(), insets());
+    // From the default camera, whatever view a link set, and with the overlays as they stand now the inspector is
+    // open, so a first find flies about as far as a later one (the sheet's height depends a little on the neuron).
+    const distance = FOCUS_SHARE * fit({ target: centre, yaw: HOME_YAW, pitch: HOME_PITCH }, aspect(), insets());
     move({ ...orbit, target, distance: Math.min(orbit.distance, distance) });
   };
   // Announce in the live region, clearing it first so a repeated message is announced again.
