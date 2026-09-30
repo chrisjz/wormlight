@@ -5,13 +5,16 @@
 //   the worm, a double-click touches it once and follows).
 // - Touch: tap the worm to touch it, drag to pan, pinch to zoom, double-tap to follow.
 // - Keyboard, with the plate focused: space pauses and resumes, arrows pan, + and − zoom, F follows the worm,
-//   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser. "Touch front" and "Touch
-//   back" touch the worm from anywhere (PLAN §4.2).
-// - Food (PLAN §5.2): "Add food" arms placing, and the next click on the dish drops a lawn there, or Enter at
+//   Home resets the view. Keys held with Ctrl, Cmd or Alt are left to the browser. Touch's Front and Back touch
+//   the worm from anywhere (PLAN §4.2).
+// - Food (PLAN §5.2): Food's Add arms placing, and the next click on the dish drops a lawn there, or Enter at
 //   the view's centre; Escape cancels. A lawn that looks small on screen drags, and dragged off the dish is
 //   removed; a click on one picks it up and the next puts it down, Escape leaves it and Delete removes it.
-//   Delete alone removes the lawn nearest the view's centre, and "Clear food" removes them all. The URL
+//   Delete alone removes the lawn nearest the view's centre, and Food's Clear removes them all. The URL
 //   carries the seed and the lawns. The odour field is stepped on the GPU with the worm, in fixed blocks.
+// - The controls: a bar with play, the speed, the time and, on a narrow pane, More; the rest in labelled groups,
+//   inline on a wide pane and in a panel behind More on a narrow one, which Escape, a tap elsewhere or any of its
+//   actions closes. On a narrow or short pane the notice keeps to its first sentence and its link.
 // - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
 //   graph's inspector lesions neurons. Either change takes effect live: the worm and every neuron's state carry
 //   over into a world with the new wiring (World.carry), which the GPU then runs. "Restore all" undoes every
@@ -200,8 +203,12 @@ export async function startPlate(
   why.rel = 'noopener';
   notice.append(
     el('strong', undefined, "Crawling doesn't yet emerge. "),
-    "The worm moves forward at about an eighth of a real worm's speed, in runs of about ten seconds, each cut " +
-      "short by its head's slow rhythm. ",
+    el(
+      'span',
+      'plate-notice-detail',
+      "The worm moves forward at about an eighth of a real worm's speed, in runs of about ten seconds, each cut " +
+        "short by its head's slow rhythm. ",
+    ),
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
@@ -209,44 +216,69 @@ export async function startPlate(
   const controls = el('div', 'plate-controls');
   controls.setAttribute('role', 'group');
   controls.setAttribute('aria-label', 'Controls');
+  // The bar: play, the speed (buttons on a wide pane, a menu on a narrow one), the time, and More.
+  const primary = el('div', 'plate-primary');
   const play = button('plate-play', 'Pause');
   const speeds = el('div', 'plate-speeds');
   speeds.setAttribute('role', 'radiogroup');
   speeds.setAttribute('aria-label', 'Speed');
+  const speedText = (s: number): string => (s === 0.25 ? '¼×' : `${s}×`);
   const speedButtons = SPEEDS.map((s) => {
-    const text = s === 0.25 ? '¼×' : `${s}×`;
-    const b = button('plate-speed', text, `${text} real time`);
+    const b = button('plate-speed', speedText(s), `${speedText(s)} real time`);
     b.setAttribute('role', 'radio');
     speeds.append(b);
     return b;
   });
-  const restart = button('plate-button', 'Restart', 'Restart this worm');
-  const fresh = button('plate-button', 'New worm', 'Start a new worm with a new seed');
-  const touches = el('div', 'plate-touches');
-  touches.setAttribute('role', 'group');
-  touches.setAttribute('aria-label', 'Touch');
-  const touchFront = button('plate-button', 'Touch front', 'Touch front, where ALM and AVM sense');
-  const touchBack = button('plate-button', 'Touch back', 'Touch back, where PLM senses');
-  touches.append(touchFront, touchBack);
-  const food = el('div', 'plate-touches');
-  food.setAttribute('role', 'group');
-  food.setAttribute('aria-label', 'Food');
-  const addFood = button(
-    'plate-button',
-    'Add food',
-    "Add food: click the dish to drop a lawn there, or press Enter to drop it at the view's centre",
-  );
-  addFood.setAttribute('aria-pressed', 'false');
-  const clearFood = button('plate-button', 'Clear food', 'Clear food, removing every lawn');
-  food.append(addFood, clearFood);
-  const brain = el('label', 'plate-brain');
-  const brainSelect = el('select');
-  for (let k = 0; k <= CONTRAST.rewirings; k++) brainSelect.append(new Option(brainName(k), String(k)));
-  brain.append(el('span', undefined, 'Brain'), brainSelect);
+  const speedMenu = el('select', 'plate-speed-menu');
+  speedMenu.setAttribute('aria-label', 'Speed');
+  for (const s of SPEEDS) speedMenu.append(new Option(speedText(s), String(s)));
   const time = el('span', 'plate-time');
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
+  const more = button('plate-more', 'More', 'More controls: restart, touch, food and brain');
+  more.setAttribute('aria-expanded', 'false');
   const seedText = el('span', 'plate-seed');
+  primary.append(play, speeds, speedMenu, time, seedText, more);
+  // The rest, in groups named for assistive technology by their labels.
+  const group = (name: string, label: string | null, ...members: HTMLElement[]): HTMLElement => {
+    const g = el('div', 'plate-group');
+    g.setAttribute('role', 'group');
+    g.setAttribute('aria-label', name);
+    if (label) {
+      const shown = el('span', 'plate-group-label', label);
+      shown.setAttribute('aria-hidden', 'true');
+      g.append(shown);
+    }
+    g.append(...members);
+    return g;
+  };
+  const restart = button('plate-button', 'Restart', 'Restart this worm');
+  const fresh = button('plate-button', 'New worm', 'Start a new worm with a new seed');
+  const touchFront = button('plate-button', 'Front', 'Touch front, where ALM and AVM sense');
+  const touchBack = button('plate-button', 'Back', 'Touch back, where PLM senses');
+  const addFood = button(
+    'plate-button',
+    'Add',
+    "Add food: click the dish to drop a lawn there, or press Enter to drop it at the view's centre",
+  );
+  addFood.setAttribute('aria-pressed', 'false');
+  const clearFood = button('plate-button', 'Clear', 'Clear food, removing every lawn');
+  const brainSelect = el('select');
+  brainSelect.id = 'plate-brain-select';
+  for (let k = 0; k <= CONTRAST.rewirings; k++) brainSelect.append(new Option(brainName(k), String(k)));
+  const brainLabel = el('label', 'plate-group-label', 'Brain');
+  brainLabel.htmlFor = brainSelect.id;
+  const brain = el('div', 'plate-group');
+  brain.append(brainLabel, brainSelect);
+  const extra = el('div', 'plate-extra');
+  extra.id = 'plate-extra';
+  more.setAttribute('aria-controls', extra.id);
+  extra.append(
+    group('Worm', null, restart, fresh),
+    group('Touch', 'Touch', touchFront, touchBack),
+    group('Food', 'Food', addFood, clearFood),
+    brain,
+  );
   // What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
   // brain, which the brain control's description names, and the lesions, with a way to undo them.
   const changed = el('div', 'plate-experiment');
@@ -254,17 +286,17 @@ export async function startPlate(
   const changedBrain = el('span');
   changedBrain.id = 'plate-brain-note';
   changedBrain.append(
-    el('span', 'plate-long', 'The contrast brain, untuned: chemical synapses rewired at random.'),
-    el('span', 'plate-short', 'Contrast brain, untuned.'),
+    el('span', 'form-long', 'The contrast brain, untuned: chemical synapses rewired at random.'),
+    el('span', 'form-short', 'Contrast brain, untuned.'),
   );
   brainSelect.setAttribute('aria-describedby', changedBrain.id);
   const changedLesions = el('span');
-  const lesionList = el('span', 'plate-long');
-  const lesionCount = el('span', 'plate-short');
+  const lesionList = el('span', 'form-long');
+  const lesionCount = el('span', 'form-short');
   const restoreAll = button('plate-button', 'Restore all', 'Restore all lesioned neurons');
   changedLesions.append(lesionList, lesionCount, restoreAll);
   changed.append(changedBrain, changedLesions);
-  controls.append(play, speeds, restart, fresh, touches, food, brain, time, seedText, changed);
+  controls.append(primary, extra, changed);
 
   const follow = button('plate-follow', 'Follow the worm');
   follow.hidden = true;
@@ -283,7 +315,7 @@ export async function startPlate(
   map.append(scale, inset, caption);
   const stats = el('span', 'plate-stats');
   stats.hidden = !params.stats;
-  controls.append(stats);
+  primary.append(stats);
   // The controls and the inset share the bottom edge, the inset moving above the controls where both don't fit.
   const bottom = el('div', 'plate-bottom');
   bottom.append(controls, map);
@@ -333,6 +365,11 @@ export async function startPlate(
       b.setAttribute('aria-checked', String(k === at));
       b.tabIndex = k === Math.max(at, 0) ? 0 : -1;
     });
+    // The menu shows a speed a URL asked for that isn't one of its own too.
+    if (at < 0 && ![...speedMenu.options].some((o) => o.value === String(s))) {
+      speedMenu.append(new Option(speedText(s), String(s)));
+    }
+    speedMenu.value = String(s);
   };
   const setRunning = (on: boolean, announce = true): void => {
     running = on;
@@ -460,8 +497,8 @@ export async function startPlate(
   brainSelect.addEventListener('change', () => experiment.setBrain(Number(brainSelect.value)));
   restoreAll.addEventListener('click', () => {
     experiment.restoreAll();
-    // The button hides itself; keep the keyboard's place on the brain control beside it.
-    brainSelect.focus();
+    // The button hides itself; keep the keyboard's place on the brain control, or on More while that hides it.
+    (getComputedStyle(more).display !== 'none' ? more : brainSelect).focus();
     say('Every lesioned neuron is restored.');
   });
 
@@ -472,6 +509,39 @@ export async function startPlate(
 
   play.addEventListener('click', () => setRunning(!running));
   speedButtons.forEach((b, k) => b.addEventListener('click', () => setSpeed(SPEEDS[k])));
+  speedMenu.addEventListener('change', () => setSpeed(Number(speedMenu.value)));
+
+  // More: the panel of the other controls on a narrow pane. It closes on Escape, on a press outside the controls,
+  // and after any action in it, the keyboard's place going back to More unless the action moved it.
+  const narrow = (): boolean => getComputedStyle(more).display !== 'none';
+  const setMore = (open: boolean, refocus = false): void => {
+    more.setAttribute('aria-expanded', String(open));
+    extra.classList.toggle('plate-extra-open', open);
+    if (!open && refocus) more.focus();
+  };
+  more.addEventListener('click', () => setMore(more.getAttribute('aria-expanded') !== 'true'));
+  controls.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || more.getAttribute('aria-expanded') !== 'true') return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMore(false, true);
+  });
+  const pressElsewhere = (e: PointerEvent): void => {
+    if (!controls.contains(e.target as Node)) setMore(false);
+  };
+  document.addEventListener('pointerdown', pressElsewhere);
+  // An action in the panel closes it once its own handler has run.
+  const done = (e: Event): void => {
+    if (!narrow() || more.getAttribute('aria-expanded') !== 'true') return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || e.type === 'change') {
+      queueMicrotask(() =>
+        setMore(false, extra.contains(document.activeElement) || document.activeElement === document.body),
+      );
+    }
+  };
+  extra.addEventListener('click', done);
+  extra.addEventListener('change', done);
   // A radio group's keys: right and down go to the next speed, left and up to the one before, wrapping; Home
   // and End go to the slowest and fastest.
   speeds.addEventListener('keydown', (e) => {
@@ -1110,6 +1180,7 @@ export async function startPlate(
     stop: () => {
       stopped = true;
       unsubscribe();
+      document.removeEventListener('pointerdown', pressElsewhere);
       observer.disconnect();
       renderer.destroy();
       for (const s of staging) s.buffer.destroy();

@@ -2773,3 +2773,24 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - The visual tests gain a view, `experiment`: VB6 selected on rewiring 1, with two gap-junction partners, a rewired partner and a neuron it doesn't connect to lesioned. On its first run every other view matched its baseline exactly, and this one had none; its baseline came from that run's artifact. After review, rewiring 1 and the view's lesions changed, and its baseline was taken again from CI.
 
 **Status.** Built and revised after review. Checkpoints 5 and 6 stay not reached. A pull request of its own declutters the app on small screens next.
+
+## 2026-09-30 — The app, decluttered for small screens
+
+**Why.** On a phone held upright each view had half the screen, about 330 to 420 px, and the plate's twelve controls wrapped into four rows of 44 px buttons over its notice and its worm; on the smallest phone they hid the notice altogether. On a phone on its side they covered most of the plate. The maintainer asked for a pull request of its own after milestone 5 to declutter the app and improve it overall.
+
+**Decision.** The maintainer chose among the options set out before the build:
+
+- **Both views stay on screen,** stacked on a phone held upright and side by side otherwise, each compacted to fit. Considered: one view at a time behind a switch.
+- **The controls are a bar and the rest.** The bar shows play, the speed and the worm's time, and on a wide pane the seed. The rest sit in labelled groups: Restart and New worm; Touch, Front and Back; Food, Add and Clear; and Brain.
+  - On a pane wider than 34rem they show inline, the speed as one segmented control.
+  - On a narrower pane, a phone's or half of a phone on its side, the speed becomes a menu, the seed is left out, and the rest sit in a panel behind More that opens above the bar. Escape, a press outside the controls or any action in it closes the panel, the keyboard's place going back to More unless the action moved it.
+  - Each button's visible label stays within its accessible name, as "Front" within "Touch front, where ALM and AVM sense".
+  - Considered: the bar and More on every screen, which would cost a desktop a click for Touch and Food; and every control inline, smaller, which still takes a phone two or three rows.
+- **The notice keeps to its first sentence and its link on a narrow or short pane:** "Crawling doesn't yet emerge. Why". The rest of the sentence stays on wider panes, and the link still leads to VALIDATION.md, so the app says from its first view of the body that crawling doesn't emerge, as milestone 0c's outcome asks (PLAN §9). A pane under 36rem tall, such as a tablet's half, also leaves out the lede.
+- **The graph on a short pane** gives the brain it shows in a short form, and folds its key behind a Key button.
+- **The credits on a narrow or short graph pane** keep to one line, "Connectome: Cook et al. 2019 (CC BY 4.0). All credits", the button showing the rest in place and "Fewer" folding it again. CC BY 4.0 lets attribution be given in any reasonable manner for the medium, and the connectome's source and licence stay on show. Added at the maintainer's request after the first push, where the credits took three lines on a phone; considered: the rest in a modal, a layer further from the page.
+- **Tidied throughout:** the grouped controls and segmented speed above, one style for the selects, and the long and short forms of the experiment's status shared by both views.
+
+**Checked.** In headless Chrome at 375 × 667, 390 × 844, 844 × 390, 768 × 1024, 1024 × 768, 1280 × 800 and 1440 × 900, in the split, the plate alone and the graph alone: the header and the controls clear each other at every size, by 53 px at the least, on the tablet held upright. The panel opens and closes by keyboard and by touch, and an action in it closes it. The speed menu and the speed buttons stay in step, and no page reports an error. The credits take one line on a phone and on a phone on its side, three when opened, and three on a desktop, where they aren't folded. The visual tests capture the canvases alone, so their baselines stand.
+
+**Status.** Built.
