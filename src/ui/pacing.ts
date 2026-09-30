@@ -3,16 +3,23 @@
 // whole steps it owes. A frame's gap counts for at most a tenth of a second, so a hidden tab doesn't come
 // back to a burst of work; and while the GPU is still busy with earlier frames, the frame runs nothing and
 // the debt stops growing past a tenth of a second's worth, so a GPU that can't keep up runs slower than asked
-// rather than falling ever further behind.
+// rather than falling ever further behind. A frame runs at most a cap of steps, the rest staying owed: a whole
+// debt run at once takes a slow GPU several frames' time, and Safari then draws no frame until it is done, a few
+// frames a second where capped batches between idle frames keep the display's pace (DECISIONS.md, 2026-09-30,
+// "Performance and the Safari check"). The cap is also a ceiling: at 60 frames a second it allows FRAME_CAP × 60
+// steps a second, 38.4 times real time, whatever the GPU.
 
 export const MAX_GAP = 0.1; // s
+export const FRAME_CAP = 256; // steps
 
 export class Pacer {
   readonly step: number;
+  readonly cap: number;
   private owed = 0;
 
-  constructor(step: number) {
+  constructor(step: number, cap = Infinity) {
     this.step = step;
+    this.cap = cap;
   }
 
   // The steps to run for `wall` seconds of wall time at `speed` times real time.
@@ -23,7 +30,7 @@ export class Pacer {
     }
     this.owed = Math.min(this.owed + Math.min(Math.max(wall, 0), MAX_GAP) * speed, MAX_GAP * speed + this.step);
     if (busy) return 0;
-    const steps = Math.floor(this.owed / this.step + 1e-9);
+    const steps = Math.min(Math.floor(this.owed / this.step + 1e-9), this.cap);
     this.owed -= steps * this.step;
     return steps;
   }

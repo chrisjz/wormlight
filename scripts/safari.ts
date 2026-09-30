@@ -66,16 +66,23 @@ export class Safari {
   // Load a page, then wait until it defines a global, the sign its module has run.
   async open(url: string, global: string, ms = 60000): Promise<void> {
     await command(this.base, 'POST', '/url', { url });
-    await withTimeout(
-      (async () => {
-        while (!(await this.sync(`return typeof globalThis[${JSON.stringify(global)}] === 'function';`))) {
-          await new Promise((resolve) => setTimeout(resolve, 250));
-        }
-      })(),
-      ms,
-      `the page defining ${global}`,
-    );
-    // Errors from here on are kept for errors() to read; WebDriver has no way to read Safari's console.
+    // The wait ends with its time, so that it asks a later page nothing.
+    let waiting = true;
+    try {
+      await withTimeout(
+        (async () => {
+          while (waiting && !(await this.sync(`return typeof globalThis[${JSON.stringify(global)}] === 'function';`))) {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+        })(),
+        ms,
+        `the page defining ${global}`,
+      );
+    } finally {
+      waiting = false;
+    }
+    // Errors from here on are kept for errors() to read; WebDriver has no way to read Safari's console, so what a
+    // page logs before this, while it loads, goes unseen.
     await this.sync(`
       const errors = (globalThis.__driverErrors = []);
       addEventListener('error', (e) => errors.push(String(e.message)));
@@ -102,6 +109,28 @@ export class Safari {
     })) as { value?: T; error?: string };
     if (result.error !== undefined) throw new Error(result.error);
     return result.value as T;
+  }
+
+  // Size the window, as its outer size.
+  async resize(width: number, height: number): Promise<void> {
+    await command(this.base, 'POST', '/window/rect', { width, height });
+  }
+
+  // Click an element as a viewer would, through WebDriver's own click, which the page takes as the viewer's: a
+  // script's click() is no user gesture, and Safari lets only a gesture write to the clipboard.
+  async click(selector: string): Promise<void> {
+    const found = (await command(this.base, 'POST', '/element', { using: 'css selector', value: selector })) as Record<
+      string,
+      string
+    >;
+    // W3C WebDriver's key for an element's reference.
+    const id = found['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(found)[0];
+    await command(this.base, 'POST', `/element/${id}/click`, {});
+  }
+
+  // The window's viewport as a PNG.
+  async screenshot(): Promise<Buffer> {
+    return Buffer.from((await command(this.base, 'GET', '/screenshot')) as string, 'base64');
   }
 
   // Call a global the page defines, an async function of no arguments.

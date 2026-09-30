@@ -10,8 +10,15 @@ import { ROOT } from './data/sources.ts';
 
 export const ci = process.env.WEBGPU_CI === '1';
 
-export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): Promise<T> =>
-  Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${what} timed out`)), ms))]);
+// A promise, or a rejection if it takes longer than `ms`. The timer is cleared either way, so a script that is done
+// isn't kept alive by it.
+export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+};
 
 // Run vite with these arguments (`preview` serves dist/, none the dev server) on a port, resolving once it
 // listens. vite runs detached, so killing its process group stops it for certain, and it is killed on any
@@ -57,12 +64,13 @@ export async function serve(args: string[], port: number): Promise<() => void> {
 
 // On CI, WebGPU is SwiftShader, the software Vulkan that ships with Chrome, reached through ANGLE's Vulkan
 // backend with Universe's flags; locally it is the machine's own GPU. Puppeteer's own time limit on a call
-// into the page is lifted, so each harness's withTimeout is the one that applies.
-export async function launchChrome(width: number, height: number): Promise<Browser> {
+// into the page is lifted, so each harness's withTimeout is the one that applies. Headless unless a visible window
+// is asked for, whose frames the display paces, as a viewer's are.
+export async function launchChrome(width: number, height: number, window = false): Promise<Browser> {
   return puppeteer.launch({
     protocolTimeout: 0,
     executablePath: process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: true,
+    headless: !window,
     args: [
       '--enable-unsafe-webgpu',
       '--hide-scrollbars',

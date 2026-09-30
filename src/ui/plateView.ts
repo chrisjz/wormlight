@@ -62,7 +62,7 @@ import {
 import type { About } from './about.ts';
 import type { Activity } from './activity.ts';
 import type { LinkNote } from './linkNote.ts';
-import { Pacer, Rates } from './pacing.ts';
+import { FRAME_CAP, Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
 
@@ -376,7 +376,7 @@ export async function startPlate(
   let trailChanged = true;
   // Which run of the worm this is: a readback from an earlier run, landing after a restart, is dropped.
   let run = 0;
-  const pacer = new Pacer(NEURAL_STEP);
+  const pacer = new Pacer(NEURAL_STEP, FRAME_CAP);
   const rates = new Rates();
   let pending = 0;
   let dirty = true;
