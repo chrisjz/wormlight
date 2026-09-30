@@ -12,23 +12,23 @@ A living _C. elegans_ in the browser. The worm's full connectome runs on the GPU
 
 The rule Wormlight was built under is that behaviour must emerge from the connectome: nothing scripts the worm, and the few layers allowed outside the wiring are fixed in advance and blind to what the worm is doing. Its thresholds for each behaviour were fixed in advance too, from published measurements. Against them:
 
-- **Crawling (checkpoint 1) fails.** On the chosen fit the worm moves forward about four fifths of the time, at about an eighth of a real worm's speed, in runs that end at about ten seconds. Its bends have a real worm's wavelength and its postures a real worm's shapes, but it is paced by a slow rhythm in its head, not by a wave it sustains: its undulation frequency, its speed and its sustained runs all fail.
-- **No fit the rules could choose does better.** A research track, R, rebuilt and recalibrated the model in three rounds, under rules set before each ran. It found crawlers, one of them at about half a real worm's speed, but none that the rules let it choose: each came from a search outside the chosen procedure, or changed when the simulation's time step was halved. The model's best crawl is paced by the head's rhythm, relayed along the body by proprioception, and largely indifferent to the chemical wiring: it still moves forward, more slowly, with every chemical synapse cut. So with its anatomical weights, gains set per class of neuron and the layers the rule allows, the connectome doesn't crawl at the level set in advance.
-- **The later checkpoints were not reached.** The touch reflexes, chemotaxis, the lesion effects and the test of whether the real wiring matters (checkpoints 2 to 6) all need a worm that crawls. They are specified, and unrun.
-- **The silenced network (checkpoint 0) passes**, which says little: with its synapses cut the worm barely moves, as it should, but the fit moves by its head's rhythm alone, so the pass follows from a bound on that rhythm, not from the wiring. With the uncertain synapse signs drawn at random instead, the silenced worm's head rhythm starts up, and in two of ten draws it makes forward runs of ten seconds.
-- **The uncertain signs don't change the result.** Setting them all excitatory, all silent or at random, or rescaling the connections, leaves crawling failing every time.
+- **Crawling (checkpoint 1) fails.** On the chosen fit, the calibrated values the app runs, the worm moves forward about four fifths of the time, at about an eighth of a real worm's speed, in runs that end at about ten seconds. Its wavelength and its postures fall within a real worm's range, but it is paced by a slow rhythm in its head, not by a wave it sustains: its undulation frequency, its speed and its sustained runs all fail.
+- **No fit the rules could choose does better.** A research track, R, rebuilt and recalibrated the model in three rounds, under rules set before each ran. It found crawlers, one of them at about half a real worm's speed, but none that the rules let it choose: each came from a search outside the chosen procedure, or changed when the simulation's time step was halved. One set of values, found by exploring and graded on the seeds it was picked on, even passes every clause of checkpoint 1; it never reverses, drives some neurons far outside the range any synapse could take them to, and no rule could choose it. The third round's crawl, the one taken apart, is paced by the head's rhythm, relayed along the body by proprioception, and largely indifferent to the chemical wiring: it still moves forward, at about half its speed, with every chemical synapse cut. So with its anatomical weights, gains set per class of neuron and the layers the rule allows, the connectome doesn't crawl at the level set in advance.
+- **The later checkpoints were not reached.** The touch reflexes, chemotaxis and the lesion effects (checkpoints 2 to 5) need a worm that crawls. The test of whether the real wiring matters (checkpoint 6) doesn't strictly, but the project chose not to tune rewired brains to a crawl the real wiring's own fit doesn't have. All five are specified, and unrun.
+- **The silenced network (checkpoint 0) passes**, which says little: with its synapses cut the worm barely moves, as it should, but the fit moves by its head's rhythm alone, so the pass follows from a bound on that rhythm, not from the wiring. With the uncertain synapse signs drawn at random instead, the silenced worm's head rhythm is free to run, now and then on the noise, and in two of ten draws the worm drifts forward for ten seconds.
+- **The uncertain signs don't rescue the crawl.** With the chosen fit's values held and nothing tuned again, setting them all excitatory, all silent or at random, or rescaling the connections, leaves crawling failing every time.
 
-What is built and checked: a CPU reference of the whole loop, which reproduces the published network model it starts from; the same loop on the GPU, matching the reference in Chrome, in Safari and on CI; the app, with touch, food, lesions and a rewired contrast brain, at 60 frames a second up to at least 20 times real time; and a ledger of how well biology supports every part. [VALIDATION.md](VALIDATION.md) has the results in full, and [DECISIONS.md](DECISIONS.md) how each was reached.
+What is built and checked: a CPU reference of the whole loop, which reproduces the published network model it starts from; the same loop on the GPU, matching the reference in Chrome, in Safari and on CI; the app, with touch, food, lesions and a rewired contrast brain, at 60 frames a second up to at least 20 times real time in Chrome and Safari on an Apple M5 Max; and a ledger of how well biology supports every part. [VALIDATION.md](VALIDATION.md) has the results in full, and [DECISIONS.md](DECISIONS.md) how each was reached.
 
 ## The science in brief
 
-**The hypothesis.** That the measured wiring of the worm's nervous system, run through a standard model of its neurons and a small, documented set of mechanisms the wiring can't supply, is enough for its behaviour to emerge. The app lets a viewer test the wiring's part of that: lesion a neuron, or swap the real wiring for one rewired at random, and watch what changes.
+**The hypothesis.** That the measured wiring of the worm's nervous system, run through a standard model of its neurons and a small, documented set of mechanisms the wiring can't supply, is enough for its behaviour to emerge. The app lets a viewer test the wiring's part of that, though on the chosen fit little of the worm's motion comes from the wiring: lesion a neuron, or swap the real wiring for one rewired at random, and watch what changes.
 
 **The model.**
 
 - **The wiring** is the adult hermaphrodite's: 302 neurons, 3,709 chemical connections and 1,095 gap-junction pairs, with 956 connections onto 95 body-wall muscles, from serial-section electron microscopy (Cook et al. 2019, as corrected in Emmons 2024).
-- **The neurons** are graded, not spiking, as most of the worm's are: leaky membranes joined by gap junctions and by chemical synapses with a sigmoidal activation (Kunert et al. 2014). A synapse's strength is taken as proportional to its size in the micrographs. Its sign is inferred, not measured: from transmitter and receptor expression for 46% of connections (Fenyves et al. 2020), from the transmitter alone for 39%, and with no basis, so no fast effect, for 14%.
-- **Five layers sit outside the wiring**, the only ones the rule allows, each the same for every cell of a class and shared by every brain:
+- **The neurons** are graded, not spiking, as most of the worm's are: leaky membranes joined by gap junctions and by chemical synapses with a sigmoidal activation (Kunert et al. 2014). A synapse's strength is taken as proportional to its size in the micrographs. Its sign is inferred, not measured: from transmitter and receptor expression for 46% of connections (Fenyves et al. 2020), from the transmitter alone for 39%, and with no basis, so no fast effect, for 14%; seven rest on physiology.
+- **Five layers sit outside the wiring**, the only ones the rule allows, each set by one rule for every cell of a class and shared by every brain:
   1. sensing: one olfactory neuron, AWC-ON, smelling butanone with an adapting threshold, and the gentle-touch receptors;
   2. proprioception: the body's curvature fed back to the motor neurons the literature names;
   3. intrinsic rhythm: oscillators in the A- and B-type motor neurons, and a relaxation switch in the head. Which cells generate the worm's rhythm is unsettled, and this is one documented hypothesis, not a finding (Ji et al. 2021; Fouad et al. 2018; Gao et al. 2018; Wen et al. 2012);
@@ -50,26 +50,27 @@ What is built and checked: a CPU reference of the whole loop, which reproduces t
 
 ## Using the app
 
-- **The plate** (left). Play and pause, and run at ¼×, 1×, 4× or 10× real time. Click the worm, or use Touch's Front and Back, to touch it. Food's Add drops a lawn where you next click. Zoomed out, a lawn drags; zoomed in, click one to pick it up and click again to put it down. Clear removes them all. Drag to pan and scroll to zoom; double-click to follow the worm again.
-- **The connectome** (right). Drag to turn it, scroll to zoom, and click a neuron, or find one by name, to see its connections, its simulated activity and where each fact comes from. Ablate lesions the neuron, live; Restore brings it back. Colour by switches between the glow and the neurons' classes.
+- **The plate.** Play and pause, and run at ¼×, 1×, 4× or 10× real time. Restart runs the same worm again, and New worm draws another. Click the worm, or use Touch's Front and Back, to touch it. Food's Add drops a lawn where you next click. Zoom out until a lawn looks small to move it: drag it, or click it to pick it up and click again to put it down; dragged off the dish, it is removed. Closer in, a drag pans. Clear removes them all. Scroll to zoom; double-click to follow the worm again.
+- **The connectome.** Drag to turn it, scroll to zoom, and click a neuron, or find one by name, to see its connections, its simulated activity and where each fact comes from. Ablate lesions the neuron, live; Restore brings it back, and Restore all every one. Colour by switches between the glow and the neurons' classes.
 - **Brain** swaps the real wiring for one of ten random rewirings of its chemical synapses, live and untuned: the contrast brain.
 - **Copy link** copies a link to the setup: the worm's seed, the food, the brain and the lesions, with the versions of the model and data it was made with. A link reproduces the setup, not the path: on another GPU the worm's path can differ.
 
-A link's parameters, all optional:
+A link's main parameters, all optional:
 
-| Parameter               | What it sets                                                           |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `seed=4`                | The worm: its heading, its noise, and which AWC is ON                  |
-| `food=10,0;-20,5`       | The lawns, in millimetres from the dish's centre; empty for none       |
-| `brain=rewired-3`       | The contrast brain's rewiring, 1 to 10                                 |
-| `lesions=AVAL+AVAR`     | The neurons lesioned                                                   |
-| `model=1&data=4dc6ffca` | The versions the link was made with; the app says so if its own differ |
-| `view=plate`, `graph`   | One view alone                                                         |
-| `t=30`, `paused=1`      | Run the worm this many seconds before the first frame; start paused    |
-| `neuron=AVAL`           | The neuron selected                                                    |
-| `colour=class`          | The graph coloured by class, not by the glow                           |
-| `about=science`         | "About the science" open                                               |
-| `stats=1`               | The frame rate and the worm's speed, shown                             |
+| Parameter               | What it sets                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `seed=4`                | The worm: its heading, its noise, and which AWC is ON                          |
+| `food=10,0;-20,5`       | The lawns, in millimetres from the dish's centre; empty for none               |
+| `brain=rewired-3`       | The contrast brain's rewiring, 1 to 10                                         |
+| `lesions=AVAL+AVAR`     | The neurons lesioned                                                           |
+| `model=1&data=4dc6ffca` | The versions the link was made with; the app says so if its own differ         |
+| `view=plate`, `graph`   | One view alone                                                                 |
+| `t=30`, `paused=1`      | Run the worm this many seconds before the first frame, up to 600; start paused |
+| `speed=20`              | How many times real time the worm runs, up to 100; the buttons stop at 10×     |
+| `neuron=AVAL`           | The neuron selected                                                            |
+| `colour=class`          | The graph coloured by class, not by the glow                                   |
+| `about=science`         | "About the science" open                                                       |
+| `stats=1`               | The frame rate and the worm's speed, shown                                     |
 
 ## Run it
 
