@@ -2996,7 +2996,7 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
 
 **Status.** Both checks pass. The spec's frame rate holds at 1× in both browsers, and the fast-forward target is met in Chrome; Safari, where no target is set, holds 10× and up to 23×. Past what its GPU steps, each browser now keeps its frames and runs the worm slower than asked. Revised after review.
 
-## 2026-09-30 — The docs, a complete VALIDATION.md and an audit against the spec (set before its work)
+## 2026-09-30 — The docs, a complete VALIDATION.md and an audit against the spec (set before its work; built)
 
 **Why.** Milestone 6 ends with the docs (spec §9, §10) and its exit asks for `VALIDATION.md` complete (PLAN §9); it is the milestone's fifth pull request, and the project's last planned one. A survey found `VALIDATION.md` with checkpoints 0 and 1 in full, §7.2's comparison, and every graded quantity labelled as a calibration target or predicted, but nothing for checkpoints 2 to 6, no list of known simplifications, which spec §9 asks of it, and nothing on the GPU's checks; its prose follows how the project unfolded, so a reader meets track R's rounds before the result. The README's status is a log of those rounds, and it has no explanation of the science, the modelling hypothesis or what the model leaves out, which spec §9 asks of it, nor the food behaviours that won't emerge (spec §5). The maintainer chose how far each goes, that the checkpoints are run again, and that the milestone closes with an audit, before any of it was written.
 
@@ -3018,3 +3018,30 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - Considered: a pull request of its own; and logging the toggle as not built.
 - **The spec stays as it is.** Its three mismatches are recorded in the audit, and the documents say what was done: neuron classes come from OpenWorm's `cect`, where spec §2.1 names Wang et al. 2024; Berri et al. 2009, which spec §2.3 and §8 name for crawling, was never used; and spec §4's "Without it there are no spontaneous reversals" doesn't hold in track R's model, whose reversals are its head switch's. Considered: amending the three sentences here, for sign-off.
 - **The rest is fixed as recommended,** and listed with the audit's record below.
+
+**The audit's record** is `docs/spec-audit.md`: the three reviewers' tables as they were made, 216 requirements, and what followed each finding. Of them 167 stood as met, 28 as met in part, 9 as not met and 12 as neither.
+
+- **Not met:** checkpoints 2 to 6, five rows, by the decisions of 2026-09-26 and 2026-09-30; the sensitivity toggle, built here; and three of the README's, which this pull request's draft already met.
+- **Met in part,** and left so by logged decisions: one rule per class with a value per cell, for AWC's gain and the touch currents; two calibration bounds set with the silenced network in view; the oscillators' and the switch's forms, the project's own; a second-order scheme for the network alone; "not reached", which is none of pass, partial or fail; the hour-long assay played in six minutes at 10×; and on small panes, the plate's sentence on the food behaviours and its dish inset, hidden.
+- **Met in part, and fixed here:** the rest, listed at the record's end.
+
+**Built.**
+
+- **The README,** as a front door, with a picture taken by `npm run docs:screenshot` from the built app in headless Chrome, a link fixing its worm, its time and its neuron; no gate checks it.
+- **`VALIDATION.md`,** in the order result, standing, methods, what changed after results, how to read the results, the results, the checkpoints not reached, the GPU's checks and the known simplifications. Its seventeen notes on reading the results are as they were, under three headings; the sections the harness writes are untouched but for the runs below.
+- **The status** that heads FIDELITY.md and About the science says every milestone is closed; the loading page no longer says "under construction".
+- **The sensitivity toggle,** `npm run harness -- --sensitivity` (`src/validation/sensitivity.ts`): a setting is a network a trial takes, as a rewired brain is, and `cookNetwork` takes the scales.
+- **What the audit asked of the registry, PLAN, DECISIONS and DATA_SOURCES.md,** listed in its record. Twelve early entries' statuses now say they were signed off, by the merges of the pull requests they came in.
+
+**The checkpoints' rerun.** At `4aeb33f`, 90 runs in 319 s on 6 workers. Every figure came out as on 2026-09-29: the two sections differ in their run lines, and in checkpoint 0's sentence on its clauses, which the audit had reworded.
+
+**The sensitivity runs' results** (at `9d74480`, 560 trials in 276 s on 6 workers; `VALIDATION.md`).
+
+- **Checkpoint 1 would fail every setting,** none making a forward bout of 20 s. The worm moves forward 70% to 81% of the time under thirteen of the fourteen, and 32% with the uncertain signs silent. Only the model's own setting, one random draw and the shared-connection scales make a forward bout of 10 s, at 0.027 to 0.029 body lengths per second. The negative result doesn't hang on how the uncertain signs are set, or on the choice between the two scales.
+- **The model's own setting repeats checkpoint 1's figures:** 0.099 Hz, 0.71 body lengths, 0.029 body lengths per second, 98.4% and no 20 s bout.
+- **The silenced network moves under the random signs.** Its gate is shut on every step under the model's signs, all excitatory, and the shared scales, and open on every step under the other eleven. In the ten random draws the silenced worm moves forward 1% to 18% of the time, and in two of them it makes forward bouts of 10 s, three in all, where checkpoint 0 asks for none.
+  - Checked here, at rest on seed 1: the silenced drive on the SMDs less θ_osc is −0.47 mV on the model's signs, −2.05 mV all excitatory and −0.55 mV at the shared scales; +2.68 mV all silent; and +5.6 to +8.5 mV in the random draws, the SMDs' thresholds lying at −10 to −19 mV where the model's lie at −5 to −8.
+  - So θ_osc's floor, set at −28 mV to keep the silenced head switch shut (PLAN §7.3), keeps it shut for this wiring's thresholds, by under half a millivolt, and not for the uncertain signs at large. Checkpoint 0's crawling pass was already recorded as following from that bound; it also depends on the signs the bound was fitted under.
+- **Disclosed.** A look of 2 trials of 30 s a setting ran first, to check the mode, and showed a bout under the fifth random draw. The first full run, at `7924197`, reported the silenced network's bouts alone. The columns on how the silenced network moves, and on its gate, were added after those bouts were seen, to show their cause, and the run repeated at `9d74480` with every figure the same.
+
+**Status.** Built. Milestone 6 closes with it, and with it the plan's last milestone (PLAN §9).
