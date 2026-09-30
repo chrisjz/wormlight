@@ -6,13 +6,14 @@ import { About } from './ui/about';
 import { Activity } from './ui/activity';
 import { MODEL_VERSION } from './sim/version';
 import { experimentUrl, ExperimentStore, readExperiment, unreadMessage } from './ui/experiment';
-import { LinkNote } from './ui/linkNote';
+import { LinkNote, linkSummary } from './ui/linkNote';
 import {
   aboutAsked,
   readParams,
   readPlateParams,
   readVersions,
   versionMessage,
+  versionState,
   versionUrl,
   type Versions,
 } from './ui/params';
@@ -95,7 +96,9 @@ async function start(root: HTMLElement): Promise<void> {
   message(root, 'loading', null, 'Loading the connectome…');
   let data: WormlightData;
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
+    // Checked with the server each time, not taken from the cache unasked, so the data always matches the code: the
+    // code is named by its hash, and the data isn't (GitHub Pages lets a browser keep either for ten minutes).
+    const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`the server answered ${response.status}`);
     data = validateWormlightData(await response.json());
   } catch (err) {
@@ -175,14 +178,27 @@ async function start(root: HTMLElement): Promise<void> {
       };
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
-    const notes = [
+    // The link's notes: a line saying what kind, and the whole of them beneath it.
+    const state = versionState(askedVersions, versions);
+    const unread = unreadMessage(asked.unread);
+    const summary = linkSummary(
+      start.foodIgnored || unread !== null || state.model === 'unreadable' || state.data === 'unreadable',
+      state.model === 'other' || state.data === 'other',
+    );
+    const details = [
       start.foodIgnored ? "The link's food couldn't be read, so the dish starts with its usual lawn." : null,
-      unreadMessage(asked.unread),
+      unread,
       versionMessage(askedVersions, versions),
     ].filter((text) => text !== null);
-    if (notes.length > 0) note.show(notes.join(' '));
-    // A link may open About the science over the views.
-    if (askedAbout) about.open();
+    const showNote = (): void => {
+      if (summary) note.show(summary, details.join(' '));
+    };
+    // A link may open About the science over the views; the note then waits for it to close, as a page behind a
+    // modal dialog is hidden from assistive technology, which wouldn't hear the note arrive.
+    if (askedAbout) {
+      about.dialog.addEventListener('close', showNote, { once: true });
+      about.open();
+    } else showNote();
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;

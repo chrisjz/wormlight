@@ -199,29 +199,51 @@ export function versionUrl(href: string, versions: Versions): string {
   return url.toString();
 }
 
+// How a link's versions stand against these: which it names that differ from them, and which it gives that can't be
+// read, a model version that isn't a whole number or a data version that isn't eight hexadecimal digits.
+export interface VersionState {
+  model: 'same' | 'other' | 'unreadable';
+  data: 'same' | 'other' | 'unreadable';
+}
+
+export function versionState(asked: AskedVersions, versions: Versions): VersionState {
+  const model = asked.model;
+  const data = asked.data?.toLowerCase() ?? null;
+  return {
+    model:
+      model === null
+        ? 'same'
+        : !/^\d+$/.test(model) || !Number.isSafeInteger(Number(model))
+          ? 'unreadable'
+          : Number(model) === versions.model
+            ? 'same'
+            : 'other',
+    data:
+      data === null ? 'same' : !/^[0-9a-f]{8}$/.test(data) ? 'unreadable' : data === versions.data ? 'same' : 'other',
+  };
+}
+
 // What to tell a viewer whose link was made with other versions than these, or null if it wasn't or doesn't say.
-// A version that isn't a number or eight hexadecimal digits is unreadable, and not repeated.
+// A version that can't be read is said to be so, and not repeated, so a link can't put words on the page.
 export function versionMessage(asked: AskedVersions, versions: Versions): string | null {
-  // Each version the link gives, as it reads, unless it is this one: null if unreadable.
-  const model = asked.model === null ? undefined : /^\d{1,9}$/.test(asked.model) ? Number(asked.model) : null;
-  const data = asked.data === null ? undefined : /^[0-9a-f]{8}$/i.test(asked.data) ? asked.data.toLowerCase() : null;
-  const modelDiffers = model !== undefined && model !== versions.model;
-  const dataDiffers = data !== undefined && data !== versions.data;
-  if (!modelDiffers && !dataDiffers) return null;
+  const state = versionState(asked, versions);
+  if (state.model === 'same' && state.data === 'same') return null;
+  const made = [
+    state.model === 'other' ? `model version ${Number(asked.model)}` : null,
+    state.data === 'other' ? `data version ${asked.data?.toLowerCase()}` : null,
+  ].filter((part) => part !== null);
+  const unreadable = (['model', 'data'] as const).filter((kind) => state[kind] === 'unreadable');
+  const which = `${unreadable.join(' and ')} version${unreadable.length > 1 ? 's' : ''}`;
   const then =
-    modelDiffers && dataDiffers && model === null && data === null
-      ? 'unreadable model and data versions'
-      : [
-          modelDiffers ? (model === null ? 'an unreadable model version' : `model ${model}`) : null,
-          dataDiffers ? (data === null ? 'an unreadable data version' : `data ${data}`) : null,
-        ]
-          .filter((part) => part !== null)
-          .join(' and ');
-  const now = [modelDiffers ? `model ${versions.model}` : null, dataDiffers ? `data ${versions.data}` : null]
-    .filter((part) => part !== null)
-    .join(' on ');
+    made.length === 0
+      ? `This link's ${which} can't be read`
+      : `This link was made with ${made.join(' and ')}${unreadable.length > 0 ? `, and its ${which} can't be read` : ''}`;
+  const now = [
+    state.model !== 'same' ? `model version ${versions.model}` : null,
+    state.data !== 'same' ? `data version ${versions.data}` : null,
+  ].filter((part) => part !== null);
   return (
-    `This link was made with ${then}; the app now runs ${modelDiffers ? '' : 'on '}${now}, so the worm may ` +
-    'behave differently from when it was shared.'
+    `${then}; the app now runs ${state.model === 'same' ? 'on ' : ''}${now.join(' on ')}, so the worm may behave ` +
+    'differently from when it was shared.'
   );
 }

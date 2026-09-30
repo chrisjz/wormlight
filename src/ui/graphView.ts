@@ -39,7 +39,7 @@ import type { About } from './about.ts';
 import type { LinkNote } from './linkNote.ts';
 import type { Activity } from './activity.ts';
 import { linkKind, linkStyle, Wiring, type Connection } from './connections.ts';
-import { brainName, describeChange, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
+import { brainName, describeChange, lesionSummary, type ExperimentStore } from './experiment.ts';
 import { CLASS_NAMES, inspect, musclesByNeuron } from './inspection.ts';
 import { Inspector } from './inspector.ts';
 import { applyTarget, readParams } from './params.ts';
@@ -980,10 +980,7 @@ export async function startGraph(
   });
   resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
   settled = true;
-  // Alone on the page, the graph says what the link's experiment held that couldn't be read; beside the plate, the
-  // plate says it.
-  const unread = title ? unreadMessage(experiment.unread) : null;
-  selection.textContent = [describe(), unread].filter((text) => text).join(' ');
+  selection.textContent = describe();
 
   let first: (() => void) | null = null;
   const ready = new Promise<void>((resolve) => {

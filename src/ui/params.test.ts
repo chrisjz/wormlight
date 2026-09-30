@@ -11,6 +11,7 @@ import {
   readVersions,
   snapLawn,
   versionMessage,
+  versionState,
   versionUrl,
   writeFood,
 } from './params';
@@ -209,6 +210,16 @@ describe("the versions in a link's URL", () => {
     expect(url.search).toBe('?seed=4&model=2&data=5e1f0c9a');
   });
 
+  it('takes a whole number with leading zeros as a model version, and anything else as unreadable', () => {
+    expect(versionState({ model: '0000000002', data: null }, now).model).toBe('same');
+    expect(versionState({ model: '0000000001', data: null }, now).model).toBe('other');
+    for (const model of ['1.0', '-1', 'x', '99999999999999999999']) {
+      expect(versionState({ model, data: null }, now).model, model).toBe('unreadable');
+    }
+    expect(versionState({ model: null, data: '5E1F0C9A' }, now).data).toBe('same');
+    expect(versionState({ model: null, data: '5e1f0c9' }, now).data).toBe('unreadable');
+  });
+
   it('says nothing of a link with no versions, or with these', () => {
     expect(versionMessage({ model: null, data: null }, now)).toBeNull();
     expect(versionMessage({ model: '2', data: '5E1F0C9A' }, now)).toBeNull();
@@ -218,22 +229,25 @@ describe("the versions in a link's URL", () => {
   it('names both versions where they differ, and does not repeat one it cannot read', () => {
     const end = ', so the worm may behave differently from when it was shared.';
     expect(versionMessage({ model: '1', data: '5e1f0c9a' }, now)).toBe(
-      `This link was made with model 1; the app now runs model 2${end}`,
+      `This link was made with model version 1; the app now runs model version 2${end}`,
     );
     expect(versionMessage({ model: '2', data: '3f9a2c1d' }, now)).toBe(
-      `This link was made with data 3f9a2c1d; the app now runs on data 5e1f0c9a${end}`,
+      `This link was made with data version 3f9a2c1d; the app now runs on data version 5e1f0c9a${end}`,
     );
     expect(versionMessage({ model: '1', data: '3f9a2c1d' }, now)).toBe(
-      `This link was made with model 1 and data 3f9a2c1d; the app now runs model 2 on data 5e1f0c9a${end}`,
+      'This link was made with model version 1 and data version 3f9a2c1d; the app now runs model version 2 on ' +
+        `data version 5e1f0c9a${end}`,
     );
     expect(versionMessage({ model: 'x<b>', data: 'beta' }, now)).toBe(
-      `This link was made with unreadable model and data versions; the app now runs model 2 on data 5e1f0c9a${end}`,
+      "This link's model and data versions can't be read; the app now runs model version 2 on data version " +
+        `5e1f0c9a${end}`,
     );
     expect(versionMessage({ model: '1', data: 'beta' }, now)).toBe(
-      `This link was made with model 1 and an unreadable data version; the app now runs model 2 on data 5e1f0c9a${end}`,
+      "This link was made with model version 1, and its data version can't be read; the app now runs model version " +
+        `2 on data version 5e1f0c9a${end}`,
     );
     expect(versionMessage({ model: 'x', data: null }, now)).toBe(
-      `This link was made with an unreadable model version; the app now runs model 2${end}`,
+      `This link's model version can't be read; the app now runs model version 2${end}`,
     );
   });
 });

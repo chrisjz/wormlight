@@ -307,11 +307,12 @@ function references(): HTMLElement {
 // What a link to the app carries and can't promise, and the versions running (PLAN §1).
 function links(versions: Versions): HTMLElement {
   return section(
-    'Links',
+    'Sharing a link',
     paragraph(
       "A link to the app sets up its experiment afresh: the food on the dish, the worm's seed, the brain and any " +
-        'lesions, with the model and data it was made with. This is model ' +
-        `${versions.model} on data ${versions.data}; a link from another version runs on this one, and the app says so.`,
+        'lesions, with the versions of the model and data it was made with. The app runs model version ' +
+        `${versions.model} on data version ${versions.data}; a link from another version runs on these, and the app ` +
+        'says so.',
     ),
     paragraph(
       "On another GPU the worm's path can differ, though the setup is the same: GPUs may compute the same arithmetic " +

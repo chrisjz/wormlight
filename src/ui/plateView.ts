@@ -250,7 +250,7 @@ export async function startPlate(
   const time = el('span', 'plate-time');
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
-  const more = button('plate-more', 'More', 'More controls: restart, touch, food and brain');
+  const more = button('plate-more', 'More', 'More controls: restart, touch, food, brain and link');
   more.setAttribute('aria-expanded', 'false');
   const seedText = el('span', 'plate-seed');
   primary.append(play, speeds, speedMenu, time, seedText, more);
@@ -286,10 +286,13 @@ export async function startPlate(
   const brain = el('div', 'plate-group');
   brain.append(brainLabel, brainSelect);
   // A link to the setup running, which the address bar holds, and what it can't promise (PLAN §1).
-  const copyLink = button('plate-button plate-copy', 'Copy link', 'Copy link to this setup');
-  const linkHint = el('span', 'plate-link-hint', 'Same setup; the path can differ on another GPU.');
+  const copyLink = button('plate-button plate-copy', 'Copy link');
+  const HINT = "Same setup; the worm's path can differ on another GPU.";
+  const linkHint = el('span', 'plate-link-hint', HINT);
   linkHint.id = 'plate-link-hint';
   copyLink.setAttribute('aria-describedby', linkHint.id);
+  const link = group('Link', null, copyLink, linkHint);
+  link.classList.add('plate-link');
   const extra = el('div', 'plate-extra');
   extra.id = 'plate-extra';
   more.setAttribute('aria-controls', extra.id);
@@ -298,7 +301,7 @@ export async function startPlate(
     group('Touch', 'Touch', touchFront, touchBack),
     group('Food', 'Food', addFood, clearFood),
     brain,
-    group('Link', null, copyLink, linkHint),
+    link,
   );
   // What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
   // brain, which the brain control's description names, and the lesions, with a way to undo them.
@@ -517,18 +520,18 @@ export async function startPlate(
     queue(applyExperiment);
   });
   brainSelect.addEventListener('change', () => experiment.setBrain(Number(brainSelect.value)));
-  // Copying says what a link can't promise where it's seen, for a few seconds in the link's note, which a narrow
-  // pane's panel doesn't cover once the copy closes it; the button says so for a moment too.
+  // A copy is confirmed on the button for a moment, and a failure says why beside it; the panel stays open for it on
+  // a narrow pane.
   let relabel = 0;
   const copied = (ok: boolean): void => {
-    const text = ok
-      ? "Link copied. It sets up this experiment afresh; on another GPU the worm's path can differ."
-      : "The link couldn't be copied; the address bar holds it.";
-    if (note) note.show(text, 8);
-    else say(text);
     copyLink.textContent = ok ? 'Copied' : 'Not copied';
+    if (!ok) linkHint.textContent = "Couldn't copy it: the address bar holds the link.";
+    say(ok ? 'Link copied.' : "The link couldn't be copied; the address bar holds it.");
     clearTimeout(relabel);
-    relabel = window.setTimeout(() => (copyLink.textContent = 'Copy link'), 2000);
+    relabel = window.setTimeout(() => {
+      copyLink.textContent = 'Copy link';
+      linkHint.textContent = HINT;
+    }, 3000);
   };
   copyLink.addEventListener('click', () => {
     // The clipboard is there only in a secure context, and may be refused.
@@ -561,6 +564,9 @@ export async function startPlate(
   const setMore = (open: boolean, refocus = false): void => {
     more.setAttribute('aria-expanded', String(open));
     extra.classList.toggle('plate-extra-open', open);
+    // Open, the panel reaches no higher than the pane's top, and scrolls if it has more.
+    const room = controls.getBoundingClientRect().top - pane.getBoundingClientRect().top - 16;
+    extra.style.maxHeight = open ? `${Math.max(room, 96)}px` : '';
     if (!open && refocus) more.focus();
   };
   more.addEventListener('click', () => setMore(more.getAttribute('aria-expanded') !== 'true'));
@@ -574,10 +580,11 @@ export async function startPlate(
     if (!controls.contains(e.target as Node)) setMore(false);
   };
   document.addEventListener('pointerdown', pressElsewhere);
-  // An action in the panel closes it once its own handler has run.
+  // An action in the panel closes it once its own handler has run; but for Copy link, whose button says it copied.
   const done = (e: Event): void => {
     if (!narrow() || more.getAttribute('aria-expanded') !== 'true') return;
     const target = e.target as HTMLElement;
+    if (target.closest('.plate-copy')) return;
     if (target.closest('button') || e.type === 'change') {
       queueMicrotask(() =>
         setMore(false, extra.contains(document.activeElement) || document.activeElement === document.body),
