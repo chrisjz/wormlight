@@ -18,6 +18,7 @@ import { checkExport, type NematodeExport } from './export.ts';
 import { buildReport, crossCheckReport, parseCreamer } from './reports.ts';
 import { edgeKey, parseOverrides, readFenyves, signChemical, signNeuromuscular } from './signs.ts';
 import { ROOT, loadSources, pinById, readFile, readManifest, sha256, type Pin } from './sources.ts';
+import { dataVersion } from './version.ts';
 import { readSheet } from './xlsx.ts';
 
 const OVERRIDES = 'data/sign-overrides.csv';
@@ -85,9 +86,28 @@ async function build(): Promise<Map<string, string>> {
     ...signNeuromuscular(identities.get(j.pre)?.[0]),
   }));
 
+  // What the model reads, which the data's version is a digest of.
+  const body: Omit<WormlightData, 'meta'> = {
+    neurons: exported.neurons.map((n) => {
+      const morphology = morphologies.get(n.name) as Morphology;
+      return {
+        name: n.name,
+        class: n.class,
+        transmitters: n.transmitters,
+        position: position(frame, morphology),
+        sensing: sensing(frame, n.name, morphology),
+        oscillator: oscillator(n.name),
+      };
+    }),
+    muscles: muscles(exported.muscles),
+    chemical,
+    gap: exported.gap,
+    neuromuscular,
+  };
   const data = validateWormlightData({
     meta: {
       schema: SCHEMA,
+      version: dataVersion(body),
       signBasis,
       muscleSpacing: 'shared-grid',
       citations: Object.fromEntries(cited.map((id) => [id, reference(id)])),
@@ -104,21 +124,7 @@ async function build(): Promise<Map<string, string>> {
         { id: 'sign-overrides', sha256: sha256(Buffer.from(overridesText)) },
       ],
     },
-    neurons: exported.neurons.map((n) => {
-      const morphology = morphologies.get(n.name) as Morphology;
-      return {
-        name: n.name,
-        class: n.class,
-        transmitters: n.transmitters,
-        position: position(frame, morphology),
-        sensing: sensing(frame, n.name, morphology),
-        oscillator: oscillator(n.name),
-      };
-    }),
-    muscles: muscles(exported.muscles),
-    chemical,
-    gap: exported.gap,
-    neuromuscular,
+    ...body,
   } satisfies WormlightData);
 
   const creamer = parseCreamer(

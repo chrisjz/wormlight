@@ -81,6 +81,19 @@ On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes,
 - **One fixed scale.** Every neuron is drawn on the same scale, brightness rising with the filtered activation as its square, so rest reads dim and activity bright; no neuron is rescaled to its own range. Neurons above rest also get a soft halo, and every neuron a faint neutral rim that keeps it findable (revised after review); a lesioned neuron's hollow outline is drawn in the rim's grey.
 - **Where.** While the worm runs, the graph colours its neurons by the glow, and a control switches back to their classes. With no neuron selected, the chemical synapses of neurons glowing above ¾ are drawn faintly. With the graph alone on the page, the worm runs unseen to drive it; started on class colours, it runs once the viewer asks for the glow. The glow on the body, which the spec leaves optional, is not built.
 
+**The shareable URL (spec §6; set 2026-09-30, before its build, and built, DECISIONS.md).** A link reproduces an experiment's setup, and names the model and data it was made with.
+
+- **What it carries.** The worm's seed, `?seed=`; the lawns, `?food=` (§5.2); the brain, `?brain=`, and the lesions, `?lesions=` (§3.5); and the versions, `?model=` and `?data=`. The app keeps them in the address bar as they change, so it always holds a link to the setup running; the view's parameters stay as the link had them.
+- **A link starts its setup afresh.** It reproduces the setup, not a run's history: a run from it has the brain, lesions and food the link names from its start, and touches aren't recorded.
+- **The model version** is a number, `MODEL_VERSION` in `src/sim/version.ts`, raised whenever a change moves how the worm behaves on the CPU reference in a setup on the same data: an equation, a parameter's value, the noise's draws, the body, the dish and its field, the rewirings, what a lesion cuts, or how the app builds its world.
+  - A test holds it to that with a fingerprint of five short runs of the app's world on the CPU reference: intact on the first lawn's field; a rewired brain with neurons lesioned; a touch; the wall; and an empty dish. Each run's state is summed array by array, and the sums rounded to nine significant figures, or nine decimal places below 1, so that engines that differ in their last bits agree while any change to the model shows.
+  - Each fingerprint is pinned with the model and data versions it was taken at, and a pinned entry is never changed: a change that moves the fingerprint adds an entry, with a new model version unless only the data changed.
+  - Every model change lands in the GPU's kernels too, with a parity check (§7.2), so the number stands for the model the app runs; a change to the kernels' arithmetic alone isn't one, since runs already differ across GPUs. What's drawn, the glow and the views, isn't the model.
+- **The data version** is the runtime file's `meta.version` (§2.3), a digest of what the model reads from it.
+- **A link from another version** runs its setup on this one, and the app says so, naming both, since the worm may behave differently from when the link was made; the address bar then carries this version. A version the app can't read is said the same way. A link with no versions, such as one made before they were added, is taken as it is.
+- **Across GPUs.** A link reproduces the setup, but the trajectory can differ across GPUs (spec §6): GPUs may compute the same arithmetic differently in its last bits, and the worm's dynamics amplify the difference, as they do between JavaScript engines on the CPU (DECISIONS.md, 2026-09-26, "The Safari check"). The app says so beside "Copy link", in the More controls, and in About the science, which also names the versions running.
+- **A link's notes.** What a link held and the app couldn't give, food it couldn't read, a brain or neurons it lacks, another version, is shown in one line in the plate's header, or the graph's when it is alone, which can be dismissed, and announced.
+
 ## 2. Data
 
 ### 2.1 The nematode exporter
@@ -127,7 +140,7 @@ One JSON file, `public/data/wormlight.v1.json`, about 480 KB (about 38 KB gzippe
 - **gap:** the pairs with their section counts.
 - **neuromuscular:** pre, muscle, sections, sign, and sign source (`receptor` or `none`).
 - **muscles:** quadrant, index, and the stretch of body each one covers, on the grid of §4.4.
-- **meta:** schema version; the basis of each sign source and a reference for every citation id; each shipped dataset's licence as an SPDX id, with a pointer to `NOTICE.md`; and the digest of every input.
+- **meta:** schema version; the data's version, the first eight hexadecimal digits of the SHA-256 of its neurons, muscles and connections as JSON, which a link carries (§1; added 2026-09-30, DECISIONS.md); the basis of each sign source and a reference for every citation id; each shipped dataset's licence as an SPDX id, with a pointer to `NOTICE.md`; and the digest of every input.
 
 Constants such as the Cook-to-Varshney scale live in `src/science/params.ts` alone, never in the data file, so a sweep changes one place.
 
@@ -323,7 +336,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
   - a press grabs a lawn only while it looks small on screen, its radius under 60 px, keeping the offset where it was grabbed; zoomed in further, drags pan;
   - without dragging, a click on a lawn picks it up and the next click puts it down, Escape leaves it and Delete removes it; with the dish focused, Delete removes the lawn nearest the view's centre, and a lawn moves by keyboard as Delete, then Add food;
   - lawns are placed to a tenth of a millimetre, inside the dish, so the URL holds them exactly;
-  - the URL carries the worm's seed too, `?seed=`, so a link reproduces the worm as well as its dish; lesions and the brain joined it with milestone 5 (2026-09-30, DECISIONS.md), and the versions join it with milestone 6's URL state.
+  - the URL carries the worm's seed too, `?seed=`, so a link reproduces the worm as well as its dish; lesions and the brain joined it with milestone 5 (2026-09-30, DECISIONS.md), and the versions with milestone 6 (§1).
 - **Walls.** The dish wall reflects odour and stops the worm. A rod whose centre passes it, less the rod's radius, is pushed back along its normal by a spring and a damper like the body's diagonal elements, without friction; both ease in over the first 0.1 µm, so the contact grows smoothly from zero (2026-09-26, DECISIONS.md).
 
 ## 6. Parameters and the fidelity registry
@@ -619,7 +632,7 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 5's outcome (2026-09-30): done.** Lesions and the brain swap run live in the app, on the GPU, which matches the CPU reference on a lesioned contrast brain by parity, in Chrome on the Mac's GPU and on CI's software GPU (DECISIONS.md). The graph's inspector ablates and restores any neuron; the plate's Brain control swaps the real wiring for any of the primary null's ten rewirings (§3.5), on the refit's values untuned. The worm and its neurons' state carry over each change, and the URL carries the experiment. Checkpoints 5 and 6 are not reached: they need forward crawling, and R ended below partial (2026-09-30, DECISIONS.md).
 
-**Milestone 6 (under way).** Its parts come in the order the maintainer set (2026-09-30, DECISIONS.md): the glow, built (§1); "About the science", built (§6.1); the rest of the URL state; performance and the Safari check; then the docs and a complete `VALIDATION.md`.
+**Milestone 6 (under way).** Its parts come in the order the maintainer set (2026-09-30, DECISIONS.md): the glow, built (§1); "About the science", built (§6.1); the rest of the URL state, built (§1); performance and the Safari check; then the docs and a complete `VALIDATION.md`.
 
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 

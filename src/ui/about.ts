@@ -1,8 +1,9 @@
 // "About the science" (spec §1.3): the fidelity ledger in the app, from the same registry as FIDELITY.md, in a dialog
 // over the views. It opens with where the project stands (the status FIDELITY.md opens with), then the scale, each
 // subsystem's levels with what is solid and what isn't, its components folded beneath it, the biology left out, the
-// presentation's choices, what the model is tested and tuned against, the parameters, folded by group, and the
-// sources. `?about=science` opens it from a link, and the URL says so while it is open.
+// presentation's choices, what the model is tested and tuned against, the parameters, folded by group, what a link
+// carries and can't promise, with the versions running, and the sources. `?about=science` opens it from a link, and
+// the URL says so while it is open.
 
 import type { WormlightData } from '../data/schema.ts';
 import { CITATIONS, type Citation, type CitationId } from '../science/citations.ts';
@@ -30,7 +31,7 @@ import {
 } from '../science/params.ts';
 import { usedCitations } from '../science/used.ts';
 import { CALIBRATION_TARGETS, REFERENCE_DATA } from '../science/validation.ts';
-import { aboutUrl } from './params.ts';
+import { aboutUrl, type Versions } from './params.ts';
 
 const REPOSITORY = 'https://github.com/chrisjz/wormlight/blob/main';
 
@@ -303,11 +304,27 @@ function references(): HTMLElement {
   return section('Sources', folded(`The ${ids.length} works the ledger cites`, ul), more);
 }
 
+// What a link to the app carries and can't promise, and the versions running (PLAN §1).
+function links(versions: Versions): HTMLElement {
+  return section(
+    'Links',
+    paragraph(
+      "A link to the app sets up its experiment afresh: the food on the dish, the worm's seed, the brain and any " +
+        'lesions, with the model and data it was made with. This is model ' +
+        `${versions.model} on data ${versions.data}; a link from another version runs on this one, and the app says so.`,
+    ),
+    paragraph(
+      "On another GPU the worm's path can differ, though the setup is the same: GPUs may compute the same arithmetic " +
+        "differently in its last bits, and the worm's dynamics amplify the difference.",
+    ),
+  );
+}
+
 export class About {
   readonly dialog: HTMLDialogElement;
   private opener: HTMLElement | null = null;
 
-  constructor(data: WormlightData) {
+  constructor(data: WormlightData, versions: Versions) {
     const f = countFacts(data);
     this.dialog = el('dialog', 'about');
     this.dialog.setAttribute('aria-labelledby', 'about-title');
@@ -337,6 +354,7 @@ export class About {
       notes('Presentation', PRESENTATION),
       testedAgainst(),
       parameters(),
+      links(versions),
       references(),
     );
     this.dialog.append(head, body);

@@ -36,6 +36,7 @@ import {
 } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
 import type { About } from './about.ts';
+import type { LinkNote } from './linkNote.ts';
 import type { Activity } from './activity.ts';
 import { linkKind, linkStyle, Wiring, type Connection } from './connections.ts';
 import { brainName, describeChange, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
@@ -229,6 +230,7 @@ export async function startGraph(
   experiment: ExperimentStore,
   activity: Activity,
   about: About | null = null,
+  note: LinkNote | null = null,
 ): Promise<GraphHandle> {
   const params = readParams(location.search);
   const canvas = el('canvas');
@@ -273,17 +275,20 @@ export async function startGraph(
   restoreLesions.setAttribute('aria-label', 'Restore all lesioned neurons');
   lesionNote.append(lesionText, restoreLesions);
   const brand = el('header', 'brand');
+  // Alone on the page, the graph carries the way to About the science and a link's notes; beside the plate, the plate
+  // does.
+  const aboutLink = title ? (about?.button() ?? null) : null;
   brand.append(
     title ? el('h1', 'brand-title', 'Wormlight') : el('h2', 'sr-only', 'The connectome'),
     lede(),
-    // Alone on the page, the graph carries the way to About the science; beside the plate, the plate does.
-    ...(title && about ? [about.button()] : []),
+    ...(aboutLink ? [aboutLink] : []),
     brainNote,
     lesionNote,
     find,
     findError,
     names,
   );
+  if (title) note?.mount(brand, aboutLink, brainNote);
   const label = el('div', 'hover-label');
   label.hidden = true;
   label.setAttribute('aria-hidden', 'true');

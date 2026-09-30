@@ -892,6 +892,56 @@ button.inspector-row:focus-visible .row-name {
   font-weight: 600;
 }
 
+/* A link's notes (PLAN §1), in the plate's header or the graph's when it is alone: a line, while there is one, that
+   can be dismissed. Empty, it takes no room but stays in the page, so that what it later says is announced. */
+.link-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  pointer-events: auto;
+}
+
+.link-note:has(.link-note-text:not(:empty)) {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.25rem 0.5rem 0.75rem;
+  border-left: 2px solid var(--muted);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+}
+
+.link-note-text {
+  flex: 1;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.link-note-close {
+  flex: none;
+  padding: 0 0.4rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.link-note-close:hover {
+  color: var(--fg);
+}
+
+.link-note-close:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+.link-note-close[hidden] {
+  display: none;
+}
+
 /* What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
    contrast brain, and the lesions with Restore all. */
 .plate-experiment {
@@ -1027,6 +1077,16 @@ button.inspector-row:focus-visible .row-name {
 
 .plate-group-label {
   margin-right: 0.25rem;
+  color: var(--muted);
+}
+
+/* Copy link keeps its width while it says Copied, and its note beside it. */
+.plate-copy {
+  min-width: 6.5rem;
+}
+
+.plate-link-hint {
+  margin-left: 0.25rem;
   color: var(--muted);
 }
 
@@ -1546,7 +1606,8 @@ button.inspector-row:focus-visible .row-name {
 
 @media (pointer: coarse) {
   .about-close,
-  .about-open {
+  .about-open,
+  .link-note-close {
     min-width: 2.75rem;
     min-height: 2.75rem;
   }

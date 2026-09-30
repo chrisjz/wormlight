@@ -170,3 +170,58 @@ export function aboutUrl(href: string, open: boolean): string {
   else url.searchParams.delete('about');
   return url.toString();
 }
+
+// The versions a link was made with (PLAN §1): ?model=, the model's, a number, and ?data=, the data's, eight
+// hexadecimal digits. The app writes its own into the address bar; a link from another version runs on this one,
+// and the app says so.
+export interface Versions {
+  model: number;
+  data: string;
+}
+
+// The versions as a link gives them, each null if it gives none or leaves it empty.
+export interface AskedVersions {
+  model: string | null;
+  data: string | null;
+}
+
+export function readVersions(search: string): AskedVersions {
+  const p = new URLSearchParams(search);
+  const value = (key: string): string | null => p.get(key)?.trim() || null;
+  return { model: value('model'), data: value('data') };
+}
+
+// The page's URL with these versions in it; its other parameters stay as they are.
+export function versionUrl(href: string, versions: Versions): string {
+  const url = new URL(href);
+  url.searchParams.set('model', String(versions.model));
+  url.searchParams.set('data', versions.data);
+  return url.toString();
+}
+
+// What to tell a viewer whose link was made with other versions than these, or null if it wasn't or doesn't say.
+// A version that isn't a number or eight hexadecimal digits is unreadable, and not repeated.
+export function versionMessage(asked: AskedVersions, versions: Versions): string | null {
+  // Each version the link gives, as it reads, unless it is this one: null if unreadable.
+  const model = asked.model === null ? undefined : /^\d{1,9}$/.test(asked.model) ? Number(asked.model) : null;
+  const data = asked.data === null ? undefined : /^[0-9a-f]{8}$/i.test(asked.data) ? asked.data.toLowerCase() : null;
+  const modelDiffers = model !== undefined && model !== versions.model;
+  const dataDiffers = data !== undefined && data !== versions.data;
+  if (!modelDiffers && !dataDiffers) return null;
+  const then =
+    modelDiffers && dataDiffers && model === null && data === null
+      ? 'unreadable model and data versions'
+      : [
+          modelDiffers ? (model === null ? 'an unreadable model version' : `model ${model}`) : null,
+          dataDiffers ? (data === null ? 'an unreadable data version' : `data ${data}`) : null,
+        ]
+          .filter((part) => part !== null)
+          .join(' and ');
+  const now = [modelDiffers ? `model ${versions.model}` : null, dataDiffers ? `data ${versions.data}` : null]
+    .filter((part) => part !== null)
+    .join(' on ');
+  return (
+    `This link was made with ${then}; the app now runs ${modelDiffers ? '' : 'on '}${now}, so the worm may ` +
+    'behave differently from when it was shared.'
+  );
+}
