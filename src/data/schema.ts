@@ -74,6 +74,9 @@ export interface Neuromuscular {
 
 export interface Meta {
   schema: typeof SCHEMA;
+  // The data's version, which a link carries (PLAN §1, §2.3): the first eight hexadecimal digits of the SHA-256 of
+  // its neurons, muscles and connections as JSON, which the data build computes (scripts/data/version.ts).
+  version: string;
   // The source each sign rule draws on: Fenyves's predictions; the Wang identities to which Wormlight
   // applies its own transmitter rule; the muscle receptors that set neuromuscular signs.
   signBasis: { expression: string; ruleIdentities: string; receptor: string };
@@ -141,6 +144,9 @@ function unique(seen: Set<string>, key: string, where: string): void {
 
 function validateMeta(meta: unknown): Set<string> {
   if (!isRecord(meta) || meta.schema !== SCHEMA) fail(`meta.schema is not ${SCHEMA}`);
+  if (typeof meta.version !== 'string' || !/^[0-9a-f]{8}$/.test(meta.version)) {
+    fail('meta.version is not eight hexadecimal digits');
+  }
   const citations = meta.citations;
   if (!isRecord(citations)) fail('meta.citations is missing');
   for (const [id, reference] of Object.entries(citations)) text(reference, `meta.citations.${id}`);

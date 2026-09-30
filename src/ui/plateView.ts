@@ -15,7 +15,9 @@
 // - The controls: a bar with play, the speed, the time and, on a narrow pane, More; the rest in labelled groups,
 //   inline on a wide pane and in a panel behind More on a narrow one, which Escape, a tap elsewhere or any of its
 //   actions closes. On a narrow or short pane the notice keeps to its first sentence and its link.
-// - About the science (spec §1.3) opens from the header, over the views.
+// - About the science (spec §1.3) opens from the header, over the views, and a link's notes show there (PLAN §1).
+// - Link's "Copy link" copies the address bar's link to the setup running, beside what it can't promise: on another
+//   GPU the worm's path can differ (PLAN §1).
 // - The glow (PLAN §1): each frame the neurons' voltages are read back from the GPU, and their activations advance
 //   the glow the views share, which the graph draws.
 // - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
@@ -54,12 +56,12 @@ import {
   describeChange,
   lesionSummary,
   sameExperiment,
-  unreadMessage,
   type Experiment,
   type ExperimentStore,
 } from './experiment.ts';
 import type { About } from './about.ts';
 import type { Activity } from './activity.ts';
+import type { LinkNote } from './linkNote.ts';
 import { Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
@@ -139,6 +141,7 @@ export async function startPlate(
   experiment: ExperimentStore,
   activity: Activity,
   about: About | null = null,
+  note: LinkNote | null = null,
 ): Promise<PlateHandle> {
   const canvas = el('canvas');
   canvas.id = 'plate';
@@ -221,7 +224,9 @@ export async function startPlate(
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
-  if (about) header.append(about.button());
+  const aboutLink = about?.button() ?? null;
+  if (aboutLink) header.append(aboutLink);
+  note?.mount(header, aboutLink);
 
   const controls = el('div', 'plate-controls');
   controls.setAttribute('role', 'group');
@@ -245,7 +250,7 @@ export async function startPlate(
   const time = el('span', 'plate-time');
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
-  const more = button('plate-more', 'More', 'More controls: restart, touch, food and brain');
+  const more = button('plate-more', 'More', 'More controls: restart, touch, food, brain and link');
   more.setAttribute('aria-expanded', 'false');
   const seedText = el('span', 'plate-seed');
   primary.append(play, speeds, speedMenu, time, seedText, more);
@@ -280,6 +285,14 @@ export async function startPlate(
   brainLabel.htmlFor = brainSelect.id;
   const brain = el('div', 'plate-group');
   brain.append(brainLabel, brainSelect);
+  // A link to the setup running, which the address bar holds, and what it can't promise (PLAN §1).
+  const copyLink = button('plate-button plate-copy', 'Copy link');
+  const HINT = "Same setup; the worm's path can differ on another GPU.";
+  const linkHint = el('span', 'plate-link-hint', HINT);
+  linkHint.id = 'plate-link-hint';
+  copyLink.setAttribute('aria-describedby', linkHint.id);
+  const link = group('Link', null, copyLink, linkHint);
+  link.classList.add('plate-link');
   const extra = el('div', 'plate-extra');
   extra.id = 'plate-extra';
   more.setAttribute('aria-controls', extra.id);
@@ -288,6 +301,7 @@ export async function startPlate(
     group('Touch', 'Touch', touchFront, touchBack),
     group('Food', 'Food', addFood, clearFood),
     brain,
+    link,
   );
   // What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
   // brain, which the brain control's description names, and the lesions, with a way to undo them.
@@ -506,6 +520,28 @@ export async function startPlate(
     queue(applyExperiment);
   });
   brainSelect.addEventListener('change', () => experiment.setBrain(Number(brainSelect.value)));
+  // A copy is confirmed on the button for a moment, and a failure says why beside it; the panel stays open for it on
+  // a narrow pane.
+  let relabel = 0;
+  const copied = (ok: boolean): void => {
+    copyLink.textContent = ok ? 'Copied' : 'Not copied';
+    if (!ok) linkHint.textContent = "Couldn't copy it: the address bar holds the link.";
+    say(ok ? 'Link copied.' : "The link couldn't be copied; the address bar holds it.");
+    clearTimeout(relabel);
+    relabel = window.setTimeout(() => {
+      copyLink.textContent = 'Copy link';
+      linkHint.textContent = HINT;
+    }, 3000);
+  };
+  copyLink.addEventListener('click', () => {
+    // The clipboard is there only in a secure context, and may be refused.
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (!clipboard) return copied(false);
+    clipboard.writeText(location.href).then(
+      () => copied(true),
+      () => copied(false),
+    );
+  });
   restoreAll.addEventListener('click', () => {
     experiment.restoreAll();
     // The button hides itself; keep the keyboard's place on the brain control, or on More while that hides it.
@@ -528,6 +564,9 @@ export async function startPlate(
   const setMore = (open: boolean, refocus = false): void => {
     more.setAttribute('aria-expanded', String(open));
     extra.classList.toggle('plate-extra-open', open);
+    // Open, the panel reaches no higher than the pane's top, and scrolls if it has more.
+    const room = controls.getBoundingClientRect().top - pane.getBoundingClientRect().top - 16;
+    extra.style.maxHeight = open ? `${Math.max(room, 96)}px` : '';
     if (!open && refocus) more.focus();
   };
   more.addEventListener('click', () => setMore(more.getAttribute('aria-expanded') !== 'true'));
@@ -541,10 +580,11 @@ export async function startPlate(
     if (!controls.contains(e.target as Node)) setMore(false);
   };
   document.addEventListener('pointerdown', pressElsewhere);
-  // An action in the panel closes it once its own handler has run.
+  // An action in the panel closes it once its own handler has run; but for Copy link, whose button says it copied.
   const done = (e: Event): void => {
     if (!narrow() || more.getAttribute('aria-expanded') !== 'true') return;
     const target = e.target as HTMLElement;
+    if (target.closest('.plate-copy')) return;
     if (target.closest('button') || e.type === 'change') {
       queueMicrotask(() =>
         setMore(false, extra.contains(document.activeElement) || document.activeElement === document.body),
@@ -1175,11 +1215,6 @@ export async function startPlate(
   // Before the first frame, run the worm to the time the URL asks for.
   advance(Math.round(params.time / NEURAL_STEP));
   writeUrl();
-  const notes = [
-    params.foodIgnored ? "The link's food couldn't be read, so the dish starts with its usual lawn." : null,
-    unreadMessage(experiment.unread),
-  ].filter((note) => note !== null);
-  if (notes.length > 0) say(notes.join(' '));
   readBody();
   readActivity();
 

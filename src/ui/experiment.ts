@@ -66,17 +66,24 @@ export function readExperiment(search: string, data: WormlightData): { experimen
   };
 }
 
-// What to tell a viewer whose link held an experiment it couldn't all be read, or null if it could.
+// What to tell a viewer whose link held an experiment it couldn't all be read, or null if it could. The app shows
+// it, so it repeats nothing of the link's but a few words shaped like a neuron's name (PLAN §1): a link can't put
+// words of its own on the page.
+export const REPEATED = 3;
+const nameLike = (s: string): boolean => /^[A-Za-z0-9]{1,6}$/.test(s);
 export function unreadMessage(unread: Unread): string | null {
   const parts: string[] = [];
   if (unread.brain !== null)
-    parts.push(`The link's brain, ${unread.brain}, isn't one of the app's, so the worm runs on the real wiring.`);
-  if (unread.lesions.length > 0) {
-    const [one] = unread.lesions;
+    parts.push("The link's brain isn't one of the app's, so the worm runs on the real wiring.");
+  const n = unread.lesions.length;
+  if (n > 0) {
+    const named = n <= REPEATED && unread.lesions.every(nameLike);
     parts.push(
-      unread.lesions.length === 1
-        ? `The link lesions ${one}, which isn't a neuron, so that was left out.`
-        : `The link lesions ${unread.lesions.join(', ')}, which aren't neurons, so those were left out.`,
+      !named
+        ? `The link lesions ${n} ${n === 1 ? "name that isn't a neuron, so that was" : "names that aren't neurons, so those were"} left out.`
+        : n === 1
+          ? `The link lesions ${unread.lesions[0]}, which isn't a neuron, so that was left out.`
+          : `The link lesions ${unread.lesions.join(', ')}, which aren't neurons, so those were left out.`,
     );
   }
   return parts.length > 0 ? parts.join(' ') : null;

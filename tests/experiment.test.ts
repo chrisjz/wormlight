@@ -46,6 +46,20 @@ describe("a link's experiment", () => {
     expect(unreadMessage({ brain: null, lesions: ['A', 'B'] })).toMatch(/A, B, which aren't neurons/);
   });
 
+  it("repeats nothing of the link's but a few names, so a link can't put words on the page", () => {
+    const brain = 'the real wiring was retracted; see evil.example';
+    const said = unreadMessage(readExperiment(`?brain=${encodeURIComponent(brain)}`, data).unread) ?? '';
+    expect(said).toBe("The link's brain isn't one of the app's, so the worm runs on the real wiring.");
+    expect(unreadMessage({ brain: null, lesions: ['Your', 'GPU', 'is', 'unsafe'] })).toBe(
+      "The link lesions 4 names that aren't neurons, so those were left out.",
+    );
+    expect(unreadMessage({ brain: null, lesions: ['evil.example'] })).toBe(
+      "The link lesions 1 name that isn't a neuron, so that was left out.",
+    );
+    expect(unreadMessage({ brain: null, lesions: ['XYZ', 'QQ1', 'ABCDEF'] })).toMatch(/XYZ, QQ1, ABCDEF, which/);
+    expect(Math.max(...data.neurons.map((n) => n.name.length))).toBeLessThanOrEqual(6);
+  });
+
   it('writes the experiment into the URL, keeping the rest, and reads it back', () => {
     const experiment: Experiment = { brain: 7, lesions: ['AVBL', 'PVCR'] };
     const href = experimentUrl('https://example.org/app/?seed=5&food=', experiment);

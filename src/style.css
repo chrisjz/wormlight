@@ -892,6 +892,95 @@ button.inspector-row:focus-visible .row-name {
   font-weight: 600;
 }
 
+/* A link's notes (PLAN §1), in the plate's header or the graph's when it is alone: a line, while there is one, with
+   Details that unfold the whole of it, and a way to dismiss it. Empty, it takes no room but stays in the page, so
+   that what it later says is announced. */
+.link-note {
+  pointer-events: auto;
+}
+
+.link-note-shown {
+  margin-top: 0.75rem;
+  padding: 0.35rem 0.25rem 0.35rem 0.75rem;
+  border-left: 2px solid var(--muted);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+}
+
+.link-note-line {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.link-note-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.link-note-details {
+  max-height: min(10rem, 30cqh);
+  margin: 0.35rem 0.5rem 0.15rem 0;
+  overflow-y: auto;
+  color: var(--muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* Unfolded, a note's details lie over the plate's controls, which would otherwise cover them on a short pane. */
+.plate-head:has(.link-note-details:not([hidden])) {
+  z-index: 1;
+}
+
+.link-note-more,
+.link-note-close {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0 0.3rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-note-more {
+  color: var(--fg);
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 0.18em;
+}
+
+.link-note-close {
+  color: var(--muted);
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.link-note-more:hover {
+  text-decoration-color: currentColor;
+}
+
+.link-note-close:hover {
+  color: var(--fg);
+}
+
+.link-note-more:focus-visible,
+.link-note-close:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+.link-note-more[hidden],
+.link-note-close[hidden],
+.link-note-details[hidden] {
+  display: none;
+}
+
 /* What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
    contrast brain, and the lesions with Restore all. */
 .plate-experiment {
@@ -1027,6 +1116,22 @@ button.inspector-row:focus-visible .row-name {
 
 .plate-group-label {
   margin-right: 0.25rem;
+  color: var(--muted);
+}
+
+/* Copy link keeps its width while it says Copied, on any pointer, with its note beside it, wrapping beside it
+   rather than beneath. */
+.plate-controls .plate-copy {
+  min-width: 6.5rem;
+}
+
+.plate-link {
+  flex-wrap: nowrap;
+}
+
+.plate-link-hint {
+  min-width: 0;
+  margin-left: 0.25rem;
   color: var(--muted);
 }
 
@@ -1274,9 +1379,11 @@ button.inspector-row:focus-visible .row-name {
     right: 0;
     bottom: calc(100% + 0.5rem);
     left: 0;
+    box-sizing: border-box;
     display: grid;
     gap: 0.6rem;
     padding: 0.75rem;
+    overflow-y: auto;
     border-radius: 0.5rem;
     background: var(--panel);
     backdrop-filter: blur(6px);
@@ -1311,6 +1418,19 @@ button.inspector-row:focus-visible .row-name {
 
   .form-short {
     display: inline;
+  }
+}
+
+/* A short pane keeps a link's note to one line; its buttons keep their size to touch, reaching past the line. */
+@container (max-height: 30rem) {
+  .link-note-shown {
+    margin-top: 0.5rem;
+    padding-block: 0.15rem;
+  }
+
+  .link-note-more,
+  .link-note-close {
+    margin-block: -0.5rem;
   }
 }
 
@@ -1546,7 +1666,9 @@ button.inspector-row:focus-visible .row-name {
 
 @media (pointer: coarse) {
   .about-close,
-  .about-open {
+  .about-open,
+  .link-note-more,
+  .link-note-close {
     min-width: 2.75rem;
     min-height: 2.75rem;
   }

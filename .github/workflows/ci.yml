@@ -66,6 +66,11 @@ jobs:
         run: npm run format:check
       - name: Unit tests
         run: npm test
+      # A pinned fingerprint is never edited, only added to (PLAN §1); main's entries must all still be there.
+      - name: Model versions only grow
+        run: |
+          git fetch --no-tags --depth=1 origin main
+          npm run versions:check
       - name: Typecheck & build
         run: npm run build
       - name: Fidelity ledger is up to date

@@ -170,3 +170,80 @@ export function aboutUrl(href: string, open: boolean): string {
   else url.searchParams.delete('about');
   return url.toString();
 }
+
+// The versions a link was made with (PLAN §1): ?model=, the model's, a number, and ?data=, the data's, eight
+// hexadecimal digits. The app writes its own into the address bar; a link from another version runs on this one,
+// and the app says so.
+export interface Versions {
+  model: number;
+  data: string;
+}
+
+// The versions as a link gives them, each null if it gives none or leaves it empty.
+export interface AskedVersions {
+  model: string | null;
+  data: string | null;
+}
+
+export function readVersions(search: string): AskedVersions {
+  const p = new URLSearchParams(search);
+  const value = (key: string): string | null => p.get(key)?.trim() || null;
+  return { model: value('model'), data: value('data') };
+}
+
+// The page's URL with these versions in it; its other parameters stay as they are.
+export function versionUrl(href: string, versions: Versions): string {
+  const url = new URL(href);
+  url.searchParams.set('model', String(versions.model));
+  url.searchParams.set('data', versions.data);
+  return url.toString();
+}
+
+// How a link's versions stand against these: which it names that differ from them, and which it gives that can't be
+// read, a model version that isn't a whole number or a data version that isn't eight hexadecimal digits.
+export interface VersionState {
+  model: 'same' | 'other' | 'unreadable';
+  data: 'same' | 'other' | 'unreadable';
+}
+
+export function versionState(asked: AskedVersions, versions: Versions): VersionState {
+  const model = asked.model;
+  const data = asked.data?.toLowerCase() ?? null;
+  return {
+    model:
+      model === null
+        ? 'same'
+        : !/^\d+$/.test(model) || !Number.isSafeInteger(Number(model))
+          ? 'unreadable'
+          : Number(model) === versions.model
+            ? 'same'
+            : 'other',
+    data:
+      data === null ? 'same' : !/^[0-9a-f]{8}$/.test(data) ? 'unreadable' : data === versions.data ? 'same' : 'other',
+  };
+}
+
+// What to tell a viewer whose link was made with other versions than these, or null if it wasn't or doesn't say.
+// A version that can't be read is said to be so, and not repeated, so a link can't put words on the page.
+export function versionMessage(asked: AskedVersions, versions: Versions): string | null {
+  const state = versionState(asked, versions);
+  if (state.model === 'same' && state.data === 'same') return null;
+  const made = [
+    state.model === 'other' ? `model version ${Number(asked.model)}` : null,
+    state.data === 'other' ? `data version ${asked.data?.toLowerCase()}` : null,
+  ].filter((part) => part !== null);
+  const unreadable = (['model', 'data'] as const).filter((kind) => state[kind] === 'unreadable');
+  const which = `${unreadable.join(' and ')} version${unreadable.length > 1 ? 's' : ''}`;
+  const then =
+    made.length === 0
+      ? `This link's ${which} can't be read`
+      : `This link was made with ${made.join(' and ')}${unreadable.length > 0 ? `, and its ${which} can't be read` : ''}`;
+  const now = [
+    state.model !== 'same' ? `model version ${versions.model}` : null,
+    state.data !== 'same' ? `data version ${versions.data}` : null,
+  ].filter((part) => part !== null);
+  return (
+    `${then}; the app now runs ${state.model === 'same' ? 'on ' : ''}${now.join(' on ')}, so the worm may behave ` +
+    'differently from when it was shared.'
+  );
+}

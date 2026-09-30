@@ -4,8 +4,19 @@ import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
 import { About } from './ui/about';
 import { Activity } from './ui/activity';
-import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
-import { aboutAsked, readParams, readPlateParams } from './ui/params';
+import { MODEL_VERSION } from './sim/version';
+import { experimentUrl, ExperimentStore, readExperiment, unreadMessage } from './ui/experiment';
+import { LinkNote, linkSummary } from './ui/linkNote';
+import {
+  aboutAsked,
+  readParams,
+  readPlateParams,
+  readVersions,
+  versionMessage,
+  versionState,
+  versionUrl,
+  type Versions,
+} from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
@@ -85,7 +96,9 @@ async function start(root: HTMLElement): Promise<void> {
   message(root, 'loading', null, 'Loading the connectome…');
   let data: WormlightData;
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`);
+    // Checked with the server each time, not taken from the cache unasked, so the data always matches the code: the
+    // code is named by its hash, and the data isn't (GitHub Pages lets a browser keep either for ten minutes).
+    const response = await fetch(`${import.meta.env.BASE_URL}data/wormlight.v1.json`, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`the server answered ${response.status}`);
     data = validateWormlightData(await response.json());
   } catch (err) {
@@ -115,6 +128,10 @@ async function start(root: HTMLElement): Promise<void> {
     );
     return Promise.race([starting, failure]);
   };
+  // The versions running, which the URL carries from the start, and those the link was made with (PLAN §1).
+  const versions: Versions = { model: MODEL_VERSION, data: data.meta.version };
+  const askedVersions = readVersions(location.search);
+  history.replaceState(history.state, '', versionUrl(location.href, versions));
   // The experiment both views share, as the link sets it up; the URL follows it.
   const asked = readExperiment(location.search, data);
   const experiment = new ExperimentStore(data, asked.experiment, asked.unread);
@@ -142,14 +159,16 @@ async function start(root: HTMLElement): Promise<void> {
     // About the science, which the plate's header opens, or the graph's when it is alone. A link may ask for it open,
     // as the link was when the page loaded: it opens once the views are up.
     const askedAbout = aboutAsked(location.search);
-    about = new About(data);
+    about = new About(data, versions);
+    // What the link held and the app couldn't give, in the plate's header, or the graph's when it is alone.
+    const note = new LinkNote();
     if (platePane) {
       plate = await guard(
-        startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity, about),
+        startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity, about, note),
       );
     }
     if (graphPane) {
-      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity, about));
+      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity, about, note));
     }
     if (layout === 'graph' && colour === 'activity') await runUnseen();
     else if (layout === 'graph') {
@@ -159,8 +178,27 @@ async function start(root: HTMLElement): Promise<void> {
       };
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
-    // A link may open About the science over the views.
-    if (askedAbout) about.open();
+    // The link's notes: a line saying what kind, and the whole of them beneath it.
+    const state = versionState(askedVersions, versions);
+    const unread = unreadMessage(asked.unread);
+    const summary = linkSummary(
+      start.foodIgnored || unread !== null || state.model === 'unreadable' || state.data === 'unreadable',
+      state.model === 'other' || state.data === 'other',
+    );
+    const details = [
+      start.foodIgnored ? "The link's food couldn't be read, so the dish starts with its usual lawn." : null,
+      unread,
+      versionMessage(askedVersions, versions),
+    ].filter((text) => text !== null);
+    const showNote = (): void => {
+      if (summary) note.show(summary, details.join(' '));
+    };
+    // A link may open About the science over the views; the note then waits for it to close, as a page behind a
+    // modal dialog is hidden from assistive technology, which wouldn't hear the note arrive.
+    if (askedAbout) {
+      about.dialog.addEventListener('close', showNote, { once: true });
+      about.open();
+    } else showNote();
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;

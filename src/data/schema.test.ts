@@ -10,6 +10,7 @@ function valid(): WormlightData {
   return {
     meta: {
       schema: SCHEMA,
+      version: '0123abcd',
       signBasis: { expression: 'fenyves2020', ruleIdentities: 'wang2024', receptor: 'richmond1999' },
       muscleSpacing: 'shared-grid',
       citations: {
@@ -85,7 +86,8 @@ describe('validateWormlightData', () => {
     ],
     ['a citation that resolves to nothing', (d) => (d.chemical[0].citation = 'nobody2020'), /unknown id/],
     ['an empty citation', (d) => (d.chemical[0].citation = ''), /citation is not a non-empty string/],
-    ['a bare meta', (d) => ((d as { meta: unknown }).meta = { schema: SCHEMA }), /citations/],
+    ['a bare meta', (d) => ((d as { meta: unknown }).meta = { schema: SCHEMA, version: '0123abcd' }), /citations/],
+    ['a version that is not a digest', (d) => (d.meta.version = '1'), /meta\.version/],
     ['a source without a digest', (d) => (d.meta.sources[0].sha256 = 'abc'), /SHA-256/],
   ];
   it.each(broken)('refuses %s', (_, breakIt, message) => {
