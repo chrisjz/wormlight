@@ -543,6 +543,26 @@ button.inspector-row:focus-visible .row-name {
   pointer-events: auto;
 }
 
+.legend-toggle {
+  display: none;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.legend-toggle[aria-expanded='true'] {
+  border-color: var(--fg);
+}
+
+.legend-toggle:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
 .legend-row {
   display: flex;
   flex-wrap: wrap;
@@ -706,6 +726,27 @@ button.inspector-row:focus-visible .row-name {
     display: none;
   }
 
+  /* The key folds away behind its button, and opens over the graph. */
+  .legend-toggle {
+    display: inline-block;
+  }
+
+  .legend:not(.legend-open) .legend-body {
+    display: none;
+  }
+
+  .legend-open .legend-body {
+    margin-top: 0.5rem;
+  }
+
+  .legend {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .legend:not(.legend-open) {
+    flex: 0 0 auto;
+  }
+
   .credit {
     font-size: 0.6875rem;
     line-height: 1.4;
@@ -794,7 +835,7 @@ button.inspector-row:focus-visible .row-name {
 
 .brand-lesions button:focus-visible,
 .inspector-ablate:focus-visible,
-.plate-brain select:focus-visible {
+.plate-controls select:focus-visible {
   outline: 2px solid var(--muted);
   outline-offset: 1px;
 }
@@ -811,11 +852,14 @@ button.inspector-row:focus-visible .row-name {
   pointer-events: none;
 }
 
+/* The controls: a bar that always shows, and the other controls in labelled groups beside it, or on a narrow pane
+   in a panel behind More. */
 .plate-controls {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
+  gap: 0.5rem 1.25rem;
   padding: 0.5rem 0.75rem;
   pointer-events: auto;
   border-radius: 0.5rem;
@@ -862,18 +906,36 @@ button.inspector-row:focus-visible .row-name {
   outline-offset: 1px;
 }
 
+.plate-primary,
+.plate-extra,
+.plate-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.plate-primary {
+  gap: 0.5rem 0.75rem;
+}
+
+.plate-extra {
+  gap: 0.5rem 1.25rem;
+}
+
+.plate-group {
+  gap: 0.25rem;
+}
+
+.plate-group-label {
+  margin-right: 0.25rem;
+  color: var(--muted);
+}
+
 .plate-play {
   min-width: 4.5rem;
 }
 
-.plate-brain {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: var(--muted);
-}
-
-.plate-brain select {
+.plate-controls select {
   padding: 0.2rem 0.4rem;
   border: 1px solid var(--rule);
   border-radius: 0.4rem;
@@ -882,24 +944,48 @@ button.inspector-row:focus-visible .row-name {
   font: inherit;
 }
 
+/* The speeds as one segmented control, the chosen one lit. */
 .plate-speeds {
   display: inline-flex;
-  gap: 0.25rem;
 }
 
 .plate-controls .plate-speed {
-  padding: 0.25rem 0.5rem;
+  margin-left: -1px;
+  padding: 0.25rem 0.55rem;
+  border-radius: 0;
   color: var(--muted);
 }
 
+.plate-controls .plate-speed:first-child {
+  margin-left: 0;
+  border-radius: 999px 0 0 999px;
+}
+
+.plate-controls .plate-speed:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
 .plate-controls .plate-speed[aria-checked='true'] {
+  position: relative;
   border-color: var(--fg);
+  background: rgb(255 255 255 / 8%);
   color: var(--fg);
 }
 
-.plate-touches {
-  display: inline-flex;
-  gap: 0.25rem;
+.plate-controls .plate-speed:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+/* On a wide pane the speeds show as buttons and every control is on show, so the menu and More are hidden. */
+.plate-speed-menu,
+.plate-controls .plate-more {
+  display: none;
+}
+
+.plate-controls .plate-more[aria-expanded='true'] {
+  border-color: var(--fg);
+  background: rgb(255 255 255 / 10%);
 }
 
 /* A tap on the worm: a ring that opens and fades where it landed. */
@@ -1039,8 +1125,7 @@ button.inspector-row:focus-visible .row-name {
 }
 
 @container (max-width: 40rem) {
-  .plate-lede,
-  .plate-seed {
+  .plate-lede {
     display: none;
   }
 
@@ -1066,19 +1151,66 @@ button.inspector-row:focus-visible .row-name {
   }
 }
 
-/* The experiment's status in its long form, but for a short pane. */
-.plate-short {
+/* A narrow pane, such as a phone's: the speed as a menu, the other controls in a panel behind More, which opens
+   above the bar, and the notice down to its first sentence and its link. */
+@container (max-width: 34rem) {
+  .plate-speeds,
+  .plate-extra,
+  .plate-seed,
+  .plate-notice-detail {
+    display: none;
+  }
+
+  .plate-speed-menu,
+  .plate-controls .plate-more {
+    display: inline-block;
+  }
+
+  .plate-controls .plate-more {
+    margin-left: auto;
+  }
+
+  .plate-extra.plate-extra-open {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    left: 0;
+    display: grid;
+    gap: 0.6rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--panel);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 50%);
+  }
+
+  .plate-extra-open .plate-group-label {
+    min-width: 3.25rem;
+  }
+}
+
+/* A pane of middling height, such as a tablet's half, leaves out the lede, which the header can't spare. */
+@container (max-height: 36rem) {
+  .plate-lede {
+    display: none;
+  }
+}
+
+/* Text in a long form and a short one, the short on a short pane: the experiment's status in the plate, and the
+   brain shown in the graph. */
+.form-short {
   display: none;
 }
 
 @container (max-height: 30rem) {
   .plate-lede,
   .plate-map,
-  .plate-long {
+  .form-long,
+  .plate-notice-detail {
     display: none;
   }
 
-  .plate-short {
+  .form-short {
     display: inline;
   }
 }
@@ -1086,9 +1218,10 @@ button.inspector-row:focus-visible .row-name {
 @media (pointer: coarse) {
   .plate-controls button,
   .plate-follow,
-  .plate-brain select,
+  .plate-controls select,
   .inspector-ablate,
-  .brand-lesions button {
+  .brand-lesions button,
+  .legend-toggle {
     min-height: 2.75rem;
     min-width: 2.75rem;
   }

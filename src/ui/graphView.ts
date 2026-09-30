@@ -85,6 +85,18 @@ function signNote(data: WormlightData): string {
 function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement): HTMLElement {
   const box = el('section', 'legend');
   box.setAttribute('aria-label', 'Legend');
+  // On a short pane the key folds away behind a button.
+  const toggle = el('button', 'legend-toggle', 'Key');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  const body = el('div', 'legend-body');
+  body.id = 'legend-body';
+  toggle.setAttribute('aria-controls', body.id);
+  toggle.addEventListener('click', () => {
+    const open = !box.classList.contains('legend-open');
+    box.classList.toggle('legend-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+  });
   const neurons = el('ul', 'legend-row');
   for (const c of Object.keys(CLASS_COLOURS) as CellClass[]) {
     const item = el('li', 'legend-item');
@@ -117,7 +129,8 @@ function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement):
         `crowd and the cross-section enlarged. ${signNote(data)}`,
     ),
   );
-  box.append(neurons, links, about);
+  body.append(neurons, links, about);
+  box.append(toggle, body);
   return box;
 }
 
@@ -263,11 +276,15 @@ export async function startGraph(
   let radii = sizes();
   const showBrain = (): void => {
     brainNote.hidden = brain === 0;
-    brainNote.textContent =
-      brain === 0
-        ? ''
-        : `Showing the contrast brain, ${brainName(brain)}: its chemical synapses rewired at random, every neuron ` +
-          'keeping how many it sends and receives.';
+    brainNote.replaceChildren(
+      el(
+        'span',
+        'form-long',
+        `Showing the contrast brain, ${brainName(brain)}: its chemical synapses rewired at random, every neuron ` +
+          'keeping how many it sends and receives.',
+      ),
+      el('span', 'form-short', `Showing the contrast brain, ${brainName(brain)}.`),
+    );
   };
   showBrain();
   const showLesions = (): void => {
