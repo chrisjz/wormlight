@@ -108,11 +108,6 @@ describe('the ledger', () => {
     }
   });
 
-  it('says what would raise every component, or that nothing needs to', () => {
-    for (const c of COMPONENTS)
-      expect(typeof c.upgrade === 'string' ? c.upgrade : 'text', String(c.basis)).toBeTruthy();
-  });
-
   it('gives every untagged subsystem at least one component', () => {
     for (const id of Object.keys(SUBSYSTEMS) as SubsystemId[]) {
       expect(

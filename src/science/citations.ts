@@ -329,6 +329,14 @@ export const CITATIONS = {
     venue: 'eLife 6:e21629',
     doi: '10.7554/eLife.21629',
   },
+  taylor2021: {
+    short: 'Taylor et al. 2021',
+    authors: 'Taylor SR, Santpere G, Weinreb A, et al.',
+    year: 2021,
+    title: 'Molecular topography of an entire nervous system',
+    venue: 'Cell 184:4329–4347.e23',
+    doi: '10.1016/j.cell.2021.06.023',
+  },
   troemel1999: {
     short: 'Troemel, Sagasti & Bargmann 1999',
     authors: 'Troemel ER, Sagasti A, Bargmann CI',

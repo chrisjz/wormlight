@@ -387,26 +387,26 @@ export interface SensitivityRow {
   label: string;
   checkpoint1: Checkpoint1;
   silenced: Crawling;
-  // The share of the silenced network's measured steps with the head switch's gate open, or null with none read.
-  silencedGate: number | null;
+  // What paces the silenced network: the head switch's gate and its flips (null with none read), and how far its
+  // neurons' voltages reach.
+  silencedPacing: Diagnostics['pacing'];
+  silencedVoltages: Diagnostics['outside'];
 }
 
-// The sensitivity runs' section: one row a setting, each reported and none graded.
+// The sensitivity runs' section: one row a setting, each reported and none graded, for checkpoint 1 and then for the
+// silenced network.
 export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInfo): string {
   const value = (row: SensitivityRow, name: string): string => {
     const c = row.checkpoint1.clauses.find((clause) => clause.name === name);
     return !c || c.value === null ? '–' : CLAUSES[name].show(c.value);
   };
-  // The share of the measured time moving forward, and the mean forward velocity, over a setting's trials.
-  const forwardShare = (t: readonly TrialSummary[]): string => {
+  // The share of the measured time spent in one way of moving, over a setting's trials.
+  const share = (t: readonly TrialSummary[], way: 'forward' | 'backward'): string => {
     const all = t.reduce((n, x) => n + x.forward + x.paused + x.backward, 0);
-    return all > 0 ? percent(t.reduce((n, x) => n + x.forward, 0) / all) : '–';
+    return all > 0 ? small(t.reduce((n, x) => n + x[way], 0) / all) : '–';
   };
-  const forward = (row: SensitivityRow): string => forwardShare(row.checkpoint1.trials);
-  const velocity = (row: SensitivityRow): string => {
-    const t = row.checkpoint1.trials;
-    return t.length > 0 ? fixed(t.reduce((n, x) => n + x.meanVelocity, 0) / t.length, 3) : '–';
-  };
+  const velocity = (t: readonly TrialSummary[]): string =>
+    t.length > 0 ? fixed(t.reduce((n, x) => n + x.meanVelocity, 0) / t.length, 3) : '–';
   const trials = rows.flatMap((row) => [...row.checkpoint1.trials, ...row.silenced.trials]);
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length;
@@ -416,7 +416,7 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
       `Run on ${info.date} at \`${info.commit}\`: under each setting, checkpoint 1's ${count(info.trials, 'trial')} of ${info.seconds} s and the same trials of the silenced network, ${seeds(info.trials)}, on ${parameterText(info.calibrated, info.registry)}, none of them tuned again.`,
       `${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
     ].join(' '),
-    "Reported, not graded. Forward is the share of the measured time the worm moves forward, and the mean velocity is towards its head, both over all the trials; the kinematics come from forward bouts of 10 s or more, and a dash is a measure with none to take it from. Then how checkpoint 1 would grade the setting. The last three columns are its silenced network's: the share of the time it moves forward, the share of the steps on which the head switch's gate is open, and its forward bouts of 10 s, where checkpoint 0 asks for none.",
+    "Reported, not graded. First checkpoint 1's trials under each setting: the share of the measured time the worm moves forward, and its mean velocity towards its head, over all the trials; the kinematics, from forward bouts of 10 s or more, a dash where there is none to take them from; and the grade checkpoint 1 would give.",
     table(
       [
         'Setting',
@@ -428,22 +428,39 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
         'Eigenworms',
         '20 s bouts',
         'Checkpoint 1 would grade',
-        'Silenced: forward',
-        'Silenced: gate open',
-        'Silenced: bouts of 10 s',
       ],
       rows.map((row) => [
         row.label,
-        forward(row),
-        velocity(row),
+        share(row.checkpoint1.trials, 'forward'),
+        velocity(row.checkpoint1.trials),
         value(row, 'frequency'),
         value(row, 'wavelength'),
         value(row, 'speed'),
         value(row, 'eigenworms'),
         value(row, 'bout'),
         GRADE[row.checkpoint1.grade],
-        forwardShare(row.silenced.trials),
-        row.silencedGate === null ? '–' : percent(row.silencedGate),
+      ]),
+    ),
+    "Then the same trials of the silenced network, which keeps each setting's intact thresholds: the shares of the time it moves forward and backward; the head switch's drive less θ_osc, averaged over the measured steps, the gate open when it is above 0; how many times a minute the switch flips; the lowest and highest voltage any neuron reaches; and its forward bouts of 10 s, where checkpoint 0 asks for none.",
+    table(
+      [
+        'Setting',
+        'Forward',
+        'Backward',
+        'Gate: drive less θ_osc (mV)',
+        'Switch flips a minute',
+        'Voltages (mV)',
+        'Bouts of 10 s',
+      ],
+      rows.map((row) => [
+        row.label,
+        share(row.silenced.trials, 'forward'),
+        share(row.silenced.trials, 'backward'),
+        row.silencedPacing === null ? '–' : fixed(row.silencedPacing.margin.mean, 2),
+        row.silencedPacing === null ? '–' : fixed(120 * row.silencedPacing.cycleRate, 2),
+        row.silencedVoltages === null
+          ? '–'
+          : `${fixed(row.silencedVoltages.lowest, 0)} to ${fixed(row.silencedVoltages.highest, 0)}`,
         String(row.silenced.bouts),
       ]),
     ),

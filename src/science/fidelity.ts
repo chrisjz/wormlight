@@ -275,8 +275,9 @@ export const COMPONENTS: readonly Component[] = [
       'Physiology overrides; Fenyves et al. 2020 (S1 and S5 Data), where its transmitter agrees with Wang et al. 2024; presynaptic transmitter rule',
     caveats: (f) =>
       `${grouped(f.signs.rule.count)} connections (${f.signs.rule.percentWhole}) take the rule, and ${grouped(f.signs.none.count)} (${f.signs.none.percentWhole}) have no basis and default to no fast effect, among them the Fenyves predictions set aside because Wang et al. 2024 do not support their transmitter (listed in \`data/reports/data-build.md\`)`,
-    upgrade: 'A signed functional connectome',
-    sources: ['chalasani2007', 'fenyves2020', 'wang2024'],
+    upgrade:
+      "A signed functional connectome; newer receptor expression, such as CeNGEN's (Taylor et al. 2021), which the sign audit compared against (docs/sign-audit.md)",
+    sources: ['chalasani2007', 'fenyves2020', 'wang2024', 'taylor2021'],
     testedBy: [
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },

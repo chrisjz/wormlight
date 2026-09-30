@@ -58,6 +58,12 @@ describe("the marks in the ledger's text", () => {
   });
 });
 
+describe("the ledger's components", () => {
+  it('each say what would raise them, or that nothing needs to', () => {
+    for (const c of COMPONENTS) expect(render(c.upgrade, facts).trim(), render(c.name, facts)).not.toBe('');
+  });
+});
+
 describe('the status', () => {
   const status = ledgerStatus();
 

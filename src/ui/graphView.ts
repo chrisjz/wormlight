@@ -183,11 +183,11 @@ function credit(): HTMLElement {
     cite('wang2024'),
     '. Exported via ',
     nematode,
-    '. Signs: ',
-    cite('fenyves2020'),
     ' (',
     notice,
-    '). ',
+    '). Signs: ',
+    cite('fenyves2020'),
+    '. ',
   );
   const short = el('span', 'credit-short');
   short.append('Connectome: ', cite('cook2019'), ' (CC BY 4.0). ');

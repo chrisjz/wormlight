@@ -610,14 +610,15 @@ describe('the harness report', () => {
 });
 
 describe("the sensitivity runs' section", () => {
-  const trial = (forward: number, unconverged = 0): TrialSummary => ({
+  // Shares of the measured time, as summariseTrial gives them.
+  const trial = (forward: number, backward = 0, unconverged = 0, finite = true): TrialSummary => ({
     seed: 1,
     posture: 0,
-    finite: true,
+    finite,
     measured: 110,
     forward,
-    paused: 110 - forward,
-    backward: 0,
+    paused: 1 - forward - backward,
+    backward,
     longestBout: 0,
     reversals: 0,
     meanVelocity: 0.02,
@@ -625,7 +626,7 @@ describe("the sensitivity runs' section", () => {
     unconverged,
   });
   const clause = (name: string, value: number | null): Clause => ({ name, value, grade: 'fail', reason: null });
-  const row = (label: string, frequency: number | null, bouts: number, gate: number | null): SensitivityRow => ({
+  const row = (label: string, frequency: number | null, bouts: number, silenced: TrialSummary): SensitivityRow => ({
     label,
     checkpoint1: {
       grade: 'fail',
@@ -636,21 +637,29 @@ describe("the sensitivity runs' section", () => {
         clause('eigenworms', 0.984),
         clause('bout', 0),
       ],
-      trials: [trial(88)],
+      trials: [trial(0.8)],
     } as unknown as Checkpoint1,
-    silenced: { grade: bouts === 0 ? 'pass' : 'fail', bouts, trials: [trial(11)] },
-    silencedGate: gate,
+    silenced: { grade: bouts === 0 ? 'pass' : 'fail', bouts, trials: [silenced] },
+    silencedPacing: { open: 1, margin: { mean: 8.47, sd: 0 }, cycleRate: 0.0125 },
+    silencedVoltages: { mean: 0, max: 0, far: { mean: 0, max: 0 }, lowest: -15650.4, highest: 15575 },
   });
   const info: RunInfo = { date: '2026-09-30', commit: 'abc1234', calibrated: false, trials: 20, seconds: 120 };
 
-  it('gives a row a setting, a dash where a measure has no bout, and the silenced network beside it', () => {
-    const section = sensitivitySection([row('By the rule', 0.099, 0, 0), row('Random draw 5', null, 2, 1)], info);
+  it("gives checkpoint 1's row and the silenced network's for each setting, a dash where a measure has no bout", () => {
+    const section = sensitivitySection(
+      [row('By the rule', 0.099, 0, trial(0)), row('Random draw 5', null, 2, trial(0.0079, 0.02))],
+      info,
+    );
     expect(section).toContain('### Sensitivity: the uncertain signs, and the scales');
     expect(section).toContain('Run on 2026-09-30 at `abc1234`');
-    expect(section).toContain(
-      '| By the rule | 80% | 0.020 | 0.099 | 0.71 | 0.029 | 98.4% | 0% | **Fail** | 10% | 0% | 0 |',
-    );
-    expect(section).toContain('| Random draw 5 | 80% | 0.020 | – | – | – | 98.4% | 0% | **Fail** | 10% | 100% | 2 |');
+    expect(section).toContain('| By the rule | 80% | 0.020 | 0.099 | 0.71 | 0.029 | 98.4% | 0% | **Fail** |');
+    expect(section).toContain('| Random draw 5 | 80% | 0.020 | – | – | – | 98.4% | 0% | **Fail** |');
+    expect(section).toContain('| Random draw 5 | 0.79% | 2.0% | 8.47 | 1.50 | −15650 to 15575 | 2 |');
     expect(section).toContain('Every trial stayed finite, and no brain solve failed to converge.');
+  });
+
+  it('says when a trial left the finite numbers or a solve failed to converge', () => {
+    const section = sensitivitySection([row('Bad', null, 0, trial(0, 0, 2, false))], info);
+    expect(section).toContain('1 trial left the finite numbers, and 2 brain solves failed to converge.');
   });
 });

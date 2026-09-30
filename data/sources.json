@@ -286,7 +286,7 @@
       "id": "cengen2021",
       "use": "consulted",
       "dataset": "CeNGEN single-cell expression (Taylor et al. 2021, _Cell_ 184:4329, doi:10.1016/j.cell.2021.06.023)",
-      "takes": "The sign audit compared the command circuit's receptor expression with it, from local copies outside the repository, whose hashes it records (`docs/sign-audit.md`, §5). No sign was changed, and nothing is bundled"
+      "takes": "The sign audit compared the command circuit's receptor expression with it, from local copies of release 021821's thresholded matrices outside the repository, the start of whose hashes it records (`docs/sign-audit.md`, §5). No sign was changed, and nothing is bundled"
     },
     {
       "id": "levy-bargmann-code",

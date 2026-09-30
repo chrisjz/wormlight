@@ -31,6 +31,7 @@ import {
   checkpoint0,
   checkpoint1,
   crawlingClause,
+  outsideRange,
   pacing,
   touchSchedule,
   TRIAL_SECONDS,
@@ -273,7 +274,8 @@ if (process.argv.includes('--worker')) {
         label: setting.label,
         checkpoint1: checkpoint1(of(1), basis),
         silenced: crawlingClause(of(0)),
-        silencedGate: pacing(of(0))?.open ?? null,
+        silencedPacing: pacing(of(0)),
+        silencedVoltages: outsideRange(of(0)),
       });
     }
   } finally {

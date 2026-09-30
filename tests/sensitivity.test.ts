@@ -4,8 +4,10 @@
 import { describe, expect, it } from 'vitest';
 import { parseArgs } from '../scripts/harness/run.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
+import { createHash } from 'node:crypto';
 import { PARAMS } from '../src/science/params.ts';
 import { connections, cookNetwork } from '../src/sim/brain/network.ts';
+import { currentParams, World } from '../src/sim/world.ts';
 import {
   RANDOM_DRAWS,
   resigned,
@@ -14,9 +16,23 @@ import {
   SHARED_SCALES,
   uncertain,
 } from '../src/validation/sensitivity.ts';
+import { startingWorld } from '../src/validation/trial.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
+// The random draws as the recorded runs drew them (VALIDATION.md, "Sensitivity"), each a digest of its signs.
+const DRAWN = [
+  '26f8847794b0',
+  'ab84094e7fac',
+  '3611fd17fbfe',
+  '545050fbfc5f',
+  'cf154e50588e',
+  '98f548eb58b4',
+  'e2e6463bd19a',
+  '1c1db8127608',
+  '073f8feb800e',
+  'c48d89cdeca4',
+];
 const doubtful = data.chemical.filter(uncertain);
 
 describe('the uncertain signs', () => {
@@ -69,12 +85,26 @@ describe('the settings', () => {
     expect(connections(settingNetwork(data, 'excitatory')).chemical.length).toBe(sure + doubtful.length);
   });
 
-  it('draw each random sign the same each time, about half each way, and differently for each draw', () => {
+  it('draw the signs they drew when their runs were recorded', () => {
+    // A digest of each draw's signs, in the data's order: a change to the draws, or to the runtime data's list of
+    // chemical connections, changes what every sensitivity run means (VALIDATION.md, "Sensitivity").
+    const print = (k: number): string =>
+      createHash('sha256')
+        .update(
+          resigned(data.chemical, `random-${k}`)
+            .map((c) => c.sign)
+            .join(','),
+        )
+        .digest('hex')
+        .slice(0, 12);
+    expect(Array.from({ length: RANDOM_DRAWS }, (_, k) => print(k + 1))).toEqual(DRAWN);
+  });
+
+  it('draw each random sign about half each way, and differently for each draw', () => {
     const signs = (k: number): number[] =>
       resigned(data.chemical, `random-${k}`)
         .filter(uncertain)
         .map((c) => c.sign);
-    expect(signs(3)).toEqual(signs(3));
     const seen = new Set<string>();
     for (let k = 1; k <= RANDOM_DRAWS; k++) {
       const s = signs(k);
@@ -99,6 +129,40 @@ describe('the settings', () => {
       expect([post, pre, e]).toEqual([model.chemical[i][0], model.chemical[i][1], model.chemical[i][3]]);
       expect(g).toBeCloseTo(model.chemical[i][2] * chemical, 12);
     });
+  });
+});
+
+describe('a setting in a world', () => {
+  const params = currentParams();
+  const postures = [Array.from({ length: 100 }, () => 0)];
+  // The silenced network's head-switch drive less θ_osc, at rest: it keeps each setting's intact thresholds.
+  const margin = (id: string): number =>
+    startingWorld(data, {
+      seed: 1,
+      params,
+      postures,
+      silenced: true,
+      network: settingNetwork(data, id),
+    }).world.headDrive() - params.driveThreshold;
+
+  it("reaches a trial's world, and its silenced network keeps the setting's thresholds", () => {
+    expect(margin('rule')).toBeCloseTo(-0.47, 2);
+    expect(margin('excitatory')).toBeCloseTo(-2.05, 2);
+    expect(margin('shared-scales')).toBeCloseTo(-0.55, 2);
+    expect(margin('silent')).toBeCloseTo(2.68, 2);
+    for (let k = 1; k <= RANDOM_DRAWS; k++) expect(margin(`random-${k}`), `draw ${k}`).toBeGreaterThan(5);
+  });
+
+  it("steps the model's own setting as the model, bit for bit", () => {
+    const [model, rule] = [
+      new World(data, params, { seed: 3 }),
+      new World(data, params, { seed: 3, network: settingNetwork(data, 'rule') }),
+    ];
+    for (let k = 0; k < 400; k++) {
+      model.step();
+      rule.step();
+    }
+    expect(rule.snapshot()).toEqual(model.snapshot());
   });
 });
 
