@@ -3086,3 +3086,11 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - **The head's density at the default camera.** Most neurons are in the head, and the layout already gives the head's sixth over two fifths of the drawn length; zoom and Find reach it.
   - **A link's note over the worm at 1366 × 768, and its Details.** The note shows only for a link from another version or with an unreadable part, and one click dismisses it.
 - **Safari's long-run parity runs on the refit,** `npm run gpu:parity:safari -- --long`, by PLAN §7.2's statistic and margins, 265 seeds a side for 60 s; its result goes here and in `VALIDATION.md`, whether it passes or not. Considered: keeping the milestone 4 run as the record.
+
+**Safari's long runs pass on the refit.** At `10db33a`, in Safari 26.6.2 on an M5 Max, in about 13 minutes:
+
+- the mid-body curvature's standard deviation, 0.7440 on the CPU and 0.7442 on the GPU, differs by 0.0001 against a margin of ±0.0372; the frequency, 0.0857 Hz on each, by −0.00004 Hz against ±0.0043;
+- reported: the GPU's variance over the CPU's is 0.947 for the standard deviation and 1.002 for the frequency, and no solve failed to converge on either side;
+- the short checks gave the counts of 2026-09-30: all 21 of the brain's one-step states and 19 of its 21 one-second states, 2 not graded; all 312 of the loop's one-step states and 131 of its 145 one-second states, 14 not graded; and the odour field's checks.
+
+**Status.** Built. The audit's leftovers are settled, three of them by leaving them, with reasons.
