@@ -20,6 +20,7 @@
     "data:check": "node scripts/data/build.ts --check",
     "docs:fidelity": "node scripts/docs/fidelity.ts",
     "docs:check": "node scripts/docs/fidelity.ts --check",
+    "docs:screenshot": "node scripts/docs/screenshot.ts",
     "versions:check": "node scripts/ci/versions.ts",
     "visual:capture": "node scripts/visual/capture.ts",
     "visual:compare": "node scripts/visual/compare.ts",

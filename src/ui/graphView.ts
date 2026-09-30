@@ -181,13 +181,13 @@ function credit(): HTMLElement {
     cite('emmons2024'),
     ' (CC BY 4.0). Neurotransmitter identities: ',
     cite('wang2024'),
-    '. Signs: ',
-    cite('fenyves2020'),
     '. Exported via ',
     nematode,
     ' (',
     notice,
-    '). ',
+    '). Signs: ',
+    cite('fenyves2020'),
+    '. ',
   );
   const short = el('span', 'credit-short');
   short.append('Connectome: ', cite('cook2019'), ' (CC BY 4.0). ');

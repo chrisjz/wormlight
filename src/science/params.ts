@@ -296,7 +296,7 @@ export const PARAMS = {
     level: 0,
     subsystem: 'sensing',
     sources: [],
-    note: '',
+    note: 'Ours, fixed in advance with the 10 mV rise (PLAN §4.2): no recorded touch receptor current sets it.',
     upgrade: 'Recorded touch receptor currents',
   },
 
@@ -697,7 +697,7 @@ export const PARAMS = {
     level: 0,
     subsystem: 'environment',
     sources: [],
-    note: 'Sets the first-order loss rate k.',
+    note: 'Sets the first-order loss rate k. Ours, fixed in advance (PLAN §5.2): no measured field on an assay plate sets it.',
     upgrade: 'Measured butanone fields on assay plates',
   },
   odourReleaseRate: {
@@ -720,7 +720,7 @@ export const PARAMS = {
     level: 0,
     subsystem: 'environment',
     sources: [],
-    note: '',
+    note: "Ours, fixed in advance (PLAN §5.2): no assay the model follows gives a lawn's size. It releases the assay spot's total rate over its disc.",
     upgrade: 'A lawn size the reference assays specify',
   },
   dishDiameter: {

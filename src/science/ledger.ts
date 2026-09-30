@@ -113,7 +113,7 @@ export function paramNote(p: Param): string {
 // are (calibratedText).
 export function statusText(values: string): string {
   return (
-    '**Status: milestone 5 done; milestone 6 under way.** The CPU reference and the GPU simulate the connectome, ' +
+    '**Status: every milestone is closed.** The CPU reference and the GPU simulate the connectome, ' +
     "the layers outside it, among them touch and AWC-ON's sense of odour, and the body. The app shows the worm on " +
     'its dish, with food lawns a viewer can drop, move and remove, whose odour the worm smells, and a way to touch ' +
     'it; a viewer can lesion any neuron and restore it, swap the real wiring for the contrast brain, a rewiring of ' +
@@ -128,7 +128,8 @@ export function statusText(values: string): string {
     'level set in advance, and its best crawl is paced by the head switch, relayed by proprioception, and largely ' +
     'indifferent to the chemical wiring (DECISIONS.md, 2026-09-30). Checkpoint 0 passes, which says little, since ' +
     "its crawling clause passes by a bound on the head switch's threshold, not by the wiring; checkpoint 1 fails " +
-    '(`VALIDATION.md`). Only checkpoints 0 and 1 have run, so "Tested by" lists the checks planned for each part. ' +
+    '(`VALIDATION.md`). Only checkpoints 0 and 1 and the sensitivity runs have run, so "Tested by" lists the ' +
+    'checks planned for each part. ' +
     `The calibrated parameters are the refit's, ${values} (DECISIONS.md, 2026-09-28).`
   );
 }

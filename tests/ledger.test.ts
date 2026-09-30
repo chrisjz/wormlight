@@ -58,6 +58,12 @@ describe("the marks in the ledger's text", () => {
   });
 });
 
+describe("the ledger's components", () => {
+  it('each say what would raise them, or that nothing needs to', () => {
+    for (const c of COMPONENTS) expect(render(c.upgrade, facts).trim(), render(c.name, facts)).not.toBe('');
+  });
+});
+
 describe('the status', () => {
   const status = ledgerStatus();
 
@@ -69,7 +75,9 @@ describe('the status', () => {
   });
 
   it('warns that "Tested by" lists planned checks, and names the calibrated values it runs on', () => {
-    expect(status).toContain('Only checkpoints 0 and 1 have run, so "Tested by" lists the checks planned');
+    expect(status).toContain(
+      'Only checkpoints 0 and 1 and the sensitivity runs have run, so "Tested by" lists the checks planned',
+    );
     expect(status).toMatch(
       /The calibrated parameters are the refit's, shown below rounded from its fit, \d+ of them on a bound/,
     );

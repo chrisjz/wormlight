@@ -5,6 +5,7 @@
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
 import { passiveLoads } from '../sim/brain/brain.ts';
+import type { Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import { curvature } from '../sim/proprio.ts';
@@ -39,6 +40,9 @@ export interface StartOptions {
   silenced?: boolean;
   // Neurons laser-ablated, as checkpoint 5's rows lesion them, keeping the intact network's thresholds (PLAN §3.3).
   lesions?: readonly string[];
+  // A different brain on the same neurons, as a sensitivity setting is (src/validation/sensitivity.ts), with its own
+  // thresholds; the real wiring without one.
+  network?: Network;
   // The second numerics study's options, which the model doesn't use (World's, DECISIONS.md, 2026-09-28).
   neuralSubsteps?: number;
   noiseGrid?: number;
@@ -128,6 +132,7 @@ export function startingWorld(
       seed,
       silenced: options.silenced,
       lesions: options.lesions,
+      network: options.network,
       neuralSubsteps: options.neuralSubsteps,
       noiseGrid: options.noiseGrid,
       posture,
@@ -250,6 +255,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
       seed,
       silenced: options.silenced,
       lesions: options.lesions,
+      network: options.network,
       neuralSubsteps: options.neuralSubsteps,
       noiseGrid: options.noiseGrid,
       posture,

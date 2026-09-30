@@ -185,7 +185,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [5],
     basis: 'White et al. 1986; Cook et al. 2019',
     caveats: '',
-    upgrade: '',
+    upgrade: "None needed: the hermaphrodite's 302 neurons are settled",
     sources: ['white1986', 'cook2019'],
     testedBy: [],
   },
@@ -219,7 +219,7 @@ export const COMPONENTS: readonly Component[] = [
     basis: 'Cook et al. 2019, as released in Emmons 2024',
     caveats:
       "Like the chemical synapses', and more so: 45% of the neuron–muscle edges were extrapolated from their neighbours' weights, half of them the sublateral motor neurons'",
-    upgrade: '',
+    upgrade: 'Micrographs of the neuromuscular junctions that were extrapolated',
     sources: ['cook2019', 'emmons2024'],
     testedBy: [{ check: 'checkpoint0' }, { check: 'checkpoint1' }],
   },
@@ -229,7 +229,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [5],
     basis: 'CRISPR reporter knock-ins, Wang et al. 2024',
     caveats: 'Expression does not prove release at every synapse',
-    upgrade: '',
+    upgrade: 'Evidence of release at each synapse, beyond expression',
     sources: ['wang2024'],
     testedBy: [],
   },
@@ -254,7 +254,7 @@ export const COMPONENTS: readonly Component[] = [
       "A port of Quantum Nematode's directed double-edge swap: ten seeded rewirings, ten swaps per connection, signed and unsigned connections swapped apart; each connection keeps its presynaptic neuron, EM sections and sign, and autapses, gap junctions, the neuromuscular map and every neuron's identity are held (PLAN §3.5)",
     caveats:
       "A control, not an animal: it tests whether the real wiring matters (spec §4). In the app it runs on the real wiring's fitted values, untuned, where checkpoint 6 would tune each rewiring by the same procedure (PLAN §7.3); its thresholds are its own rest (PLAN §3.3). Its draws come from this project's hash, not numpy's, so no rewiring is one of nematode's",
-    upgrade: '',
+    upgrade: 'None: a control by design, not a claim about any animal',
     sources: [],
     testedBy: [
       {
@@ -275,8 +275,9 @@ export const COMPONENTS: readonly Component[] = [
       'Physiology overrides; Fenyves et al. 2020 (S1 and S5 Data), where its transmitter agrees with Wang et al. 2024; presynaptic transmitter rule',
     caveats: (f) =>
       `${grouped(f.signs.rule.count)} connections (${f.signs.rule.percentWhole}) take the rule, and ${grouped(f.signs.none.count)} (${f.signs.none.percentWhole}) have no basis and default to no fast effect, among them the Fenyves predictions set aside because Wang et al. 2024 do not support their transmitter (listed in \`data/reports/data-build.md\`)`,
-    upgrade: 'A signed functional connectome',
-    sources: ['chalasani2007', 'fenyves2020', 'wang2024'],
+    upgrade:
+      "A signed functional connectome; newer receptor expression, such as CeNGEN's (Taylor et al. 2021), which the sign audit compared against (docs/sign-audit.md)",
+    sources: ['chalasani2007', 'fenyves2020', 'wang2024', 'taylor2021'],
     testedBy: [
       { check: 'checkpoint2' },
       { check: 'checkpoint3' },
@@ -379,7 +380,7 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Neural noise',
     subsystem: 'neurons',
     levels: [1],
-    basis: 'Calibrated to the spontaneous reversal rate (PLAN §7.3)',
+    basis: 'Calibrated with the other calibrated values against crawling and the spontaneous reversal rate (PLAN §7.3)',
     caveats:
       "A coloured current, an Ornstein–Uhlenbeck process in each neuron; its intensity and correlation time are tuned. White noise before track R's refit (DECISIONS.md)",
     upgrade: 'Measured noise statistics',
@@ -399,7 +400,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3],
     basis: "Removing all of a neuron's connections, as laser ablation does",
     caveats: 'No developmental compensation',
-    upgrade: '',
+    upgrade: 'A model of how the circuit compensates after an ablation',
     sources: ['chalfie1985', 'gray2005'],
     testedBy: [
       { check: 'unit', detail: "a lesion removes every one of the neuron's connections and leaves the rest intact" },
@@ -554,7 +555,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [4],
     basis: 'Dendrite tips and process extents in the c302 morphologies',
     caveats: '',
-    upgrade: '',
+    upgrade: "Receptive fields measured in the living animal, in place of one reconstruction's processes",
     sources: ['gleeson2018', 'chalfie1985'],
     testedBy: [
       { check: 'unit', detail: "AWC-ON reads the odour at its dendrite's tip, between the first two rods" },
@@ -590,7 +591,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: 'omitted',
     basis: 'Omitted in v1: only AWC-ON and the touch receptors take stimuli',
     caveats: '',
-    upgrade: '',
+    upgrade: 'A transduction model for each sense, as butanone has for AWC',
     sources: [],
     testedBy: [],
   },
@@ -604,7 +605,7 @@ export const COMPONENTS: readonly Component[] = [
       "Time constant 100 ms (Boyle et al. 2012; also Ji et al. 2021); gain and threshold calibrated, on each muscle's drive relative to its range (track R's model)",
     caveats:
       "Muscle action potentials are not modelled. The range, from the model's own rest to the most its excitatory inputs reach, is ours (0), and a signed-off deviation from the spec's one transfer for every muscle (PLAN §9)",
-    upgrade: '',
+    upgrade: 'Recordings of muscle activation against motor-neuron drive',
     sources: ['boyle2012', 'ji2021'],
     testedBy: [
       {
@@ -672,7 +673,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "Boyle et al. 2012, split per rod as their code does, which also resists each rod's rotation with 4πR² times its tangential coefficient",
     caveats: '',
-    upgrade: '',
+    upgrade: "Drag measured on the assay's own agar",
     sources: ['boyle2012'],
     testedBy: [
       { check: 'passiveBend' },
@@ -688,7 +689,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3],
     basis: '0.091 cm² s⁻¹ at 298 K (Lugg 1968, via Tang et al. 2015)',
     caveats: '',
-    upgrade: '',
+    upgrade: "A measurement at the assay's temperature and humidity",
     sources: ['lugg1968', 'tang2015'],
     testedBy: [{ check: 'unit', detail: 'a point release matches the analytic Gaussian' }, { check: 'checkpoint4' }],
   },
@@ -716,7 +717,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "A 1 cm disc that releases butanone at the spot's total rate, spread evenly; the app puts one where checkpoint 4's spot sits, and the user can drop up to eight, move them and remove them, what one released staying to diffuse and decay",
     caveats: 'Real lawns release many odours; no mechanosensation, feeding or slowing',
-    upgrade: '',
+    upgrade: 'The odours a bacterial lawn releases, and their rates',
     sources: [],
     testedBy: [
       {
@@ -750,7 +751,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3],
     basis: 'Standard chemotaxis layout: 10 cm dish, spots 0.5 cm from the edge (Bargmann, Hartwieg & Horvitz 1993)',
     caveats: '',
-    upgrade: '',
+    upgrade: 'None needed: it is the assay protocol',
     sources: ['bargmann1993'],
     testedBy: [{ check: 'checkpoint4' }],
   },

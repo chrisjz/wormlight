@@ -110,7 +110,7 @@ export function fidelityPage(facts: Facts): string {
     "The calibration's targets (PLAN §7.3), which the calibrated parameters are tuned against:",
     CALIBRATION_TARGETS.map((r) => `- **${r.target}**: ${r.use} Sources: ${cite(r.sources)}.`).join('\n'),
     '## Parameters',
-    `Every constant the plan fixes so far, from \`src/science/params.ts\`. A parameter is free when we set it ourselves, at level 1 or 0. There are ${free.length} free parameters, ${calibrated.length} calibrated and ${free.length - calibrated.length} fixed in advance, against a budget of ${FREE_PARAMETER_BUDGET} (PLAN.md §6.2). Constants that only later milestones use, such as the body's spring constants and the oscillator's fixed coefficients, join the registry with the code that uses them.`,
+    `Every constant the plan fixes so far, from \`src/science/params.ts\`. A parameter is free when we set it ourselves, at level 1 or 0. There are ${free.length} free parameters, ${calibrated.length} calibrated and ${free.length - calibrated.length} fixed in advance, against a budget of ${FREE_PARAMETER_BUDGET} (PLAN.md §6.2). A few constants are part of a form, not parameters of their own, and are levelled with their components: the oscillator's 0.7 and 0.8, κ_SMD's boundary of 0.3, and the 16 mV rise that sets AWC-ON's gain.`,
     ...groups.flatMap((group) => [
       `### ${PARAM_GROUPS[group]}`,
       table(

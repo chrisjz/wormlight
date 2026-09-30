@@ -191,7 +191,9 @@ function subsystems(f: Facts): HTMLElement {
   });
   return section(
     'Subsystem by subsystem',
-    paragraph('"Tested by" lists the checks planned for each part; only checkpoints 0 and 1 have run.'),
+    paragraph(
+      '"Tested by" lists the checks planned for each part; only checkpoints 0 and 1 and the sensitivity runs have run.',
+    ),
     ...items,
   );
 }
