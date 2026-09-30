@@ -583,6 +583,47 @@ button.inspector-row:focus-visible .row-name {
   display: none;
 }
 
+/* Coloured by activity, the key shows the glow's scale in place of the classes. */
+.legend-activity {
+  display: none;
+}
+
+.legend-glowing .legend-activity {
+  display: inline-flex;
+}
+
+.legend-glowing .legend-class {
+  display: none;
+}
+
+.swatch-ramp {
+  width: 1.75rem;
+  height: 0.6rem;
+  border-radius: 0.3rem;
+}
+
+.legend-colouring {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+}
+
+.legend-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.legend-choice input {
+  margin: 0;
+  accent-color: var(--glow);
+}
+
 .swatch {
   display: inline-block;
   flex: none;

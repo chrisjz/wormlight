@@ -1,5 +1,5 @@
-// The graph's colours, shared by the renderer and the legend. The GCaMP green of style.css is kept for
-// activity, which the glow brings (milestone 6), so nothing here uses it.
+// The graph's colours, shared by the renderer and the legend. The GCaMP green of style.css is kept for activity:
+// the glow alone uses it (PLAN §1).
 
 import type { CellClass } from '../data/schema.ts';
 
@@ -9,6 +9,17 @@ export const CLASS_COLOURS: Record<CellClass, string> = {
   motor: '#d4a674',
   pharyngeal: '#7a8781',
 };
+
+// The glow's GCaMP green, style.css's --glow; the brightness of a neuron at no activity, as a share of it; and the
+// glow above which a neuron's chemical synapses are drawn, faintly, while none is selected.
+export const GLOW_COLOUR = '#5dfc8f';
+export const GLOW_FLOOR = 0.06;
+export const ACTIVE_GLOW = 0.75;
+
+// A neuron's brightness and halo at a glow g, on the one fixed scale (PLAN §1): brightness rises as g², so rest,
+// at ½, reads dim; the halo grows over the half above rest.
+export const glowBrightness = (g: number): number => GLOW_FLOOR + (1 - GLOW_FLOOR) * g * g;
+export const glowHalo = (g: number): number => Math.max(0, 2 * g - 1) ** 2;
 
 export type LinkKind = 'excitatory' | 'inhibitory' | 'unsigned' | 'gap';
 

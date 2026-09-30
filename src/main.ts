@@ -2,6 +2,7 @@ import './style.css';
 import { validateWormlightData, type WormlightData } from './data/schema';
 import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
+import { Activity } from './ui/activity';
 import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
 import { readParams, readPlateParams } from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
@@ -91,13 +92,20 @@ async function start(root: HTMLElement): Promise<void> {
   if (failed) throw new Error('the GPU was lost while loading');
   // The plate and the graph side by side, or one alone (?view=plate, ?view=graph).
   const { layout, ...start } = readPlateParams(location.search);
-  const { noRender } = readParams(location.search);
+  const { noRender, colour } = readParams(location.search);
   const pane = (kind: string, label: string): HTMLElement => {
     const section = el('section', `pane pane-${kind}`);
     section.setAttribute('aria-label', label);
     return section;
   };
-  const platePane = layout === 'graph' ? null : pane('plate', 'The worm on its dish');
+  // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
+  // unless the graph starts on class colours, as the visual tests' views of it do.
+  const unseen = layout === 'graph' && colour === 'activity';
+  const platePane = layout === 'graph' && !unseen ? null : pane('plate', 'The worm on its dish');
+  if (platePane && unseen) {
+    platePane.hidden = true;
+    platePane.inert = true;
+  }
   const graphPane = layout === 'plate' ? null : pane('graph', 'The connectome');
   root.className = `app ${layout}`;
   root.replaceChildren(...[platePane, graphPane].filter((p) => p !== null));
@@ -118,11 +126,17 @@ async function start(root: HTMLElement): Promise<void> {
     history.replaceState(history.state, '', experimentUrl(location.href, experiment.get()));
   writeExperiment();
   experiment.subscribe(writeExperiment);
+  // The running worm's glow, which the plate reads and the graph draws.
+  const activity = new Activity(data.neurons.length);
   try {
     if (platePane) {
-      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment));
+      plate = await guard(
+        startPlate(platePane, device, data, { layout, ...start }, noRender || unseen, experiment, activity),
+      );
     }
-    if (graphPane) graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment));
+    if (graphPane) {
+      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity));
+    }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
   } catch (err) {
     fail('Wormlight could not start', reason(err));

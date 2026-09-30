@@ -90,6 +90,46 @@ struct Out {
 }
 `;
 
+// Each glowing neuron's halo (PLAN §1): a soft disc of GCaMP green around it, as strong as its glow above rest (the
+// neuron's mark.w), faded by the fog, added to what lies behind it and hidden behind nearer spheres.
+export const HALO_SHADER = /* wgsl */ `
+${FRAME}
+struct Neuron {
+  centre: vec3f,
+  radius: f32,
+  colour: vec4f,
+  mark: vec4f,
+}
+@group(0) @binding(1) var<storage, read> neurons: array<Neuron>;
+
+const HALO = 3.2; // the halo's reach, in the neuron's radii
+const GLOW = vec3f(0.365, 0.988, 0.561); // style.css's --glow
+
+struct Out {
+  @builtin(position) clip: vec4f,
+  @location(0) uv: vec2f,
+  @location(1) @interpolate(flat) strength: f32,
+}
+
+@vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) i: u32) -> Out {
+  let n = neurons[i];
+  let corner = CORNERS[v] * HALO;
+  let centre = frame.view * vec4f(n.centre, 1.0);
+  var out: Out;
+  out.clip = frame.projection * (centre + vec4f(corner * n.radius, 0.0, 0.0));
+  out.uv = corner / HALO;
+  out.strength = n.mark.w * (1.0 - fogAt(-centre.z));
+  return out;
+}
+
+@fragment fn fs(in: Out) -> @location(0) vec4f {
+  if (in.strength <= 0.0) { discard; }
+  let r = length(in.uv);
+  let a = 0.5 * in.strength * exp(-5.0 * r * r) * (1.0 - smoothstep(0.75, 1.0, r));
+  return vec4f(GLOW * a, 0.0);
+}
+`;
+
 // Each connection: its two ends, its width in CSS pixels, a dash period (0 for solid) and its colour. The
 // segment is clipped to the near plane before projection, so an end behind the camera can't fold the quad.
 // Width and dashes are measured in screen space, so they interpolate linearly, and each fragment's alpha is

@@ -780,7 +780,7 @@ export const OMITTED: readonly { text: string; sources: readonly CitationId[] }[
 
 export const PRESENTATION: readonly { text: string; sources: readonly CitationId[] }[] = [
   {
-    text: 'Calcium-style glow: model activity filtered through published GCaMP kinetics (Chen et al. 2013). The colour and normalisation are display choices.',
+    text: "Calcium-style glow: each neuron's activation φ(V − V_th), filtered as the GCaMP6s indicator smooths a fast signal (a rise to peak of 179 ms and a half-decay of 550 ms after one action potential in mouse visual cortex; Chen et al. 2013), in two first-order stages of 70.6 and 686 ms, on one fixed scale, brightness rising as its square. No published mapping takes a worm neuron's voltage to its calcium, and worm transients decay over seconds, so the glow is the model's activity smoothed, not a prediction of calcium; the app labels it simulated. The colour and the scale are display choices.",
     sources: ['chen2013'],
   },
   {

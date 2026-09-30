@@ -4,27 +4,32 @@
 export const WIDTH = 800;
 export const HEIGHT = 500;
 
-// Each view shows one pane alone, the whole window, and snapshots it. The plate's views compare at a stricter
-// perceptual threshold (compare.ts): the odour field and the lawn are faint.
+// Each view shows one pane alone, the whole window, and snapshots it. The graph's views colour its neurons by class,
+// but for the glow's own. The plate's views compare at a stricter perceptual threshold (compare.ts): the odour
+// field and the lawn are faint.
 const PLATE = 0.05;
 export const VIEWS: readonly { name: string; pane: 'graph' | 'plate'; query: string; threshold?: number }[] = [
   // Every neuron, from the default camera: the layout, the impostors and their shading.
-  { name: 'overview', pane: 'graph', query: 'view=graph' },
+  { name: 'overview', pane: 'graph', query: 'view=graph&colour=class' },
   // The nerve ring and head ganglia up close, from above and in front.
-  { name: 'head', pane: 'graph', query: 'view=graph&tx=-3.3&ty=0.6&tz=0&dist=5&yaw=-35&pitch=25' },
+  { name: 'head', pane: 'graph', query: 'view=graph&colour=class&tx=-3.3&ty=0.6&tz=0&dist=5&yaw=-35&pitch=25' },
   // AVAL selected: its connections as lines, signed and dashed, and every other neuron dimmed.
-  { name: 'aval', pane: 'graph', query: 'view=graph&neuron=AVAL' },
+  { name: 'aval', pane: 'graph', query: 'view=graph&colour=class&neuron=AVAL' },
   // A ventral-cord motor neuron selected, whose connections run along the body.
-  { name: 'vb6', pane: 'graph', query: 'view=graph&neuron=VB6&yaw=-20&pitch=15' },
+  { name: 'vb6', pane: 'graph', query: 'view=graph&colour=class&neuron=VB6&yaw=-20&pitch=15' },
   // An experiment (spec §6): VB6 selected on the contrast brain's first rewiring. Its gap-junction partners VB5 and
   // VB7 and its rewired partner DB4 are lesioned, drawn hollow with their links to it faint; so is DD3, which isn't
   // its partner, hollow and dimmed.
   {
     name: 'experiment',
     pane: 'graph',
-    query: 'view=graph&neuron=VB6&brain=rewired-1&lesions=VB5+VB7+DB4+DD3&tx=1.15&ty=0&tz=0&dist=2&yaw=-25&pitch=30',
+    query:
+      'view=graph&colour=class&neuron=VB6&brain=rewired-1&lesions=VB5+VB7+DB4+DD3&tx=1.15&ty=0&tz=0&dist=2&yaw=-25&pitch=30',
   },
 
+  // The glow (PLAN §1): every neuron coloured by its simulated activity, from a worm run 4 s and paused, unseen, with
+  // the halos of the most active and their synapses faintly lit.
+  { name: 'glow', pane: 'graph', query: 'view=graph&seed=1&t=4&paused=1' },
   // The worm at its start, straight on the agar at the default field of view: the body, its shading and the
   // agar's texture.
   { name: 'plate', pane: 'plate', query: 'view=plate&seed=1&paused=1', threshold: PLATE },

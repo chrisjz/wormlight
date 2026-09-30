@@ -62,6 +62,9 @@ export class Inspector {
   private expanded = new Set<GroupKind>();
   private keyOpen = false;
   private current: Inspection | null = null;
+  // The neuron's simulated activity, which the inspector shows while a worm runs and updates in place.
+  private activity: number | 'lesioned' | null = null;
+  private activityValue: HTMLElement | null = null;
   // Where focus goes after the next rebuild: the heading, after moving to a partner; a group's toggle; or the
   // lesion button, after it is pressed.
   private focusNext: 'heading' | 'lesion' | GroupKind | null = null;
@@ -105,6 +108,14 @@ export class Inspector {
     const facts = el('dl', 'inspector-facts');
     for (const { label, value } of inspection.facts)
       facts.append(el('dt', undefined, label), el('dd', undefined, value));
+    this.activityValue = null;
+    if (this.activity !== null) {
+      this.activityValue = el('dd', 'inspector-activity');
+      this.activityValue.title =
+        "Simulated: the model's activation, filtered as the GCaMP6s indicator would smooth it, on one fixed scale.";
+      facts.append(el('dt', undefined, 'Activity'), this.activityValue);
+      this.setActivity(this.activity);
+    }
 
     const lesion = el('div', 'inspector-lesion');
     const index = inspection.index;
@@ -185,6 +196,15 @@ export class Inspector {
     if (target === 'heading') title.focus();
     else if (target === 'lesion') ablate.focus();
     else if (target) toggles.get(target)?.focus();
+  }
+
+  // The neuron's activity: the glow's value from 0 to 1, shown as a share of full activation, or that it is lesioned;
+  // null while no worm runs. It is written in place, so the inspector isn't rebuilt at each frame.
+  setActivity(value: number | 'lesioned' | null): void {
+    this.activity = value;
+    if (!this.activityValue) return;
+    this.activityValue.textContent =
+      value === 'lesioned' ? 'none, lesioned' : value === null ? '' : `${Math.round(100 * value)}% (simulated)`;
   }
 
   private row(row: Row, most: number): HTMLElement {

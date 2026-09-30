@@ -542,6 +542,12 @@ export class GpuBrain {
     return this.body;
   }
 
+  // The neurons' state, STATE_WORDS per neuron with its voltage first, for a reader to copy in place, as the glow's
+  // does (PLAN §1); the kernel writes it as each dispatch steps.
+  get stateBuffer(): GPUBuffer {
+    return this.state;
+  }
+
   // The state and the solver's record once the queued work is done.
   async read(): Promise<{ state: BrainState; status: GpuBrainStatus; loop: LoopState | null }> {
     this.alive();
