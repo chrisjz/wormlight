@@ -15,6 +15,8 @@
 // - The controls: a bar with play, the speed, the time and, on a narrow pane, More; the rest in labelled groups,
 //   inline on a wide pane and in a panel behind More on a narrow one, which Escape, a tap elsewhere or any of its
 //   actions closes. On a narrow or short pane the notice keeps to its first sentence and its link.
+// - The glow (PLAN §1): each frame the neurons' voltages are read back from the GPU, and their activations advance
+//   the glow the views share, which the graph draws.
 // - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
 //   graph's inspector lesions neurons. Either change takes effect live: the worm and every neuron's state carry
 //   over into a world with the new wiring (World.carry), which the GPU then runs. "Restore all" undoes every
@@ -1072,7 +1074,8 @@ export async function startPlate(
   // The neurons' voltages, read back a frame or two behind like the body, for the glow (PLAN §1). Each reading's
   // activations, taken with the thresholds of the world it came from, advance the glow by the worm's time since the
   // reading before; a reading from another run, after a restart, starts it again, and one older than the last is
-  // dropped. The first published resolves `glowing`.
+  // dropped. The first reading to come back, used or not, or failed, resolves `glowing`, so the plate's readiness
+  // can't wait on it for ever.
   const neurons = data.neurons.length;
   const stateBytes = 4 * STATE_WORDS * neurons;
   const stateStaging = Array.from({ length: STAGING }, () => ({
@@ -1103,19 +1106,24 @@ export async function startPlate(
         for (let i = 0; i < neurons; i++) voltages[i] = words[STATE_WORDS * i];
         slot.buffer.unmap();
         slot.busy = false;
-        const stale = glowAt !== null && glowAt.run === from && at <= glowAt.steps;
-        if (from === run && !stale && voltages.every(Number.isFinite)) {
-          activations(voltages, source.brain.threshold, source.brain.network.slope, activation);
-          if (glowAt === null || glowAt.run !== from) activity.glow.reset(activation);
-          else activity.glow.update(activation, (at - glowAt.steps) * NEURAL_STEP);
-          glowAt = { run: from, steps: at };
-          activity.publish();
+        try {
+          const stale = glowAt !== null && glowAt.run === from && at <= glowAt.steps;
+          if (from === run && !stale && voltages.every(Number.isFinite)) {
+            activations(voltages, source.brain.threshold, source.brain.network.slope, activation);
+            if (glowAt === null || glowAt.run !== from) activity.glow.reset(activation);
+            else activity.glow.update(activation, (at - glowAt.steps) * NEURAL_STEP);
+            glowAt = { run: from, steps: at };
+            activity.publish();
+          }
+        } finally {
+          glowed?.();
+          glowed = null;
         }
-        glowed?.();
-        glowed = null;
       },
       () => {
         slot.busy = false;
+        glowed?.();
+        glowed = null;
       },
     );
   };

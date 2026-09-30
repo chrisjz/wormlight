@@ -26,7 +26,7 @@ function message(root: HTMLElement, kind: string, title: string | null, body: st
       'p',
       'lede',
       "A living C. elegans in the browser, under construction. The worm's full connectome runs on your GPU and " +
-        'drives a physically simulated body; its neurons will glow as they activate.',
+        'drives a physically simulated body, and its neurons glow with their simulated activity.',
     ),
   );
   const status = el('section', 'status');
@@ -98,14 +98,7 @@ async function start(root: HTMLElement): Promise<void> {
     section.setAttribute('aria-label', label);
     return section;
   };
-  // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
-  // unless the graph starts on class colours, as the visual tests' views of it do.
-  const unseen = layout === 'graph' && colour === 'activity';
-  const platePane = layout === 'graph' && !unseen ? null : pane('plate', 'The worm on its dish');
-  if (platePane && unseen) {
-    platePane.hidden = true;
-    platePane.inert = true;
-  }
+  const platePane = layout === 'graph' ? null : pane('plate', 'The worm on its dish');
   const graphPane = layout === 'plate' ? null : pane('graph', 'The connectome');
   root.className = `app ${layout}`;
   root.replaceChildren(...[platePane, graphPane].filter((p) => p !== null));
@@ -128,14 +121,33 @@ async function start(root: HTMLElement): Promise<void> {
   experiment.subscribe(writeExperiment);
   // The running worm's glow, which the plate reads and the graph draws.
   const activity = new Activity(data.neurons.length);
+  // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
+  // started once the graph is up. On class colours, as the visual tests' views of the graph are, it waits until the
+  // viewer asks for the glow.
+  let unseen: Promise<void> | null = null;
+  const runUnseen = (): Promise<void> => {
+    unseen ??= (async () => {
+      const hidden = pane('plate', 'The worm on its dish');
+      hidden.hidden = true;
+      hidden.inert = true;
+      root.append(hidden);
+      plate = await guard(startPlate(hidden, device, data, { layout, ...start }, true, experiment, activity));
+    })();
+    return unseen;
+  };
   try {
     if (platePane) {
-      plate = await guard(
-        startPlate(platePane, device, data, { layout, ...start }, noRender || unseen, experiment, activity),
-      );
+      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity));
     }
     if (graphPane) {
       graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity));
+    }
+    if (layout === 'graph' && colour === 'activity') await runUnseen();
+    else if (layout === 'graph') {
+      activity.request = () => {
+        activity.request = null;
+        runUnseen().catch((err: unknown) => fail('The worm could not be started', reason(err)));
+      };
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
   } catch (err) {

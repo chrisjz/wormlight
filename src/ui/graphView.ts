@@ -1,6 +1,8 @@
-// The 3D graph of all 302 neurons (spec §7), with the selected neuron's connections lit. It shows the brain the
-// experiment runs, the real wiring or a rewiring of it, and draws lesioned neurons hollow, their links faint; the
-// inspector ablates and restores the selected neuron (spec §6).
+// The 3D graph of all 302 neurons (spec §7), with the selected neuron's connections lit. While the worm runs its
+// neurons glow with their simulated activity (PLAN §1), or show their classes, and with none selected the synapses of
+// the most active are faintly lit. It shows the brain the experiment runs, the real wiring or a rewiring of it, and
+// draws lesioned neurons hollow, their links faint; the inspector ablates and restores the selected neuron (spec §6)
+// and reads its activity.
 // - Mouse: drag to turn, scroll to zoom, shift- or right-drag to pan, click a neuron to select it, double-click
 //   a neuron to fly to it or empty space to reset.
 // - Touch: drag to turn, pinch to zoom, drag two fingers to pan, tap to select, double-tap to fly or reset.
@@ -27,15 +29,15 @@ import {
   GLOW_COLOUR,
   glowBrightness,
   glowHalo,
-  GLOW_FLOOR,
   LINK_COLOURS,
+  NEUTRAL,
   rgb,
   type LinkKind,
 } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
 import type { Activity } from './activity.ts';
 import { linkKind, linkStyle, Wiring, type Connection } from './connections.ts';
-import { brainName, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
+import { brainName, describeChange, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
 import { CLASS_NAMES, inspect, musclesByNeuron } from './inspection.ts';
 import { Inspector } from './inspector.ts';
 import { applyTarget, readParams } from './params.ts';
@@ -52,6 +54,8 @@ const DIMMED = 0.28;
 const CUT = 0.3;
 // How opaque an active synapse's link is at the most, drawn while the neurons glow and none is selected.
 const ACTIVE_LINK = 0.3;
+// While the neurons glow, how strongly each is rimmed in the palette's neutral grey.
+const RIM = 0.45;
 const HOME_YAW = (-50 * Math.PI) / 180;
 const HOME_PITCH = (20 * Math.PI) / 180;
 // The camera's home target along the body: a little ahead of the middle, towards the crowded head.
@@ -114,8 +118,13 @@ function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement, 
   const neurons = el('ul', 'legend-row');
   const activityItem = el('li', 'legend-item legend-activity');
   const ramp = el('span', 'swatch swatch-ramp');
-  ramp.style.background = `linear-gradient(90deg, rgb(93 252 143 / ${GLOW_FLOOR}), ${GLOW_COLOUR})`;
-  activityItem.append(ramp, 'Simulated activity, quiet to active');
+  // The glow's scale as the neurons show it, brightness rising as the square of the glow, rest at its middle.
+  const [gr, gg, gb] = rgb(GLOW_COLOUR).map((c) => Math.round(255 * c));
+  const stops = [0, 0.25, 0.5, 0.75, 1].map(
+    (g) => `rgb(${gr} ${gg} ${gb} / ${glowBrightness(g).toFixed(3)}) ${100 * g}%`,
+  );
+  ramp.style.background = `linear-gradient(90deg, ${stops.join(', ')})`;
+  activityItem.append(ramp, 'Simulated activity: quiet, rest, active');
   neurons.append(activityItem);
   for (const c of Object.keys(CLASS_COLOURS) as CellClass[]) {
     const item = el('li', 'legend-item legend-class');
@@ -226,7 +235,8 @@ export async function startGraph(
   canvas.setAttribute('role', 'img');
   canvas.setAttribute(
     'aria-label',
-    'A 3D graph of the 302 neurons of C. elegans, placed where they sit in the body. With it focused, ' +
+    'A 3D graph of the 302 neurons of C. elegans, placed where they sit in the body, coloured by their simulated ' +
+      'activity while the worm runs, or by their class. With it focused, ' +
       'the arrow keys turn it, plus and minus zoom, and the square brackets step through the neurons; ' +
       'slash finds a neuron by name.',
   );
@@ -300,9 +310,8 @@ export async function startGraph(
   aside.append(hint, credit());
   const lesionKey = el('li', 'legend-item');
   // Colour by: the glow, while a worm runs, or the neurons' classes.
-  const colouring = el('div', 'legend-colouring');
-  colouring.setAttribute('role', 'radiogroup');
-  colouring.setAttribute('aria-label', 'Colour neurons by');
+  const colouring = el('fieldset', 'legend-colouring');
+  colouring.append(el('legend', 'legend-choice-name', 'Colour by'));
   const colourChoice = (value: 'activity' | 'class', text: string): HTMLInputElement => {
     const label = el('label', 'legend-choice');
     const input = el('input');
@@ -313,8 +322,6 @@ export async function startGraph(
     colouring.append(label);
     return input;
   };
-  colouring.append(el('span', 'legend-choice-name', 'Colour by'));
-  colouring.lastElementChild?.setAttribute('aria-hidden', 'true');
   const byActivity = colourChoice('activity', 'Activity');
   const byClass = colourChoice('class', 'Class');
   const legendBox = legend(data, pane, lesionKey, colouring);
@@ -331,10 +338,13 @@ export async function startGraph(
   let colouredBy = params.colour;
   let live = activity.published;
   const glowing = (): boolean => colouredBy === 'activity' && live;
+  const keyToggle = legendBox.querySelector('.legend-toggle');
   const showColouring = (): void => {
     byActivity.checked = colouredBy === 'activity';
     byClass.checked = colouredBy === 'class';
     legendBox.classList.toggle('legend-glowing', glowing());
+    // Folded away on a short pane, the key still says what the colours are.
+    if (keyToggle) keyToggle.textContent = glowing() ? 'Key: simulated activity' : 'Key';
   };
   showColouring();
   // The selected neuron's activity for the inspector: the glow's value, or none while no worm runs.
@@ -488,6 +498,7 @@ export async function startGraph(
   };
 
   const glowRgb = rgb(GLOW_COLOUR);
+  const lesionRgb = rgb(NEUTRAL);
   const upload = (): void => {
     const shown = selected === null ? [] : wiring.of(selected);
     const partners = new Set(shown.map((c) => c.partner));
@@ -496,9 +507,14 @@ export async function startGraph(
     for (let i = 0; i < n; i++) {
       const o = i * NEURON_FLOATS;
       const cut = lesioned.has(wiring.names[i]);
-      // A lesioned neuron has no activity worth showing: it is drawn at the glow's floor, with no halo.
-      const g = glow ? (cut ? 0 : glow[i]) : 0;
-      const [r, gr, b] = glow ? glowRgb.map((c) => c * glowBrightness(g)) : rgb(CLASS_COLOURS[data.neurons[i].class]);
+      // While glowing, a lesioned neuron has no activity worth showing: its hollow outline is drawn in the neutral
+      // grey, with no halo. Every other neuron gets a faint neutral rim, which keeps it findable at any glow.
+      const g = glow && !cut ? glow[i] : 0;
+      const [r, gr, b] = !glow
+        ? rgb(CLASS_COLOURS[data.neurons[i].class])
+        : cut
+          ? lesionRgb
+          : glowRgb.map((c) => c * glowBrightness(g));
       const lit = selected === null || i === selected || partners.has(i) ? 1 : DIMMED;
       neurons.set([positions[3 * i], positions[3 * i + 1], positions[3 * i + 2], radii[i]], o);
       neurons.set([r * lit, gr * lit, b * lit, 1], o + 4);
@@ -506,6 +522,7 @@ export async function startGraph(
         [i === selected ? 1 : 0, i === hovered && i !== selected ? 1 : 0, cut ? 1 : 0, glow ? glowHalo(g) * lit : 0],
         o + 8,
       );
+      neurons.set([glow ? RIM * lit : 0, 0, 0, 0], o + 12);
     }
     renderer.setNeurons(neurons);
     // The selected neuron's connections; or, while the neurons glow and none is selected, the chemical synapses of
@@ -891,6 +908,7 @@ export async function startGraph(
   footerObserver.observe(inspector.element);
   upload();
   if (selected !== null) {
+    inspector.setActivity(activityOf(selected));
     inspector.show(inspect(data, wiring, muscles, selected, lesioned));
     pane.classList.add('inspecting');
   }
@@ -899,9 +917,15 @@ export async function startGraph(
   // the keyboard's place there. A change undone because it couldn't be made drops the graph's word on it: the plate
   // says what was undone.
   const unsubscribe = experiment.subscribe((e, reverted) => {
+    const before = {
+      brain,
+      lesions: data.neurons.flatMap((neuron) => (lesioned.has(neuron.name) ? [neuron.name] : [])),
+    };
     if (reverted) {
       cancelAnimationFrame(announcing);
       selection.textContent = '';
+      // With the graph alone, the plate that failed to make the change speaks unseen, so the graph says it.
+      if (title) announce(`Couldn't finish ${describeChange(e, before)}, so it was undone.`);
     }
     const focused = inspector.element.contains(document.activeElement);
     if (e.brain !== brain) {
@@ -922,6 +946,7 @@ export async function startGraph(
     if (!live) {
       live = true;
       showColouring();
+      inspector.setActivity(activityOf(selected));
       if (selected !== null) inspector.show(inspect(data, wiring, muscles, selected, lesioned));
     }
     if (glowing()) upload();
@@ -930,6 +955,8 @@ export async function startGraph(
   for (const input of [byActivity, byClass]) {
     input.addEventListener('change', () => {
       colouredBy = input.value === 'class' ? 'class' : 'activity';
+      // Where no worm runs yet, as with the graph alone on class colours, the glow asks for one.
+      if (colouredBy === 'activity' && !activity.published) activity.request?.();
       showColouring();
       upload();
     });

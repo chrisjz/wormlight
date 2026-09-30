@@ -82,6 +82,14 @@ export const CITATIONS = {
     doi: '10.1038/s41586-019-1352-7',
     note: 'Wormlight reads its matrices as released under CC BY 4.0 in Emmons 2024.',
   },
+  ding2023: {
+    short: 'Ding et al. 2023',
+    authors: 'Ding J, Peng L, Moon S, Lee HJ, Patel DS, Lu H',
+    year: 2023,
+    title: 'An expanded GCaMP reporter toolkit for functional imaging in Caenorhabditis elegans',
+    venue: 'G3: Genes, Genomes, Genetics 13:jkad183',
+    doi: '10.1093/g3journal/jkad183',
+  },
   emmons2024: {
     short: 'Emmons 2024',
     authors: 'Emmons SW',

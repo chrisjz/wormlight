@@ -1,4 +1,13 @@
-// WGSL for the 3D graph: neurons as shaded sphere impostors, connections as lines of constant screen width.
+// WGSL for the 3D graph: neurons as shaded sphere impostors, the glow's halos, and connections as lines of constant
+// screen width.
+
+import { GLOW_COLOUR, NEUTRAL, rgb } from './palette.ts';
+
+// A palette colour as WGSL.
+export const wgslColour = (hex: string): string =>
+  `vec3f(${rgb(hex)
+    .map((c) => c.toFixed(4))
+    .join(', ')})`;
 
 const FRAME = /* wgsl */ `
 struct Frame {
@@ -26,16 +35,22 @@ const CORNERS = array<vec2f, 6>(
 );
 `;
 
-// Each neuron: its centre and radius, its colour, and how strongly it is selected (x) or hovered (y), and whether
-// it is lesioned (z). A ring outside the sphere marks either of the first two; a lesioned neuron is drawn hollow.
-export const NEURON_SHADER = /* wgsl */ `
-${FRAME}
+// Each neuron: its centre and radius; its colour; how strongly it is selected (mark.x) or hovered (mark.y), whether
+// it is lesioned (mark.z) and its glow's halo (mark.w, which the halo shader draws); and a neutral rim's strength
+// (style.x), which keeps a dim glowing neuron findable. A ring outside the sphere marks the first two; a lesioned
+// neuron is drawn hollow.
+const NEURON = /* wgsl */ `
 struct Neuron {
   centre: vec3f,
   radius: f32,
   colour: vec4f,
   mark: vec4f,
-}
+  style: vec4f,
+}`;
+
+export const NEURON_SHADER = /* wgsl */ `
+${FRAME}
+${NEURON}
 @group(0) @binding(1) var<storage, read> neurons: array<Neuron>;
 
 const RING_OUTER = 1.7;
@@ -46,7 +61,11 @@ struct Out {
   @location(1) @interpolate(flat) colour: vec4f,
   @location(2) @interpolate(flat) mark: vec3f,
   @location(3) @interpolate(flat) fog: f32,
+  @location(4) @interpolate(flat) rim: f32,
 }
+
+// The neutral rim, the palette's.
+const RIM = ${wgslColour(NEUTRAL)};
 
 @vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) i: u32) -> Out {
   let n = neurons[i];
@@ -58,6 +77,7 @@ struct Out {
   out.colour = n.colour;
   out.mark = n.mark.xyz;
   out.fog = fogAt(-centre.z);
+  out.rim = n.style.x;
   return out;
 }
 
@@ -86,24 +106,23 @@ struct Out {
   let e = 1.0 - normal.z;
   let rim = e * e * sqrt(e);
   let shade = in.colour.rgb * (0.42 + 0.58 * diffuse) + vec3f(0.10) * rim;
-  return vec4f(mix(shade, BACKGROUND, in.fog), edge * in.colour.a);
+  // The neutral rim, a thin band inside the sphere's edge.
+  let outline = in.rim * smoothstep(0.74, 0.94, r);
+  return vec4f(mix(mix(shade, RIM, outline), BACKGROUND, in.fog), edge * in.colour.a);
 }
 `;
 
-// Each glowing neuron's halo (PLAN §1): a soft disc of GCaMP green around it, as strong as its glow above rest (the
-// neuron's mark.w), faded by the fog, added to what lies behind it and hidden behind nearer spheres.
+// Each glowing neuron's halo (PLAN §1): a soft disc of GCaMP green reaching 3.2 of its radii from its centre, as
+// strong as its glow above rest (the neuron's mark.w), faded by the fog and added to what lies behind it. It shares
+// its sphere's depth, so the depth test, less-equal, lets it over its own sphere and hides it behind nearer ones. A
+// neuron without a halo is culled before any fragment, its quad collapsed to a point.
 export const HALO_SHADER = /* wgsl */ `
 ${FRAME}
-struct Neuron {
-  centre: vec3f,
-  radius: f32,
-  colour: vec4f,
-  mark: vec4f,
-}
+${NEURON}
 @group(0) @binding(1) var<storage, read> neurons: array<Neuron>;
 
 const HALO = 3.2; // the halo's reach, in the neuron's radii
-const GLOW = vec3f(0.365, 0.988, 0.561); // style.css's --glow
+const GLOW = ${wgslColour(GLOW_COLOUR)};
 
 struct Out {
   @builtin(position) clip: vec4f,
@@ -113,9 +132,13 @@ struct Out {
 
 @vertex fn vs(@builtin(vertex_index) v: u32, @builtin(instance_index) i: u32) -> Out {
   let n = neurons[i];
+  var out: Out;
+  if (n.mark.w <= 0.0) {
+    out.clip = vec4f(0.0, 0.0, 0.0, 1.0);
+    return out;
+  }
   let corner = CORNERS[v] * HALO;
   let centre = frame.view * vec4f(n.centre, 1.0);
-  var out: Out;
   out.clip = frame.projection * (centre + vec4f(corner * n.radius, 0.0, 0.0));
   out.uv = corner / HALO;
   out.strength = n.mark.w * (1.0 - fogAt(-centre.z));

@@ -1,11 +1,12 @@
 // The 3D graph's WebGPU renderer: neurons as sphere impostors, their glow's halos added over them, then the shown
-// connections as lines over those, into a 4× multisampled target resolved to the canvas. It can also render one frame into a texture
-// of its own and read it back, the only readback the software GPUs of CI support (after Universe Atlas).
+// connections as lines over those, into a 4× multisampled target resolved to the canvas. It can also render one
+// frame into a texture of its own and read it back, the only readback the software GPUs of CI support (after
+// Universe Atlas).
 
 import { HALO_SHADER, LINK_SHADER, NEURON_SHADER } from './shaders.ts';
 import { snapshot } from './snapshot.ts';
 
-export const NEURON_FLOATS = 12; // centre, radius, colour, mark
+export const NEURON_FLOATS = 16; // centre, radius, colour, mark (select, hover, lesion, halo), style (rim)
 export const LINK_FLOATS = 12; // a, width, b, dash, colour
 const FRAME_BYTES = 3 * 64 + 32;
 const SAMPLES = 4;
@@ -122,12 +123,15 @@ export class GraphRenderer {
     return new GraphRenderer(device, canvas, context, format, pipelines);
   }
 
+  // A buffer that holds `data`, the old one if it is big enough; a new one has room to grow by half again, so a
+  // list that changes length at every frame, as the glow's active synapses do, seldom needs another.
   private storage(data: Float32Array, old: GPUBuffer | null): GPUBuffer {
     const size = Math.max(data.byteLength, 64);
     let buffer = old;
     if (!buffer || buffer.size < size) {
       old?.destroy();
-      buffer = this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      const room = Math.ceil((size * 1.5) / 4) * 4;
+      buffer = this.device.createBuffer({ size: room, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     }
     if (data.byteLength > 0) this.device.queue.writeBuffer(buffer, 0, data);
     return buffer;

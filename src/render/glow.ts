@@ -17,37 +17,49 @@ export function activations(
   return out;
 }
 
-// The two stages for every neuron, stepped in the worm's time from activations sampled at each step: each stage
-// relaxes exactly towards its input, held over the step. They have unit gain, so an activation held steady shows
-// as itself. Until it is first given activations, the glow is at rest, ½.
+// The two stages for every neuron, stepped in the worm's time from activations read now and then, as the app reads
+// them once a frame. Between two readings the input is held at their mean, and both stages are advanced exactly
+// for that input, so the only error is the sampling's: activity between readings is known only through them. At
+// 10× and 60 frames a second a reading spans about one GCaMP rise, so a change that lasts less than a frame can be
+// missed or blurred (PLAN §1). The stages have unit gain, so an activation held steady shows as itself. Until it is
+// first given activations, the glow is at rest, ½.
 export class Glow {
   // The filtered activation, the glow's value, per neuron; in f64, as in f32 a stage stalls short of its input once
   // each step's change falls below the value's rounding.
   readonly value: Float64Array;
   private readonly first: Float64Array;
+  private readonly last: Float64Array;
   private started = false;
 
   constructor(n: number) {
     this.value = new Float64Array(n).fill(0.5);
     this.first = new Float64Array(n).fill(0.5);
+    this.last = new Float64Array(n).fill(0.5);
   }
 
   // Start both stages at these activations, as a neuron long at them would be.
   reset(activation: ArrayLike<number>): void {
     this.value.set(activation);
     this.first.set(activation);
+    this.last.set(activation);
     this.started = true;
   }
 
-  // Advance by dt seconds of the worm's time, the activation held at these values; the first call starts there.
+  // Advance by dt seconds of the worm's time to these activations, read at its end; the first call starts there.
   update(activation: ArrayLike<number>, dt: number): void {
     if (!this.started) return this.reset(activation);
     if (!(dt > 0)) return;
-    const a = 1 - Math.exp(-dt / GCAMP6S.rise);
-    const b = 1 - Math.exp(-dt / GCAMP6S.decay);
+    const { rise, decay } = GCAMP6S;
+    const er = Math.exp(-dt / rise);
+    const ed = Math.exp(-dt / decay);
+    const cross = (rise / (rise - decay)) * (er - ed);
     for (let i = 0; i < this.value.length; i++) {
-      this.first[i] += a * (activation[i] - this.first[i]);
-      this.value[i] += b * (this.first[i] - this.value[i]);
+      // The input over the step, and each stage's exact response to it: the second stage from its own start and
+      // from the first stage's, then the first.
+      const u = 0.5 * (this.last[i] + activation[i]);
+      this.value[i] = u + (this.value[i] - u) * ed + (this.first[i] - u) * cross;
+      this.first[i] = u + (this.first[i] - u) * er;
+      this.last[i] = activation[i];
     }
   }
 }

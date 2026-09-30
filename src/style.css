@@ -602,13 +602,28 @@ button.inspector-row:focus-visible .row-name {
   border-radius: 0.3rem;
 }
 
+/* Colour by: a fieldset whose legend sits inline, floated out of the border it would otherwise sit on. */
 .legend-colouring {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.75rem;
   margin: 0 0 0.45rem;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.legend-colouring legend {
+  float: left;
+  margin-right: 0.75rem;
+  padding: 0;
   color: var(--muted);
+}
+
+.legend-choice + .legend-choice {
+  margin-left: 0.75rem;
+}
+
+.legend-choice input:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 2px;
 }
 
 .legend-choice {

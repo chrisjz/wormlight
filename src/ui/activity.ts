@@ -7,6 +7,9 @@ export class Activity {
   readonly glow: Glow;
   // Whether the glow has had a reading, which a view that starts late would otherwise miss.
   published = false;
+  // Asks for a worm to run where none runs yet, as with the graph alone on class colours; null where none can be
+  // started or one already runs.
+  request: (() => void) | null = null;
   private readonly listeners = new Set<() => void>();
 
   constructor(neurons: number) {

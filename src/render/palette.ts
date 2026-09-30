@@ -13,6 +13,8 @@ export const CLASS_COLOURS: Record<CellClass, string> = {
 // The glow's GCaMP green, style.css's --glow; the brightness of a neuron at no activity, as a share of it; and the
 // glow above which a neuron's chemical synapses are drawn, faintly, while none is selected.
 export const GLOW_COLOUR = '#5dfc8f';
+// style.css's --muted: while the neurons glow, each one's faint rim and a lesioned one's hollow outline.
+export const NEUTRAL = '#8c9a92';
 export const GLOW_FLOOR = 0.06;
 export const ACTIVE_GLOW = 0.75;
 

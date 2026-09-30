@@ -112,7 +112,8 @@ export class Inspector {
     if (this.activity !== null) {
       this.activityValue = el('dd', 'inspector-activity');
       this.activityValue.title =
-        "Simulated: the model's activation, filtered as the GCaMP6s indicator would smooth it, on one fixed scale.";
+        "Simulated: the model's activation, ½ at rest, filtered as the GCaMP6s indicator would smooth it, on one " +
+        'fixed scale.';
       facts.append(el('dt', undefined, 'Activity'), this.activityValue);
       this.setActivity(this.activity);
     }
@@ -203,8 +204,10 @@ export class Inspector {
   setActivity(value: number | 'lesioned' | null): void {
     this.activity = value;
     if (!this.activityValue) return;
-    this.activityValue.textContent =
+    const text =
       value === 'lesioned' ? 'none, lesioned' : value === null ? '' : `${Math.round(100 * value)}% (simulated)`;
+    // Written only when it changes, so the page isn't rewritten at every frame for the same words.
+    if (this.activityValue.textContent !== text) this.activityValue.textContent = text;
   }
 
   private row(row: Row, most: number): HTMLElement {

@@ -168,10 +168,12 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
   visuals: {
     name: 'Visuals',
     tag: 'presentation',
-    solid: '',
-    notSolid: 'The glow is filtered model state, not imaging data',
+    solid:
+      "The glow's kinetics are GCaMP6s's, as measured after one action potential in mouse cortex (Chen et al. 2013)",
+    notSolid:
+      "The glow is filtered model state, not imaging data: the kinetics are the indicator's in mammalian neurons, and no mapping takes this model's voltages to a worm neuron's calcium",
     upgrade: '—',
-    sources: [],
+    sources: ['chen2013'],
   },
 };
 
@@ -780,8 +782,8 @@ export const OMITTED: readonly { text: string; sources: readonly CitationId[] }[
 
 export const PRESENTATION: readonly { text: string; sources: readonly CitationId[] }[] = [
   {
-    text: "Calcium-style glow: each neuron's activation φ(V − V_th), filtered as the GCaMP6s indicator smooths a fast signal (a rise to peak of 179 ms and a half-decay of 550 ms after one action potential in mouse visual cortex; Chen et al. 2013), in two first-order stages of 70.6 and 686 ms, on one fixed scale, brightness rising as its square. No published mapping takes a worm neuron's voltage to its calcium, and worm transients decay over seconds, so the glow is the model's activity smoothed, not a prediction of calcium; the app labels it simulated. The colour and the scale are display choices.",
-    sources: ['chen2013'],
+    text: "Calcium-style glow: each neuron's activation φ(V − V_th), filtered as the GCaMP6s indicator smooths a fast signal (a rise to peak of 179 ms and a half-decay of 550 ms after one action potential in mouse visual cortex; Chen et al. 2013), in two first-order stages of 70.6 and 686 ms, on one fixed scale, brightness rising as its square. The app reads the activations once a frame, so at high speeds a change briefer than a frame can be missed or blurred. No published mapping takes the voltages of a graded network model like this one to a worm neuron's calcium, and worm neurons' GCaMP6s signals decay over seconds (Ding et al. 2023), so the glow is the model's activity smoothed, not a prediction of calcium; the app labels it simulated. The colour and the scale are display choices.",
+    sources: ['chen2013', 'ding2023'],
   },
   {
     text: 'The 3D graph places each soma where one reconstruction has it (the WormBase Virtual Worm, via c302; Gleeson et al. 2018), unbent along the ventral cord, with the body axis stretched where neurons crowd and the cross-section enlarged. Order along the unbent body is kept.',
