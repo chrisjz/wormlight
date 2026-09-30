@@ -1,11 +1,12 @@
-// The 3D graph's WebGPU renderer: neurons as sphere impostors, then the shown connections as lines over
-// them, into a 4× multisampled target resolved to the canvas. It can also render one frame into a texture
-// of its own and read it back, the only readback the software GPUs of CI support (after Universe Atlas).
+// The 3D graph's WebGPU renderer: neurons as sphere impostors, their glow's halos added over them, then the shown
+// connections as lines over those, into a 4× multisampled target resolved to the canvas. It can also render one
+// frame into a texture of its own and read it back, the only readback the software GPUs of CI support (after
+// Universe Atlas).
 
-import { LINK_SHADER, NEURON_SHADER } from './shaders.ts';
+import { HALO_SHADER, LINK_SHADER, NEURON_SHADER } from './shaders.ts';
 import { snapshot } from './snapshot.ts';
 
-export const NEURON_FLOATS = 12; // centre, radius, colour, mark
+export const NEURON_FLOATS = 16; // centre, radius, colour, mark (select, hover, lesion, halo), style (rim)
 export const LINK_FLOATS = 12; // a, width, b, dash, colour
 const FRAME_BYTES = 3 * 64 + 32;
 const SAMPLES = 4;
@@ -28,8 +29,10 @@ export class GraphRenderer {
   private readonly frame: GPUBuffer;
   private readonly neuronPipeline: GPURenderPipeline;
   private readonly linkPipeline: GPURenderPipeline;
+  private readonly haloPipeline: GPURenderPipeline;
   private neuronBuffer: GPUBuffer | null = null;
   private neuronGroup: GPUBindGroup | null = null;
+  private haloGroup: GPUBindGroup | null = null;
   private neuronCount = 0;
   private linkBuffer: GPUBuffer | null = null;
   private linkGroup: GPUBindGroup | null = null;
@@ -44,13 +47,13 @@ export class GraphRenderer {
     canvas: HTMLCanvasElement,
     context: GPUCanvasContext,
     format: GPUTextureFormat,
-    pipelines: [GPURenderPipeline, GPURenderPipeline],
+    pipelines: [GPURenderPipeline, GPURenderPipeline, GPURenderPipeline],
   ) {
     this.device = device;
     this.canvas = canvas;
     this.context = context;
     this.format = format;
-    [this.neuronPipeline, this.linkPipeline] = pipelines;
+    [this.neuronPipeline, this.linkPipeline, this.haloPipeline] = pipelines;
     this.frame = device.createBuffer({ size: FRAME_BYTES, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   }
 
@@ -68,6 +71,7 @@ export class GraphRenderer {
     });
     const neurons = device.createShaderModule({ code: NEURON_SHADER });
     const links = device.createShaderModule({ code: LINK_SHADER });
+    const halos = device.createShaderModule({ code: HALO_SHADER });
     const pipelines = await Promise.all([
       device.createRenderPipelineAsync({
         layout: 'auto',
@@ -95,16 +99,39 @@ export class GraphRenderer {
         depthStencil: depthStencil(false),
         multisample: { count: SAMPLES },
       }),
+      // Halos add light: each adds its colour to what lies behind it, and leaves the target's alpha alone.
+      device.createRenderPipelineAsync({
+        layout: 'auto',
+        vertex: { module: halos, entryPoint: 'vs' },
+        fragment: {
+          module: halos,
+          entryPoint: 'fs',
+          targets: [
+            {
+              format,
+              blend: {
+                color: { srcFactor: 'one', dstFactor: 'one' },
+                alpha: { srcFactor: 'zero', dstFactor: 'one' },
+              },
+            },
+          ],
+        },
+        depthStencil: depthStencil(false),
+        multisample: { count: SAMPLES },
+      }),
     ]);
     return new GraphRenderer(device, canvas, context, format, pipelines);
   }
 
+  // A buffer that holds `data`, the old one if it is big enough; a new one has room to grow by half again, so a
+  // list that changes length at every frame, as the glow's active synapses do, seldom needs another.
   private storage(data: Float32Array, old: GPUBuffer | null): GPUBuffer {
     const size = Math.max(data.byteLength, 64);
     let buffer = old;
     if (!buffer || buffer.size < size) {
       old?.destroy();
-      buffer = this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      const room = Math.ceil((size * 1.5) / 4) * 4;
+      buffer = this.device.createBuffer({ size: room, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
     }
     if (data.byteLength > 0) this.device.queue.writeBuffer(buffer, 0, data);
     return buffer;
@@ -122,7 +149,10 @@ export class GraphRenderer {
 
   setNeurons(data: Float32Array): void {
     const buffer = this.storage(data, this.neuronBuffer);
-    if (buffer !== this.neuronBuffer) this.neuronGroup = this.group(this.neuronPipeline, buffer);
+    if (buffer !== this.neuronBuffer) {
+      this.neuronGroup = this.group(this.neuronPipeline, buffer);
+      this.haloGroup = this.group(this.haloPipeline, buffer);
+    }
     this.neuronBuffer = buffer;
     this.neuronCount = data.length / NEURON_FLOATS;
   }
@@ -192,6 +222,11 @@ export class GraphRenderer {
     if (this.neuronGroup && this.neuronCount > 0) {
       pass.setPipeline(this.neuronPipeline);
       pass.setBindGroup(0, this.neuronGroup);
+      pass.draw(6, this.neuronCount);
+    }
+    if (this.haloGroup && this.neuronCount > 0) {
+      pass.setPipeline(this.haloPipeline);
+      pass.setBindGroup(0, this.haloGroup);
       pass.draw(6, this.neuronCount);
     }
     if (this.linkGroup && this.linkCount > 0) {

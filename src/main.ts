@@ -2,6 +2,7 @@ import './style.css';
 import { validateWormlightData, type WormlightData } from './data/schema';
 import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
+import { Activity } from './ui/activity';
 import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
 import { readParams, readPlateParams } from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
@@ -25,7 +26,7 @@ function message(root: HTMLElement, kind: string, title: string | null, body: st
       'p',
       'lede',
       "A living C. elegans in the browser, under construction. The worm's full connectome runs on your GPU and " +
-        'drives a physically simulated body; its neurons will glow as they activate.',
+        'drives a physically simulated body, and its neurons glow with their simulated activity.',
     ),
   );
   const status = el('section', 'status');
@@ -91,7 +92,7 @@ async function start(root: HTMLElement): Promise<void> {
   if (failed) throw new Error('the GPU was lost while loading');
   // The plate and the graph side by side, or one alone (?view=plate, ?view=graph).
   const { layout, ...start } = readPlateParams(location.search);
-  const { noRender } = readParams(location.search);
+  const { noRender, colour } = readParams(location.search);
   const pane = (kind: string, label: string): HTMLElement => {
     const section = el('section', `pane pane-${kind}`);
     section.setAttribute('aria-label', label);
@@ -118,11 +119,36 @@ async function start(root: HTMLElement): Promise<void> {
     history.replaceState(history.state, '', experimentUrl(location.href, experiment.get()));
   writeExperiment();
   experiment.subscribe(writeExperiment);
+  // The running worm's glow, which the plate reads and the graph draws.
+  const activity = new Activity(data.neurons.length);
+  // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
+  // started once the graph is up. On class colours, as the visual tests' views of the graph are, it waits until the
+  // viewer asks for the glow.
+  let unseen: Promise<void> | null = null;
+  const runUnseen = (): Promise<void> => {
+    unseen ??= (async () => {
+      const hidden = pane('plate', 'The worm on its dish');
+      hidden.hidden = true;
+      hidden.inert = true;
+      root.append(hidden);
+      plate = await guard(startPlate(hidden, device, data, { layout, ...start }, true, experiment, activity));
+    })();
+    return unseen;
+  };
   try {
     if (platePane) {
-      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment));
+      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity));
     }
-    if (graphPane) graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment));
+    if (graphPane) {
+      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity));
+    }
+    if (layout === 'graph' && colour === 'activity') await runUnseen();
+    else if (layout === 'graph') {
+      activity.request = () => {
+        activity.request = null;
+        runUnseen().catch((err: unknown) => fail('The worm could not be started', reason(err)));
+      };
+    }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
   } catch (err) {
     fail('Wormlight could not start', reason(err));

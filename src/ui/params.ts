@@ -1,6 +1,7 @@
 // The graph's view as URL parameters, so a view can be linked and the visual tests can pin one:
 // ?neuron=AVAL selects a neuron; yaw, pitch (degrees) and dist place the camera, and tx, ty, tz its target.
-// ?norender=1 draws nothing to the screen, leaving the GPU to snapshots (the visual tests on CI).
+// ?norender=1 draws nothing to the screen, leaving the GPU to snapshots (the visual tests on CI). ?colour=class
+// colours the graph's neurons by their class to start with, not by their glow.
 
 import { FIRST_LAWN, inDish, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 import { PITCH_LIMIT, type Vec3 } from '../render/camera.ts';
@@ -12,6 +13,7 @@ export interface ViewParams {
   distance: number | null;
   target: Partial<Record<0 | 1 | 2, number>>;
   noRender: boolean;
+  colour: 'activity' | 'class';
 }
 
 export function readParams(search: string): ViewParams {
@@ -41,6 +43,7 @@ export function readParams(search: string): ViewParams {
     distance: distance !== null && distance > 0 ? distance : null,
     target,
     noRender: p.get('norender') === '1',
+    colour: p.get('colour') === 'class' ? 'class' : 'activity',
   };
 }
 

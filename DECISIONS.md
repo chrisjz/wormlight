@@ -2794,3 +2794,52 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
 **Checked.** In headless Chrome at 375 × 667, 390 × 844, 844 × 390, 768 × 1024, 1024 × 768, 1280 × 800 and 1440 × 900, in the split, the plate alone and the graph alone: the header and the controls clear each other at every size, by 53 px at the least, on the tablet held upright. The panel opens and closes by keyboard and by touch, and an action in it closes it. The speed menu and the speed buttons stay in step, and no page reports an error. The credits take one line on a phone and on a phone on its side, three when opened, and three on a desktop, where they aren't folded. The visual tests capture the canvases alone, so their baselines stand.
 
 **Status.** Built.
+
+## 2026-09-30 — The glow: GCaMP6s kinetics on the model's activation (set before its build; revised after review)
+
+**Why.** Milestone 6 opens with the glow (spec §7): "render neuron activity as a calcium-imaging-style glow … Filter model activity through published GCaMP kinetics (e.g. Chen et al. 2013). Label it as simulated, never as imaging data, and document how it is normalised." The maintainer set the order of milestone 6's pull requests: the glow; then "About the science"; then the rest of the URL state, the data and model versions and the note that trajectories differ across GPUs; then performance and the Safari check; then the docs and a complete `VALIDATION.md`. The maintainer also chose the glow's source, its scale and what the graph alone does, before any of it was built.
+
+**Decision.** The rules are in PLAN §1 ("The glow"). In short:
+
+- **The source is each neuron's activation φ(V − V_th),** the model's own measure of how active a neuron is, as calcium in graded neurons tracks depolarisation. Considered: the synaptic activation s, which the synapses have already smoothed, so the filter would smooth it twice; and the voltage above rest, unbounded, so the SMDs at ±210 mV would set the scale.
+- **The filter is GCaMP6s's,** an indicator widely used in whole-brain _C. elegans_ imaging: Nguyen et al. 2016 (PNAS, doi 10.1073/pnas.1507110112), Venkatachalam et al. 2016 (PNAS, doi 10.1073/pnas.1507109113), Hallinen et al. 2021 (eLife, doi 10.7554/eLife.66135), Yemini et al. 2021 (Cell, doi 10.1016/j.cell.2020.12.012) and Randi et al. 2023 (Nature, doi 10.1038/s41586-023-06683-4); a research pass checked each paper's variant and DOI, the DOIs against Crossref. Corrected after review, which found no count behind "mostly": others use GCaMP5K (Schrödel et al. 2013), 6f (Kaplan et al. 2020) or 7f (Atanas et al. 2023), and the five above come from three labs.
+  - Chen et al. 2013's Supplementary Table 3 gives GCaMP6s, after one action potential in mouse V1 in vivo, a rise to peak of 179 ± 23 ms and a half-decay of 550 ± 52 ms (read from the PMC author manuscript's supplement, and confirmed by a review; the error bars are s.e.m.).
+  - Two first-order stages in series reproduce both with time constants of 70.6 and 686.0 ms, derived here, taking the half-decay from the peak; the text read doesn't say where it is measured from. Measured from the action potential, they would be 98 and 380 ms; a review read Chen et al.'s Fig. 3d, whose mean trace stays near half its peak about 0.8 s after it, as favouring the peak, by eye. A single stage with the half-decay alone, 793 ms, would have no rise.
+  - The kinetics are the cytosolic indicator's in mammalian neurons with action potentials, in mice warmed to 37 °C (corrected after review: the cortex's own temperature isn't reported). Hallinen et al. 2021 and Randi et al. 2023 image a nuclear-localised GCaMP6s, where Chen et al. measured the cytosolic indicator.
+  - Corrected after review, which found the first wording too broad: single-cell biophysical models of worm neurons compute calcium from their channels, as Nicoletti et al. 2019 do for AWCon and RMD (PLOS ONE, doi 10.1371/journal.pone.0218738), but no published mapping takes the voltages of a graded network model like this one to a worm neuron's calcium. Randi et al. 2023 fitted ΔF/F linearly to a Kunert-style model's peak ΔV, with no kinetics. Worm neurons' GCaMP6s signals decay over seconds, in ALM at 8.4 ± 5.0 s (Ding et al. 2023, now registered), which is the cell's calcium as well as the indicator. The ledger says so, and the app labels the glow as simulated.
+- **One fixed scale:** every neuron on the same scale, brightness as the square of the filtered activation, so quiet neurons look quiet and brightness compares across neurons and over time. Considered: each neuron scaled to its own recent range, as imaging displays often are (Nguyen et al. 2016 normalised the ratio of GCaMP6s to RFP by its lower 20th percentile, corrected after review from "F0"; Yemini et al. 2021 took F0 as the 5th percentile), which makes small wobbles look as large as real activity.
+- **The graph alone runs the worm unseen,** so it glows as it does beside the plate. Considered: no glow there.
+- **Presentation, not model.** The glow reads the model and feeds nothing back, so its constants are display choices outside the parameter budget (§6.2), recorded with their source in the ledger's presentation notes.
+- **The visual tests** keep their graph views on class colours, and gain one of the glow from a paused worm at a fixed seed and time.
+
+**Built.**
+
+- **What the build settled that the rules left open.**
+  - The glow's value is kept in f64: in f32 each stage stalled about 10⁻⁶ short of a steady input, where its change per frame fell below the value's rounding.
+  - A lesioned neuron, which keeps running cut off from the network, has no halo, its synapses aren't lit, and the inspector gives its activity as "none, lesioned".
+  - The inspector gives the selected neuron's activity as a share of full activation, marked as simulated (spec §6: "current activity").
+  - The glow's halo is a soft disc of GCaMP green added in a pass of its own, reaching 3.2 of the neuron's radii from its centre (corrected after review from "three radii across"); a neuron's brightness runs from 6% of the green at no activity to all of it.
+  - The plate's readiness waits for the glow's first reading, so a paused worm's glow shows, and the graph takes up a reading published before it started.
+  - `?colour=class` starts the graph on class colours; with the graph alone it also leaves the worm unrun, as the visual tests' class views need.
+- **Checked.**
+  - The filter peaks 179 ms after a brief pulse and falls to half 550 ms later, and holds a steady activation as itself.
+  - In headless Chrome on an M5 Max, the split view and the graph alone glow, a selected neuron's activity reads in the inspector, and a phone's layout keeps its room; no page reports an error. The plate holds 60 frames a second at 1× and at 10×, the worm keeping pace, as before the glow; headless Chrome paces its own frames, so that says the page keeps up, not what a display shows.
+  - The visual tests' graph views stay on class colours, so their baselines stand; the glow's view took its baseline from CI's first run, at 3ac6933.
+
+**Review: decisions, settled by the maintainer before the fixes.** Three reviews found the kinetics, the derivation, the sigmoid, the readback and the halo's pipeline sound, and every DOI right. They found:
+
+- **Three design points,** settled as recommended:
+  - **The glow at high speeds.** The glow is read once a frame, and each reading was held over the frame, the second stage advanced from the first's new value: at 10× a reading spans about one GCaMP rise, and a step's response erred by up to 0.22 of full scale. Now the filter holds the mean of two readings and advances both stages exactly for it: at most 0.09 at 10× and 0.01 at 1×, measured against the exact response to a step landing anywhere within a frame, and tested at a true 10× frame. The limit is stated in PLAN §1. Considered: filtering at every step on the GPU, exact at any speed but a change to the brain's kernel and its parity checks for a display.
+  - **Neurons findable while glowing.** At rest a neuron's brightest pixel stood at 1.96:1 against the background, and about 230 of 302 sit at or below rest, so the connectome's shape and the neurons a viewer clicks faded out. Every neuron now has a faint neutral rim while the graph glows, its fill still on the one fixed scale. Considered: raising the glow's floor, which compresses the scale.
+  - **The glow asked for with no worm running.** With the graph alone on class colours no worm ran, and choosing Activity did nothing; now it starts the worm unseen. Considered: disabling the choice.
+- **Fixed as recommended:**
+  - a lesioned neuron's hollow outline, drawn at the glow's floor, measured 1.03:1 against the background; it is drawn in the rim's grey;
+  - the inspector showed no activity for a neuron selected by the URL, since it was rebuilt before its activity was set; and it rewrote the activity sixty times a second, now only when the words change;
+  - the plate's readiness waited for ever if the first reading failed; with the graph alone, a change that couldn't be made was undone silently, and the graph waited for the unseen worm before it drew;
+  - the claims above, and Ding et al. 2023 registered for the ledger's note;
+  - the loading page's "will glow", the halo's size, "±200 mV", the order of milestone 6's pull requests, the ledger's visuals subsystem and FIDELITY.md's status line;
+  - tests: the rise against the two stages' exact response, the error at a true 10× frame, the activation against the model's rest, the scale's brightness and halo, the activity channel, and the glow's green agreeing wherever it is written;
+  - the Colour-by control a fieldset with visible focus, "simulated" kept on the folded key, the legend's ramp following the brightness, and the graph's description naming its colours; halos with no glow culled before any fragment, and the graph's buffers grown by half again.
+- **Found and left.** With the plate alone, the glow is still read each frame though nothing draws it; the cost is a copy of 11 KB a frame.
+
+**Status.** Built and revised after review.

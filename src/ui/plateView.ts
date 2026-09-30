@@ -15,6 +15,8 @@
 // - The controls: a bar with play, the speed, the time and, on a narrow pane, More; the rest in labelled groups,
 //   inline on a wide pane and in a panel behind More on a narrow one, which Escape, a tap elsewhere or any of its
 //   actions closes. On a narrow or short pane the notice keeps to its first sentence and its link.
+// - The glow (PLAN §1): each frame the neurons' voltages are read back from the GPU, and their activations advance
+//   the glow the views share, which the graph draws.
 // - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
 //   graph's inspector lesions neurons. Either change takes effect live: the worm and every neuron's state carry
 //   over into a world with the new wiring (World.carry), which the GPU then runs. "Restore all" undoes every
@@ -22,10 +24,11 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { MAX_STEPS_PER_DISPATCH } from '../gpu/brain.ts';
-import { ROD_CONSTANTS, ROD_WORDS } from '../gpu/brainShader.ts';
+import { ROD_CONSTANTS, ROD_WORDS, STATE_WORDS } from '../gpu/brainShader.ts';
 import { GpuField } from '../gpu/field.ts';
 import { packOdour } from '../gpu/loopLayout.ts';
 import { GpuWorld } from '../gpu/world.ts';
+import { activations } from '../render/glow.ts';
 import { PlateRenderer, type PlateFrame } from '../render/plate.ts';
 import {
   halfExtent,
@@ -54,6 +57,7 @@ import {
   type Experiment,
   type ExperimentStore,
 } from './experiment.ts';
+import type { Activity } from './activity.ts';
 import { Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
@@ -112,7 +116,8 @@ const clock = (seconds: number): string => {
 };
 
 export interface PlateHandle {
-  // Resolves once the first frame has been drawn, or, with ?norender=1, once the plate is ready to snapshot.
+  // Resolves once the first frame has been drawn, or, with ?norender=1, once the plate is ready to snapshot, and
+  // once the glow has its first reading.
   ready: Promise<void>;
   snapshot(): Promise<ImageData>;
   // Frames a second, and simulated seconds a wall second, over the last second.
@@ -130,6 +135,7 @@ export async function startPlate(
   params: PlateParams,
   noRender: boolean,
   experiment: ExperimentStore,
+  activity: Activity,
 ): Promise<PlateHandle> {
   const canvas = el('canvas');
   canvas.id = 'plate';
@@ -408,8 +414,9 @@ export async function startPlate(
     showSeed();
     say(`Restarted with seed ${seed}.`);
     dirty = true;
-    // Paused, no step reads the body back, and a tap needs it.
+    // Paused, no step reads the body back, and a tap needs it; nor the neurons, which the glow starts again from.
     readBody();
+    readActivity();
   };
   // Changes to the worm are made one at a time, in order: a restart waits for a change of brain under way, which
   // would otherwise carry the old worm over it. Once the plate stops, none is made.
@@ -1064,6 +1071,63 @@ export async function startPlate(
     );
   };
 
+  // The neurons' voltages, read back a frame or two behind like the body, for the glow (PLAN §1). Each reading's
+  // activations, taken with the thresholds of the world it came from, advance the glow by the worm's time since the
+  // reading before; a reading from another run, after a restart, starts it again, and one older than the last is
+  // dropped. The first reading to come back, used or not, or failed, resolves `glowing`, so the plate's readiness
+  // can't wait on it for ever.
+  const neurons = data.neurons.length;
+  const stateBytes = 4 * STATE_WORDS * neurons;
+  const stateStaging = Array.from({ length: STAGING }, () => ({
+    buffer: device.createBuffer({ size: stateBytes, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ }),
+    busy: false,
+  }));
+  const voltages = new Float64Array(neurons);
+  const activation = new Float32Array(neurons);
+  let glowAt: { run: number; steps: number } | null = null;
+  let glowed: (() => void) | null = null;
+  const glowing = new Promise<void>((resolve) => {
+    glowed = resolve;
+  });
+  const readActivity = (): void => {
+    const slot = stateStaging.find((s) => !s.busy);
+    if (!slot) return;
+    slot.busy = true;
+    const at = steps;
+    const from = run;
+    const source = world;
+    const encoder = device.createCommandEncoder();
+    encoder.copyBufferToBuffer(gpu.brain.stateBuffer, 0, slot.buffer, 0, stateBytes);
+    device.queue.submit([encoder.finish()]);
+    slot.buffer.mapAsync(GPUMapMode.READ).then(
+      () => {
+        if (stopped) return;
+        const words = new Float32Array(slot.buffer.getMappedRange());
+        for (let i = 0; i < neurons; i++) voltages[i] = words[STATE_WORDS * i];
+        slot.buffer.unmap();
+        slot.busy = false;
+        try {
+          const stale = glowAt !== null && glowAt.run === from && at <= glowAt.steps;
+          if (from === run && !stale && voltages.every(Number.isFinite)) {
+            activations(voltages, source.brain.threshold, source.brain.network.slope, activation);
+            if (glowAt === null || glowAt.run !== from) activity.glow.reset(activation);
+            else activity.glow.update(activation, (at - glowAt.steps) * NEURAL_STEP);
+            glowAt = { run: from, steps: at };
+            activity.publish();
+          }
+        } finally {
+          glowed?.();
+          glowed = null;
+        }
+      },
+      () => {
+        slot.busy = false;
+        glowed?.();
+        glowed = null;
+      },
+    );
+  };
+
   // The inset: the dish, the worm's path and where it is, and the field of view.
   const drawInset = (): void => {
     const s = (v: number): number => v / DISH;
@@ -1113,6 +1177,7 @@ export async function startPlate(
   ].filter((note) => note !== null);
   if (notes.length > 0) say(notes.join(' '));
   readBody();
+  readActivity();
 
   let first: (() => void) | null = null;
   const ready = new Promise<void>((resolve) => {
@@ -1132,7 +1197,10 @@ export async function startPlate(
       advance(n);
       dirty = true;
     }
-    if (n > 0 || first) readBody();
+    if (n > 0 || first) {
+      readBody();
+      readActivity();
+    }
     rates.record(now, n * NEURAL_STEP);
     if (following) {
       // The lag is in worm time, so a fast-forwarded worm doesn't leave the view.
@@ -1168,7 +1236,8 @@ export async function startPlate(
   requestAnimationFrame(tick);
 
   return {
-    ready,
+    // The first frame drawn and the glow's first reading published, so a view that shows it has something to show.
+    ready: Promise.all([ready, glowing]).then(() => undefined),
     snapshot: () => renderer.snapshot(frame(), stepped.current),
     rates: () => rates.get(),
     drain: async () => {
@@ -1183,7 +1252,7 @@ export async function startPlate(
       document.removeEventListener('pointerdown', pressElsewhere);
       observer.disconnect();
       renderer.destroy();
-      for (const s of staging) s.buffer.destroy();
+      for (const s of [...staging, ...stateStaging]) s.buffer.destroy();
       gpu.destroy();
       stepped.destroy();
     },

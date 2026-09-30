@@ -11,7 +11,14 @@ describe('readParams', () => {
       distance: null,
       target: {},
       noRender: false,
+      colour: 'activity',
     });
+  });
+
+  it('starts the graph on class colours only when asked', () => {
+    expect(readParams('?colour=class').colour).toBe('class');
+    expect(readParams('?colour=activity').colour).toBe('activity');
+    expect(readParams('?colour=CLASS').colour).toBe('activity');
   });
 
   it('reads a neuron, the camera in degrees, its target and norender', () => {
