@@ -2,9 +2,10 @@ import './style.css';
 import { validateWormlightData, type WormlightData } from './data/schema';
 import { describeGpuSupport, probeWebGpu } from './gpu/support';
 import { startGraph, type GraphHandle } from './ui/graphView';
+import { About } from './ui/about';
 import { Activity } from './ui/activity';
 import { experimentUrl, ExperimentStore, readExperiment } from './ui/experiment';
-import { readParams, readPlateParams } from './ui/params';
+import { aboutAsked, readParams, readPlateParams } from './ui/params';
 import { startPlate, type PlateHandle } from './ui/plateView';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text?: string): HTMLElementTagNameMap[K] {
@@ -51,6 +52,7 @@ async function start(root: HTMLElement): Promise<void> {
   const { device } = support;
   let graph: GraphHandle | null = null;
   let plate: PlateHandle | null = null;
+  let about: About | null = null;
   let failed = false;
   // Rejects when anything fails, so no wait outlasts a failure.
   let reject: (err: Error) => void = () => undefined;
@@ -63,6 +65,7 @@ async function start(root: HTMLElement): Promise<void> {
     failed = true;
     graph?.stop();
     plate?.stop();
+    about?.remove();
     message(root, 'failed', title, body);
     reject(new Error(title));
   };
@@ -119,8 +122,10 @@ async function start(root: HTMLElement): Promise<void> {
     history.replaceState(history.state, '', experimentUrl(location.href, experiment.get()));
   writeExperiment();
   experiment.subscribe(writeExperiment);
-  // The running worm's glow, which the plate reads and the graph draws.
+  // The running worm's glow, which the plate reads and the graph draws; and About the science, which each view's
+  // header opens.
   const activity = new Activity(data.neurons.length);
+  about = new About(data);
   // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
   // started once the graph is up. On class colours, as the visual tests' views of the graph are, it waits until the
   // viewer asks for the glow.
@@ -137,10 +142,12 @@ async function start(root: HTMLElement): Promise<void> {
   };
   try {
     if (platePane) {
-      plate = await guard(startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity));
+      plate = await guard(
+        startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity, about),
+      );
     }
     if (graphPane) {
-      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity));
+      graph = await guard(startGraph(graphPane, device, data, layout === 'graph', experiment, activity, about));
     }
     if (layout === 'graph' && colour === 'activity') await runUnseen();
     else if (layout === 'graph') {
@@ -150,6 +157,8 @@ async function start(root: HTMLElement): Promise<void> {
       };
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
+    // A link may open About the science over the views.
+    if (aboutAsked(location.search)) about.open();
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;

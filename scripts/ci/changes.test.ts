@@ -46,13 +46,15 @@ describe('tracing a job’s code', () => {
     expect(code.gpu.has('scripts/browser.ts')).toBe(true);
     expect(code.visual.has('scripts/visual/views.ts')).toBe(true);
     expect(code.data.has('src/validation/posture.ts')).toBe(true);
-    // No page or job script imports the trials, the ledger or the unit tests.
+    // No page or job script imports the trials or the unit tests. The ledger reaches the app, whose About the
+    // science shows it, and so the jobs that build and capture it, but not the data build or GPU parity.
     for (const job of JOBS) {
-      const stray = [...code[job]].filter(
-        (f) => f.startsWith('src/validation/trial') || f === 'src/science/fidelity.ts' || f.endsWith('.test.ts'),
-      );
+      const stray = [...code[job]].filter((f) => f.startsWith('src/validation/trial') || f.endsWith('.test.ts'));
       expect(stray, job).toEqual([]);
     }
+    expect(code.site.has('src/science/fidelity.ts')).toBe(true);
+    expect(code.data.has('src/science/fidelity.ts')).toBe(false);
+    expect(code.gpu.has('src/science/fidelity.ts')).toBe(false);
   });
 });
 
@@ -75,14 +77,13 @@ describe("CI's jobs", () => {
     }
   });
 
-  it('run checks alone for the docs, the ledger, the trials and the unit tests', () => {
+  it('run checks alone for the docs, the ledger page, the trials and the unit tests', () => {
     expect(
       jobsFor(
         [
           'PLAN.md',
           'DECISIONS.md',
           'FIDELITY.md',
-          'src/science/fidelity.ts',
           'scripts/docs/page.ts',
           'src/validation/trial.ts',
           'scripts/harness/run.ts',
@@ -97,6 +98,11 @@ describe("CI's jobs", () => {
       ),
     ).toEqual(only());
     expect(jobsFor([], code)).toEqual(only());
+  });
+
+  it("run the site and the visual tests for the ledger, which the app's About the science shows", () => {
+    expect(jobsFor(['src/science/fidelity.ts'], code)).toEqual(only('site', 'visual'));
+    expect(jobsFor(['src/science/ledger.ts'], code)).toEqual(only('site', 'visual'));
   });
 
   it('run each job for its own code, and every job for the workflow, these rules or the dependencies', () => {

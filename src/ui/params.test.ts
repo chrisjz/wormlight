@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { PITCH_LIMIT } from '../render/camera';
-import { applyTarget, plateUrl, readFood, readParams, readPlateParams, snapLawn, writeFood } from './params';
+import {
+  aboutAsked,
+  aboutUrl,
+  applyTarget,
+  plateUrl,
+  readFood,
+  readParams,
+  readPlateParams,
+  snapLawn,
+  writeFood,
+} from './params';
 
 describe('readParams', () => {
   it('reads nothing from an empty query', () => {
@@ -172,5 +182,16 @@ describe('lawns placed and linked', () => {
   it('say when a link held food that could not be read', () => {
     expect(readPlateParams('?food=60,0')).toMatchObject({ food: null, foodIgnored: true });
     expect(readPlateParams('?food=45.04,0')).toMatchObject({ food: [[0.045, 0]], foodIgnored: false });
+  });
+});
+
+describe("About the science's URL", () => {
+  it('opens from ?about=science, and writes and clears it, keeping the rest', () => {
+    expect(aboutAsked('?seed=4&about=science')).toBe(true);
+    expect(aboutAsked('?about=1')).toBe(false);
+    const open = aboutUrl('https://example.org/app/?seed=4', true);
+    expect(new URL(open).searchParams.get('about')).toBe('science');
+    expect(new URL(open).searchParams.get('seed')).toBe('4');
+    expect(new URL(aboutUrl(open, false)).search).toBe('?seed=4');
   });
 });

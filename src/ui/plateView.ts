@@ -15,6 +15,7 @@
 // - The controls: a bar with play, the speed, the time and, on a narrow pane, More; the rest in labelled groups,
 //   inline on a wide pane and in a panel behind More on a narrow one, which Escape, a tap elsewhere or any of its
 //   actions closes. On a narrow or short pane the notice keeps to its first sentence and its link.
+// - About the science (spec §1.3) opens from the header, over the views.
 // - The glow (PLAN §1): each frame the neurons' voltages are read back from the GPU, and their activations advance
 //   the glow the views share, which the graph draws.
 // - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
@@ -57,6 +58,7 @@ import {
   type Experiment,
   type ExperimentStore,
 } from './experiment.ts';
+import type { About } from './about.ts';
 import type { Activity } from './activity.ts';
 import { Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
@@ -136,6 +138,7 @@ export async function startPlate(
   noRender: boolean,
   experiment: ExperimentStore,
   activity: Activity,
+  about: About | null = null,
 ): Promise<PlateHandle> {
   const canvas = el('canvas');
   canvas.id = 'plate';
@@ -218,6 +221,7 @@ export async function startPlate(
     why,
   );
   header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
+  if (about) header.append(about.button());
 
   const controls = el('div', 'plate-controls');
   controls.setAttribute('role', 'group');

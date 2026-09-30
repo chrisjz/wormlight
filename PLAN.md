@@ -337,7 +337,7 @@ The fidelity ledger (spec §1.3) lives in code, so the app, the docs and the tes
 - `src/science/fidelity.ts` lists every component (level or tag, basis, caveats, upgrade path, sources, and the checkpoints that test it). It also lists every subsystem (summary, what's solid, what isn't, upgrade path). A subsystem's level is never set by hand: it is shown as the range of its components' levels.
 - The runtime data carries per-element provenance: each connection's sign source, each neuron's position source.
 
-`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge.
+`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge. **Built (2026-09-30, DECISIONS.md):** a dialog over the views, opened from each view's header or by `?about=science`, with the ledger as FIDELITY.md has it, its details folded, under one status text that heads both.
 
 ### 6.2 The free-parameter budget
 
@@ -619,7 +619,7 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 5's outcome (2026-09-30): done.** Lesions and the brain swap run live in the app, on the GPU, which matches the CPU reference on a lesioned contrast brain by parity, in Chrome on the Mac's GPU and on CI's software GPU (DECISIONS.md). The graph's inspector ablates and restores any neuron; the plate's Brain control swaps the real wiring for any of the primary null's ten rewirings (§3.5), on the refit's values untuned. The worm and its neurons' state carry over each change, and the URL carries the experiment. Checkpoints 5 and 6 are not reached: they need forward crawling, and R ended below partial (2026-09-30, DECISIONS.md).
 
-**Milestone 6 (under way).** Its parts come in the order the maintainer set (2026-09-30, DECISIONS.md): the glow, built (§1); "About the science"; the rest of the URL state; performance and the Safari check; then the docs and a complete `VALIDATION.md`.
+**Milestone 6 (under way).** Its parts come in the order the maintainer set (2026-09-30, DECISIONS.md): the glow, built (§1); "About the science", built (§6.1); the rest of the URL state; performance and the Safari check; then the docs and a complete `VALIDATION.md`.
 
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 

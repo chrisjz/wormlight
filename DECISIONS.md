@@ -2843,3 +2843,29 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
 - **Found and left.** With the plate alone, the glow is still read each frame though nothing draws it; the cost is a copy of 11 KB a frame.
 
 **Status.** Built and revised after review.
+
+## 2026-09-30 — About the science: the ledger in the app (set before its build)
+
+**Why.** Spec §1.3: "Surface the same registry in the app. An 'About the science' view shows each subsystem's level". It is milestone 6's second pull request (the entry on the glow). The maintainer chose its form and content before it was built.
+
+**Decision.**
+
+- **A dialog over the views.** An "About the science" link in the plate's header, or in the graph's when it is alone, opens a native modal dialog over the running worm, full screen on a phone. Escape, Close or a press on the backdrop closes it, and the keyboard's place goes back to the link. `?about=science` opens it from a link, and the URL carries it while it is open. Considered: a page of its own, `?view=about`, replacing the views.
+- **The whole ledger, folded.** From the same registry and the same helpers as FIDELITY.md (`src/science/ledger.ts`, moved out of the page's builder so both use them):
+  - the scale, each level with its meaning and example;
+  - every subsystem with its levels, what's solid, what isn't and what would raise it, and its components folded beneath it, each with its basis, caveats, upgrade, checks and linked sources;
+  - the biology left out and the presentation's choices;
+  - the free-parameter count against the budget, with the parameters folded by group;
+  - the works the ledger cites, with their DOIs, and links to FIDELITY.md, VALIDATION.md, DECISIONS.md and PLAN.md.
+
+  Considered: the subsystems alone, with a link to FIDELITY.md for the rest.
+
+- **One status, shared.** The status that heads FIDELITY.md heads the view too, from one function in the registry, so the two can't drift. It was rewritten to read as a summary where the old one was a log of track R's rounds: what the model and the app do, that crawling as checkpoint 1 asks for it does not emerge, that R's three rounds found no model both crawling as checkpoint 1 asks and giving the same result at half the time step, so checkpoints 2 to 6 are not reached, that the negative result is the headline, and where checkpoints 0 and 1 stand. FIDELITY.md keeps two sentences of its own after it, on its "Tested by" column and its figures. Considered: no status, a link to VALIDATION.md only.
+
+**Built.**
+
+- The view renders the registry's text with its three marks, **strong**, _emphasis_ and `code`, as elements; a level range such as 5–4 shows as a badge like the inspector's.
+- The app now imports the ledger, so CI builds the site and runs the visual tests when it changes; its tests of which jobs run say so, where they had held that no page imports it.
+- **Checked.** In headless Chrome at 1440 × 900 and 390 × 844, from the link and from `?about=science`, in the split view and with the graph alone: every subsystem, 11, and every component, 40, is shown; Escape closes it, clears the URL and gives the keyboard's place back; no page reports an error. FIDELITY.md opens with the shared status, which a test checks against the page, and `?about=science` is read and written by tested helpers. The visual tests capture the canvases alone, so their baselines stand.
+
+**Status.** Built.

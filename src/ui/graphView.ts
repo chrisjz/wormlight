@@ -35,6 +35,7 @@ import {
   type LinkKind,
 } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
+import type { About } from './about.ts';
 import type { Activity } from './activity.ts';
 import { linkKind, linkStyle, Wiring, type Connection } from './connections.ts';
 import { brainName, describeChange, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
@@ -227,6 +228,7 @@ export async function startGraph(
   title: boolean,
   experiment: ExperimentStore,
   activity: Activity,
+  about: About | null = null,
 ): Promise<GraphHandle> {
   const params = readParams(location.search);
   const canvas = el('canvas');
@@ -274,6 +276,8 @@ export async function startGraph(
   brand.append(
     title ? el('h1', 'brand-title', 'Wormlight') : el('h2', 'sr-only', 'The connectome'),
     lede(),
+    // Alone on the page, the graph carries the way to About the science; beside the plate, the plate does.
+    ...(title && about ? [about.button()] : []),
     brainNote,
     lesionNote,
     find,

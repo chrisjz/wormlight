@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { countFacts } from '../../src/science/facts.ts';
 import { ROOT } from '../data/sources.ts';
-import { PARAMS, type Param } from '../../src/science/params.ts';
+import { freeParams, PARAMS, type Param } from '../../src/science/params.ts';
+import { statusText } from '../../src/science/ledger.ts';
 import { calibratedText, fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
 
 const facts = countFacts(
@@ -112,5 +113,18 @@ describe('calibrated values on the page', () => {
         { ...sigma, value: null },
       ]),
     ).toMatch(/^not yet calibrated/);
+  });
+});
+
+describe('the status', () => {
+  it("heads FIDELITY.md as the app's About the science has it, from one text", () => {
+    const values = calibratedText(
+      freeParams()
+        .filter((id) => PARAMS[id].level === 1)
+        .map((id): Param => PARAMS[id]),
+    );
+    expect(fidelityPage(facts)).toContain(`> ${statusText(values)}`);
+    expect(statusText(values)).toContain('**Crawling as checkpoint 1 asks for it does not emerge.**');
+    expect(statusText(values)).toContain(values);
   });
 });
