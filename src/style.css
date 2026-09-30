@@ -487,6 +487,19 @@ button.inspector-row:focus-visible .row-name {
   top: 1.25rem;
   left: 1.5rem;
   max-width: 26rem;
+  isolation: isolate;
+}
+
+/* A backing behind the heading and Find, fading at its edges, so they stay readable over the neurons the camera
+   flies to. */
+.brand::before {
+  content: '';
+  position: absolute;
+  inset: -1rem -1.5rem;
+  z-index: -1;
+  border-radius: 1.5rem;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  filter: blur(12px);
 }
 
 .brand-title {
