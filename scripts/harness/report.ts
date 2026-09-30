@@ -387,6 +387,8 @@ export interface SensitivityRow {
   label: string;
   checkpoint1: Checkpoint1;
   silenced: Crawling;
+  // The share of the silenced network's measured steps with the head switch's gate open, or null with none read.
+  silencedGate: number | null;
 }
 
 // The sensitivity runs' section: one row a setting, each reported and none graded.
@@ -396,11 +398,11 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
     return !c || c.value === null ? '–' : CLAUSES[name].show(c.value);
   };
   // The share of the measured time moving forward, and the mean forward velocity, over a setting's trials.
-  const forward = (row: SensitivityRow): string => {
-    const t = row.checkpoint1.trials;
+  const forwardShare = (t: readonly TrialSummary[]): string => {
     const all = t.reduce((n, x) => n + x.forward + x.paused + x.backward, 0);
     return all > 0 ? percent(t.reduce((n, x) => n + x.forward, 0) / all) : '–';
   };
+  const forward = (row: SensitivityRow): string => forwardShare(row.checkpoint1.trials);
   const velocity = (row: SensitivityRow): string => {
     const t = row.checkpoint1.trials;
     return t.length > 0 ? fixed(t.reduce((n, x) => n + x.meanVelocity, 0) / t.length, 3) : '–';
@@ -414,7 +416,7 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
       `Run on ${info.date} at \`${info.commit}\`: under each setting, checkpoint 1's ${count(info.trials, 'trial')} of ${info.seconds} s and the same trials of the silenced network, ${seeds(info.trials)}, on ${parameterText(info.calibrated, info.registry)}, none of them tuned again.`,
       `${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
     ].join(' '),
-    'Reported, not graded. Forward is the share of the measured time the worm moves forward, and the mean velocity is towards its head, both over all the trials; the kinematics come from forward bouts of 10 s or more, and a dash is a measure with none to take it from. The last two columns say how checkpoint 1 would grade the setting, and how many forward bouts of 10 s its silenced network made, where checkpoint 0 asks for none.',
+    "Reported, not graded. Forward is the share of the measured time the worm moves forward, and the mean velocity is towards its head, both over all the trials; the kinematics come from forward bouts of 10 s or more, and a dash is a measure with none to take it from. Then how checkpoint 1 would grade the setting. The last three columns are its silenced network's: the share of the time it moves forward, the share of the steps on which the head switch's gate is open, and its forward bouts of 10 s, where checkpoint 0 asks for none.",
     table(
       [
         'Setting',
@@ -426,6 +428,8 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
         'Eigenworms',
         '20 s bouts',
         'Checkpoint 1 would grade',
+        'Silenced: forward',
+        'Silenced: gate open',
         'Silenced: bouts of 10 s',
       ],
       rows.map((row) => [
@@ -438,6 +442,8 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
         value(row, 'eigenworms'),
         value(row, 'bout'),
         GRADE[row.checkpoint1.grade],
+        forwardShare(row.silenced.trials),
+        row.silencedGate === null ? '–' : percent(row.silencedGate),
         String(row.silenced.bouts),
       ]),
     ),

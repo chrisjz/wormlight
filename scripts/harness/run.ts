@@ -31,6 +31,7 @@ import {
   checkpoint0,
   checkpoint1,
   crawlingClause,
+  pacing,
   touchSchedule,
   TRIAL_SECONDS,
   TRIALS,
@@ -268,7 +269,12 @@ if (process.argv.includes('--worker')) {
           .filter((r) => r.job.checkpoint === checkpoint)
           .map((r) => r.record as TrialRecord)
           .sort((a, b) => a.seed - b.seed);
-      rows.push({ label: setting.label, checkpoint1: checkpoint1(of(1), basis), silenced: crawlingClause(of(0)) });
+      rows.push({
+        label: setting.label,
+        checkpoint1: checkpoint1(of(1), basis),
+        silenced: crawlingClause(of(0)),
+        silencedGate: pacing(of(0))?.open ?? null,
+      });
     }
   } finally {
     for (const worker of workers) worker.kill();

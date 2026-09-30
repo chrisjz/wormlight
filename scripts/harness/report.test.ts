@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
-import { checkpoint0, checkpoint1, touchSchedule } from '../../src/validation/checkpoints.ts';
+import {
+  checkpoint0,
+  checkpoint1,
+  touchSchedule,
+  type Checkpoint1,
+  type Clause,
+  type TrialSummary,
+} from '../../src/validation/checkpoints.ts';
 import { emptySums } from '../../src/validation/posture.ts';
 import { PARAMS, type Param } from '../../src/science/params.ts';
 import { CALIBRATED } from '../../src/sim/world.ts';
@@ -29,8 +36,11 @@ import {
   parameterText,
   replaceSection,
   scientific,
+  sensitivitySection,
   shares,
   type EquivalenceRun,
+  type RunInfo,
+  type SensitivityRow,
 } from './report.ts';
 import { parseArgs } from './run.ts';
 
@@ -596,5 +606,51 @@ describe('the harness report', () => {
     for (const r of runs) for (const name of r.lesions ?? []) expect(names.has(name), name).toBe(true);
     expect(runs[2].lesions?.every((n) => /^[DV]B\d+$/.test(n))).toBe(true);
     expect(runs[3].lesions?.every((n) => /^[DV]A\d+$/.test(n))).toBe(true);
+  });
+});
+
+describe("the sensitivity runs' section", () => {
+  const trial = (forward: number, unconverged = 0): TrialSummary => ({
+    seed: 1,
+    posture: 0,
+    finite: true,
+    measured: 110,
+    forward,
+    paused: 110 - forward,
+    backward: 0,
+    longestBout: 0,
+    reversals: 0,
+    meanVelocity: 0.02,
+    selfIntersecting: 0,
+    unconverged,
+  });
+  const clause = (name: string, value: number | null): Clause => ({ name, value, grade: 'fail', reason: null });
+  const row = (label: string, frequency: number | null, bouts: number, gate: number | null): SensitivityRow => ({
+    label,
+    checkpoint1: {
+      grade: 'fail',
+      clauses: [
+        clause('frequency', frequency),
+        clause('wavelength', frequency === null ? null : 0.71),
+        clause('speed', frequency === null ? null : 0.029),
+        clause('eigenworms', 0.984),
+        clause('bout', 0),
+      ],
+      trials: [trial(88)],
+    } as unknown as Checkpoint1,
+    silenced: { grade: bouts === 0 ? 'pass' : 'fail', bouts, trials: [trial(11)] },
+    silencedGate: gate,
+  });
+  const info: RunInfo = { date: '2026-09-30', commit: 'abc1234', calibrated: false, trials: 20, seconds: 120 };
+
+  it('gives a row a setting, a dash where a measure has no bout, and the silenced network beside it', () => {
+    const section = sensitivitySection([row('By the rule', 0.099, 0, 0), row('Random draw 5', null, 2, 1)], info);
+    expect(section).toContain('### Sensitivity: the uncertain signs, and the scales');
+    expect(section).toContain('Run on 2026-09-30 at `abc1234`');
+    expect(section).toContain(
+      '| By the rule | 80% | 0.020 | 0.099 | 0.71 | 0.029 | 98.4% | 0% | **Fail** | 10% | 0% | 0 |',
+    );
+    expect(section).toContain('| Random draw 5 | 80% | 0.020 | – | – | – | 98.4% | 0% | **Fail** | 10% | 100% | 2 |');
+    expect(section).toContain('Every trial stayed finite, and no brain solve failed to converge.');
   });
 });

@@ -339,6 +339,29 @@ Checkpoint 1's grade over these trials, reported and not compared: **Partial** a
 
 <!-- harness:sensitivity -->
 
+### Sensitivity: the uncertain signs, and the scales
+
+Run on 2026-09-30 at `7924197`: under each setting, checkpoint 1's 20 trials of 120 s and the same trials of the silenced network, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s, none of them tuned again. Every trial stayed finite, and no brain solve failed to converge.
+
+Reported, not graded. Forward is the share of the measured time the worm moves forward, and the mean velocity is towards its head, both over all the trials; the kinematics come from forward bouts of 10 s or more, and a dash is a measure with none to take it from. The last two columns say how checkpoint 1 would grade the setting, and how many forward bouts of 10 s its silenced network made, where checkpoint 0 asks for none.
+
+| Setting                                            | Forward | Mean velocity (body lengths/s) | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) | Eigenworms | 20 s bouts | Checkpoint 1 would grade | Silenced: bouts of 10 s |
+| -------------------------------------------------- | ------- | ------------------------------ | -------------- | ------------------------- | ---------------------- | ---------- | ---------- | ------------------------ | ----------------------- |
+| By the rule, as the model has them                 | 81%     | 0.022                          | 0.099          | 0.71                      | 0.029                  | 98.4%      | 0%         | **Fail**                 | 0                       |
+| All excitatory                                     | 79%     | 0.021                          | –              | –                         | –                      | 98.3%      | 0%         | **Fail**                 | 0                       |
+| All silent                                         | 32%     | 0.013                          | –              | –                         | –                      | 96.6%      | 0%         | **Fail**                 | 0                       |
+| Random draw 1                                      | 79%     | 0.021                          | –              | –                         | –                      | 98.4%      | 0%         | **Fail**                 | 0                       |
+| Random draw 2                                      | 77%     | 0.021                          | –              | –                         | –                      | 98.3%      | 0%         | **Fail**                 | 0                       |
+| Random draw 3                                      | 71%     | 0.018                          | –              | –                         | –                      | 97.8%      | 0%         | **Fail**                 | 0                       |
+| Random draw 4                                      | 76%     | 0.020                          | –              | –                         | –                      | 98.1%      | 0%         | **Fail**                 | 0                       |
+| Random draw 5                                      | 74%     | 0.017                          | –              | –                         | –                      | 98.1%      | 0%         | **Fail**                 | 2                       |
+| Random draw 6                                      | 70%     | 0.017                          | –              | –                         | –                      | 97.7%      | 0%         | **Fail**                 | 0                       |
+| Random draw 7                                      | 80%     | 0.021                          | 0.099          | 0.71                      | 0.028                  | 98.5%      | 0%         | **Fail**                 | 0                       |
+| Random draw 8                                      | 70%     | 0.019                          | –              | –                         | –                      | 97.5%      | 0%         | **Fail**                 | 0                       |
+| Random draw 9                                      | 74%     | 0.019                          | –              | –                         | –                      | 98.1%      | 0%         | **Fail**                 | 0                       |
+| Random draw 10                                     | 75%     | 0.021                          | –              | –                         | –                      | 98.0%      | 0%         | **Fail**                 | 1                       |
+| The model's signs, at the shared-connection scales | 79%     | 0.020                          | 0.087          | 0.77                      | 0.027                  | 98.6%      | 0%         | **Fail**                 | 0                       |
+
 <!-- /harness:sensitivity -->
 
 ## Checkpoints 2 to 6: not reached
