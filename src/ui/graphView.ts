@@ -134,11 +134,15 @@ function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement):
   return box;
 }
 
+// The credits. On a small pane they keep to the connectome's source and licence, with a button that shows the
+// rest in place; CC BY 4.0 lets attribution be given in any reasonable manner for the medium.
 function credit(): HTMLElement {
   const p = el('p', 'credit');
   const nematode = link('Quantum Nematode', 'https://github.com/SyntheticBrains/nematode');
   const notice = link('notices', `${import.meta.env.BASE_URL}data/NOTICE.md`);
-  p.append(
+  const full = el('span', 'credit-full');
+  full.id = 'credit-full';
+  full.append(
     'Connectome: ',
     cite('cook2019'),
     ', as released in ',
@@ -151,8 +155,21 @@ function credit(): HTMLElement {
     nematode,
     ' (',
     notice,
-    ').',
+    '). ',
   );
+  const short = el('span', 'credit-short');
+  short.append('Connectome: ', cite('cook2019'), ' (CC BY 4.0). ');
+  const toggle = el('button', 'credit-toggle', 'All credits');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', full.id);
+  toggle.addEventListener('click', () => {
+    const open = !p.classList.contains('credit-open');
+    p.classList.toggle('credit-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? 'Fewer' : 'All credits';
+  });
+  p.append(full, short, toggle);
   return p;
 }
 

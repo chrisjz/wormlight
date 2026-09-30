@@ -637,6 +637,49 @@ button.inspector-row:focus-visible .row-name {
   pointer-events: auto;
 }
 
+/* The credits' short form and its button, for a small pane. */
+.credit-short,
+.credit-toggle {
+  display: none;
+}
+
+.credit-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--faint);
+  text-underline-offset: 0.18em;
+  cursor: pointer;
+}
+
+.credit-toggle:hover {
+  text-decoration-color: currentColor;
+}
+
+.credit-toggle:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 1px;
+}
+
+/* A narrow or short graph pane keeps the credits to one line until asked for the rest. */
+@container graph (max-width: 34rem) or (max-height: 30rem) {
+  .credit-toggle {
+    display: inline;
+  }
+
+  .credit:not(.credit-open) .credit-full,
+  .credit-open .credit-short {
+    display: none;
+  }
+
+  .credit:not(.credit-open) .credit-short {
+    display: inline;
+  }
+}
+
 /* Touch devices get the touch hint, pointer devices the pointer one. */
 .hint-touch {
   display: none;
