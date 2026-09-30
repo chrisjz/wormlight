@@ -29,6 +29,7 @@
     "calibrate": "node scripts/calibrate/run.ts",
     "equivalence": "node scripts/harness/equivalence.ts",
     "plate:bench": "node scripts/plate/bench.ts",
+    "app:safari": "node scripts/app/safari.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",

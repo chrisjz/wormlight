@@ -57,12 +57,13 @@ export async function serve(args: string[], port: number): Promise<() => void> {
 
 // On CI, WebGPU is SwiftShader, the software Vulkan that ships with Chrome, reached through ANGLE's Vulkan
 // backend with Universe's flags; locally it is the machine's own GPU. Puppeteer's own time limit on a call
-// into the page is lifted, so each harness's withTimeout is the one that applies.
-export async function launchChrome(width: number, height: number): Promise<Browser> {
+// into the page is lifted, so each harness's withTimeout is the one that applies. Headless unless a visible window
+// is asked for, whose frames the display paces, as a viewer's are.
+export async function launchChrome(width: number, height: number, window = false): Promise<Browser> {
   return puppeteer.launch({
     protocolTimeout: 0,
     executablePath: process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    headless: true,
+    headless: !window,
     args: [
       '--enable-unsafe-webgpu',
       '--hide-scrollbars',

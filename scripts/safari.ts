@@ -104,6 +104,27 @@ export class Safari {
     return result.value as T;
   }
 
+  // Size the window, as its outer size.
+  async resize(width: number, height: number): Promise<void> {
+    await command(this.base, 'POST', '/window/rect', { width, height });
+  }
+
+  // Click an element as a viewer would, through WebDriver's own click, which the page takes as the viewer's: a
+  // script's click() is no user gesture, and Safari lets only a gesture write to the clipboard.
+  async click(selector: string): Promise<void> {
+    const found = (await command(this.base, 'POST', '/element', { using: 'css selector', value: selector })) as Record<
+      string,
+      string
+    >;
+    const id = Object.values(found)[0];
+    await command(this.base, 'POST', `/element/${id}/click`, {});
+  }
+
+  // The window's viewport as a PNG.
+  async screenshot(): Promise<Buffer> {
+    return Buffer.from((await command(this.base, 'GET', '/screenshot')) as string, 'base64');
+  }
+
   // Call a global the page defines, an async function of no arguments.
   call<T>(global: string): Promise<T> {
     return this.evaluate<T>(`return await globalThis[${JSON.stringify(global)}]();`);
