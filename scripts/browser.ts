@@ -10,8 +10,15 @@ import { ROOT } from './data/sources.ts';
 
 export const ci = process.env.WEBGPU_CI === '1';
 
-export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): Promise<T> =>
-  Promise.race([promise, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${what} timed out`)), ms))]);
+// A promise, or a rejection if it takes longer than `ms`. The timer is cleared either way, so a script that is done
+// isn't kept alive by it.
+export const withTimeout = <T>(promise: Promise<T>, ms: number, what: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} timed out`)), ms);
+  });
+  return Promise.race([promise, late]).finally(() => clearTimeout(timer));
+};
 
 // Run vite with these arguments (`preview` serves dist/, none the dev server) on a port, resolving once it
 // listens. vite runs detached, so killing its process group stops it for certain, and it is killed on any

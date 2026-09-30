@@ -1,12 +1,15 @@
 // Milestone 6's Safari check of the app itself (PLAN §8, DECISIONS.md 2026-09-30): the built app driven in Safari
 // through safaridriver (scripts/safari.ts), on this Mac's GPU, in a window of its own. Each scenario loads a link,
-// waits for the app to be ready, acts as a viewer would, and checks what should follow; every page must also run
-// without an error and its worm's time advance. A screenshot of each is saved for the maintainer to look over.
+// waits for the app to be ready, acts as a viewer would, and checks what should follow. Every page must also report
+// no error once it is ready (what it logs while it loads, the driver can't see; a start that fails is caught, as
+// the page never becoming ready), its GPU go on stepping the worm, and each view shown have drawn. A screenshot
+// of each is saved for the maintainer to look over, failed or not.
 //
 //   npm run build && npm run app:safari
 //
 // It needs Safari → Settings → Developer → "Allow remote automation" on, and its window left uncovered. It writes
-// harness-out/safari-app/<scenario>.png and prints a table of the scenarios.
+// harness-out/safari-app/<scenario>.png and prints a table of the scenarios. Copy link's scenario leaves its link on
+// the clipboard.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -15,7 +18,7 @@ import { ROOT } from '../data/sources.ts';
 import { Safari } from '../safari.ts';
 
 const PORT = Number(process.env.PREVIEW_PORT ?? 5224);
-const SAFARI_PORT = Number(process.env.SAFARI_PORT ?? 4445);
+const SAFARI_PORT = Number(process.env.SAFARI_DRIVER_PORT ?? 4445);
 const OUT = join(ROOT, 'harness-out', 'safari-app');
 const [WIDTH, HEIGHT] = [1440, 900];
 
@@ -38,33 +41,74 @@ const HELPERS = `
   };
   const param = (key) => new URL(location.href).searchParams.get(key);
   const said = () => [...document.querySelectorAll('[aria-live]')].map((e) => e.textContent).join(' ');
+  const shown = (s) => Boolean($(s)) && !$(s).hidden;
 `;
+
+// What every page must do besides its own check: the GPU goes on running the worm's steps, and each view shown has
+// drawn more than a flat colour, read back from its canvas as the visual tests read it.
+const COMMON = `
+  const problems = [];
+  const steps = async () => (await globalThis.__drain())?.steps ?? null;
+  const before = await steps();
+  if (before === null) problems.push('no worm runs');
+  else {
+    let ran = false;
+    for (const end = performance.now() + 5000; !ran && performance.now() < end; ) {
+      await new Promise((r) => setTimeout(r, 250));
+      ran = (await steps()) > before;
+    }
+    if (!ran) problems.push('the GPU ran no step in 5 s');
+  }
+  for (const which of ['plate', 'graph']) {
+    const pane = document.querySelector('.pane-' + which);
+    if (!pane || pane.hidden) continue;
+    const image = await createImageBitmap(await (await fetch(await globalThis.__snap(which))).blob());
+    const canvas = new OffscreenCanvas(image.width, image.height);
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, image.width, image.height);
+    let differing = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (Math.abs(data[i] - data[0]) + Math.abs(data[i + 1] - data[1]) + Math.abs(data[i + 2] - data[2]) > 24) differing++;
+    }
+    if (differing < 200) problems.push('the ' + which + ' drew only ' + differing + ' pixels off its background');
+  }
+  return problems;`;
 
 const SCENARIOS: Scenario[] = [
   {
     name: 'split',
     query: '?seed=4',
-    check: `return param('model') === '1' && /^[0-9a-f]{8}$/.test(param('data') ?? '') ? '' : 'versions not written';`,
+    check: `
+      if (!shown('.pane-plate') || !shown('.pane-graph')) return 'a pane is missing';
+      return param('model') === '1' && /^[0-9a-f]{8}$/.test(param('data') ?? '') ? '' : 'versions not written';`,
   },
-  { name: 'plate-alone', query: '?view=plate&seed=4', check: `return $('.pane-graph') ? 'a graph pane' : '';` },
+  {
+    name: 'plate-alone',
+    query: '?view=plate&seed=4',
+    check: `return shown('.pane-plate') && !$('.pane-graph') ? '' : 'not the plate alone';`,
+  },
   {
     name: 'graph-alone',
     query: '?view=graph&seed=4',
-    check: `return $('.pane-plate:not([hidden])') ? 'a plate shown' : '';`,
+    check: `return shown('.pane-graph') && !shown('.pane-plate') ? '' : 'not the graph alone';`,
   },
   {
     name: 'lesions-rewired',
     query: '?seed=4&lesions=AVAL+AVAR&brain=rewired-3',
     check: `
       if ($('#plate-brain-select').value !== '3') return 'the brain control shows ' + $('#plate-brain-select').value;
-      return /AVAL/.test($('.plate-experiment').textContent) ? '' : 'the lesions are not listed';`,
+      if (!/AVAL.*AVAR/.test($('.plate-experiment').textContent)) return 'the lesions are not both listed';
+      // A few seconds in, so the screenshot shows the rewired brain's glow.
+      await until(() => $('.plate-time').textContent >= '0:03', 6000);
+      return '';`,
   },
   {
     name: 'food',
     query: '?seed=4&food=10,0;-20,5',
     check: `
       const lawns = document.querySelectorAll('.plate-lawn').length;
-      return lawns === 2 && param('food') === '10,0;-20,5' ? '' : lawns + ' lawns, food ' + param('food');`,
+      return lawns === 2 ? '' : lawns + ' lawns, not the two the link places';`,
   },
   {
     name: 'about',
@@ -97,9 +141,9 @@ const SCENARIOS: Scenario[] = [
       const select = $('#plate-brain-select');
       select.value = '2';
       select.dispatchEvent(new Event('change', { bubbles: true }));
-      if (!(await until(() => param('brain') === 'rewired-2'))) return 'the URL did not follow the swap';
-      const before = $('.plate-time').textContent;
-      return (await until(() => $('.plate-time').textContent !== before)) ? '' : 'the worm stopped after the swap';`,
+      // Announced once the GPU runs the new wiring.
+      if (!(await until(() => /now runs on the contrast brain/.test(said())))) return 'no swap was announced';
+      return param('brain') === 'rewired-2' ? '' : 'the URL did not follow the swap';`,
   },
   {
     name: 'lesion-live',
@@ -112,7 +156,10 @@ const SCENARIOS: Scenario[] = [
       if (!(await until(() => $('.inspector-ablate')))) return 'the inspector did not open';
       if (!(await until(() => /%/.test($('.inspector-activity')?.textContent ?? '')))) return 'no activity shown';
       $('.inspector-ablate').click();
-      return (await until(() => param('lesions') === 'AVAL')) ? '' : 'the lesion did not reach the URL';`,
+      if (!(await until(() => param('lesions') === 'AVAL'))) return 'the lesion did not reach the URL';
+      return (await until(() => /none, lesioned/.test($('.inspector-activity')?.textContent ?? '')))
+        ? ''
+        : 'the inspector still shows activity';`,
   },
   {
     name: 'copy-link',
@@ -125,10 +172,13 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
+const firstLine = (e: unknown): string => (e instanceof Error ? e.message : String(e)).split('\n')[0];
+
 mkdirSync(OUT, { recursive: true });
 const stopServer = await serve(['preview'], PORT);
 let safari: Safari | null = null;
 let failed = 0;
+let crashed: unknown = null;
 try {
   safari = await Safari.launch(SAFARI_PORT);
   await safari.resize(WIDTH, HEIGHT);
@@ -144,17 +194,20 @@ try {
       if (s.click) await safari.click(s.click);
       const found = await safari.evaluate<string>(`${HELPERS}\n${s.check}`);
       if (found) problems.push(found);
-      // The worm's time advances, but where no plate is shown.
-      const time = await safari.evaluate<string>(`
-        const t = document.querySelector('.plate-time')?.textContent ?? null;
-        if (t === null) return 'none';
-        await new Promise((r) => setTimeout(r, 1500));
-        return document.querySelector('.plate-time').textContent !== t ? 'advances' : 'stuck at ' + t;`);
-      if (time !== 'advances' && time !== 'none') problems.push(`the worm's time is ${time}`);
+      problems.push(...(await safari.evaluate<string[]>(COMMON)));
       problems.push(...(await safari.errors()));
+    } catch (e) {
+      problems.push(firstLine(e));
+      // A page that couldn't start says why itself.
+      const status = await safari
+        .evaluate<string>(`return document.querySelector('.status-body')?.textContent ?? '';`)
+        .catch(() => '');
+      if (status) problems.push(`the page says: ${status}`);
+    }
+    try {
       writeFileSync(join(OUT, `${s.name}.png`), await safari.screenshot());
     } catch (e) {
-      problems.push(e instanceof Error ? e.message : String(e));
+      problems.push(`no screenshot: ${firstLine(e)}`);
     }
     if (problems.length > 0) failed++;
     rows.push(`| ${s.name} | \`${s.query}\` | ${problems.length === 0 ? 'passes' : problems.join('; ')} |`);
@@ -163,11 +216,16 @@ try {
   console.log('\n| Scenario | Link | Result |\n| --- | --- | --- |');
   for (const row of rows) console.log(row);
   console.log(`\nScreenshots in ${OUT}.`);
+} catch (e) {
+  crashed = e;
 } finally {
-  await safari?.close();
+  // A browser that won't close mustn't hide the run's result or leave the server up.
+  await safari?.close().catch((e: unknown) => console.error(e));
   stopServer();
 }
-if (failed > 0) {
-  console.error(`${failed} of ${SCENARIOS.length} scenarios failed.`);
+if (crashed) {
+  console.error(crashed);
   process.exit(1);
 }
+if (failed > 0) console.error(`${failed} of ${SCENARIOS.length} scenarios failed.`);
+process.exit(failed > 0 ? 1 : 0);

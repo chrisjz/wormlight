@@ -66,16 +66,23 @@ export class Safari {
   // Load a page, then wait until it defines a global, the sign its module has run.
   async open(url: string, global: string, ms = 60000): Promise<void> {
     await command(this.base, 'POST', '/url', { url });
-    await withTimeout(
-      (async () => {
-        while (!(await this.sync(`return typeof globalThis[${JSON.stringify(global)}] === 'function';`))) {
-          await new Promise((resolve) => setTimeout(resolve, 250));
-        }
-      })(),
-      ms,
-      `the page defining ${global}`,
-    );
-    // Errors from here on are kept for errors() to read; WebDriver has no way to read Safari's console.
+    // The wait ends with its time, so that it asks a later page nothing.
+    let waiting = true;
+    try {
+      await withTimeout(
+        (async () => {
+          while (waiting && !(await this.sync(`return typeof globalThis[${JSON.stringify(global)}] === 'function';`))) {
+            await new Promise((resolve) => setTimeout(resolve, 250));
+          }
+        })(),
+        ms,
+        `the page defining ${global}`,
+      );
+    } finally {
+      waiting = false;
+    }
+    // Errors from here on are kept for errors() to read; WebDriver has no way to read Safari's console, so what a
+    // page logs before this, while it loads, goes unseen.
     await this.sync(`
       const errors = (globalThis.__driverErrors = []);
       addEventListener('error', (e) => errors.push(String(e.message)));
@@ -116,7 +123,8 @@ export class Safari {
       string,
       string
     >;
-    const id = Object.values(found)[0];
+    // W3C WebDriver's key for an element's reference.
+    const id = found['element-6066-11e4-a52e-4f735466cecf'] ?? Object.values(found)[0];
     await command(this.base, 'POST', `/element/${id}/click`, {});
   }
 
