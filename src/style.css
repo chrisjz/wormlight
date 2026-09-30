@@ -503,11 +503,20 @@ button.inspector-row:focus-visible .row-name {
   color: var(--muted);
 }
 
-/* The brain shown, while it is the contrast brain. */
-.brand-brain {
+/* The brain shown, while it is the contrast brain, and, with the graph alone, the lesions. */
+.brand-brain,
+.brand-lesions {
   margin: 0.5rem 0 0;
   padding-left: 0.6rem;
   border-left: 2px solid var(--muted);
+}
+
+.brand-lesions {
+  pointer-events: auto;
+}
+
+.brand-lesions button {
+  margin-left: 0.4rem;
 }
 
 /* The legend and the hint and credit share one row along the bottom, wrapping rather than overlapping. */
@@ -743,27 +752,31 @@ button.inspector-row:focus-visible .row-name {
   font-weight: 600;
 }
 
-/* What the experiment changes, while it changes anything: the contrast brain, and the lesions. */
+/* What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
+   contrast brain, and the lesions with Restore all. */
 .plate-experiment {
-  margin: 0.5rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-left: 2px solid var(--muted);
-  border-radius: 0 0.4rem 0.4rem 0;
-  background: var(--panel);
-  backdrop-filter: blur(6px);
-  line-height: 1.45;
-  pointer-events: auto;
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
-.plate-experiment p {
-  margin: 0;
+.plate-experiment > span {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
 }
 
-.plate-experiment p:not([hidden]) + p {
-  margin-top: 0.4rem;
+.plate-experiment[hidden],
+.plate-experiment > [hidden] {
+  display: none;
 }
 
-.plate-experiment button,
+.brand-lesions button,
 .inspector-ablate {
   padding: 0.1rem 0.6rem;
   border: 1px solid var(--rule);
@@ -774,12 +787,12 @@ button.inspector-row:focus-visible .row-name {
   cursor: pointer;
 }
 
-.plate-experiment button:hover,
+.brand-lesions button:hover,
 .inspector-ablate:hover {
   background: rgb(255 255 255 / 6%);
 }
 
-.plate-experiment button:focus-visible,
+.brand-lesions button:focus-visible,
 .inspector-ablate:focus-visible,
 .plate-brain select:focus-visible {
   outline: 2px solid var(--muted);
@@ -1053,16 +1066,29 @@ button.inspector-row:focus-visible .row-name {
   }
 }
 
+/* The experiment's status in its long form, but for a short pane. */
+.plate-short {
+  display: none;
+}
+
 @container (max-height: 30rem) {
   .plate-lede,
-  .plate-map {
+  .plate-map,
+  .plate-long {
     display: none;
+  }
+
+  .plate-short {
+    display: inline;
   }
 }
 
 @media (pointer: coarse) {
   .plate-controls button,
-  .plate-follow {
+  .plate-follow,
+  .plate-brain select,
+  .inspector-ablate,
+  .brand-lesions button {
     min-height: 2.75rem;
     min-width: 2.75rem;
   }

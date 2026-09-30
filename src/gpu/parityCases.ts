@@ -263,7 +263,10 @@ export function assayField(): OdourField {
 // solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
 // where the gate turns on or off on about half the steps. The last runs the registry's values on the contrast
 // brain (PLAN §3.5), lesioned as a viewer may lesion it (spec §6): its first rewiring, less a command interneuron,
-// a B-type oscillator, a touch receptor and a dorsal SMD.
+// a B-type oscillator, a touch receptor and a dorsal SMD. For one run after a review it lesioned AWCL too, AWC-ON
+// at its seed; one state then fell on a knife edge, where 0.01 mV decides whether a B-type fires, and failed its
+// one-second check, so AWCL was dropped (DECISIONS.md, 2026-09-30). The loop's API checks a lesioned AWC-ON: its
+// odour reaches no neuron.
 export interface LoopSetup {
   name: string;
   params: LoopParams;

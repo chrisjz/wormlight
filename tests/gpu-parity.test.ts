@@ -183,14 +183,16 @@ describe("the loop's parity", () => {
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
-  it('includes the contrast brain, lesioned, whose network, oscillators and receptors the GPU takes', () => {
-    const setup = LOOP_SETUPS.find((s) => s.rewiring !== undefined);
-    if (!setup) throw new Error('no setup runs the contrast brain');
+  it('includes the contrast brain, lesioned, with its own thresholds and fewer oscillators and receptors to pack', () => {
+    const setup = LOOP_SETUPS.find((s) => s.name === 'contrast brain, lesioned');
+    const registry = LOOP_SETUPS.find((s) => s.name === 'registry');
+    if (!setup || !registry) throw new Error('no setup runs the contrast brain, or the registry intact');
+    expect(setup.rewiring).toBe(1);
     expect(setup.lesions).toEqual(['AVBL', 'VB6', 'ALML', 'SMDDL']);
     const cases = loopCases(data, setup);
     expect(cases).toHaveLength(setup.states + 1);
     const world = cpuWorld(data, cases[1].state, undefined, setup);
-    const intact = cpuWorld(data, loopCases(data, LOOP_SETUPS[5])[0].state, undefined, LOOP_SETUPS[5]);
+    const intact = cpuWorld(data, loopCases(data, registry)[0].state, undefined, registry);
     expect(world.brain.threshold).not.toEqual(intact.brain.threshold);
     const vb6 = data.neurons.findIndex((n) => n.name === 'VB6');
     expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(vb6);

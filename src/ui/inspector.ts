@@ -78,7 +78,10 @@ export class Inspector {
     });
   }
 
-  show(inspection: Inspection | null): void {
+  // Show a neuron, or none. With `keepFocus`, as when the experiment changes while the keyboard is in the inspector,
+  // focus goes to the lesion button unless something else has asked for it.
+  show(inspection: Inspection | null, keepFocus = false): void {
+    if (keepFocus) this.focusNext ??= 'lesion';
     // The rows are about to be replaced, so none is pointed at any more.
     this.actions.point(null);
     const changed = inspection?.index !== this.current?.index;

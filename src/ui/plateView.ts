@@ -42,7 +42,15 @@ import { NEURAL_STEP } from '../sim/numerics.ts';
 import type { Odour } from '../sim/sensing.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
 import type { World } from '../sim/world.ts';
-import { brainName, sameExperiment, unreadMessage, type Experiment, type ExperimentStore } from './experiment.ts';
+import {
+  brainName,
+  describeChange,
+  lesionSummary,
+  sameExperiment,
+  unreadMessage,
+  type Experiment,
+  type ExperimentStore,
+} from './experiment.ts';
 import { Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
@@ -196,14 +204,7 @@ export async function startPlate(
       "short by its head's slow rhythm. ",
     why,
   );
-  // What the experiment changes, while it changes anything: the brain, and the lesions, with a way to undo them.
-  const changed = el('div', 'plate-experiment');
-  const changedBrain = el('p');
-  const changedLesions = el('p');
-  const restoreAll = button('plate-button', 'Restore all', 'Restore every lesioned neuron');
-  changedLesions.append(el('span'), restoreAll);
-  changed.append(changedBrain, changedLesions);
-  header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice, changed);
+  header.append(el('h1', 'brand-title', 'Wormlight'), lede, notice);
 
   const controls = el('div', 'plate-controls');
   controls.setAttribute('role', 'group');
@@ -246,7 +247,24 @@ export async function startPlate(
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
   const seedText = el('span', 'plate-seed');
-  controls.append(play, speeds, restart, fresh, touches, food, brain, time, seedText);
+  // What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
+  // brain, which the brain control's description names, and the lesions, with a way to undo them.
+  const changed = el('div', 'plate-experiment');
+  // Each in a long form and a short one, which a short pane, such as a phone's half, shows instead.
+  const changedBrain = el('span');
+  changedBrain.id = 'plate-brain-note';
+  changedBrain.append(
+    el('span', 'plate-long', 'The contrast brain, untuned: chemical synapses rewired at random.'),
+    el('span', 'plate-short', 'Contrast brain, untuned.'),
+  );
+  brainSelect.setAttribute('aria-describedby', changedBrain.id);
+  const changedLesions = el('span');
+  const lesionList = el('span', 'plate-long');
+  const lesionCount = el('span', 'plate-short');
+  const restoreAll = button('plate-button', 'Restore all', 'Restore all lesioned neurons');
+  changedLesions.append(lesionList, lesionCount, restoreAll);
+  changed.append(changedBrain, changedLesions);
+  controls.append(play, speeds, restart, fresh, touches, food, brain, time, seedText, changed);
 
   const follow = button('plate-follow', 'Follow the worm');
   follow.hidden = true;
@@ -372,17 +390,14 @@ export async function startPlate(
   // world made from that in the old one's place, holding the worm meanwhile; changes made meanwhile wait, and only
   // the latest is made. The notice and the brain control show the experiment asked for at once.
   let swapping = false;
+  // Taps made while the GPU's world is being replaced wait for the new one, which takes them before its first step.
+  const waitingTouches: number[] = [];
   const showExperiment = (e: Experiment): void => {
     brainSelect.value = String(e.brain);
     changedBrain.hidden = e.brain === 0;
-    changedBrain.textContent =
-      e.brain === 0
-        ? ''
-        : `${brainName(e.brain)} of ${CONTRAST.rewirings}: the contrast brain. Its chemical synapses are rewired at ` +
-          'random, every neuron keeping how many it sends and receives and the sign of each it sends. It runs on ' +
-          "the real wiring's fitted values, untuned.";
     changedLesions.hidden = e.lesions.length === 0;
-    (changedLesions.firstChild as HTMLElement).textContent = `Lesioned: ${e.lesions.join(', ')}. `;
+    lesionList.textContent = lesionSummary(e.lesions);
+    lesionCount.textContent = `${e.lesions.length} lesioned.`;
     changed.hidden = e.brain === 0 && e.lesions.length === 0;
   };
   const swap = async (next: Experiment): Promise<void> => {
@@ -396,14 +411,21 @@ export async function startPlate(
         replacement.destroy();
         return;
       }
-      replacement.useField(stepped);
-      renderer.setBody(replacement.brain.bodyBuffer);
+      try {
+        replacement.useField(stepped);
+        renderer.setBody(replacement.brain.bodyBuffer);
+      } catch (e) {
+        replacement.destroy();
+        throw e;
+      }
       gpu.destroy();
       gpu = replacement;
       world = to;
       applied = next;
     } finally {
       swapping = false;
+      // The taps that waited go to whichever world runs on, the new one or, if the change failed, the old.
+      if (!stopped) for (const s of waitingTouches.splice(0)) gpu.touch(s);
       pacer.reset();
       dirty = true;
     }
@@ -415,15 +437,20 @@ export async function startPlate(
     try {
       await swap(next);
     } catch (e) {
-      // The views go back to the experiment the worm still runs.
-      experiment.set(applied);
-      throw e;
+      // The views go back to the experiment the worm still runs, and say what was undone.
+      console.error(e);
+      experiment.set(applied, true);
+      say(
+        `Couldn't finish ${describeChange(was, next)}, so it was undone: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
     }
+    if (stopped) return;
     if (next.brain !== was.brain) {
       say(
         `The worm now runs on ${next.brain === 0 ? 'the real wiring' : `the contrast brain, ${brainName(next.brain)}`}.`,
       );
-    } else if (next.lesions.length === 0) say('Every lesioned neuron is restored.');
+    }
   };
   showExperiment(applied);
   const unsubscribe = experiment.subscribe((e) => {
@@ -433,7 +460,9 @@ export async function startPlate(
   brainSelect.addEventListener('change', () => experiment.setBrain(Number(brainSelect.value)));
   restoreAll.addEventListener('click', () => {
     experiment.restoreAll();
+    // The button hides itself; keep the keyboard's place on the brain control beside it.
     brainSelect.focus();
+    say('Every lesioned neuron is restored.');
   });
 
   setSpeed(params.speed);
@@ -494,7 +523,9 @@ export async function startPlate(
   // Touching the worm (PLAN §4.2): a tap at body coordinate s, marked by a ring where it lands and announced
   // with the receptors it reaches.
   const touchAt = (s: number): void => {
-    const reached = [...new Set(gpu.touch(s).map((r) => r.name.replace(/[LR]$/, '')))];
+    if (swapping) waitingTouches.push(s);
+    const touched = swapping ? gpu.reach(s) : gpu.touch(s);
+    const reached = [...new Set(touched.map((r) => r.name.replace(/[LR]$/, '')))];
     const text =
       `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
       `${reached.length > 0 ? reached.join(', ') : 'no touch receptor there'}.`;

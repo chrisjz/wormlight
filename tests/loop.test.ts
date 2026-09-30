@@ -581,25 +581,51 @@ describe('a world carried into another (spec §6)', () => {
     const state = lesioned.snapshot();
     const to = new World(data, params, { seed: 8 });
     to.carry(state, lesioned);
-    const expected = new World(data, params, { seed: 8 });
-    expected.brain.setState(state.brain.voltage, state.brain.activation);
-    expected.brain.setOscillators(expected.brain.oscillators);
-    const k = oscillator(to, 'DB3');
-    expect(to.brain.recovery[k]).toBe(expected.brain.recovery[k]);
+    // DB3, a B-type, on the FitzHugh–Nagumo w-nullcline w = (x + 0.7) / 0.8, where x is its voltage above its
+    // threshold and its class's drive threshold, in units of 1 / 2β (PLAN §4.3).
+    const db3 = at('DB3');
+    const x = (state.brain.voltage[db3] - to.brain.threshold[db3] - params.driveThreshold) * 2 * to.brain.network.slope;
+    expect(to.brain.recovery[oscillator(to, 'DB3')]).toBeCloseTo((x + 0.7) / 0.8, 12);
     expect(to.brain.recovery[oscillator(to, 'DB2')]).toBe(state.brain.recovery[oscillator(lesioned, 'DB2')]);
     const alml = to.receptors.findIndex((r) => r.name === 'ALML');
     expect([to.touchLeft[alml], to.touchCurrent[alml], to.touchApplied[alml]]).toEqual([0, 0, 0]);
   });
 
-  it('into the contrast brain, keeps the worm and takes its thresholds', () => {
+  it('into the contrast brain, keeps the worm, each neuron where it was against its threshold, and takes the new thresholds', () => {
     const from = running();
     const state = from.snapshot();
-    const to = new World(data, params, { seed: 8, network: cookNetwork(contrastData(data, 1)) });
+    const contrast = cookNetwork(contrastData(data, 1));
+    const to = new World(data, params, { seed: 8, network: contrast });
     to.carry(state, from);
-    expect(to.snapshot().brain.voltage).toEqual(state.brain.voltage);
     expect(to.brain.threshold).not.toEqual(from.brain.threshold);
+    const carried = to.snapshot();
+    for (let i = 0; i < data.neurons.length; i++) {
+      expect(carried.brain.voltage[i] - to.brain.threshold[i]).toBeCloseTo(
+        state.brain.voltage[i] - from.brain.threshold[i],
+        9,
+      );
+    }
+    expect(carried.brain.activation).toEqual(state.brain.activation);
+    expect(carried.x).toEqual(state.x);
     for (let k = 0; k < 400; k++) to.step();
     expect(to.snapshot().brain.voltage.every(Number.isFinite)).toBe(true);
     expect(to.brain.unconverged).toBe(0);
+    // A worm at its brain's rest lands at the new brain's rest.
+    const resting = new World(data, params, { seed: 8 });
+    const swapped = new World(data, params, { seed: 8, network: contrast });
+    swapped.carry(resting.snapshot(), resting);
+    for (let i = 0; i < data.neurons.length; i++) {
+      expect(swapped.brain.voltage[i]).toBeCloseTo(swapped.brain.threshold[i], 9);
+    }
+  });
+
+  it("refuses a state that isn't the world's it is carried from", () => {
+    const from = running();
+    const lesioned = new World(data, params, { seed: 8, lesions: cut });
+    expect(() => new World(data, params, { seed: 8 }).carry(from.snapshot(), lesioned)).toThrow(/isn't the world/);
+  });
+
+  it("takes a rewired brain as its network, never as the data, whose touch currents are the real wiring's", () => {
+    expect(() => new World(contrastData(data, 1) as typeof data, params)).toThrow(/real data/);
   });
 });

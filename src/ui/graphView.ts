@@ -24,7 +24,7 @@ import { graphLayout } from '../render/layout.ts';
 import { CLASS_COLOURS, LINK_COLOURS, rgb, type LinkKind } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
 import { linkKind, linkStyle, Wiring } from './connections.ts';
-import { brainName, unreadMessage, type ExperimentStore } from './experiment.ts';
+import { brainName, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
 import { CLASS_NAMES, inspect, musclesByNeuron } from './inspection.ts';
 import { Inspector } from './inspector.ts';
 import { applyTarget, readParams } from './params.ts';
@@ -199,13 +199,21 @@ export async function startGraph(
   const names = el('datalist');
   names.id = 'neuron-names';
   for (const neuron of data.neurons) names.append(new Option(neuron.name));
-  // Which brain the graph shows, while it isn't the real wiring.
+  // Which brain the graph shows, while it isn't the real wiring; and, with the graph alone, which neurons are
+  // lesioned, with a way to restore them all (beside the plate, the plate's controls list them).
   const brainNote = el('p', 'brand-brain');
+  const lesionNote = el('p', 'brand-lesions');
+  const lesionText = el('span');
+  const restoreLesions = el('button', undefined, 'Restore all');
+  restoreLesions.type = 'button';
+  restoreLesions.setAttribute('aria-label', 'Restore all lesioned neurons');
+  lesionNote.append(lesionText, restoreLesions);
   const brand = el('header', 'brand');
   brand.append(
     title ? el('h1', 'brand-title', 'Wormlight') : el('h2', 'sr-only', 'The connectome'),
     lede(),
     brainNote,
+    lesionNote,
     find,
     findError,
     names,
@@ -262,6 +270,11 @@ export async function startGraph(
           'keeping how many it sends and receives.';
   };
   showBrain();
+  const showLesions = (): void => {
+    lesionNote.hidden = !title || lesioned.size === 0;
+    lesionText.textContent = `${lesionSummary([...lesioned])} `;
+  };
+  showLesions();
   const muscles = musclesByNeuron(data);
   const n = data.neurons.length;
   const positions = graphLayout(data.neurons);
@@ -437,9 +450,11 @@ export async function startGraph(
     move({ ...orbit, target, distance: Math.min(orbit.distance, FOCUS_DISTANCE) });
   };
   // Announce in the live region, clearing it first so a repeated message is announced again.
+  let announcing = 0;
   const announce = (text: string): void => {
     selection.textContent = '';
-    requestAnimationFrame(() => {
+    cancelAnimationFrame(announcing);
+    announcing = requestAnimationFrame(() => {
       selection.textContent = text;
     });
   };
@@ -766,7 +781,15 @@ export async function startGraph(
     pane.classList.add('inspecting');
   }
   // The experiment changed, here or in the plate: the brain shown, its lesions, and the inspector with them.
-  const unsubscribe = experiment.subscribe((e) => {
+  // The experiment changed, here or in the plate: the brain shown, its lesions, and the inspector with them, keeping
+  // the keyboard's place there. A change undone because it couldn't be made drops the graph's word on it: the plate
+  // says what was undone.
+  const unsubscribe = experiment.subscribe((e, reverted) => {
+    if (reverted) {
+      cancelAnimationFrame(announcing);
+      selection.textContent = '';
+    }
+    const focused = inspector.element.contains(document.activeElement);
     if (e.brain !== brain) {
       brain = e.brain;
       wiring = new Wiring(experiment.brains.data(brain));
@@ -775,8 +798,15 @@ export async function startGraph(
     }
     lesioned = new Set(e.lesions);
     lesionKey.hidden = lesioned.size === 0;
+    showLesions();
     upload();
-    if (selected !== null) inspector.show(inspect(data, wiring, muscles, selected, lesioned));
+    if (selected !== null) inspector.show(inspect(data, wiring, muscles, selected, lesioned), focused);
+  });
+  restoreLesions.addEventListener('click', () => {
+    experiment.restoreAll();
+    // The note hides itself; keep the keyboard's place on the search beside it.
+    find.focus();
+    announce('Every lesioned neuron is restored.');
   });
   resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
   settled = true;

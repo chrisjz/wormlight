@@ -7,7 +7,9 @@ import { contrastData } from '../src/sim/brain/rewire.ts';
 import {
   experimentUrl,
   ExperimentStore,
+  describeChange,
   INTACT,
+  lesionSummary,
   readExperiment,
   unreadMessage,
   type Experiment,
@@ -27,10 +29,15 @@ describe("a link's experiment", () => {
   it('is the intact real wiring when the link has none', () => {
     expect(readExperiment('?seed=4', data).experiment).toEqual(INTACT);
     expect(readExperiment('?brain=real&lesions=', data).experiment).toEqual(INTACT);
+    expect(readExperiment('?brain=Real', data).unread.brain).toBeNull();
+  });
+
+  it('reads the brain whatever its case', () => {
+    expect(readExperiment('?brain=REWIRED-4', data).experiment.brain).toBe(4);
   });
 
   it('leaves out what it cannot read, and says so', () => {
-    for (const brain of ['rewired-0', 'rewired-11', 'rewired-2.5', 'null', 'Rewired-1']) {
+    for (const brain of ['rewired-0', 'rewired-11', 'rewired-2.5', 'null', 'rewired 1']) {
       const { experiment, unread } = readExperiment(`?brain=${brain}&lesions=AVAL,XYZ`, data);
       expect(experiment, brain).toEqual({ brain: 0, lesions: ['AVAL'] });
       expect(unread, brain).toEqual({ brain, lesions: ['XYZ'] });
@@ -53,11 +60,36 @@ describe("a link's experiment", () => {
   });
 });
 
+describe('a change in words', () => {
+  it('names a swap, an ablation or a restoration, and calls anything more "that change"', () => {
+    const one = { brain: 0, lesions: ['AVAL'] };
+    expect(describeChange(INTACT, { brain: 3, lesions: [] })).toBe('the swap to Rewired 3');
+    expect(describeChange({ brain: 3, lesions: [] }, INTACT)).toBe('the swap to the real wiring');
+    expect(describeChange(INTACT, one)).toBe('ablating AVAL');
+    expect(describeChange(one, INTACT)).toBe('restoring AVAL');
+    expect(describeChange({ brain: 0, lesions: ['AVAL', 'AVAR'] }, INTACT)).toBe('restoring every lesioned neuron');
+    expect(describeChange(INTACT, { brain: 2, lesions: ['AVAL'] })).toBe('that change');
+  });
+});
+
+describe('the lesions in a status line', () => {
+  it('names the first six and counts the rest', () => {
+    expect(lesionSummary(['AVAL'])).toBe('Lesioned: AVAL.');
+    const many = data.neurons.slice(0, 51).map((n) => n.name);
+    expect(lesionSummary(many)).toBe(`Lesioned: ${many.slice(0, 6).join(', ')} and 45 more.`);
+    expect(lesionSummary(many.slice(0, 6))).toBe(`Lesioned: ${many.slice(0, 6).join(', ')}.`);
+  });
+});
+
 describe('the experiment store', () => {
   it('tells its listeners of each change, and not of a change to the same experiment', () => {
     const store = new ExperimentStore(data);
     const heard: Experiment[] = [];
-    const stop = store.subscribe((e) => heard.push(e));
+    const reverts: boolean[] = [];
+    const stop = store.subscribe((e, reverted) => {
+      heard.push(e);
+      reverts.push(reverted);
+    });
     store.lesion('AVAR');
     store.lesion('AVAL');
     store.lesion('AVAL');
@@ -73,9 +105,11 @@ describe('the experiment store', () => {
     expect(store.isLesioned('AVAL')).toBe(true);
     store.restoreAll();
     expect(store.get()).toEqual({ brain: 2, lesions: [] });
+    store.set({ brain: 2, lesions: ['AVAL'] }, true);
+    expect(reverts).toEqual([false, false, false, false, false, true]);
     stop();
-    store.lesion('AVAL');
-    expect(heard).toHaveLength(5);
+    store.lesion('AVBL');
+    expect(heard).toHaveLength(6);
   });
 
   it('refuses a neuron or a brain there is not', () => {
@@ -91,6 +125,7 @@ describe('the experiment store', () => {
     expect(store.brains.data(0)).toBe(data);
     expect(store.brains.network(0)).toEqual(cookNetwork(data));
     expect(store.brains.data(4)).toBe(store.brains.data(4));
+    expect(store.brains.network(4)).toBe(store.brains.network(4));
     expect(store.brains.data(4).chemical).toEqual(contrastData(data, 4).chemical);
     expect(store.brains.network(4)).toEqual(cookNetwork(contrastData(data, 4)));
   });

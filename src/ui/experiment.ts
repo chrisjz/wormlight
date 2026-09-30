@@ -24,19 +24,39 @@ export interface Unread {
 
 export const brainName = (brain: number): string => (brain === 0 ? 'Real wiring' : `Rewired ${brain}`);
 
+// A change from one experiment to another, in words: the swap, the neuron ablated or restored, or, for more than
+// one of those, "that change".
+export function describeChange(from: Experiment, to: Experiment): string {
+  const added = to.lesions.filter((n) => !from.lesions.includes(n));
+  const removed = from.lesions.filter((n) => !to.lesions.includes(n));
+  const brain = from.brain !== to.brain;
+  if (brain && added.length + removed.length === 0)
+    return `the swap to ${to.brain === 0 ? 'the real wiring' : brainName(to.brain)}`;
+  if (!brain && added.length === 1 && removed.length === 0) return `ablating ${added[0]}`;
+  if (!brain && removed.length === 1 && added.length === 0) return `restoring ${removed[0]}`;
+  if (!brain && added.length === 0 && to.lesions.length === 0) return 'restoring every lesioned neuron';
+  return 'that change';
+}
+
+// The lesions as a status line gives them: the first few by name, and how many more.
+export function lesionSummary(lesions: readonly string[], named = 6): string {
+  const more = lesions.length - named;
+  return `Lesioned: ${lesions.slice(0, named).join(', ')}${more > 0 ? ` and ${more} more` : ''}.`;
+}
+
 export const sameExperiment = (a: Experiment, b: Experiment): boolean =>
   a.brain === b.brain && a.lesions.length === b.lesions.length && a.lesions.every((name, i) => name === b.lesions[i]);
 
 // ?brain= and ?lesions=: a brain other than the rewirings reads as the real wiring, and names that aren't neurons
-// are left out, each reported. Names are separated by spaces (a + in the URL) or commas, match whatever their case,
-// and each counts once.
+// are left out, each reported. Names are separated by spaces (a + in the URL) or commas; they and the brain match
+// whatever their case, and each name counts once.
 export function readExperiment(search: string, data: WormlightData): { experiment: Experiment; unread: Unread } {
   const p = new URLSearchParams(search);
   const brainText = p.get('brain')?.trim() ?? '';
-  const m = /^rewired-(\d+)$/.exec(brainText);
+  const m = /^rewired-(\d+)$/i.exec(brainText);
   const k = m ? Number(m[1]) : NaN;
   const brain = Number.isInteger(k) && k >= 1 && k <= CONTRAST.rewirings ? k : 0;
-  const unreadBrain = brainText !== '' && brainText !== 'real' && brain === 0 ? brainText : null;
+  const unreadBrain = brainText !== '' && brainText.toLowerCase() !== 'real' && brain === 0 ? brainText : null;
   const named = (p.get('lesions') ?? '').split(/[\s,]+/).filter((s) => s !== '');
   const known = new Map(data.neurons.map((n) => [n.name.toUpperCase(), n.name]));
   const found = new Set(named.flatMap((s) => known.get(s.toUpperCase()) ?? []));
@@ -104,7 +124,7 @@ export class Brains {
 // The experiment both views share: whoever changes it tells the others.
 export class ExperimentStore {
   private current: Experiment;
-  private readonly listeners = new Set<(experiment: Experiment) => void>();
+  private readonly listeners = new Set<(experiment: Experiment, reverted: boolean) => void>();
   readonly data: WormlightData;
   readonly brains: Brains;
   private readonly order: Map<string, number>;
@@ -128,7 +148,9 @@ export class ExperimentStore {
     return this.current.lesions.includes(name);
   }
 
-  set(next: Experiment): void {
+  // Change the experiment. `reverted` marks a change undone because it couldn't be made, as when the GPU can't build
+  // the new brain, so that listeners can say so rather than announce it.
+  set(next: Experiment, reverted = false): void {
     for (const name of next.lesions) if (!this.order.has(name)) throw new Error(`unknown neuron ${name} to lesion`);
     if (!Number.isInteger(next.brain) || next.brain < 0 || next.brain > CONTRAST.rewirings) {
       throw new Error(`there is no brain ${next.brain}`);
@@ -137,7 +159,7 @@ export class ExperimentStore {
     const experiment = { brain: next.brain, lesions };
     if (sameExperiment(experiment, this.current)) return;
     this.current = experiment;
-    for (const listener of this.listeners) listener(experiment);
+    for (const listener of this.listeners) listener(experiment, reverted);
   }
 
   setBrain(brain: number): void {
@@ -156,8 +178,8 @@ export class ExperimentStore {
     this.set({ ...this.current, lesions: [] });
   }
 
-  // Call `listener` after each change; returns what stops it.
-  subscribe(listener: (experiment: Experiment) => void): () => void {
+  // Call `listener` after each change, with whether it undid one; returns what stops it.
+  subscribe(listener: (experiment: Experiment, reverted: boolean) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }

@@ -56,7 +56,7 @@ interface Brain {
 }
 ```
 
-On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes, thresholds) that the fused step kernels read, so a brain swap or a lesion swaps or edits buffers. WebGPU reads results back asynchronously, so the app gets state through `snapshot(): Promise<WorldState>`, which returns the latest completed step; the glow and inspector are therefore one frame behind, by design.
+On the GPU a brain is a set of buffers (connectivity, signs, oscillator classes, thresholds) that the fused step kernels read, so a brain swap or a lesion swaps or edits buffers. As built (2026-09-30, DECISIONS.md), either change builds a new GPU world from the running worm's state carried into the new wiring. WebGPU reads results back asynchronously, so the app gets state through `snapshot(): Promise<WorldState>`, which returns the latest completed step; the glow and inspector are therefore one frame behind, by design.
 
 **One step** runs in this order on both the CPU and the GPU:
 
@@ -174,7 +174,7 @@ The membrane time constant is C/G_c = 100 ms, but gap-junction coupling makes th
 Each neuron's threshold `V_th,ᵢ` is its voltage at the network's equilibrium with every `sⱼ` at its sigmoid-midpoint value `a_r / (a_r + 2 a_d)`, no external input, and oscillators and switches off. That is one sparse linear solve, with autapses on both sides of the equation.
 
 - **Lesions leave thresholds unchanged.** A lesion removes connections, and the survivors keep their thresholds, so lost drive shows up as it does in an ablated animal. Recomputing would re-centre every survivor at φ = ½, a perfect, instant compensation no source documents. It would erase the ~20% drop in B-type output after an AVB + PVC lesion and the ~34% drop in A-type output after AVA + AVD.
-- **Rewired brains get their own thresholds,** computed from their own intact wiring, as a different animal would have.
+- **Rewired brains get their own thresholds,** computed from their own intact wiring, as a different animal would have. In the app, a brain swap carries each neuron's voltage relative to its threshold, so a worm at rest lands at the new brain's rest (2026-09-30, DECISIONS.md).
 - **Neural Interactome mode** recomputes thresholds from the current input, as its code does, for the port check only.
 
 ### 3.4 Integration
@@ -197,6 +197,7 @@ On the GPU the whole step runs in one workgroup of 256 invocations, each holding
 - **Lesions.** A lesion zeroes every connection of the ablated neuron, chemical, gap and neuromuscular; thresholds are unchanged (§3.3).
 - **Contrast brain (checkpoint 6).** The primary null is a port of nematode's degree-preserving double-edge swap, applied to the chemical graph only:
   - each directed connection keeps its section count and sign at its presynaptic end, so every neuron keeps its outgoing strength and its excitatory/inhibitory mix;
+  - **Changed after review (2026-09-30, before checkpoint 6 has run, DECISIONS.md):** signed and unsigned connections swap apart, sharing one check for repeats, so every neuron also keeps its numbers of signed inputs and outputs, the connections the model gives an effect. Swapping them together, as nematode's single swap does, changed the signed inputs of 221 of the 302 neurons in the first rewiring;
   - autapses, gap junctions, the neuromuscular map, and sensory and motor identities are left unchanged;
   - rewired connections carry the provenance "rewired (sign from …)", never a physiology badge.
 
@@ -313,7 +314,7 @@ The network alone can't generate the rhythm. With thresholds fixed at rest, both
   - a press grabs a lawn only while it looks small on screen, its radius under 60 px, keeping the offset where it was grabbed; zoomed in further, drags pan;
   - without dragging, a click on a lawn picks it up and the next click puts it down, Escape leaves it and Delete removes it; with the dish focused, Delete removes the lawn nearest the view's centre, and a lawn moves by keyboard as Delete, then Add food;
   - lawns are placed to a tenth of a millimetre, inside the dish, so the URL holds them exactly;
-  - the URL carries the worm's seed too, `?seed=`, so a link reproduces the worm as well as its dish; lesions, the brain and the versions join it with milestone 6's URL state.
+  - the URL carries the worm's seed too, `?seed=`, so a link reproduces the worm as well as its dish; lesions and the brain joined it with milestone 5 (2026-09-30, DECISIONS.md), and the versions join it with milestone 6's URL state.
 - **Walls.** The dish wall reflects odour and stops the worm. A rod whose centre passes it, less the rod's radius, is pushed back along its normal by a spring and a damper like the body's diagonal elements, without friction; both ease in over the first 0.1 µm, so the contact grows smoothly from zero (2026-09-26, DECISIONS.md).
 
 ## 6. Parameters and the fidelity registry
@@ -607,7 +608,7 @@ Each milestone is one or more focused PRs, each merged before the next starts, a
 
 **Milestone 4's outcome (2026-09-27): done.** The odour field, AWC-ON's sensing, touch, dropped food and the dish's wall run on the CPU reference and on the GPU, which match by parity in Chrome and on CI's software GPU, and in Safari at every check but one one-second state recorded at the edge of its rule (DECISIONS.md). Checkpoint 0 passes in full: its touch and chemotaxis clauses, set before either ran (§7.4), find no reflex and no chemotaxis in the silenced network, which barely moves. Checkpoints 2 to 4 are not reached: they need forward crawling, which checkpoint 1's crawl gate guards until track R (VALIDATION.md); R ended below partial, so they stay not reached (2026-09-30, DECISIONS.md). Checkpoint 0's result also changed how checkpoints 2 and 3 will grade touches, against sham-touched twins, and how checkpoint 0's own reruns will; their harness code is built when they first run. Checkpoint 0's twins were built for its rerun (2026-09-30, DECISIONS.md); checkpoints 2 and 3's three-way fork waits for them.
 
-**Milestone 5's outcome (2026-09-30): done.** Lesions and the brain swap run live in the app, on the GPU, which matches the CPU reference on a lesioned contrast brain by parity (DECISIONS.md). The graph's inspector ablates and restores any neuron; the plate's Brain control swaps the real wiring for any of the primary null's ten rewirings (§3.5), on the refit's values untuned. The worm and its neurons' state carry over each change, and the URL carries the experiment. Checkpoints 5 and 6 are not reached: they need forward crawling, and R ended below partial (2026-09-30, DECISIONS.md).
+**Milestone 5's outcome (2026-09-30): done.** Lesions and the brain swap run live in the app, on the GPU, which matches the CPU reference on a lesioned contrast brain by parity, in Chrome on the Mac's GPU and on CI's software GPU (DECISIONS.md). The graph's inspector ablates and restores any neuron; the plate's Brain control swaps the real wiring for any of the primary null's ten rewirings (§3.5), on the refit's values untuned. The worm and its neurons' state carry over each change, and the URL carries the experiment. Checkpoints 5 and 6 are not reached: they need forward crawling, and R ended below partial (2026-09-30, DECISIONS.md).
 
 **Research track R: class-level fitting.** R is not a milestone: you schedule it between milestones, one PR at a time. It is fallback 3, widened to class-level gains, resting offsets and rectification in the motor circuit, tuned by §7.3's procedure. It starts from a proposal you approve, which fixes before anything runs:
 
