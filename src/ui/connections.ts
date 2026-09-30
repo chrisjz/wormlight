@@ -1,6 +1,7 @@
-// A neuron's connections, as the graph draws them: its chemical synapses out and in, and its gap junctions.
+// A neuron's connections, as the graph draws them: its chemical synapses out and in, and its gap junctions. For
+// the contrast brain, the rewired chemical synapses (PLAN §3.5), each knowing where it lands in the real wiring.
 
-import type { Sign, SignSource, WormlightData } from '../data/schema.ts';
+import type { Chemical, Sign, SignSource, WormlightData } from '../data/schema.ts';
 import type { LinkKind } from '../render/palette.ts';
 
 export interface Connection {
@@ -12,6 +13,9 @@ export interface Connection {
   // have none.
   signSource: SignSource | null;
   citation?: string;
+  // For a chemical connection the contrast brain's rewiring moved, the postsynaptic neuron of the real wiring's
+  // connection it was moved from, whose sections and sign it keeps.
+  original?: number;
 }
 
 export class Wiring {
@@ -32,13 +36,14 @@ export class Wiring {
     this.lists = this.names.map(() => []);
     this.degree = new Float64Array(this.names.length);
     let largest = 0;
-    for (const c of data.chemical) {
+    for (const c of data.chemical as readonly (Chemical & { original?: string })[]) {
       const pre = index(c.pre);
       const post = index(c.post);
       if (pre === post) continue;
       const { sections, sign, signSource, citation } = c;
-      this.lists[pre].push({ partner: post, kind: 'out', sections, sign, signSource, citation });
-      this.lists[post].push({ partner: pre, kind: 'in', sections, sign, signSource, citation });
+      const moved = c.original !== undefined && c.original !== c.post ? { original: index(c.original) } : {};
+      this.lists[pre].push({ partner: post, kind: 'out', sections, sign, signSource, citation, ...moved });
+      this.lists[post].push({ partner: pre, kind: 'in', sections, sign, signSource, citation, ...moved });
       this.degree[pre] += c.sections;
       this.degree[post] += c.sections;
       largest = Math.max(largest, c.sections);

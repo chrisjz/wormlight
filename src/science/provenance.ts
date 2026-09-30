@@ -86,6 +86,20 @@ export function muscleProvenance(j: Pick<Neuromuscular, 'signSource'>): Provenan
   }
 }
 
+// A connection of the contrast brain that its rewiring moved (PLAN §3.5). It keeps the EM sections and sign of the
+// real wiring's connection from the same neuron to another, whose provenance the inspector gives beside it, so a
+// moved connection never carries a physiology badge. The real wiring may join the same two neurons too, about one
+// moved connection in ten, with sections and a sign of its own that this one doesn't carry.
+export const REWIRED_PROVENANCE: Provenance = {
+  level: 0,
+  label: 'Rewired',
+  detail:
+    "Assumed: placed here by the contrast brain's rewiring. It keeps the EM sections and the sign of the real " +
+    "wiring's connection from the same neuron that it was moved from; where the real wiring also joins these two " +
+    'neurons, it does so with sections and a sign of its own.',
+  cite: null,
+};
+
 // A gap junction has no sign; what the badge vouches for is that it exists.
 export const GAP_PROVENANCE: Provenance = {
   level: 5,

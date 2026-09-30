@@ -72,10 +72,16 @@ export class GpuWorld {
     this.brain.setOdour(packOdour(odour));
   }
 
+  // The receptors a tap at body coordinate s would reach, as World.touch reaches them.
+  reach(s: number): TouchReceptor[] {
+    const { mask } = tap(this.layout.touchSets, s);
+    return this.layout.touch.filter((r) => mask & (1 << r.index));
+  }
+
   // Tap the body at coordinate s, as World.touch does. Returns the receptors reached.
   touch(s: number): TouchReceptor[] {
-    const { mask, currents } = tap(this.layout.touchSets, s);
-    const reached = this.layout.touch.filter((r) => mask & (1 << r.index));
+    const { currents } = tap(this.layout.touchSets, s);
+    const reached = this.reach(s);
     for (const r of reached) this.brain.touch(r.neuron, currents[r.index]);
     return reached;
   }

@@ -18,6 +18,7 @@ export type SubsystemId =
   | 'sensing'
   | 'body'
   | 'environment'
+  | 'contrast'
   | 'neuromodulation'
   | 'visuals';
 
@@ -148,6 +149,14 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     upgrade: 'Measured butanone fields on assay plates',
     sources: ['lugg1968', 'bargmann1993'],
   },
+  contrast: {
+    name: 'The contrast brain',
+    solid:
+      'Every neuron keeps its numbers of inputs and outputs, and each connection its EM sections and sign at its presynaptic end',
+    notSolid: 'Which neuron each connection reaches is drawn at random: by design, no animal is wired this way',
+    upgrade: '—',
+    sources: [],
+  },
   neuromodulation: {
     name: 'Neuromodulation',
     tag: 'omitted',
@@ -232,6 +241,27 @@ export const COMPONENTS: readonly Component[] = [
     upgrade: 'A multi-animal position atlas',
     sources: ['gleeson2018'],
     testedBy: [],
+  },
+
+  // The contrast brain.
+  {
+    name: 'The contrast brain (a degree-preserving rewiring of the chemical synapses)',
+    subsystem: 'contrast',
+    levels: [0],
+    basis:
+      "A port of Quantum Nematode's directed double-edge swap: ten seeded rewirings, ten swaps per connection, signed and unsigned connections swapped apart; each connection keeps its presynaptic neuron, EM sections and sign, and autapses, gap junctions, the neuromuscular map and every neuron's identity are held (PLAN §3.5)",
+    caveats:
+      "A control, not an animal: it tests whether the real wiring matters (spec §4). In the app it runs on the real wiring's fitted values, untuned, where checkpoint 6 would tune each rewiring by the same procedure (PLAN §7.3); its thresholds are its own rest (PLAN §3.3). Its draws come from this project's hash, not numpy's, so no rewiring is one of nematode's",
+    upgrade: '',
+    sources: [],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          "every neuron keeps its numbers of inputs and outputs, signed and all, and its outputs' sections and signs; autapses stay; no self-loop or repeated connection is made; the ten rewirings are pinned",
+      },
+      { check: 'checkpoint6' },
+    ],
   },
 
   // Synapse signs.

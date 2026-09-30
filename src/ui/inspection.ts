@@ -1,8 +1,15 @@
 // What the inspector shows for a neuron (spec §6 "Inspect"): who it is, where it sits, its part in the model,
-// and its connections, strongest first, each with the provenance of its sign.
+// and its connections, strongest first, each with the provenance of its sign; and whether it, or the partner of
+// each connection, is lesioned (spec §6 "Lesion").
 
 import type { CellClass, Neuron, Neuromuscular, Sign, WormlightData } from '../data/schema.ts';
-import { chemicalProvenance, GAP_PROVENANCE, muscleProvenance, type Provenance } from '../science/provenance.ts';
+import {
+  chemicalProvenance,
+  GAP_PROVENANCE,
+  muscleProvenance,
+  REWIRED_PROVENANCE,
+  type Provenance,
+} from '../science/provenance.ts';
 import { currentParams } from '../sim/world.ts';
 import type { Wiring } from './connections.ts';
 
@@ -20,6 +27,11 @@ export interface Row {
   sections: number;
   sign: Sign | null; // null for a gap junction, which has no sign
   provenance: Provenance;
+  // For a connection the contrast brain's rewiring moved, the real wiring's connection it keeps the sections and
+  // sign of, and that connection's provenance.
+  origin?: { pre: string; post: string; provenance: Provenance };
+  // Whether a lesion cuts it: the neuron's own, or its partner's.
+  cut: boolean;
 }
 
 export type GroupKind = 'out' | 'in' | 'gap' | 'muscle';
@@ -34,6 +46,7 @@ export interface Inspection {
   index: number;
   name: string;
   cellClass: CellClass;
+  lesioned: boolean;
   facts: { label: string; value: string }[];
   groups: Group[];
 }
@@ -99,22 +112,38 @@ export function inspect(
   wiring: Wiring,
   muscles: ReadonlyMap<string, Neuromuscular[]>,
   index: number,
+  lesioned: ReadonlySet<string> = new Set(),
 ): Inspection {
   const neuron = data.neurons[index];
   const connections = wiring.of(index);
+  const self = lesioned.has(neuron.name);
   const neuronRows = (kind: 'out' | 'in' | 'gap'): Row[] =>
     connections
       .filter((c) => c.kind === kind)
-      .map((c) => ({
-        name: wiring.names[c.partner],
-        neuron: c.partner,
-        sections: c.sections,
-        sign: kind === 'gap' ? null : c.sign,
-        provenance:
-          c.signSource === null
-            ? GAP_PROVENANCE
-            : chemicalProvenance({ signSource: c.signSource, citation: c.citation }),
-      }));
+      .map((c) => {
+        const name = wiring.names[c.partner];
+        const row: Row = {
+          name,
+          neuron: c.partner,
+          sections: c.sections,
+          sign: kind === 'gap' ? null : c.sign,
+          provenance:
+            c.signSource === null
+              ? GAP_PROVENANCE
+              : chemicalProvenance({ signSource: c.signSource, citation: c.citation }),
+          cut: self || lesioned.has(name),
+        };
+        if (c.original === undefined || c.signSource === null) return row;
+        return {
+          ...row,
+          provenance: REWIRED_PROVENANCE,
+          origin: {
+            pre: kind === 'out' ? neuron.name : name,
+            post: wiring.names[c.original],
+            provenance: row.provenance,
+          },
+        };
+      });
   const muscleRows = [...(muscles.get(neuron.name) ?? [])]
     .sort((a, b) => b.sections - a.sections || a.muscle.localeCompare(b.muscle))
     .map((j) => ({
@@ -123,6 +152,7 @@ export function inspect(
       sections: j.sections,
       sign: j.sign,
       provenance: muscleProvenance(j),
+      cut: self,
     }));
   const rows: Record<GroupKind, Row[]> = {
     out: neuronRows('out'),
@@ -134,6 +164,7 @@ export function inspect(
     index,
     name: neuron.name,
     cellClass: neuron.class,
+    lesioned: self,
     facts: facts(neuron),
     groups: (Object.keys(GROUP_TITLES) as GroupKind[])
       .filter((kind) => rows[kind].length > 0)

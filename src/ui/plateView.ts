@@ -12,6 +12,10 @@
 //   removed; a click on one picks it up and the next puts it down, Escape leaves it and Delete removes it.
 //   Delete alone removes the lawn nearest the view's centre, and "Clear food" removes them all. The URL
 //   carries the seed and the lawns. The odour field is stepped on the GPU with the worm, in fixed blocks.
+// - The experiment (spec §6): "Brain" swaps the real wiring for one of the contrast brain's rewirings, and the
+//   graph's inspector lesions neurons. Either change takes effect live: the worm and every neuron's state carry
+//   over into a world with the new wiring (World.carry), which the GPU then runs. "Restore all" undoes every
+//   lesion.
 
 import type { WormlightData } from '../data/schema.ts';
 import { MAX_STEPS_PER_DISPATCH } from '../gpu/brain.ts';
@@ -31,10 +35,22 @@ import {
 } from '../render/plateCamera.ts';
 import { PARAMS } from '../science/params.ts';
 import { between, nearestOnMidline } from '../sim/body/body.ts';
+import { CONTRAST } from '../sim/brain/rewire.ts';
 import { FIRST_LAWN, inDish, LAWN_RADIUS, lawnField, lawnSources, MAX_LAWNS, type Lawn } from '../sim/env/dish.ts';
 import { OdourField } from '../sim/env/odour.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
+import type { Odour } from '../sim/sensing.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
+import type { World } from '../sim/world.ts';
+import {
+  brainName,
+  describeChange,
+  lesionSummary,
+  sameExperiment,
+  unreadMessage,
+  type Experiment,
+  type ExperimentStore,
+} from './experiment.ts';
 import { Pacer, Rates } from './pacing.ts';
 import { plateUrl, snapLawn, writeFood, type PlateParams } from './params.ts';
 import { appWorld } from './start.ts';
@@ -110,6 +126,7 @@ export async function startPlate(
   data: WormlightData,
   params: PlateParams,
   noRender: boolean,
+  experiment: ExperimentStore,
 ): Promise<PlateHandle> {
   const canvas = el('canvas');
   canvas.id = 'plate';
@@ -128,10 +145,14 @@ export async function startPlate(
   let seed = params.seed ?? randomSeed();
   // The lawns in place, the URL's or the app's first.
   let lawns: Lawn[] = [...(params.food ?? [FIRST_LAWN])];
+  // The experiment the GPU's world runs, which trails the shared one while a change is being made.
+  let applied = experiment.get();
+  const worldFor = (s: number, odour?: Odour, e: Experiment = applied): World =>
+    appWorld(data, s, odour, { network: experiment.brains.network(e.brain), lesions: e.lesions });
   // The GPU compiles the world's pipeline while the CPU solves the lawns' steady odour field: the page yields
   // first, so the browser sends the GPU its work before the solve holds the thread. Its world smells nothing
   // until the field is ready.
-  const creating = GpuWorld.create(device, appWorld(data, seed));
+  const creating = GpuWorld.create(device, worldFor(seed));
   await new Promise((resolve) => setTimeout(resolve, 0));
   let field: OdourField;
   try {
@@ -143,17 +164,20 @@ export async function startPlate(
     );
     throw e;
   }
-  const gpu = await creating;
+  let gpu = await creating;
   const rods = gpu.layout.rods;
   const radii = Float32Array.from({ length: rods }, (_, i) => gpu.layout.rodConstants[ROD_CONSTANTS * i]);
   // The field the GPU steps from here on, which the worm senses and the plate draws.
   let made: GpuField | null = null;
   let renderer: PlateRenderer;
+  // The CPU world the GPU's was made from: its layout is the one a state read back from the GPU has.
+  let world: World;
   try {
     made = await GpuField.create(device, packOdour(field), field.source);
     // The worm smells the lawns' odour, adapted to it where it starts.
     gpu.useField(made);
-    gpu.restore(appWorld(data, seed, field).snapshot());
+    world = worldFor(seed, field);
+    gpu.restore(world.snapshot());
     renderer = await PlateRenderer.create(device, canvas, gpu.brain.bodyBuffer, radii, LENGTH, made.cells * made.cell);
   } catch (e) {
     made?.destroy();
@@ -215,11 +239,32 @@ export async function startPlate(
   addFood.setAttribute('aria-pressed', 'false');
   const clearFood = button('plate-button', 'Clear food', 'Clear food, removing every lawn');
   food.append(addFood, clearFood);
+  const brain = el('label', 'plate-brain');
+  const brainSelect = el('select');
+  for (let k = 0; k <= CONTRAST.rewirings; k++) brainSelect.append(new Option(brainName(k), String(k)));
+  brain.append(el('span', undefined, 'Brain'), brainSelect);
   const time = el('span', 'plate-time');
   const timeValue = el('span');
   time.append(el('span', 'sr-only', 'Worm time '), timeValue);
   const seedText = el('span', 'plate-seed');
-  controls.append(play, speeds, restart, fresh, touches, food, time, seedText);
+  // What the experiment changes, while it changes anything, on a line of its own at the foot of the controls: the
+  // brain, which the brain control's description names, and the lesions, with a way to undo them.
+  const changed = el('div', 'plate-experiment');
+  // Each in a long form and a short one, which a short pane, such as a phone's half, shows instead.
+  const changedBrain = el('span');
+  changedBrain.id = 'plate-brain-note';
+  changedBrain.append(
+    el('span', 'plate-long', 'The contrast brain, untuned: chemical synapses rewired at random.'),
+    el('span', 'plate-short', 'Contrast brain, untuned.'),
+  );
+  brainSelect.setAttribute('aria-describedby', changedBrain.id);
+  const changedLesions = el('span');
+  const lesionList = el('span', 'plate-long');
+  const lesionCount = el('span', 'plate-short');
+  const restoreAll = button('plate-button', 'Restore all', 'Restore all lesioned neurons');
+  changedLesions.append(lesionList, lesionCount, restoreAll);
+  changed.append(changedBrain, changedLesions);
+  controls.append(play, speeds, restart, fresh, touches, food, brain, time, seedText, changed);
 
   const follow = button('plate-follow', 'Follow the worm');
   follow.hidden = true;
@@ -312,7 +357,8 @@ export async function startPlate(
     refreshFood();
     writeUrl();
     // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
-    gpu.load(appWorld(data, seed, field));
+    world = worldFor(seed, field);
+    gpu.load(world);
     steps = 0;
     run++;
     points.length = 0;
@@ -328,6 +374,97 @@ export async function startPlate(
     // Paused, no step reads the body back, and a tap needs it.
     readBody();
   };
+  // Changes to the worm are made one at a time, in order: a restart waits for a change of brain under way, which
+  // would otherwise carry the old worm over it. Once the plate stops, none is made.
+  let work = Promise.resolve();
+  const queue = (task: () => void | Promise<void>): void => {
+    work = work
+      .then(() => (stopped ? undefined : task()))
+      .catch((e: unknown) => {
+        console.error(e);
+        say(`That couldn't be done: ${e instanceof Error ? e.message : String(e)}`);
+      });
+  };
+
+  // The experiment. A change reads the GPU's state back, carries it into a world with the new wiring and puts a GPU
+  // world made from that in the old one's place, holding the worm meanwhile; changes made meanwhile wait, and only
+  // the latest is made. The notice and the brain control show the experiment asked for at once.
+  let swapping = false;
+  // Taps made while the GPU's world is being replaced wait for the new one, which takes them before its first step.
+  const waitingTouches: number[] = [];
+  const showExperiment = (e: Experiment): void => {
+    brainSelect.value = String(e.brain);
+    changedBrain.hidden = e.brain === 0;
+    changedLesions.hidden = e.lesions.length === 0;
+    lesionList.textContent = lesionSummary(e.lesions);
+    lesionCount.textContent = `${e.lesions.length} lesioned.`;
+    changed.hidden = e.brain === 0 && e.lesions.length === 0;
+  };
+  const swap = async (next: Experiment): Promise<void> => {
+    swapping = true;
+    try {
+      const { state } = await gpu.read();
+      const to = worldFor(seed, field, next);
+      to.carry(state, world);
+      const replacement = await GpuWorld.create(device, to);
+      if (stopped) {
+        replacement.destroy();
+        return;
+      }
+      try {
+        replacement.useField(stepped);
+        renderer.setBody(replacement.brain.bodyBuffer);
+      } catch (e) {
+        replacement.destroy();
+        throw e;
+      }
+      gpu.destroy();
+      gpu = replacement;
+      world = to;
+      applied = next;
+    } finally {
+      swapping = false;
+      // The taps that waited go to whichever world runs on, the new one or, if the change failed, the old.
+      if (!stopped) for (const s of waitingTouches.splice(0)) gpu.touch(s);
+      pacer.reset();
+      dirty = true;
+    }
+  };
+  const applyExperiment = async (): Promise<void> => {
+    const next = experiment.get();
+    if (stopped || sameExperiment(next, applied)) return;
+    const was = applied;
+    try {
+      await swap(next);
+    } catch (e) {
+      // The views go back to the experiment the worm still runs, and say what was undone.
+      console.error(e);
+      experiment.set(applied, true);
+      say(
+        `Couldn't finish ${describeChange(was, next)}, so it was undone: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return;
+    }
+    if (stopped) return;
+    if (next.brain !== was.brain) {
+      say(
+        `The worm now runs on ${next.brain === 0 ? 'the real wiring' : `the contrast brain, ${brainName(next.brain)}`}.`,
+      );
+    }
+  };
+  showExperiment(applied);
+  const unsubscribe = experiment.subscribe((e) => {
+    showExperiment(e);
+    queue(applyExperiment);
+  });
+  brainSelect.addEventListener('change', () => experiment.setBrain(Number(brainSelect.value)));
+  restoreAll.addEventListener('click', () => {
+    experiment.restoreAll();
+    // The button hides itself; keep the keyboard's place on the brain control beside it.
+    brainSelect.focus();
+    say('Every lesioned neuron is restored.');
+  });
+
   setSpeed(params.speed);
   setRunning(running, false);
   showSeed();
@@ -355,8 +492,8 @@ export async function startPlate(
     setSpeed(SPEEDS[next]);
     speedButtons[next].focus();
   });
-  restart.addEventListener('click', () => restartWith(seed));
-  fresh.addEventListener('click', () => restartWith(randomSeed()));
+  restart.addEventListener('click', () => queue(() => restartWith(seed)));
+  fresh.addEventListener('click', () => queue(() => restartWith(randomSeed())));
   const setFollowing = (on: boolean): void => {
     following = on;
     follow.hidden = on;
@@ -386,7 +523,9 @@ export async function startPlate(
   // Touching the worm (PLAN §4.2): a tap at body coordinate s, marked by a ring where it lands and announced
   // with the receptors it reaches.
   const touchAt = (s: number): void => {
-    const reached = [...new Set(gpu.touch(s).map((r) => r.name.replace(/[LR]$/, '')))];
+    if (swapping) waitingTouches.push(s);
+    const touched = swapping ? gpu.reach(s) : gpu.touch(s);
+    const reached = [...new Set(touched.map((r) => r.name.replace(/[LR]$/, '')))];
     const text =
       `Touched ${Math.round(100 * s)}% of the way along the worm: ` +
       `${reached.length > 0 ? reached.join(', ') : 'no touch receptor there'}.`;
@@ -898,7 +1037,11 @@ export async function startPlate(
   // Before the first frame, run the worm to the time the URL asks for.
   advance(Math.round(params.time / NEURAL_STEP));
   writeUrl();
-  if (params.foodIgnored) say("The link's food couldn't be read, so the dish starts with its usual lawn.");
+  const notes = [
+    params.foodIgnored ? "The link's food couldn't be read, so the dish starts with its usual lawn." : null,
+    unreadMessage(experiment.unread),
+  ].filter((note) => note !== null);
+  if (notes.length > 0) say(notes.join(' '));
   readBody();
 
   let first: (() => void) | null = null;
@@ -913,7 +1056,7 @@ export async function startPlate(
     last = now;
     // Busy while two frames' work is still on the GPU. The rates count steps as they are submitted, which
     // this bounds to at most two frames ahead of the steps done.
-    const n = pacer.advance(wall, speed, running, pending >= 2);
+    const n = pacer.advance(wall, speed, running, pending >= 2 || swapping);
     uploadFood();
     if (n > 0) {
       advance(n);
@@ -966,6 +1109,7 @@ export async function startPlate(
     },
     stop: () => {
       stopped = true;
+      unsubscribe();
       observer.disconnect();
       renderer.destroy();
       for (const s of staging) s.buffer.destroy();

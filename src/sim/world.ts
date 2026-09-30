@@ -226,6 +226,10 @@ export class World {
   private readonly smd: Set<number>;
 
   constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
+    // The layers outside the brain, touch's currents among them, are built on the real wiring, the same for every
+    // brain (PLAN §4.2): a rewired brain comes as `network`, never as the data.
+    if (data.chemical.some((c) => 'original' in c))
+      throw new Error('a world takes the real data; give a rewired brain as its network');
     this.params = params;
     const seed = options.seed ?? 0;
     // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
@@ -402,6 +406,56 @@ export class World {
     // A sham belongs to no state: a restored world has none under way.
     this.shamLeft = 0;
     this.shamOn = false;
+  }
+
+  // Take on the state of another world on the same neurons, body and seed, as a worm whose brain has just changed
+  // under it: a lesion made or undone, or another brain in its place (spec §6). Every neuron keeps its voltage
+  // relative to its threshold, its activation and its noise current, so a neuron at its old brain's rest lands at its
+  // new brain's, which a lesion leaves where it was (PLAN §3.3) and a swap moves (changed after review, 2026-09-30,
+  // DECISIONS.md). Every oscillator both worlds share keeps its recovery, and every touch receptor both share its
+  // pulse; the body, muscles, head switch, AWC-ON and the step count carry over whole. An oscillator only this world
+  // has starts on its w-nullcline at its neuron's voltage, as a new world's do, and a receptor only it has starts
+  // untouched. This world's wiring and thresholds hold from the next step, which restarts the integrator, as after
+  // any jump in the input. The state must be `from`'s.
+  carry(state: WorldState, from: World): void {
+    const { brain } = state;
+    if (brain.voltage.length !== this.brain.n || from.brain.n !== this.brain.n) {
+      throw new Error('the state has another number of neurons');
+    }
+    if (brain.recovery.length !== from.brain.recovery.length || state.touchLeft.length !== from.receptors.length) {
+      throw new Error("the state isn't the world it is carried from");
+    }
+    const shift = Float64Array.from(this.brain.threshold, (t, i) => t - from.brain.threshold[i]);
+    const voltage = Float64Array.from(brain.voltage, (v, i) => v + shift[i]);
+    const previousVoltage = Float64Array.from(brain.previousVoltage, (v, i) => v + shift[i]);
+    // Every oscillator on its nullcline at the voltages carried, then the shared ones' recovery carried over.
+    this.brain.setState(voltage, brain.activation, brain.steps);
+    this.brain.setOscillators(this.brain.oscillators);
+    const recovery = Float64Array.from(this.brain.recovery);
+    const previousRecovery = Float64Array.from(this.brain.recovery);
+    const was = new Map(Array.from(from.brain.oscillators?.neurons ?? [], (neuron, k) => [neuron, k]));
+    this.brain.oscillators?.neurons.forEach((neuron, k) => {
+      const at = was.get(neuron);
+      if (at === undefined) return;
+      recovery[k] = brain.recovery[at];
+      previousRecovery[k] = brain.previousRecovery[at];
+    });
+    const receptor = new Map(from.receptors.map((r, k) => [r.name, k]));
+    const pulses = <T extends Int32Array | Float64Array>(values: T, empty: T): T => {
+      this.receptors.forEach((r, k) => {
+        const at = receptor.get(r.name);
+        if (at !== undefined) empty[k] = values[at];
+      });
+      return empty;
+    };
+    const receptors = this.receptors.length;
+    this.restore({
+      ...state,
+      brain: { ...brain, voltage, previousVoltage, recovery, previousRecovery, history: 0 },
+      touchLeft: pulses(state.touchLeft, new Int32Array(receptors)),
+      touchCurrent: pulses(state.touchCurrent, new Float64Array(receptors)),
+      touchApplied: pulses(state.touchApplied, new Float64Array(receptors)),
+    });
   }
 
   get time(): number {

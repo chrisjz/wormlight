@@ -1,7 +1,8 @@
 // The inspector panel: the selected neuron's facts and connections, each with a badge giving the fidelity
 // level and source of its sign (spec §1.3, §6). A partner's row is a button that selects it, and pointing
 // at one marks it in the graph. A key under the lists explains every badge shown, for readers who can't
-// hover, and each badge's level and source are also given in words to screen readers.
+// hover, and each badge's level and source are also given in words to screen readers. A button ablates the
+// neuron or restores it (spec §6), and rows a lesion cuts are struck through.
 
 import type { Sign } from '../data/schema.ts';
 import { SCALE } from '../science/levels.ts';
@@ -26,13 +27,18 @@ const hidden = (text: string): HTMLElement => el('span', 'sr-only', text);
 
 const levelName = (p: Provenance): string => (SCALE.find((s) => s.level === p.level)?.name ?? '').toLowerCase();
 
-function badge(p: Provenance): HTMLElement {
+// A badge, and for a rewired connection the real wiring's connection whose sign it keeps.
+function badge(p: Provenance, origin?: Row['origin']): HTMLElement {
   const b = el('span', `badge badge-${p.level}`);
-  b.title = p.detail;
+  const from = origin
+    ? `sign from ${origin.pre} → ${origin.post} in the real wiring, whose source is ` +
+      `${origin.provenance.label}, level ${origin.provenance.level}`
+    : '';
+  b.title = from ? `${p.detail} This one's ${from}.` : p.detail;
   const face = el('span', 'badge-face');
   face.setAttribute('aria-hidden', 'true');
   face.append(el('span', 'badge-level', String(p.level)), el('span', 'badge-label', p.label));
-  b.append(face, hidden(`sign source: ${p.label}, level ${p.level}, ${levelName(p)}`));
+  b.append(face, hidden(`sign source: ${p.label}, level ${p.level}, ${levelName(p)}${from ? `; ${from}` : ''}`));
   return b;
 }
 
@@ -46,6 +52,8 @@ export interface InspectorActions {
   select(neuron: number): void;
   point(neuron: number | null): void;
   close(): void;
+  // Ablate the neuron, or with `on` false restore it.
+  lesion(neuron: number, on: boolean): void;
 }
 
 export class Inspector {
@@ -54,8 +62,9 @@ export class Inspector {
   private expanded = new Set<GroupKind>();
   private keyOpen = false;
   private current: Inspection | null = null;
-  // Where focus goes after the next rebuild: the heading, after moving to a partner, or a group's toggle.
-  private focusNext: 'heading' | GroupKind | null = null;
+  // Where focus goes after the next rebuild: the heading, after moving to a partner; a group's toggle; or the
+  // lesion button, after it is pressed.
+  private focusNext: 'heading' | 'lesion' | GroupKind | null = null;
 
   constructor(actions: InspectorActions) {
     this.actions = actions;
@@ -69,7 +78,10 @@ export class Inspector {
     });
   }
 
-  show(inspection: Inspection | null): void {
+  // Show a neuron, or none. With `keepFocus`, as when the experiment changes while the keyboard is in the inspector,
+  // focus goes to the lesion button unless something else has asked for it.
+  show(inspection: Inspection | null, keepFocus = false): void {
+    if (keepFocus) this.focusNext ??= 'lesion';
     // The rows are about to be replaced, so none is pointed at any more.
     this.actions.point(null);
     const changed = inspection?.index !== this.current?.index;
@@ -94,7 +106,25 @@ export class Inspector {
     for (const { label, value } of inspection.facts)
       facts.append(el('dt', undefined, label), el('dd', undefined, value));
 
-    const body: HTMLElement[] = [head, facts];
+    const lesion = el('div', 'inspector-lesion');
+    const index = inspection.index;
+    const on = !inspection.lesioned;
+    const ablate = el('button', 'inspector-ablate', on ? 'Ablate' : 'Restore');
+    ablate.type = 'button';
+    ablate.setAttribute('aria-label', `${on ? 'Ablate' : 'Restore'} ${inspection.name}`);
+    ablate.title = on
+      ? 'Cut every connection it has, as a laser ablation does; the worm runs on without it'
+      : 'Put back every connection it had';
+    ablate.addEventListener('click', () => {
+      this.focusNext = 'lesion';
+      this.actions.lesion(index, on);
+    });
+    if (inspection.lesioned) {
+      lesion.append(el('p', 'inspector-lesioned', 'Lesioned: every connection it has is cut.'));
+    }
+    lesion.append(ablate);
+
+    const body: HTMLElement[] = [head, facts, lesion];
     const toggles = new Map<GroupKind, HTMLButtonElement>();
     const shown: Row[] = [];
     for (const group of inspection.groups) {
@@ -153,13 +183,17 @@ export class Inspector {
     const target = this.focusNext;
     this.focusNext = null;
     if (target === 'heading') title.focus();
+    else if (target === 'lesion') ablate.focus();
     else if (target) toggles.get(target)?.focus();
   }
 
   private row(row: Row, most: number): HTMLElement {
     const item = el('li');
     const line = row.neuron === null ? el('div', 'inspector-row') : el('button', 'inspector-row');
-    line.append(el('span', 'row-name', row.name));
+    if (row.cut) line.classList.add('row-cut');
+    const name = el('span', 'row-name', row.name);
+    if (row.cut) name.append(hidden(', cut by a lesion'));
+    line.append(name);
     const sign = el('span', 'row-sign');
     if (row.sign !== null) {
       const { glyph, meaning } = SIGNS[row.sign];
@@ -174,7 +208,7 @@ export class Inspector {
     const count = el('span', 'row-count', String(row.sections));
     count.title = `${row.sections} EM section${row.sections === 1 ? '' : 's'}`;
     count.append(hidden(row.sections === 1 ? ' EM section' : ' EM sections'));
-    line.append(sign, bar, count, badge(row.provenance));
+    line.append(sign, bar, count, badge(row.provenance, row.origin));
     if (line instanceof HTMLButtonElement && row.neuron !== null) {
       const neuron = row.neuron;
       line.type = 'button';

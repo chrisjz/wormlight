@@ -1,4 +1,6 @@
-// The 3D graph of all 302 neurons (spec §7), with the selected neuron's connections lit.
+// The 3D graph of all 302 neurons (spec §7), with the selected neuron's connections lit. It shows the brain the
+// experiment runs, the real wiring or a rewiring of it, and draws lesioned neurons hollow, their links faint; the
+// inspector ablates and restores the selected neuron (spec §6).
 // - Mouse: drag to turn, scroll to zoom, shift- or right-drag to pan, click a neuron to select it, double-click
 //   a neuron to fly to it or empty space to reset.
 // - Touch: drag to turn, pinch to zoom, drag two fingers to pan, tap to select, double-tap to fly or reset.
@@ -22,6 +24,7 @@ import { graphLayout } from '../render/layout.ts';
 import { CLASS_COLOURS, LINK_COLOURS, rgb, type LinkKind } from '../render/palette.ts';
 import { CITATIONS, type CitationId } from '../science/citations.ts';
 import { linkKind, linkStyle, Wiring } from './connections.ts';
+import { brainName, lesionSummary, unreadMessage, type ExperimentStore } from './experiment.ts';
 import { CLASS_NAMES, inspect, musclesByNeuron } from './inspection.ts';
 import { Inspector } from './inspector.ts';
 import { applyTarget, readParams } from './params.ts';
@@ -34,6 +37,8 @@ const LINK_NAMES: Record<LinkKind, string> = {
   gap: 'Gap junction',
 };
 const DIMMED = 0.28;
+// How much of its opacity a link a lesion cuts keeps.
+const CUT = 0.3;
 const HOME_YAW = (-50 * Math.PI) / 180;
 const HOME_PITCH = (20 * Math.PI) / 180;
 // The camera's home target along the body: a little ahead of the middle, towards the crowded head.
@@ -76,7 +81,8 @@ function signNote(data: WormlightData): string {
   );
 }
 
-function legend(data: WormlightData, pane: HTMLElement): HTMLElement {
+// The legend, with a key to lesioned neurons that the caller shows while there are any.
+function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement): HTMLElement {
   const box = el('section', 'legend');
   box.setAttribute('aria-label', 'Legend');
   const neurons = el('ul', 'legend-row');
@@ -87,6 +93,8 @@ function legend(data: WormlightData, pane: HTMLElement): HTMLElement {
     item.append(dot, CLASS_NAMES[c]);
     neurons.append(item);
   }
+  lesionKey.append(el('span', 'swatch swatch-dot swatch-hollow'), 'Lesioned');
+  neurons.append(lesionKey);
   const links = el('ul', 'legend-row');
   for (const k of Object.keys(LINK_COLOURS) as LinkKind[]) {
     const item = el('li', 'legend-item');
@@ -157,6 +165,7 @@ export async function startGraph(
   device: GPUDevice,
   data: WormlightData,
   title: boolean,
+  experiment: ExperimentStore,
 ): Promise<GraphHandle> {
   const params = readParams(location.search);
   const canvas = el('canvas');
@@ -190,10 +199,21 @@ export async function startGraph(
   const names = el('datalist');
   names.id = 'neuron-names';
   for (const neuron of data.neurons) names.append(new Option(neuron.name));
+  // Which brain the graph shows, while it isn't the real wiring; and, with the graph alone, which neurons are
+  // lesioned, with a way to restore them all (beside the plate, the plate's controls list them).
+  const brainNote = el('p', 'brand-brain');
+  const lesionNote = el('p', 'brand-lesions');
+  const lesionText = el('span');
+  const restoreLesions = el('button', undefined, 'Restore all');
+  restoreLesions.type = 'button';
+  restoreLesions.setAttribute('aria-label', 'Restore all lesioned neurons');
+  lesionNote.append(lesionText, restoreLesions);
   const brand = el('header', 'brand');
   brand.append(
     title ? el('h1', 'brand-title', 'Wormlight') : el('h2', 'sr-only', 'The connectome'),
     lede(),
+    brainNote,
+    lesionNote,
     find,
     findError,
     names,
@@ -211,6 +231,12 @@ export async function startGraph(
       select(null);
       canvas.focus();
     },
+    lesion: (i, on) => {
+      const name = wiring.names[i];
+      if (on) experiment.lesion(name);
+      else experiment.restore(name);
+      announce(on ? `${name} ablated: every connection it has is cut.` : `${name} restored: its connections are back.`);
+    },
   });
   const hint = el('p', 'hint');
   hint.append(
@@ -220,15 +246,38 @@ export async function startGraph(
   const footer = el('footer', 'footer');
   const aside = el('div', 'footer-aside');
   aside.append(hint, credit());
-  footer.append(legend(data, pane), aside);
+  const lesionKey = el('li', 'legend-item');
+  footer.append(legend(data, pane, lesionKey), aside);
   pane.replaceChildren(canvas, brand, inspector.element, selection, label, footer);
 
-  const wiring = new Wiring(data);
+  // The brain shown and its lesions, as the experiment has them. A neuron's size follows its total EM sections in
+  // the brain shown.
+  let brain = experiment.get().brain;
+  let lesioned = new Set(experiment.get().lesions);
+  lesionKey.hidden = lesioned.size === 0;
+  let wiring = new Wiring(experiment.brains.data(brain));
+  const sizes = (): Float32Array => {
+    const maxDegree = Math.max(...wiring.degree);
+    return Float32Array.from(wiring.degree, (d) => 0.045 + 0.05 * Math.sqrt(d / maxDegree));
+  };
+  let radii = sizes();
+  const showBrain = (): void => {
+    brainNote.hidden = brain === 0;
+    brainNote.textContent =
+      brain === 0
+        ? ''
+        : `Showing the contrast brain, ${brainName(brain)}: its chemical synapses rewired at random, every neuron ` +
+          'keeping how many it sends and receives.';
+  };
+  showBrain();
+  const showLesions = (): void => {
+    lesionNote.hidden = !title || lesioned.size === 0;
+    lesionText.textContent = `${lesionSummary([...lesioned])} `;
+  };
+  showLesions();
   const muscles = musclesByNeuron(data);
   const n = data.neurons.length;
   const positions = graphLayout(data.neurons);
-  const maxDegree = Math.max(...wiring.degree);
-  const radii = Float32Array.from(wiring.degree, (d) => 0.045 + 0.05 * Math.sqrt(d / maxDegree));
   // The neurons from nose to tail, for stepping through them from the keyboard.
   const alongBody = Array.from({ length: n }, (_, i) => i).sort((a, b) => positions[3 * a] - positions[3 * b]);
 
@@ -343,7 +392,8 @@ export async function startGraph(
     const shown = wiring.of(selected);
     const count = (kind: string): number => shown.filter((c) => c.kind === kind).length;
     return (
-      `${neuron.name} · ${CLASS_NAMES[neuron.class].toLowerCase()} · synapses onto ${plural(count('out'), 'neuron', 'neurons')}, ` +
+      `${neuron.name}${lesioned.has(neuron.name) ? ' (lesioned)' : ''} · ${CLASS_NAMES[neuron.class].toLowerCase()} · ` +
+      `synapses onto ${plural(count('out'), 'neuron', 'neurons')}, ` +
       `from ${plural(count('in'), 'neuron', 'neurons')} · gap junctions with ${plural(count('gap'), 'neuron', 'neurons')}`
     );
   };
@@ -358,7 +408,8 @@ export async function startGraph(
       const lit = selected === null || i === selected || partners.has(i) ? 1 : DIMMED;
       neurons.set([positions[3 * i], positions[3 * i + 1], positions[3 * i + 2], radii[i]], o);
       neurons.set([r * lit, g * lit, b * lit, 1], o + 4);
-      neurons.set([i === selected ? 1 : 0, i === hovered && i !== selected ? 1 : 0, 0, 0], o + 8);
+      const cut = lesioned.has(wiring.names[i]) ? 1 : 0;
+      neurons.set([i === selected ? 1 : 0, i === hovered && i !== selected ? 1 : 0, cut, 0], o + 8);
     }
     renderer.setNeurons(neurons);
     const links = new Float32Array(shown.length * LINK_FLOATS);
@@ -366,7 +417,8 @@ export async function startGraph(
     [...shown].reverse().forEach((c, k) => {
       const o = k * LINK_FLOATS;
       const s = selected as number;
-      const { width, alpha } = linkStyle(c.sections, wiring.largest);
+      const { width, alpha: full } = linkStyle(c.sections, wiring.largest);
+      const alpha = lesioned.has(wiring.names[s]) || lesioned.has(wiring.names[c.partner]) ? full * CUT : full;
       const [r, g, b] = rgb(LINK_COLOURS[linkKind(c)]);
       links.set([positions[3 * s], positions[3 * s + 1], positions[3 * s + 2], width], o);
       links.set(
@@ -387,7 +439,7 @@ export async function startGraph(
     if (next === selected) return;
     selected = next;
     upload();
-    inspector.show(selected === null ? null : inspect(data, wiring, muscles, selected));
+    inspector.show(selected === null ? null : inspect(data, wiring, muscles, selected, lesioned));
     pane.classList.toggle('inspecting', selected !== null);
     // The live region changes only with the selection, not with hovering.
     selection.textContent = describe();
@@ -398,9 +450,11 @@ export async function startGraph(
     move({ ...orbit, target, distance: Math.min(orbit.distance, FOCUS_DISTANCE) });
   };
   // Announce in the live region, clearing it first so a repeated message is announced again.
+  let announcing = 0;
   const announce = (text: string): void => {
     selection.textContent = '';
-    requestAnimationFrame(() => {
+    cancelAnimationFrame(announcing);
+    announcing = requestAnimationFrame(() => {
       selection.textContent = text;
     });
   };
@@ -723,12 +777,43 @@ export async function startGraph(
   footerObserver.observe(inspector.element);
   upload();
   if (selected !== null) {
-    inspector.show(inspect(data, wiring, muscles, selected));
+    inspector.show(inspect(data, wiring, muscles, selected, lesioned));
     pane.classList.add('inspecting');
   }
+  // The experiment changed, here or in the plate: the brain shown, its lesions, and the inspector with them.
+  // The experiment changed, here or in the plate: the brain shown, its lesions, and the inspector with them, keeping
+  // the keyboard's place there. A change undone because it couldn't be made drops the graph's word on it: the plate
+  // says what was undone.
+  const unsubscribe = experiment.subscribe((e, reverted) => {
+    if (reverted) {
+      cancelAnimationFrame(announcing);
+      selection.textContent = '';
+    }
+    const focused = inspector.element.contains(document.activeElement);
+    if (e.brain !== brain) {
+      brain = e.brain;
+      wiring = new Wiring(experiment.brains.data(brain));
+      radii = sizes();
+      showBrain();
+    }
+    lesioned = new Set(e.lesions);
+    lesionKey.hidden = lesioned.size === 0;
+    showLesions();
+    upload();
+    if (selected !== null) inspector.show(inspect(data, wiring, muscles, selected, lesioned), focused);
+  });
+  restoreLesions.addEventListener('click', () => {
+    experiment.restoreAll();
+    // The note hides itself; keep the keyboard's place on the search beside it.
+    find.focus();
+    announce('Every lesioned neuron is restored.');
+  });
   resize(canvas.clientWidth * window.devicePixelRatio, canvas.clientHeight * window.devicePixelRatio);
   settled = true;
-  selection.textContent = describe();
+  // Alone on the page, the graph says what the link's experiment held that couldn't be read; beside the plate, the
+  // plate says it.
+  const unread = title ? unreadMessage(experiment.unread) : null;
+  selection.textContent = [describe(), unread].filter((text) => text).join(' ');
 
   let first: (() => void) | null = null;
   const ready = new Promise<void>((resolve) => {
@@ -756,6 +841,7 @@ export async function startGraph(
     snapshot: () => renderer.snapshot(frameState()),
     stop: () => {
       stopped = true;
+      unsubscribe();
       observer.disconnect();
       footerObserver.disconnect();
       document.removeEventListener('keydown', onSlash);

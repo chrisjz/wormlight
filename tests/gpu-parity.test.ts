@@ -183,6 +183,24 @@ describe("the loop's parity", () => {
     expect(loopCases(data, flipping)).toHaveLength(flipping.states + 1);
   });
 
+  it('includes the contrast brain, lesioned, with its own thresholds and fewer oscillators and receptors to pack', () => {
+    const setup = LOOP_SETUPS.find((s) => s.name === 'contrast brain, lesioned');
+    const registry = LOOP_SETUPS.find((s) => s.name === 'registry');
+    if (!setup || !registry) throw new Error('no setup runs the contrast brain, or the registry intact');
+    expect(setup.rewiring).toBe(1);
+    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'ALML', 'SMDDL']);
+    const cases = loopCases(data, setup);
+    expect(cases).toHaveLength(setup.states + 1);
+    const world = cpuWorld(data, cases[1].state, undefined, setup);
+    const intact = cpuWorld(data, loopCases(data, registry)[0].state, undefined, registry);
+    expect(world.brain.threshold).not.toEqual(intact.brain.threshold);
+    const vb6 = data.neurons.findIndex((n) => n.name === 'VB6');
+    expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(vb6);
+    const packed = packLoop(world);
+    expect(packed.touch.map((r) => r.name)).not.toContain('ALML');
+    expect(packed.touch).toHaveLength(intact.receptors.length - 1);
+  });
+
   it("includes track R's model, whose muscles move and whose B-types oscillate apart from the A-types", () => {
     const r = LOOP_SETUPS[3];
     expect(r.params).toMatchObject({ relativeDrive: true, oscillatorGainB: 1, gapGainB: 0.5, smdGain: 0.5 });
