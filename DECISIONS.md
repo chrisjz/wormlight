@@ -29,10 +29,10 @@ A running log of significant design choices and why (spec §9). Each entry says 
 3. the presynaptic transmitter rule, with acetylcholine and glutamate excitatory and GABA inhibitory (level 0);
 4. otherwise no fast effect (level 0).
 
-Each connection records which step set its sign. The harness reruns the checkpoints with steps 3 and 4 set four ways: by the rule (default), all excitatory, all silent, and ten random-sign draws.
+Each connection records which step set its sign. The harness reruns the checkpoints with steps 3 and 4 set four ways: by the rule (default), all excitatory, all silent, and ten random-sign draws. (Noted 2026-09-30: it didn't until that day's `--sensitivity`, which an audit against the spec prompted.)
 
 **Why.** The two Fenyves files agree on all 3,121 connections they share. Together they give a clear sign for 1,763 of Cook's 3,709 chemical edges, 47.5% of edges and 55.6% of synaptic sections. The first draft used S5 alone and signed 218 fewer. The rule disagrees with Fenyves on about a fifth of the edges where both give a sign, so it gets the sensitivity check the spec asks for.
-**Status.** Needs sign-off (PLAN.md §2.4).
+**Status.** Needs sign-off (PLAN.md §2.4). Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — Rescale Cook's counts to the Neural Interactome conductance units (revised after review)
 
@@ -43,7 +43,7 @@ Each connection records which step set its sign. The harness reruns the checkpoi
 - Matching totals keeps the chemical-to-electrical balance the model was built with. It does leave connections the datasets share at about 0.63× (gap) and 0.69× (chemical) their Neural Interactome strength, so the harness also reports shared-connection scales (0.33 gap, 0.50 chemical).
 - The factors are level 2 (adapted).
 
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — Voltages and activation are integrated at second order (revised after review)
 
@@ -60,7 +60,7 @@ The conjugate-gradient solve:
 - **Why not per-neuron exponential Euler** (the spec's example). It rings on strongly coupled pairs.
 - **Why not the first draft's scheme.** Implicit Euler with activation split off at first order failed the port check for the AVA preset at every step from 1 to 5 ms. Upgrading only the voltage solve to BDF2 stays first order; making both variables second order measured order 2.0 and passed all four presets at 2.5 ms.
 
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — A neuron's threshold is set at rest, and lesions don't move it (revised after review)
 
@@ -71,7 +71,7 @@ The conjugate-gradient solve:
 - **Lesions.** The first draft recomputed thresholds after a lesion, which is the same hidden compensation. It re-centred every survivor and erased the loss of command-interneuron drive the lesion checkpoint is meant to test.
 - **Level** 2 (hypothesis).
 
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — Stimulus strengths are target depolarisations, computed once (revised after review)
 
@@ -93,7 +93,7 @@ The conjugate-gradient solve:
 - Levy & Bargmann 2020's adaptive-threshold parameters are in butanone units.
 - AWC-ON senses butanone (Wes & Bargmann 2001), and which AWC is ON is random (Troemel, Sagasti & Bargmann 1999).
 
-**Status.** Needs sign-off. The spec is updated to match.
+**Status.** Needs sign-off. The spec is updated to match. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — Proprioception runs front to back, as Wen et al. 2012 measured (revised after review)
 
@@ -104,7 +104,7 @@ The conjugate-gradient solve:
 - **Not Boyle's.** Boyle, Berri & Cohen 2012 integrate the neuron's own and posterior body over half its length, and their authors note that B-type axons don't reach that far.
 - **A-type coupling is a level-2 hypothesis.** There is no direct evidence for proprioception in A-type neurons. But Gao et al. 2018 infer motor neurons are "likely proprioceptive", since the A-type rhythm is about 5× faster in crawling than in glued animals. The first draft's "no evidence" overstated this.
 
-**Status.** Needs sign-off. The spec is updated to match.
+**Status.** Needs sign-off. The spec is updated to match. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-25 — The rhythm comes from documented generators (replaces "the head rhythm is expected from the network")
 
@@ -120,7 +120,7 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 - **The network can't supply the rhythm.** The review showed that with thresholds fixed at rest, both the Varshney and the Cook-scaled networks settle to a stable fixed point under constant drive. Kunert's PLM oscillation exists only because Neural Interactome moves thresholds with the input. Kunert-Graf et al. 2017 note that their own model "does not sustain oscillation in the absence of explicit external input". (Corrected 2026-09-25: an earlier version of this entry quoted a sentence that is not in their paper.)
 - **The evidence places the generators** near the head (Ji et al. 2021, a relaxation oscillator fitted to phase-response data) and in ventral-cord motor neurons for both directions. Proprioception's evidence is for propagation and entrainment.
 
-**Status.** The maintainer approved documented generators as the default, with the delayed loop as first fallback, on 2026-09-25. The head switch's placement in SMD, which came from a later literature check, needs sign-off.
+**Status.** The maintainer approved documented generators as the default, with the delayed loop as first fallback, on 2026-09-25. The head switch's placement in SMD, which came from a later literature check, needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-24 — The chemotaxis index is Bargmann's endpoint count
 
@@ -132,7 +132,7 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 
 **Decision.** C = 1 pF, G_c = 10 pS, a_r = 1 s⁻¹ and a_d = 5 s⁻¹, as Kunert-Graf et al. 2017 restate from Kunert, Shlizerman & Kutz 2014.
 **Why.** Neural Interactome's code uses 1.5 pF with both rates divided by 1.5, which is the same model run 1.5× slower, and no source gives those values. The first draft credited them to Varshney and Kunert. The port check can't see a uniform time rescale, so the time scale has to rest on the publication. Neural Interactome's values stay in its own mode, for the port check.
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-25 — Neuromuscular signs follow the muscle's receptors, in one shared layer
 
@@ -149,7 +149,7 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 
 **Decision.** The primary null for checkpoint 6 is a degree-preserving double-edge swap of the chemical graph. Each directed connection keeps its section count and sign at its presynaptic end. Autapses, gap junctions and the neuromuscular map are unchanged. Rewired connections are badged "rewired", never with a physiology source. A secondary null also rewires gap junctions, and is reported without verdicts.
 **Why.** "Keeps its sign at its presynaptic end" means nothing for an undirected gap junction. nematode's undirected swap moves strength with the edges: ALA's 1,314 sections leave ALA, and half the neurons' gap-junction totals change by more than 50%. A verdict could then reflect where four outlier junctions land. It also deleted all 38 autapses.
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-25 — One tuning procedure for every wiring
 
@@ -160,7 +160,7 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 - **Verdicts.** Checkpoints 2–5 are compared among crawling nulls only.
 
 **Why.** The first draft promised the nulls "the same procedure and budget" without defining either, while the real wiring would have been tuned by hand. It also scored non-crawling nulls as failing everything, which biased the headline result toward "wiring matters".
-**Status.** Needs sign-off (PLAN.md §7.3, §7.4).
+**Status.** Needs sign-off (PLAN.md §7.3, §7.4). Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-25 — Noise is a white-noise current with a defined intensity
 
@@ -203,7 +203,7 @@ The oscillator is a minimal FitzHugh–Nagumo form, which is ours (level 0), sin
 
 **Decision.** Sustained 10× real time on an M-series laptop in Chrome: a 20-minute chemotaxis run in 2 minutes, and the full 60-minute assay in 6.
 **Why.** The spec asks PLAN to set a target sized so a typical chemotaxis run plays in a couple of minutes. The review benchmarked the planned one-workgroup neural step alone on an M5 Max at 6.3× real time at 1 ms and 18× at 5 ms, so the second-order scheme's 2.5 ms step is what makes 10× plausible. A shortfall is logged, not paid for with accuracy.
-**Status.** Needs sign-off.
+**Status.** Needs sign-off. Signed off with the plan, whose pull request (#1) merged on 2026-09-25 (noted 2026-09-30).
 
 ## 2026-09-25 — FIDELITY.md and DATA_SOURCES.md are hand-written until milestone 0a
 
@@ -530,7 +530,7 @@ Every primary null gets the same procedure and budget. R's parameterisation come
 - **PLAN** records the outcome and track R in §9, what each fallback did in §10, and the corrected Kim et al. entry and the precedents above in §11. Checkpoint 0's first formal run moves from milestone 0c to the harness at milestone 3 (§7.2), a change of schedule, not of threshold. Milestone 2's long-run parity statistic, which assumes crawling, is settled when milestone 2 starts.
 - **The spec**'s §2.5 description of Kim et al. is corrected to match PLAN §11.
 
-**Status.** Decided with the maintainer on 2026-09-26. The spec §2.5 correction needs the maintainer's sign-off.
+**Status.** Decided with the maintainer on 2026-09-26. The spec §2.5 correction needs the maintainer's sign-off. Signed off when its pull request (#7) merged (noted 2026-09-30).
 
 ## 2026-09-26 — The 3D graph: an unbent, stretched worm, drawn in raw WebGPU
 
@@ -2938,7 +2938,7 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - GPU parity's short checks, `npm run gpu:parity:safari`, every setup, the contrast brain's lesioned one among them, passing as they must in Chrome;
   - the app, `npm run app:safari`, new. It drives the built app in Safari through safaridriver: the split view, the plate alone and the graph alone; a link with lesions and a rewiring, and one with food; About the science from a link; a link's note; a touch from the controls; the brain swapped live; a neuron lesioned live from the inspector; and Copy link. It passes if every page becomes ready and reports no error once it is (corrected after review from "no error": the driver can't see what a page logs while it loads), the worm's time advances, and each scenario's own check holds: the dialog opens, the note shows, a swap or a lesion takes effect, and so on. It saves a screenshot of each for the maintainer to look over.
 
-  Long-run parity in Safari, last run at milestone 3, isn't run again. Considered: long-run parity too, 20 to 40 minutes with Safari's window kept uncovered; and parity alone, as at earlier milestones.
+  Long-run parity in Safari, last run at milestone 4 (2026-09-27, "AWC-ON senses butanone"; corrected 2026-09-30, with the docs, from "milestone 3"), isn't run again. Considered: long-run parity too, 20 to 40 minutes with Safari's window kept uncovered; and parity alone, as at earlier milestones.
 
 - **A shortfall is logged.** The 10× target is set for Chrome (PLAN §1). Safari's rates are recorded whatever they are. A shortfall in either browser is logged rather than paid for with accuracy, and only measured wins that leave the model alone are taken, such as not reading the glow back while nothing draws it. Considered: optimising until Safari holds 60 frames a second at 10×, which could reach the kernels and their parity.
 
@@ -2995,3 +2995,26 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
 - **Found and left.** The cap is a ceiling too: at 60 frames a second it allows 38.4×, so a GPU that could step faster is held to that by a link's `?speed=`; the app's own speeds stop at 10×. The drawing check reads each view back as the visual tests do, which shows the GPU can draw it, not what reached the screen; the screenshots show that. Why Safari draws no frame while a long batch runs wasn't profiled.
 
 **Status.** Both checks pass. The spec's frame rate holds at 1× in both browsers, and the fast-forward target is met in Chrome; Safari, where no target is set, holds 10× and up to 23×. Past what its GPU steps, each browser now keeps its frames and runs the worm slower than asked. Revised after review.
+
+## 2026-09-30 — The docs, a complete VALIDATION.md and an audit against the spec (set before its work)
+
+**Why.** Milestone 6 ends with the docs (spec §9, §10) and its exit asks for `VALIDATION.md` complete (PLAN §9); it is the milestone's fifth pull request, and the project's last planned one. A survey found `VALIDATION.md` with checkpoints 0 and 1 in full, §7.2's comparison, and every graded quantity labelled as a calibration target or predicted, but nothing for checkpoints 2 to 6, no list of known simplifications, which spec §9 asks of it, and nothing on the GPU's checks; its prose follows how the project unfolded, so a reader meets track R's rounds before the result. The README's status is a log of those rounds, and it has no explanation of the science, the modelling hypothesis or what the model leaves out, which spec §9 asks of it, nor the food behaviours that won't emerge (spec §5). The maintainer chose how far each goes, that the checkpoints are run again, and that the milestone closes with an audit, before any of it was written.
+
+**Decision.**
+
+- **`VALIDATION.md` is completed and reordered.** Added: checkpoints 2 to 6, each as not reached, with what it would measure and where its thresholds are fixed; the known simplifications, each with why it was made, those of the measures among them (spec §8: "Where you can only approximate, say so in VALIDATION.md with your reasoning"); and the GPU's checks, parity, the Safari check and the frame rate. Its hand-written prose is reordered so that a reader meets the result first: that crawling as checkpoint 1 asks for it does not emerge, what the chosen fit does, and then track R's rounds as the history behind it. The sections the harness writes stay as it writes them. Considered: adding the missing sections alone.
+- **The README becomes a front door,** with a screenshot of the app: what it is; where it stands, the negative result first; the science in brief, the modelling hypothesis, the layers outside the connectome and what is left out, the food behaviours among them; using the app and its link's parameters; running it; a map of the documents; credits and licence. The screenshot is taken by a script, from the built app on the Mac's GPU, and no gate checks it. Considered: the same without an image; and a shorter status with one paragraph on the science.
+- **Checkpoints 0 and 1 run again** on the code as it ships, on 6 workers, by the limits set after the machine's panic (2026-09-28). Since their last runs, at 1b398c9, the simulation's code has gained the rewiring, the carrying of a worm into a new wiring and the model's version, and lost nothing, so each figure should come out as it was; a figure that moves is a finding, reported before anything is changed. Considered: keeping the recorded runs and saying the code only gained.
+- **An audit against the spec closes the milestone.** `WORMLIGHT_SPEC.md` is walked requirement by requirement, by three reviewers reading the repository and one section of the spec each, and each requirement recorded as met, met in part or not met, with where. What is found missing is fixed in this pull request if it is small, or logged. Considered: the milestone's outcome alone, as earlier milestones have it.
+
+**After the audit: decisions, settled by the maintainer before the fixes.** The three audits found nothing in the code against the spec's core rule, its guards, its data or its app (their record is below). They found one requirement unmet and unlogged, the spec's own text out of step in three places, and gaps in this pull request's drafts.
+
+- **The sensitivity runs are built and run, by the rule PLAN fixed on 2026-09-24.** Spec §2.4 asks for "a sensitivity toggle in the harness" for the uncertain signs, and PLAN §2.4 set its four settings before any code; PLAN §3.2 added the shared-connection scales. Neither was built, and nothing logged that. The rule, set here before any of it runs:
+  - `npm run harness -- --sensitivity` runs fourteen settings of the real wiring. Thirteen set the 1,986 chemical connections signed by the transmitter rule (1,453) or not at all (533): by the rule, as the model has them; all excitatory; all silent; and ten random draws, each connection excitatory or inhibitory with equal chance, from the project's hash at a fixed seed, "sign" in ASCII, on lanes 1 to 10. The fourteenth keeps the model's signs and takes the shared-connection scales, 0.33 for gap junctions and 0.50 for chemical synapses, in place of 0.2055 and 0.3444.
+  - Under each: checkpoint 1's 20 trials, and checkpoint 0's 20 untouched trials of the silenced network, on the refit's values, frozen, with each setting's thresholds at its own rest, as any other brain's are (PLAN §3.3).
+  - Reported, not graded: each setting's checkpoint 1 measures with the grade they would get, and its silenced worm's forward bouts. No choice rests on them, and nothing is tuned after them. The first setting is the model's own, and must repeat checkpoint 1's figures.
+  - Checkpoint 0's touch and chemotaxis clauses aren't run under them: they take the hour-long assay fourteen times over, and ask only that a worm that barely moves show no reflex.
+  - When the choice was put to the maintainer, checkpoint 0 was called unaffected, its network having no synapses. That was wrong: a silenced network keeps its intact thresholds, which the signs move, and the head switch's gate reads them. So its crawling clause runs under each setting too.
+  - Considered: a pull request of its own; and logging the toggle as not built.
+- **The spec stays as it is.** Its three mismatches are recorded in the audit, and the documents say what was done: neuron classes come from OpenWorm's `cect`, where spec §2.1 names Wang et al. 2024; Berri et al. 2009, which spec §2.3 and §8 name for crawling, was never used; and spec §4's "Without it there are no spontaneous reversals" doesn't hold in track R's model, whose reversals are its head switch's. Considered: amending the three sentences here, for sign-off.
+- **The rest is fixed as recommended,** and listed with the audit's record below.

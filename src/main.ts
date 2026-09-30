@@ -37,7 +37,7 @@ function message(root: HTMLElement, kind: string, title: string | null, body: st
     el(
       'p',
       'lede',
-      "A living C. elegans in the browser, under construction. The worm's full connectome runs on your GPU and " +
+      "A living C. elegans in the browser. The worm's full connectome runs on your GPU and " +
         'drives a physically simulated body, and its neurons glow with their simulated activity.',
     ),
   );

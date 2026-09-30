@@ -86,8 +86,15 @@ export function gapRows(n: number, pairs: readonly (readonly [a: number, b: numb
 }
 
 // Cook's wiring in production units: a connection's conductance is its EM sections × the Cook-to-Varshney
-// scale × the conductance per Varshney synapse; a chemical connection with no sign has none (PLAN §3.1).
-export function cookNetwork(data: WormlightData): Network {
+// scale × the conductance per Varshney synapse; a chemical connection with no sign has none (PLAN §3.1). The
+// scales are the registry's, which match the datasets' totals, unless the sensitivity runs give others (PLAN §3.2).
+export function cookNetwork(
+  data: WormlightData,
+  scales: { chemical: number; gap: number } = {
+    chemical: PARAMS.cookToVarshneyChemical.value,
+    gap: PARAMS.cookToVarshneyGap.value,
+  },
+): Network {
   const names = data.neurons.map((n) => n.name);
   const at = new Map(names.map((name, i) => [name, i]));
   const id = (name: string): number => at.get(name) ?? fail(`unknown neuron ${name}`);
@@ -99,13 +106,11 @@ export function cookNetwork(data: WormlightData): Network {
         [
           id(c.post),
           id(c.pre),
-          c.sections * PARAMS.cookToVarshneyChemical.value * perSynapse,
+          c.sections * scales.chemical * perSynapse,
           c.sign > 0 ? PARAMS.reversalExcitatory.value : PARAMS.reversalInhibitory.value,
         ] as const,
     );
-  const gap = data.gap.map(
-    (g) => [id(g.a), id(g.b), g.sections * PARAMS.cookToVarshneyGap.value * perSynapse] as const,
-  );
+  const gap = data.gap.map((g) => [id(g.a), id(g.b), g.sections * scales.gap * perSynapse] as const);
   return {
     names,
     capacitance: PARAMS.membraneCapacitance.value / 1000, // pF → nF

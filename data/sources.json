@@ -280,13 +280,19 @@
       "id": "randi2023",
       "use": "consulted",
       "dataset": "Randi et al. 2023, _Nature_ 623:406, signal-propagation atlas",
-      "takes": "Cited only. The OSF deposit states no licence, and the `wormneuroatlas` copy is GPL-3.0, so it can't be bundled with Apache-2.0 code"
+      "takes": "Cited, and used as an outside cross-check: the sign audit compared the command circuit's signs with it through a local `wormneuroatlas` copy, outside the repository (`docs/sign-audit.md`). The OSF deposit states no licence, and the `wormneuroatlas` copy is GPL-3.0, so it can't be bundled with Apache-2.0 code"
+    },
+    {
+      "id": "cengen2021",
+      "use": "consulted",
+      "dataset": "CeNGEN single-cell expression (Taylor et al. 2021, _Cell_ 184:4329, doi:10.1016/j.cell.2021.06.023)",
+      "takes": "The sign audit compared the command circuit's receptor expression with it, from local copies outside the repository, whose hashes it records (`docs/sign-audit.md`, §5). No sign was changed, and nothing is bundled"
     },
     {
       "id": "levy-bargmann-code",
       "use": "consulted",
       "dataset": "Levy & Bargmann 2020, `LevySagi/Adaptive-Concentration-Threshold` (CC BY 4.0 per its LICENSE)",
-      "takes": "The adaptive-threshold constants K = 5.5 µM and τ = 17 s were read from `NoiseFilteringAnalysis_Fig6.m`. No code or data is bundled"
+      "takes": "The adaptive-threshold constants K = 5.5 µM and τ = 17 s were read from `Library4_NoiseFilteringAnalysis/NoiseFilteringAnalysis_Fig6.m`, at the repository's head since 2019-10-17, commit `a4fe75c1dc6f`. No code or data is bundled"
     },
     {
       "id": "modworm",

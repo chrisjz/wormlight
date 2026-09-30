@@ -13,6 +13,7 @@ import {
   touchSchedule,
   type Checkpoint0,
   type Checkpoint1,
+  type Crawling,
   type Diagnostics,
   type Clause,
   type Grade,
@@ -225,7 +226,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
     `### Checkpoint 0: the silenced network — ${GRADE[result.grade]}`,
     run,
     clauses,
-    'Every clause is predicted, since nothing is calibrated to it: each passes if a behaviour that should need the connectome is absent without it.',
+    "Every clause is predicted, since no parameter is tuned to it: each passes if a behaviour that should need the connectome is absent without it. Two of the calibration's bounds were set with the silenced network in view, θ_osc's floor and σ_n's ceiling (PLAN §7.3), so that within them it stays still.",
     '#### Crawling',
     `There ${crawling.bouts === 1 ? 'was 1 forward bout' : `were ${crawling.bouts} forward bouts`} of 10 s or more; the longest forward run lasted ${longest.toFixed(1)} s. Backward activity, reported and not graded: ${backward(crawling.trials)}.`,
     trialTable(crawling.trials),
@@ -380,6 +381,69 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
   ].join('\n\n');
 }
 
+// A sensitivity setting's runs (spec §2.4; PLAN §2.4, §3.2): checkpoint 1 on the setting's brain, and checkpoint 0's
+// crawling clause on it silenced.
+export interface SensitivityRow {
+  label: string;
+  checkpoint1: Checkpoint1;
+  silenced: Crawling;
+}
+
+// The sensitivity runs' section: one row a setting, each reported and none graded.
+export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInfo): string {
+  const value = (row: SensitivityRow, name: string): string => {
+    const c = row.checkpoint1.clauses.find((clause) => clause.name === name);
+    return !c || c.value === null ? '–' : CLAUSES[name].show(c.value);
+  };
+  // The share of the measured time moving forward, and the mean forward velocity, over a setting's trials.
+  const forward = (row: SensitivityRow): string => {
+    const t = row.checkpoint1.trials;
+    const all = t.reduce((n, x) => n + x.forward + x.paused + x.backward, 0);
+    return all > 0 ? percent(t.reduce((n, x) => n + x.forward, 0) / all) : '–';
+  };
+  const velocity = (row: SensitivityRow): string => {
+    const t = row.checkpoint1.trials;
+    return t.length > 0 ? fixed(t.reduce((n, x) => n + x.meanVelocity, 0) / t.length, 3) : '–';
+  };
+  const trials = rows.flatMap((row) => [...row.checkpoint1.trials, ...row.silenced.trials]);
+  const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
+  const infinite = trials.filter((t) => !t.finite).length;
+  return [
+    '### Sensitivity: the uncertain signs, and the scales',
+    [
+      `Run on ${info.date} at \`${info.commit}\`: under each setting, checkpoint 1's ${count(info.trials, 'trial')} of ${info.seconds} s and the same trials of the silenced network, ${seeds(info.trials)}, on ${parameterText(info.calibrated, info.registry)}, none of them tuned again.`,
+      `${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
+    ].join(' '),
+    'Reported, not graded. Forward is the share of the measured time the worm moves forward, and the mean velocity is towards its head, both over all the trials; the kinematics come from forward bouts of 10 s or more, and a dash is a measure with none to take it from. The last two columns say how checkpoint 1 would grade the setting, and how many forward bouts of 10 s its silenced network made, where checkpoint 0 asks for none.',
+    table(
+      [
+        'Setting',
+        'Forward',
+        'Mean velocity (body lengths/s)',
+        'Frequency (Hz)',
+        'Wavelength (body lengths)',
+        'Speed (body lengths/s)',
+        'Eigenworms',
+        '20 s bouts',
+        'Checkpoint 1 would grade',
+        'Silenced: bouts of 10 s',
+      ],
+      rows.map((row) => [
+        row.label,
+        forward(row),
+        velocity(row),
+        value(row, 'frequency'),
+        value(row, 'wavelength'),
+        value(row, 'speed'),
+        value(row, 'eigenworms'),
+        value(row, 'bout'),
+        GRADE[row.checkpoint1.grade],
+        String(row.silenced.bouts),
+      ]),
+    ),
+  ].join('\n\n');
+}
+
 // Round 3's chosen pick, the first of its four to pass §7.2's comparison, as data/calibration/r5-chosen.json records
 // it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its speed's interval, and the
 // runs that show what paces its crawl, each graded by checkpoint 1's grading.
@@ -529,7 +593,7 @@ export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
 }
 
 // Replace the text between a section's markers in the page: a checkpoint's, by its number, or the comparison's.
-export function replaceSection(page: string, key: number | 'equivalence', section: string): string {
+export function replaceSection(page: string, key: number | 'equivalence' | 'sensitivity', section: string): string {
   const name = typeof key === 'number' ? `checkpoint-${key}` : key;
   const what = typeof key === 'number' ? `checkpoint ${key}` : `the ${key} section`;
   const start = `<!-- harness:${name} -->`;

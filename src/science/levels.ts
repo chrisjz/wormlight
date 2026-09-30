@@ -47,7 +47,7 @@ export const SCALE: readonly ScaleStep[] = [
     symbol: '1',
     name: 'Calibrated',
     meaning: 'Tuned by us so the model reproduces a behaviour. It shows the model can, not that it predicts.',
-    example: 'Neural noise set to match the spontaneous reversal rate.',
+    example: 'Neural noise tuned, with the other gains, against crawling and the spontaneous reversal rate.',
   },
   {
     level: 0,
