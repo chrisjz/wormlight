@@ -483,10 +483,23 @@ button.inspector-row:focus-visible .row-name {
   font-size: 0.75rem;
 }
 
+/* The heading's text carries a close halo of the page's colour, so it stays readable over the neurons the camera
+   flies to while dimming only what lies right behind its letters; Find has its own panel. */
 .brand {
   top: 1.25rem;
   left: 1.5rem;
   max-width: 26rem;
+  text-shadow:
+    0 0 2px var(--bg),
+    0 0 4px var(--bg),
+    0 0 8px var(--bg);
+}
+
+.brand .brand-title {
+  text-shadow:
+    0 0 2px var(--bg),
+    0 0 4px var(--bg),
+    0 0 18px rgb(93 252 143 / 30%);
 }
 
 .brand-title {

@@ -5,6 +5,7 @@
 > - **The tables are kept as they were made.** Their line numbers and their "draft" and "HEAD" are that day's. They were not changed to match what followed.
 > - **What followed** is listed at the end: what the pull request fixed, what it built, and what it left and why.
 > - **Corrections,** from a review of the pull request, are made in place, each marked with its date, 2026-10-01.
+> - **Follow-ups** that settle an item left are noted after it, in brackets, each with its date and the DECISIONS.md entry that records it (added 2026-10-01).
 > - **Paths** are relative to the repository; `nematode:` is the sibling Quantum Nematode checkout, and `S/` the app reviewer's folder of screenshots, which is not kept.
 
 ## The core rule, the neural model and validation (spec §1, §4, §8)
@@ -321,6 +322,6 @@ The pull request that commissioned the audit acted on it the same day (DECISIONS
 - **`DATA_SOURCES.md`** still gives c302 by its repository, and the sign overrides' file is recorded in the runtime data's digests, not as a pin.
 - **Kato et al. 2014**, which the spec mentions as context for AWC's kinetics, is cited nowhere.
 - **The forms that are the project's own**, AWC's current, the FitzHugh–Nagumo oscillator, the head switch's gate and the conductance form, stay at level 0 with no source, and the scheme is second order for the network alone, as logged (2026-09-25 to 2026-09-29).
-- **The other "Consulted" rows** of `DATA_SOURCES.md` still carry no commit, date or hash.
-- **The app reviewer's observations** on the head's density, the inspector's sheet, Find's zoom and a link note's Details are left as seen.
-- **Kim et al. 2025**, modWorm's paper, is named in `DATA_SOURCES.md` without an entry in the citation registry, as it was before the audit; Taylor et al. 2021, which the audit's fixes added there, is registered (added 2026-10-01, as are the three items above).
+- **The other "Consulted" rows** of `DATA_SOURCES.md` still carry no commit, date or hash. (Followed on 2026-10-01: each now names the version read, or says it was never opened; DECISIONS.md, "What the audit left".)
+- **The app reviewer's observations** on the head's density, the inspector's sheet, Find's zoom and a link note's Details are left as seen. (Followed on 2026-10-01: Find and a double-click fly less close, and the graph's heading has a backing; the other three are left, with the reasons recorded; DECISIONS.md, "What the audit left".)
+- **Kim et al. 2025**, modWorm's paper, is named in `DATA_SOURCES.md` without an entry in the citation registry, as it was before the audit; Taylor et al. 2021, which the audit's fixes added there, is registered (added 2026-10-01, as are the three items above). (Followed on 2026-10-01: Kim et al. 2025 is registered too; DECISIONS.md, "What the audit left".)

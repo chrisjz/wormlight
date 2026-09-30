@@ -201,6 +201,16 @@ export const CITATIONS = {
     venue: 'Frontiers in Computational Neuroscience 13:8',
     doi: '10.3389/fncom.2019.00008',
   },
+  kim2025: {
+    short: 'Kim et al. 2025',
+    authors: 'Kim J, Florman JT, Santos JA, Alkema MJ, Shlizerman E',
+    year: 2025,
+    title:
+      'Modular integration of neural connectomics, dynamics and biomechanics for identification of behavioral sensorimotor pathways in Caenorhabditis elegans',
+    venue: 'arXiv preprint 2504.18073v2',
+    doi: '10.48550/arXiv.2504.18073',
+    note: "Read as arXiv's second version, of 2025-06-03, beside its code, `shlizee/modWorm` at `10912b4e09c7`. Checked against DataCite and arXiv; also posted on bioRxiv (doi:10.1101/724328), and no journal version was found on Crossref on 2026-10-01.",
+  },
   kunert2014: {
     short: 'Kunert, Shlizerman & Kutz 2014',
     authors: 'Kunert J, Shlizerman E, Kutz JN',

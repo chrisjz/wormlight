@@ -280,7 +280,7 @@
       "id": "randi2023",
       "use": "consulted",
       "dataset": "Randi et al. 2023, _Nature_ 623:406, signal-propagation atlas",
-      "takes": "Cited, and used as an outside cross-check: the sign audit compared the command circuit's signs with it through a local `wormneuroatlas` copy, outside the repository (`docs/sign-audit.md`). The OSF deposit states no licence, and the `wormneuroatlas` copy is GPL-3.0, so it can't be bundled with Apache-2.0 code"
+      "takes": "Cited, and used as an outside cross-check: the sign audit compared the command circuit's signs with it through `funatlas.h5` (SHA-256 `53a99055667b`) in `wormneuroatlas` 0.0.7.3, the latest release on PyPI since 2023-06-29, whose wheel (SHA-256 `166289031784`, as PyPI lists it) was downloaded on 2026-09-29 and kept outside the repository (`docs/sign-audit.md`). The OSF deposit states no licence, and the `wormneuroatlas` copy is GPL-3.0, so it can't be bundled with Apache-2.0 code"
     },
     {
       "id": "cengen2021",
@@ -298,25 +298,25 @@
       "id": "modworm",
       "use": "consulted",
       "dataset": "Kim et al. 2025, `shlizee/modWorm` (BSD-3-Clause)",
-      "takes": "Reviewed as prior art. Its muscle map is not used, because Wormlight takes neuromuscular connections straight from Cook et al. 2019"
+      "takes": "Reviewed as prior art, and read for the go/no-go's rebuild of its mechanism (`scripts/experiments/go-no-go/kim.ts`; DECISIONS.md, 2026-09-26), at the repository's head since 2026-02-19, commit `10912b4e09c7` (tag v1.0.42), beside the paper's arXiv v2. Its muscle map is not used, because Wormlight takes neuromuscular connections straight from Cook et al. 2019; the rebuild takes only the size of its largest row, to scale their muscles' gain. No code is bundled"
     },
     {
       "id": "boyle-code",
       "use": "consulted",
       "dataset": "Boyle, Berri & Cohen 2012, the model's source code (`worm.cc`)",
-      "takes": "Consulted for how the whole-worm drag is split per rod. No code is bundled"
+      "takes": "Consulted for how the whole-worm drag is split per rod: read on 2026-09-24 from `WormSim/Model/worm.cc` in `OpenSourceBrain/CelegansNeuromechanicalGaitModulation`, at master's head since 2025-07-25, commit `fdf2203c0da0`. The file came from the paper's supplementary WormSim1.zip, as the commit that added it in 2015 says, and is unchanged since (SHA-256 `46866c21c12a`). Its header allows use in research, teaching and other non-commercial purposes; no code is bundled"
     },
     {
       "id": "ji2021-data",
       "use": "consulted",
       "dataset": "Ji et al. 2021 data and code (Dryad, doi:10.5061/dryad.wwpzgmsk2)",
-      "takes": "Not used directly; the head switch's parameters are taken from the paper"
+      "takes": "Its files were neither opened nor used: the DOI comes from the paper's statement of its data, and Dryad lists one version of the deposit, published 2021-11-12 (CC0), its code archived at doi:10.5281/zenodo.5611015 (MIT). The head switch's parameters are taken from the paper"
     },
     {
       "id": "cook2019-si5",
       "use": "consulted",
       "dataset": "Cook et al. 2019 SI 5, original and \"corrected July 2020\" versions (wormwiring.org; the original is vendored in nematode via cect)",
-      "takes": "Compared cell by cell with Emmons 2024's S1 File: identical chemical synapses, and gap junctions that differ only by the 2020 corrections and the 2023 BDU junctions. Neither states a licence; WormWiring shows only \"Emmons Lab Copyright (c) 2020\""
+      "takes": "Compared cell by cell with Emmons 2024's S1 File: identical chemical synapses, and gap junctions that differ only by the 2020 corrections and the 2023 BDU junctions. The original was read from nematode's copy at its pinned commit (SHA-256 `559989daa02c`, its Git LFS object), byte for byte WormWiring's `SI 5 Connectome adjacency matrices.xlsx`, last modified there on 2020-04-16; the corrected version was downloaded from WormWiring on 2026-09-25 (SHA-256 `1f4fdbf84746`), last modified there on 2020-07-09. Neither states a licence; WormWiring shows only \"Emmons Lab Copyright (c) 2020\""
     }
   ]
 }
