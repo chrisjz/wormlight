@@ -10,8 +10,9 @@ import {
   formatNumber,
   formatValue,
   levelsText,
+  ledgerStatus,
   PARAM_GROUPS,
-  statusText,
+  paramNote,
   subsystemRange,
   testedByText,
 } from '../../src/science/ledger.ts';
@@ -37,26 +38,7 @@ const cite = (ids: readonly CitationId[]): string => ids.map((id) => CITATIONS[i
 function paramRows(ids: ParamId[]): string[][] {
   return ids.map((id) => {
     const p: Param = PARAMS[id];
-    const bounds =
-      p.bounds === undefined
-        ? ''
-        : p.bounds === null
-          ? 'Its bounds are set before calibration runs.'
-          : `Bounds ${formatNumber(p.bounds[0])} to ${formatNumber(p.bounds[1])}.`;
-    const c = p.conductance;
-    // The conductance form's entry beside the current form's (PLAN §4.3).
-    const conductance = c
-      ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
-      : '';
-    const note = [
-      p.note,
-      p.rule,
-      p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '',
-      bounds,
-      conductance,
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const note = paramNote(p);
     return [p.name, `\`${p.symbol}\``, formatValue(p), p.unit, String(p.level), cite(p.sources), note, p.upgrade];
   });
 }
@@ -73,13 +55,12 @@ export function fidelityPage(facts: Facts): string {
   const subsystems = Object.keys(SUBSYSTEMS) as SubsystemId[];
   const free = freeParams();
   const calibrated = free.filter((id) => PARAMS[id].level === 1);
-  const values = calibratedText(calibrated.map((id): Param => PARAMS[id]));
   const groups = Object.keys(PARAM_GROUPS) as Subsystem[];
   return [
     '# Fidelity ledger',
     '<!-- Generated from the registry in src/science/ by `npm run docs:fidelity`. Edit the registry, not this page. -->',
     'How well biology supports each part of Wormlight (spec §1.3). It lets a viewer tell measured fact from informed guess, and it tells later work what to replace when new research lands.',
-    `> ${statusText(values)} Checkpoints 0 and 1 have run in the harness, and the others haven't, so "Tested by" lists the checks planned for each part. Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
+    `> ${ledgerStatus()} Figures quoted from the data, such as connection counts and sign coverage, are counted from \`public/data/wormlight.v1.json\` when the page is generated.`,
     '## The scale',
     table(
       ['Level', 'Name', 'Meaning', 'Example'],

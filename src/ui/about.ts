@@ -1,21 +1,23 @@
 // "About the science" (spec §1.3): the fidelity ledger in the app, from the same registry as FIDELITY.md, in a dialog
 // over the views. It opens with where the project stands (the status FIDELITY.md opens with), then the scale, each
 // subsystem's levels with what is solid and what isn't, its components folded beneath it, the biology left out, the
-// presentation's choices, the parameters, folded by group, and the sources. `?about=science` opens it from a link,
-// and the URL says so while it is open.
+// presentation's choices, what the model is tested and tuned against, the parameters, folded by group, and the
+// sources. `?about=science` opens it from a link, and the URL says so while it is open.
 
 import type { WormlightData } from '../data/schema.ts';
 import { CITATIONS, type Citation, type CitationId } from '../science/citations.ts';
 import { countFacts, type Facts } from '../science/facts.ts';
 import { COMPONENTS, OMITTED, PRESENTATION, render, SUBSYSTEMS, type SubsystemId } from '../science/fidelity.ts';
 import {
-  calibratedText,
+  checkpoints,
   formatValue,
+  ledgerStatus,
   levelsText,
   PARAM_GROUPS,
-  statusText,
+  paramNote,
   subsystemRange,
   testedByText,
+  tokens,
 } from '../science/ledger.ts';
 import { SCALE } from '../science/levels.ts';
 import {
@@ -27,6 +29,7 @@ import {
   type Subsystem,
 } from '../science/params.ts';
 import { usedCitations } from '../science/used.ts';
+import { CALIBRATION_TARGETS, REFERENCE_DATA } from '../science/validation.ts';
 import { aboutUrl } from './params.ts';
 
 const REPOSITORY = 'https://github.com/chrisjz/wormlight/blob/main';
@@ -42,32 +45,21 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+// A link that opens in a new tab, and says so to assistive technology, so the ledger stays open behind it.
 function link(text: string, href: string): HTMLAnchorElement {
   const a = el('a', undefined, text);
   a.href = href;
   a.rel = 'noopener';
   a.target = '_blank';
+  a.append(el('span', 'sr-only', ' (opens in a new tab)'));
   return a;
 }
 
-// The registry's text, whose only marks are **strong**, _emphasis_ and `code`, as nodes.
-export function marks(text: string): Node[] {
-  const out: Node[] = [];
-  const pattern = /\*\*(.+?)\*\*|(?<![\w])_(.+?)_(?![\w])|`(.+?)`/g;
-  let at = 0;
-  for (const m of text.matchAll(pattern)) {
-    if (m.index > at) out.push(document.createTextNode(text.slice(at, m.index)));
-    const [tag, inner] =
-      m[1] !== undefined
-        ? (['strong', m[1]] as const)
-        : m[2] !== undefined
-          ? (['i', m[2]] as const)
-          : (['code', m[3]] as const);
-    out.push(el(tag, undefined, inner));
-    at = m.index + m[0].length;
-  }
-  if (at < text.length) out.push(document.createTextNode(text.slice(at)));
-  return out;
+// The registry's text, in its three marks, as nodes (tokens in src/science/ledger.ts).
+function marks(text: string): Node[] {
+  return tokens(text).map(({ mark, text: t }) =>
+    mark === 'text' ? document.createTextNode(t) : el(mark === 'em' ? 'i' : mark, undefined, t),
+  );
 }
 
 const paragraph = (text: string, className?: string): HTMLParagraphElement => {
@@ -76,11 +68,25 @@ const paragraph = (text: string, className?: string): HTMLParagraphElement => {
   return p;
 };
 
-// A level, or a range of them, as the inspector's badges show one.
+// A level, a range of them or a tag, as the inspector's badges show one: its face hidden from assistive technology,
+// which hears what it means instead.
 function levelBadge(levels: string): HTMLElement {
   const top = levels.match(/\d/)?.[0];
   const b = el('span', `badge about-level${top ? ` badge-${top}` : ''}`);
-  b.append(el('span', 'badge-level', levels));
+  const face = el('span', 'badge-level', levels);
+  face.setAttribute('aria-hidden', 'true');
+  const range = levels.split(/[–/]/).map((l) => l.trim());
+  const spoken =
+    levels === '—'
+      ? 'Omitted:'
+      : levels === '◇'
+        ? 'Presentation:'
+        : range.length === 1
+          ? `Level ${range[0]}:`
+          : levels.includes('–')
+            ? `Levels ${range[0]} to ${range[1]}:`
+            : `Levels ${range.join(', ')}:`;
+  b.append(face, el('span', 'sr-only', spoken));
   return b;
 }
 
@@ -119,6 +125,12 @@ function section(title: string, ...children: Node[]): HTMLElement {
   return s;
 }
 
+function folded(summary: string, ...children: Node[]): HTMLDetailsElement {
+  const details = el('details');
+  details.append(el('summary', undefined, summary), ...children);
+  return details;
+}
+
 function scale(): HTMLElement {
   const list = el('dl', 'about-scale');
   for (const step of SCALE) {
@@ -144,20 +156,18 @@ function subsystems(f: Facts): HTMLElement {
     const article = el('article', 'about-subsystem');
     const heading = el('h4');
     heading.append(levelBadge(subsystemRange(id)), ` ${s.name}`);
+    const upgrade = render(s.upgrade, f);
     article.append(
       heading,
       facts([
         ["What's solid", render(s.solid, f)],
         ["What isn't", render(s.notSolid, f)],
-        ['What would raise it', render(s.upgrade, f) === '—' ? '' : render(s.upgrade, f)],
+        ['What would raise it', upgrade === '—' ? '' : upgrade],
       ]),
     );
     const parts = COMPONENTS.filter((c) => c.subsystem === id);
     if (parts.length > 0) {
-      const details = el('details', 'about-components');
-      details.append(
-        el('summary', undefined, `Its ${parts.length === 1 ? 'component' : `${parts.length} components`}`),
-      );
+      const details = folded(`Its ${parts.length === 1 ? 'component' : `${parts.length} components`}`);
       for (const c of parts) {
         const part = el('div', 'about-component');
         const name = el('h5');
@@ -178,7 +188,11 @@ function subsystems(f: Facts): HTMLElement {
     }
     return article;
   });
-  return section('Subsystem by subsystem', ...items);
+  return section(
+    'Subsystem by subsystem',
+    paragraph('"Tested by" lists the checks planned for each part; only checkpoints 0 and 1 have run.'),
+    ...items,
+  );
 }
 
 function notes(title: string, list: readonly { text: string; sources: readonly CitationId[] }[]): HTMLElement {
@@ -186,37 +200,66 @@ function notes(title: string, list: readonly { text: string; sources: readonly C
   for (const item of list) {
     const li = el('li');
     li.append(...marks(item.text));
+    if (item.sources.length > 0) li.append(' (', ...sources(item.sources), ')');
     ul.append(li);
   }
   return section(title, ul);
+}
+
+// What the calibrated parameters are tuned against, and the data the checkpoints are measured against.
+function testedAgainst(): HTMLElement {
+  const targets = el('ul', 'about-notes');
+  for (const t of CALIBRATION_TARGETS) {
+    const li = el('li');
+    li.append(el('strong', undefined, `${t.target}.`), ' ', ...marks(t.use), ' (', ...sources(t.sources), ')');
+    targets.append(li);
+  }
+  const reference = el('ul', 'about-notes');
+  for (const r of REFERENCE_DATA) {
+    const li = el('li');
+    li.append(
+      el('strong', undefined, `${checkpoints(r.checkpoints)}.`),
+      ' ',
+      ...marks(r.use),
+      ' (',
+      ...sources(r.sources),
+      ')',
+    );
+    reference.append(li);
+  }
+  return section(
+    'What it is tuned and tested against',
+    paragraph(
+      'The calibrated parameters, at level 1, are tuned against the targets below and nothing else; the checkpoints ' +
+        'after checkpoint 1 are held out, run with the parameters frozen.',
+    ),
+    folded(`The calibration's ${CALIBRATION_TARGETS.length} targets`, targets),
+    folded(`The checkpoints' reference data (${REFERENCE_DATA.length})`, reference),
+  );
 }
 
 function parameters(): HTMLElement {
   const free = freeParams();
   const calibrated = free.filter((id) => PARAMS[id].level === 1);
   const groups = (Object.keys(PARAM_GROUPS) as Subsystem[]).map((group) => {
-    const details = el('details', 'about-params');
     const ids = (Object.keys(PARAMS) as ParamId[]).filter((id) => PARAMS[id].subsystem === group);
-    details.append(el('summary', undefined, `${PARAM_GROUPS[group]} (${ids.length})`));
-    const table = el('table');
-    const head = el('tr');
-    for (const h of ['Parameter', 'Value', 'Unit', 'Level']) head.append(el('th', undefined, h));
-    table.append(el('thead'), el('tbody'));
-    table.tHead?.append(head);
+    const details = folded(`${PARAM_GROUPS[group]} (${ids.length})`);
     for (const id of ids) {
       const p: Param = PARAMS[id];
-      const row = el('tr');
-      const name = el('td');
-      name.append(p.name, ' ', el('code', undefined, p.symbol));
-      row.append(
+      const entry = el('div', 'about-component');
+      const name = el('h5');
+      name.append(levelBadge(String(p.level)), ` ${p.name} `, el('code', undefined, p.symbol));
+      entry.append(
         name,
-        el('td', undefined, formatValue(p)),
-        el('td', undefined, p.unit),
-        el('td', undefined, String(p.level)),
+        facts([
+          ['Value', `${formatValue(p)}${p.unit ? ` ${p.unit}` : ''}`],
+          ['Notes', paramNote(p)],
+          ['What would raise it', p.upgrade],
+          ['Sources', sources(p.sources)],
+        ]),
       );
-      table.tBodies[0].append(row);
+      details.append(entry);
     }
-    details.append(table);
     return details;
   });
   return section(
@@ -224,16 +267,17 @@ function parameters(): HTMLElement {
     paragraph(
       `A parameter is free when we set it ourselves, at level 1 or 0. There are ${free.length} free parameters, ` +
         `${calibrated.length} calibrated and ${free.length - calibrated.length} fixed in advance, against a budget of ` +
-        `${FREE_PARAMETER_BUDGET}. The rest come from the literature.`,
+        `${FREE_PARAMETER_BUDGET}. The rest are taken from the literature or adapted from it, at levels 2 to 5.`,
     ),
     ...groups,
   );
 }
 
 function references(): HTMLElement {
-  const details = el('details', 'about-sources');
-  const ids = [...usedCitations()].sort((a, b) => CITATIONS[a].short.localeCompare(CITATIONS[b].short));
-  details.append(el('summary', undefined, `The ${ids.length} works the ledger cites`));
+  // In the order FIDELITY.md lists them.
+  const ids = [...usedCitations()].sort((a, b) =>
+    CITATIONS[a].short < CITATIONS[b].short ? -1 : CITATIONS[a].short > CITATIONS[b].short ? 1 : 0,
+  );
   const ul = el('ul', 'about-notes');
   for (const id of ids) {
     const c: Citation = CITATIONS[id];
@@ -244,7 +288,6 @@ function references(): HTMLElement {
     else if (c.url) li.append(link(c.url, c.url));
     ul.append(li);
   }
-  details.append(ul);
   const more = el('p');
   more.append(
     'The same registry generates ',
@@ -257,7 +300,7 @@ function references(): HTMLElement {
     link('PLAN.md', `${REPOSITORY}/PLAN.md`),
     '.',
   );
-  return section('Sources', details, more);
+  return section('Sources', folded(`The ${ids.length} works the ledger cites`, ul), more);
 }
 
 export class About {
@@ -276,30 +319,40 @@ export class About {
     close.setAttribute('aria-label', 'Close About the science');
     close.addEventListener('click', () => this.dialog.close());
     head.append(title, close);
+    // The body takes the keyboard's place on opening, at the top of what there is to read, so Space and the arrows
+    // scroll it rather than pressing Close.
     const body = el('div', 'about-body');
-    const values = calibratedText(
-      freeParams()
-        .filter((id) => PARAMS[id].level === 1)
-        .map((id): Param => PARAMS[id]),
-    );
+    body.tabIndex = -1;
+    body.autofocus = true;
     body.append(
       paragraph(
         'How well biology supports each part of Wormlight, so you can tell measured fact from informed guess, and ' +
           'what new research would replace. It is kept in the code, as a registry that FIDELITY.md is also made from.',
         'about-lede',
       ),
-      paragraph(statusText(values), 'about-status'),
+      paragraph(ledgerStatus(), 'about-status'),
       scale(),
       subsystems(f),
       notes('Biology left out', OMITTED),
       notes('Presentation', PRESENTATION),
+      testedAgainst(),
       parameters(),
       references(),
     );
     this.dialog.append(head, body);
-    // A press on the backdrop, outside the dialog's box, closes it too.
+    // A press and a release both on the backdrop, outside the dialog's box, close it; a drag across its edge, as when
+    // selecting text, does not.
+    const outside = (e: MouseEvent): boolean => {
+      const r = this.dialog.getBoundingClientRect();
+      return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+    };
+    let fromBackdrop = false;
+    this.dialog.addEventListener('pointerdown', (e) => {
+      fromBackdrop = e.target === this.dialog && outside(e);
+    });
     this.dialog.addEventListener('click', (e) => {
-      if (e.target === this.dialog) this.dialog.close();
+      if (fromBackdrop && e.target === this.dialog && outside(e)) this.dialog.close();
+      fromBackdrop = false;
     });
     this.dialog.addEventListener('close', () => {
       history.replaceState(history.state, '', aboutUrl(location.href, false));
@@ -311,10 +364,11 @@ export class About {
     document.body.append(this.dialog);
   }
 
-  // Open it, the keyboard's place going back to `opener` when it closes.
+  // Open it, the keyboard's place going back to `opener` when it closes. Already open, it keeps the opener it has.
   open(opener: HTMLElement | null = null): void {
+    if (this.dialog.open) return;
     this.opener = opener;
-    if (!this.dialog.open) this.dialog.showModal();
+    this.dialog.showModal();
     history.replaceState(history.state, '', aboutUrl(location.href, true));
   }
 

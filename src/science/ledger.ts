@@ -4,7 +4,7 @@
 
 import { CHECKS, SUBSYSTEMS, subsystemLevels, type Component, type SubsystemId, type Test } from './fidelity.ts';
 import { levelRange, type Tag } from './levels.ts';
-import type { Param, Subsystem } from './params.ts';
+import { freeParams, PARAMS, type Param, type Subsystem } from './params.ts';
 
 export const TAG_SYMBOL: Record<Tag, string> = { omitted: '—', presentation: '◇' };
 // The parameter registry's groups, by the subsystem each parameter belongs to.
@@ -90,19 +90,70 @@ export function calibratedText(calibrated: readonly Param[]): string {
     : "not yet calibrated for the coloured noise it runs with: each is shown with the provisional value it runs on, where its refit starts, and R's first fit, with white noise, is recorded in `data/calibration/r1.json`";
 }
 
-// Where the project stands, heading both FIDELITY.md and the app's "About the science" view. It is Markdown, with
-// **strong**, _emphasis_ and `code` its only marks; `values` says what the calibrated parameters are (calibratedText).
+// A parameter's notes as the ledger gives them: its note and rule, what it is calibrated against, its bounds, and
+// its conductance form's entry beside the current form's (PLAN §4.3).
+export function paramNote(p: Param): string {
+  const bounds =
+    p.bounds === undefined
+      ? ''
+      : p.bounds === null
+        ? 'Its bounds are set before calibration runs.'
+        : `Bounds ${formatNumber(p.bounds[0])} to ${formatNumber(p.bounds[1])}.`;
+  const c = p.conductance;
+  const conductance = c
+    ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
+    : '';
+  return [p.note, p.rule, p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '', bounds, conductance]
+    .filter(Boolean)
+    .join(' ');
+}
+
+// Where the project stands, heading both FIDELITY.md and the app's "About the science" view, so the two can't drift.
+// It is Markdown, with **strong**, _emphasis_ and `code` its only marks; `values` says what the calibrated parameters
+// are (calibratedText).
 export function statusText(values: string): string {
   return (
-    '**Status: milestone 5 done; milestone 6 under way.** The CPU reference and the GPU simulate the connectome, the ' +
-    "layers outside it, AWC-ON's sense of odour and touch, and the body. The app shows the worm on its dish, with food " +
-    'lawns a viewer can drop, move and remove, whose odour the worm smells, and a way to touch it; a viewer can lesion ' +
-    'any neuron and restore it, swap the real wiring for the contrast brain, a rewiring of its chemical synapses, and ' +
-    'watch the neurons glow with their simulated activity. **Crawling as checkpoint 1 asks for it does not emerge.** ' +
-    "Research track R's three rounds of fitting found no model that both crawls as checkpoint 1 asks and gives the " +
-    'same result at half the time step, so R ended below partial, and checkpoints 2 to 6, which need crawling, are ' +
-    'not reached (DECISIONS.md, 2026-09-29 and 2026-09-30). The negative result is the headline. Checkpoint 0 passes, ' +
-    'which says little while the worm barely crawls, and checkpoint 1 fails (`VALIDATION.md`). The calibrated ' +
-    `parameters are R's refit's, ${values} (DECISIONS.md, 2026-09-28).`
+    '**Status: milestone 5 done; milestone 6 under way.** The CPU reference and the GPU simulate the connectome, ' +
+    "the layers outside it, among them touch and AWC-ON's sense of odour, and the body. The app shows the worm on " +
+    'its dish, with food lawns a viewer can drop, move and remove, whose odour the worm smells, and a way to touch ' +
+    'it; a viewer can lesion any neuron and restore it, swap the real wiring for the contrast brain, a rewiring of ' +
+    'its chemical synapses, and watch the neurons glow with their simulated activity. **Crawling as checkpoint 1 ' +
+    'asks for it does not yet emerge.** Research track R fitted its model in three rounds, and no fit its rules ' +
+    'could choose reaches partial: the chosen fit, the refit, gives the same result at half the time step but fails ' +
+    "checkpoint 1, and the third round's crawlers changed at half the step. One probe search in the second round " +
+    'found a partial crawler that holds at half the step, which the rules, set before it ran, did not let R choose, ' +
+    'so it is recorded as exploratory (DECISIONS.md, 2026-09-28 and 2026-09-29). R has ended below partial, and ' +
+    'checkpoints 2 to 6, which need crawling, are not reached. The negative result is the headline: with its ' +
+    "anatomical weights, class-level gains and the layers the spec permits, the connectome doesn't crawl at the " +
+    'level set in advance, and its best crawl is paced by the head switch, relayed by proprioception, and largely ' +
+    'indifferent to the chemical wiring (DECISIONS.md, 2026-09-30). Checkpoint 0 passes, which says little, since ' +
+    "its crawling clause passes by a bound on the head switch's threshold, not by the wiring; checkpoint 1 fails " +
+    '(`VALIDATION.md`). Only checkpoints 0 and 1 have run, so "Tested by" lists the checks planned for each part. ' +
+    `The calibrated parameters are the refit's, ${values} (DECISIONS.md, 2026-09-28).`
   );
+}
+
+// The status as the registry gives it now.
+export function ledgerStatus(): string {
+  const calibrated = freeParams().filter((id) => PARAMS[id].level === 1);
+  return statusText(calibratedText(calibrated.map((id): Param => PARAMS[id])));
+}
+
+// The registry's text in its marks: plain text, **strong**, _emphasis_ and `code`. Emphasis opens and closes only
+// where no letter, digit or underscore stands beside it, in any script, so a symbol such as κ_gap,B or σ_n stays as
+// it is.
+export type Mark = 'text' | 'strong' | 'em' | 'code';
+export function tokens(text: string): { mark: Mark; text: string }[] {
+  const out: { mark: Mark; text: string }[] = [];
+  const pattern = /\*\*(.+?)\*\*|(?<![\p{L}\p{N}_])_(.+?)_(?![\p{L}\p{N}_])|`(.+?)`/gu;
+  let at = 0;
+  for (const m of text.matchAll(pattern)) {
+    if (m.index > at) out.push({ mark: 'text', text: text.slice(at, m.index) });
+    if (m[1] !== undefined) out.push({ mark: 'strong', text: m[1] });
+    else if (m[2] !== undefined) out.push({ mark: 'em', text: m[2] });
+    else out.push({ mark: 'code', text: m[3] });
+    at = m.index + m[0].length;
+  }
+  if (at < text.length) out.push({ mark: 'text', text: text.slice(at) });
+  return out;
 }

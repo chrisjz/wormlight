@@ -636,6 +636,8 @@ export async function startGraph(
   const onSlash = (e: KeyboardEvent): void => {
     const target = e.target as HTMLElement | null;
     if (e.key !== '/' || target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+    // Behind a modal dialog, such as About the science, the key is the browser's.
+    if (document.querySelector('dialog:modal')) return;
     e.preventDefault();
     find.focus();
   };

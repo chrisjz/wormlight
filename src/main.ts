@@ -122,10 +122,8 @@ async function start(root: HTMLElement): Promise<void> {
     history.replaceState(history.state, '', experimentUrl(location.href, experiment.get()));
   writeExperiment();
   experiment.subscribe(writeExperiment);
-  // The running worm's glow, which the plate reads and the graph draws; and About the science, which each view's
-  // header opens.
+  // The running worm's glow, which the plate reads and the graph draws.
   const activity = new Activity(data.neurons.length);
-  about = new About(data);
   // With the graph alone, the worm still runs to drive its glow, in a plate pane that is never shown (PLAN §1),
   // started once the graph is up. On class colours, as the visual tests' views of the graph are, it waits until the
   // viewer asks for the glow.
@@ -141,6 +139,10 @@ async function start(root: HTMLElement): Promise<void> {
     return unseen;
   };
   try {
+    // About the science, which the plate's header opens, or the graph's when it is alone. A link may ask for it open,
+    // as the link was when the page loaded: it opens once the views are up.
+    const askedAbout = aboutAsked(location.search);
+    about = new About(data);
     if (platePane) {
       plate = await guard(
         startPlate(platePane, device, data, { layout, ...start }, noRender, experiment, activity, about),
@@ -158,7 +160,7 @@ async function start(root: HTMLElement): Promise<void> {
     }
     await Promise.race([Promise.all([plate?.ready, graph?.ready]), failure]);
     // A link may open About the science over the views.
-    if (aboutAsked(location.search)) about.open();
+    if (askedAbout) about.open();
   } catch (err) {
     fail('Wormlight could not start', reason(err));
     throw err;

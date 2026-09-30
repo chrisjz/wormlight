@@ -337,7 +337,7 @@ The fidelity ledger (spec §1.3) lives in code, so the app, the docs and the tes
 - `src/science/fidelity.ts` lists every component (level or tag, basis, caveats, upgrade path, sources, and the checkpoints that test it). It also lists every subsystem (summary, what's solid, what isn't, upgrade path). A subsystem's level is never set by hand: it is shown as the range of its components' levels.
 - The runtime data carries per-element provenance: each connection's sign source, each neuron's position source.
 
-`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge. **Built (2026-09-30, DECISIONS.md):** a dialog over the views, opened from each view's header or by `?about=science`, with the ledger as FIDELITY.md has it, its details folded, under one status text that heads both.
+`npm run docs:fidelity` generates `FIDELITY.md`, with sign coverage counted from the data file, and `npm run data:build` generates `DATA_SOURCES.md`; CI regenerates both and fails on any difference. The app's "About the science" view renders the same registry, and the inspector shows each element's provenance badge. **Built (2026-09-30, DECISIONS.md):** a dialog over the views, opened from the plate's header, or the graph's when it is alone, or by `?about=science`, with the ledger as FIDELITY.md has it, its details folded, under one status text that heads both.
 
 ### 6.2 The free-parameter budget
 

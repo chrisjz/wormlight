@@ -4,8 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { countFacts } from '../../src/science/facts.ts';
 import { ROOT } from '../data/sources.ts';
-import { freeParams, PARAMS, type Param } from '../../src/science/params.ts';
-import { statusText } from '../../src/science/ledger.ts';
+import { PARAMS, type Param } from '../../src/science/params.ts';
+import { ledgerStatus } from '../../src/science/ledger.ts';
 import { calibratedText, fidelityPage, formatNumber, formatValue, testedByText } from './page.ts';
 
 const facts = countFacts(
@@ -117,14 +117,8 @@ describe('calibrated values on the page', () => {
 });
 
 describe('the status', () => {
-  it("heads FIDELITY.md as the app's About the science has it, from one text", () => {
-    const values = calibratedText(
-      freeParams()
-        .filter((id) => PARAMS[id].level === 1)
-        .map((id): Param => PARAMS[id]),
-    );
-    expect(fidelityPage(facts)).toContain(`> ${statusText(values)}`);
-    expect(statusText(values)).toContain('**Crawling as checkpoint 1 asks for it does not emerge.**');
-    expect(statusText(values)).toContain(values);
+  it("opens FIDELITY.md's status, as it opens the app's About the science", () => {
+    const page = fidelityPage(facts);
+    expect(page).toContain(`\n> ${ledgerStatus()} Figures quoted from the data`);
   });
 });
