@@ -86,7 +86,7 @@ In the order they ran, with the refit, above, between the first fit and the seco
 
 ### Checkpoint 0: the silenced network — **Pass**
 
-Run on 2026-09-29 at `1b398c9`: 20 trials of 120 s, seeds 1 to 20, each run untouched and touched, and 30 worms in the assay for up to 60 min, seeds 1 to 30, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s. Every trial's measures start after its first 10 s. Every trial, sham twin and worm stayed finite, and no brain solve failed to converge.
+Run on 2026-09-30 at `4aeb33f`: 20 trials of 120 s, seeds 1 to 20, each run untouched and touched, and 30 worms in the assay for up to 60 min, seeds 1 to 30, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s. Every trial's measures start after its first 10 s. Every trial, sham twin and worm stayed finite, and no brain solve failed to converge.
 
 | Clause          | Measured                                                                                                                                                      | Passes if                                                                                                                                                                     | Grade    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
@@ -95,7 +95,7 @@ Run on 2026-09-29 at `1b398c9`: 20 trials of 120 s, seeds 1 to 20, each run unto
 | Posterior touch | Forward velocity over the 2 s after 50 touches: −0.0001 touched, −0.0001 in the sham twins (body lengths/s), a difference of 5.5 × 10⁻¹⁸ on average; p = 0.42 | Not significantly faster than the sham twins (Wilcoxon's signed-rank test, one-sided, paired), or by under 0.0012 body lengths/s on average                                   | **Pass** |
 | Chemotaxis      | 0 arrivals: 0 of 30 worms at the odour, 0 at the control (CI 0.00); p = 1.0                                                                                   | Neither spot reached significantly more often than the other (the exact binomial test, two-sided, over the worms that reached either); with 5 arrivals or fewer it can't fail | **Pass** |
 
-Every clause is predicted, since nothing is calibrated to it: each passes if a behaviour that should need the connectome is absent without it.
+Every clause is predicted, since no parameter is tuned to it: each passes if a behaviour that should need the connectome is absent without it. Two of the calibration's bounds were set with the silenced network in view, θ_osc's floor and σ_n's ceiling (PLAN §7.3), so that within them it stays still.
 
 #### Crawling
 
@@ -194,7 +194,7 @@ Each worm ran alone in checkpoint 4's assay: the butanone spot's steady field, t
 
 ### Checkpoint 1: crawling — **Fail**
 
-Run on 2026-09-29 at `1b398c9`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
+Run on 2026-09-30 at `4aeb33f`: 20 trials of 120 s, seeds 1 to 20, on the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 5000 pS, g_osc,B = 3900 pS, τ_w = 2.64 s, θ_osc = −28 mV, g_sw = 312 pA, g_p = 0.19 pA, κ_gap,B = 1, g_nmj = 7.55 per unit of relative drive, θ_nmj = −0.3 relative drive, κ_SMD = 0.718, σ_n = 0.0594 pA·√s, τ_n = 0.2 s. Every measure starts after each trial's first 10 s. Every trial stayed finite, and no brain solve failed to converge.
 
 | Clause                                       | Measured | Pass      | Partial   | Grade    | Kind               |
 | -------------------------------------------- | -------- | --------- | --------- | -------- | ------------------ |

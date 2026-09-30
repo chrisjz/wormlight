@@ -94,6 +94,7 @@ The rest, from the data build to the behavioural harness and GPU parity, is list
 | [DATA_SOURCES.md](DATA_SOURCES.md)       | Every dataset, with its citation and licence                                 |
 | [DECISIONS.md](DECISIONS.md)             | The log of every significant choice, its reasons and what it found           |
 | [docs/sign-audit.md](docs/sign-audit.md) | An audit of the command circuit's synapse signs against the literature       |
+| [docs/spec-audit.md](docs/spec-audit.md) | An audit of the repository against the spec, requirement by requirement      |
 
 ## Credits
 
