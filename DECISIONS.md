@@ -3461,3 +3461,52 @@ For the D-types the rule "only the differences transfer" holds in the narrow sen
 **Exploration, disclosed.** No trial ran. A throwaway debug page, in the gitignored `harness-out/`, ran two parity states on both sides, and CPU runs from f32-rounded states tested their sensitivity; neither changes anything recorded.
 
 **Status.** Built. Rectification comes next, in a pull request of its own.
+
+## 2026-10-02 — Track S's rectifier, built: AVA's junctions with the A-types gated each step, and a bound of its own
+
+**Why.** Track S's rules set its build in three pull requests (the entries of 2026-10-01); the signs and the offsets have landed (the entries above). This is the third: the AVA–A-type gap junctions rectified, on the CPU reference and the GPU, with the rest a fixed point of their gates.
+
+**What was built.**
+
+- **The pairs** (`src/sim/trackS.ts`). `rectify` lists every gap junction a network has between AVAL or AVAR and a DA or VA neuron, each as its A-type and its AVA: 37 pairs, 194 sections, AVAL's 19 and AVAR's 18, as the rules counted. A network carries the list, and a lesion or a gain keeps it, so a lesioned brain rectifies the junctions it has left and a rewired brain whichever it has. `rectified` on the loop's parameters switches it on, and the model's key gains it.
+- **The gates** (`src/sim/brain/network.ts`, `src/sim/brain/brain.ts`). Each gap entry carries its junction's rule, and both entries of a junction read one comparison, the A-type strictly the more depolarised, so its conductance is the same in both rows and the system stays symmetric. Each step the CPU copies the gap weights, each rectified junction at its conductance where it conducts at the step's start and at 0 where it is shut, and takes the copy for both the diagonal and the solve. Without a rectifier it takes the network's own rows, so every path without one is bit for bit the old one, and the model's fingerprint test is unchanged.
+- **The rest** (`restOf`), a fixed point of the gates: every junction open, the rest solved, each gate set from it, and the solve repeated until no gate changes, a cycle throwing. On every variant it settled after one gated solve. At rest 10 of the 37 gates are open in S's whole model, 13 with its signs alone, 15 with AVA's offsets too, and 4 in the runtime model rectified, as the rules' review found; S's A-types sit up to 2.4 mV (VA6) from the rest with every junction open. `restOf` also gives the network as the rest gates it, which every rule set at rest now reads: touch's currents, AWC's gain, the shunt's passive loads (`Brain.restNetwork`) and the bounds' rules.
+- **On the GPU** (`src/gpu/brain.ts`, `src/gpu/brainShader.ts`), as the rules set it, though in the gap rows' order rather than a flag on every edge. Each neuron's gap row lists its rectified junctions first, and the topology buffer ends with two words a neuron: how many, and a bit for each, set where the neuron is the A-type. A padding word of the uniform block becomes `rect_at`, 0 without a rectifier. The shader publishes each neuron's voltage at the step's start beside its activation, before the barrier it already had; building its row, each neuron reads its partners' voltages there, keeps its open junctions as a bitmask in a register and sums their conductances, and the solver's products skip the shut ones. That publish replaces the one the rows made, whose barrier went: no buffer, no workgroup memory and no barrier were added. A neuron may have at most 32 rectified junctions, a bit each. Without a rectifier the layout and the arithmetic are the old ones. A unit test emulates the shader's gating on the packed layout against the CPU's gated network.
+- **GPU parity's track S setup** gains the rectifier. It passes in Chrome on the M5 Max, whole and in four shards, and in Safari on the same GPU: every one-step state within 0.011 of its threshold, and one of the eleven one-second states ill posed and not graded (t = 6.5 s, the CPU against itself at 0.45 of the threshold), within the rule's quarter.
+- **The app's speed** is unchanged, as the rules required it be measured: in headless Chrome on the M5 Max, `npm run plate:bench` holds 60 frames a second from 1× to 30× real time on main and on this branch alike, and asked for 50× both saturate, main at 32.8–34.7× over four runs and this branch at 32.3–34.2× over three. The app runs no rectifier, so its shader reads one word more a neuron each step and skips an empty loop.
+- **The gates' open share at the step and at half of it,** which the rules called for: over a minute at the conductance form's provisional values, seed 1, the two runs sharing one noise path, the share is 0.185 at 2.5 ms and 0.186 at 1.25 ms, and the gates change about ten times a second. A test holds the two within 0.02, a bound set after a look at five seeds, where they differed by 0.007 at most.
+- **AWC's gain,** pinned for the three rectified models: AWCL and AWCR are 3.73539 and 5.51805 with S's signs, 3.73540 and 5.51799 on S's whole model, and 3.73540 and 5.51800 with AVA's offsets as well. The rectifier moves them by under 10⁻⁵, AWC lying far from AVA's junctions.
+
+**The bounds' rules, rerun on S's whole model** (PLAN §7.3), each reading the network as the rest gates it. g_sw's rule gives 0.0217–47.5 nS, as without the rectifier; θ_osc's floor stays −28 mV, S's silenced drive at −28.137 mV, since the silenced network has no junctions to gate; and σ_n's bound stays 0.169, IL2DL's. g_p's rule gives 0.000143–6.36 nS per unit of κL, against 0.000172–7.65 without the rectifier: the shut junctions lighten the A-types' loads at rest, and DA8's, the largest, sets the top. Rounded outward its top is 7, not the registry's 8. As the rules have it, bounds are kept by model beside the registry's, since the survey's and round 3's records are held to those: S's model takes g_p from 0.0001 to 7, held in the registry beside the conductance form's own bounds (`conductance.trackS`, shown in FIDELITY's ledger), and a test recomputes it. S's calibration reads it.
+
+**Two checks, reported and not graded** (`node scripts/experiments/rectification/run.ts`). Each AVA takes a current step for 1 s from rest, on the brain alone, in S's model three ways, each at its own rest:
+
+| Into each AVA | Junctions | AVA (mV) | A-types (mV) | A-types (activation) | VA5 (mV) | DA4 (mV) | Gates open at the end |
+| ------------- | --------- | -------- | ------------ | -------------------- | -------- | -------- | --------------------- |
+| 10 pA         | rectified | +2.62    | +0.65        | +0.0033              | +0.42    | +1.09    | 3 of 37               |
+| 10 pA         | removed   | +2.71    | +0.50        | +0.0025              | +0.38    | +0.38    |                       |
+| 10 pA         | both ways | +2.24    | +1.25        | +0.0064              | +1.20    | +1.06    |                       |
+| 50 pA         | rectified | +12.77   | +1.99        | +0.0100              | +1.38    | +2.16    | 0 of 37               |
+| 50 pA         | removed   | +12.87   | +1.82        | +0.0092              | +1.34    | +1.29    |                       |
+| 50 pA         | both ways | +10.58   | +5.48        | +0.0262              | +5.17    | +4.33    |                       |
+
+- **The model has no amplifier.** Removing the rectified junctions costs the A-types a quarter of their AVA-evoked rise at 10 pA and a tenth at 50 pA, against the great reduction Liu et al. found. What is lost passed through the gates already open at rest, DA4's among them, whose rise falls from 1.09 to 0.38 mV, not through an amplifier: driven, AVA rises above the A-types and shuts the gates it drives, 7 of the 10 open at rest at 10 pA and all of them at 50. Against junctions conducting both ways, the rectifier takes away most of AVA's gap drive into the A-types, as the rules foresaw, and leaves AVA's command of them to its chemical synapses.
+- **Input resistances** (GΩ), every activation held at rest and each gate as the rest sets it:
+
+| Neuron | Runtime model | S's, unrectified | S's whole | Liu et al. 2017 |
+| ------ | ------------- | ---------------- | --------- | --------------- |
+| AVAL   | 0.19          | 0.19             | 0.23      | 2.50 (AVA)      |
+| AVAR   | 0.18          | 0.18             | 0.21      | 2.50 (AVA)      |
+| VA5    | 3.54          | 3.51             | 5.50      | 3.47            |
+| VA8    | 6.62          | 6.52             | 13.92     |                 |
+| DA4    | 3.75          | 3.75             | 3.75      |                 |
+
+The rectifier raises AVA's by about a fifth, still about a tenth of the measured value, and VA5's by half, to 59% above the measured value; VA8's doubles. DA4, whose gates are open at rest, keeps its own. The runtime model's figures are the review's, 0.19 and 3.5 GΩ.
+
+**The registry.** A component, "Track S's rectifier", at levels 2 and 0, says what is built: the direction measured in three cells and extended to every A-type by the authors' reading, the form ours with no value to set, that no fit uses it yet, the gates open at rest in the model's frame, and the missing amplifier. The gap junctions' component and the neurons' subsystem say that track S's model rectifies; `FIDELITY.md` regenerates. The budget stays 18. Spec §4 gains a sentence on the rectifier, beside the offsets': the deviation was approved with track S's rules, and the wording is for the maintainer's sign-off in this pull request.
+
+**Left for later.** S's calibration, its comparison and the choice (the entry of 2026-10-01), reading S's own bound on g_p; spec §4's amendment for the noise, with that calibration; and the sensitivity settings in the harness, with the app's rest and glow, if S's fit is chosen.
+
+**Exploration, disclosed.** No trial ran. Before the tests' values were set, the rest was solved on every variant; the open share was run for 10 s at three seeds and for a minute at five, at the conductance form's provisional values; and the checks' script was run at 1, 2, 5, 10 and 50 pA, of which 10 and 50 pA are kept, a small signal and a large one. The refit's own values on S's model, in the current form, shut every gate within a second; S is calibrated in the conductance form.
+
+**Status.** Built. S's calibration comes next, in a pull request of its own.

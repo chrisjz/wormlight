@@ -1,6 +1,7 @@
 // Track S's model (PLAN §9; DECISIONS.md, 2026-10-01 and 2026-10-02). Its measured signs come as a copy of the
 // runtime data with them applied, so that its brain, and every layer a World builds from the data, read them;
-// touch's currents among them. Its class offsets rest the D-types above their thresholds.
+// touch's currents among them. Its class offsets rest the D-types above their thresholds, and its rectifier passes
+// current through the AVA–A-type gap junctions only from the A-type into AVA.
 // AWC's gains and touch's currents are rules set at the rest, and are rerun on whichever model a World runs. The app
 // and the refit read the runtime data as it is, with no offsets, until track S's fit is chosen.
 //
@@ -10,6 +11,7 @@
 
 import { TRACK_S_SIGNS } from '../data/trackSSigns.ts';
 import type { WormlightData } from '../data/schema.ts';
+import type { Network } from './brain/network.ts';
 import { reference } from '../science/citations.ts';
 import { PARAMS } from '../science/params.ts';
 
@@ -68,6 +70,38 @@ export function restOffsets(data: WormlightData, choice: RestOffsets): Float64Ar
   });
 }
 
+// What a rule set at rest reads of a model (AWC's gain, touch's currents): each neuron's offset below its threshold,
+// in the data's neuron order, and whether its AVA–A-type junctions are rectified. Left out, the runtime model's rest:
+// every neuron at its threshold, every junction conducting both ways.
+export interface RestModel {
+  offset?: ArrayLike<number>;
+  rectified?: boolean;
+}
+
+// Track S's rectifier (PLAN §3.4; DECISIONS.md, 2026-10-01): every gap junction the network has between AVA and an
+// A-type passes current only from the A-type into AVA, g·max(V_A − V_AVA, 0). Liu et al. 2017 measured it with VA5,
+// VA8 and DA4; its extension to every A-type is their reading. The neurons are named as the data names them, so a
+// rewired network rectifies whichever of these junctions it has.
+const A_TYPE = /^(DA|VA)\d+$/;
+const AVA = new Set(['AVAL', 'AVAR']);
+export function rectify(network: Network): Network {
+  const { names, gap } = network;
+  const rectified: [number, number][] = [];
+  for (let i = 0; i < names.length; i++) {
+    if (!A_TYPE.test(names[i])) continue;
+    for (let e = gap.start[i]; e < gap.start[i + 1]; e++) {
+      if (AVA.has(names[gap.index[e]])) rectified.push([i, gap.index[e]]);
+    }
+  }
+  return { ...network, rectified };
+}
+
 // Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
-export const trackSKey = (choice: { measuredSigns?: boolean; restOffsets?: RestOffsets }): string =>
-  [choice.measuredSigns ? 'signs' : '', choice.restOffsets ?? ''].filter(Boolean).join(', ');
+export const trackSKey = (choice: {
+  measuredSigns?: boolean;
+  restOffsets?: RestOffsets;
+  rectified?: boolean;
+}): string =>
+  [choice.measuredSigns ? 'signs' : '', choice.restOffsets ?? '', choice.rectified ? 'rectified' : '']
+    .filter(Boolean)
+    .join(', ');

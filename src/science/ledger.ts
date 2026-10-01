@@ -103,7 +103,17 @@ export function paramNote(p: Param): string {
   const conductance = c
     ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
     : '';
-  return [p.note, p.rule, p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '', bounds, conductance]
+  const trackS = c?.trackS
+    ? `On track S's model, bounds ${formatNumber(c.trackS.bounds[0])} to ${formatNumber(c.trackS.bounds[1])}, by ${c.trackS.rule}.`
+    : '';
+  return [
+    p.note,
+    p.rule,
+    p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '',
+    bounds,
+    conductance,
+    trackS,
+  ]
     .filter(Boolean)
     .join(' ');
 }

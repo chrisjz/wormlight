@@ -3,10 +3,12 @@
 // left and synaptic activation extrapolated to the new time (2sₙ − sₙ₋₁); it then advances activation by
 // BDF2 with φ at the new voltages. That update is linear in s, so it has a closed form. The first step,
 // any step after a change of step size, and the step after `restart()` are implicit Euler: BDF2 needs a
-// history, and a history that spans a jump in the input costs it an order.
+// history, and a history that spans a jump in the input costs it an order. A rectified gap junction (track S's,
+// PLAN §3.4) takes its conductance, or none, from the voltages at the step's start, and both its voltages are then
+// implicit, as every junction's are, so the system stays symmetric.
 
 import { CG_MAX_ITERATIONS, CG_TOLERANCE } from '../numerics.ts';
-import type { Network } from './network.ts';
+import { conducts, gapGates, gatedAt, type Network, type Rows } from './network.ts';
 import { drawNoise } from './noise.ts';
 import { gaussian } from './rng.ts';
 import { ConjugateGradient, type Solve } from './solver.ts';
@@ -149,13 +151,41 @@ export function responses(network: Network, s: Held, neurons: readonly number[])
 // A network's rest with each neuron `offset` mV below its threshold (PLAN §3.3): each activation is known from its
 // offset, so the rest is the equilibrium with every activation held at its value, one sparse solve, and each
 // threshold is the rest plus its offset. With every offset 0 it is the rest PLAN §3.3 has always set.
+// With rectified junctions the rest is a fixed point of their gates (DECISIONS.md, 2026-10-01): every junction starts
+// open, the rest is solved, each gate is set from it, and the solve repeats until no gate changes; gates that cycle
+// throw. `network` is the network as it stands at rest, each gate as the rest sets it, which the rules set at rest
+// read: the network itself when it rectifies nothing.
 export function restOf(
   network: Network,
   offset: ArrayLike<number>,
-): { voltage: Float64Array; activation: Float64Array; threshold: Float64Array } {
+): { voltage: Float64Array; activation: Float64Array; threshold: Float64Array; network: Network } {
   const activation = Float64Array.from(offset, (o) => restActivation(network, o));
-  const voltage = equilibrium(network, activation);
-  return { voltage, activation, threshold: Float64Array.from(voltage, (v, i) => v + offset[i]) };
+  const gates = gapGates(network);
+  let held = gates ? { ...network, rectified: [] } : network;
+  let voltage = equilibrium(held, activation);
+  if (gates) {
+    // Which rectified entries conduct at the given voltages, in entry order.
+    const { start, index } = network.gap;
+    const openAt = (at: Float64Array): string => {
+      let out = '';
+      for (let i = 0; i + 1 < start.length; i++) {
+        for (let e = start[i]; e < start[i + 1]; e++) {
+          if (gates[e] !== 0) out += conducts(gates[e], at[i], at[index[e]]) ? '1' : '0';
+        }
+      }
+      return out;
+    };
+    let open = openAt(voltage).replace(/0/g, '1');
+    const seen = new Set([open]);
+    for (let now = openAt(voltage); now !== open; now = openAt(voltage)) {
+      if (seen.has(now)) throw new Error("the rectifier's gates cycle at rest, so the rest has no fixed point");
+      seen.add(now);
+      open = now;
+      held = gatedAt(network, voltage);
+      voltage = equilibrium(held, activation, undefined, voltage);
+    }
+  }
+  return { voltage, activation, threshold: Float64Array.from(voltage, (v, i) => v + offset[i]), network: held };
 }
 
 export class Brain {
@@ -206,6 +236,13 @@ export class Brain {
   private readonly solver: ConjugateGradient;
   private readonly tolerance: number;
   private readonly maxIterations: number;
+  // The rectified junctions' rules, by gap entry, and the gap rows a step solves with, each rectified junction's
+  // conductance as its gate stands at the step's start: both null when the network rectifies none.
+  private readonly gates: Int8Array | null;
+  private readonly gated: Rows | null;
+  // The rectified entries, and each one's row.
+  private readonly rectifiedEntries: Int32Array;
+  private readonly rectifiedRows: Int32Array;
 
   // How far each neuron rests below its threshold, in mV: 0 for every neuron but in track S's model, whose class
   // offsets rest the D-types above theirs (PLAN §3.3; DECISIONS.md, 2026-10-02).
@@ -233,7 +270,33 @@ export class Brain {
     this.solver = new ConjugateGradient(n);
     this.tolerance = options.tolerance ?? CG_TOLERANCE;
     this.maxIterations = options.maxIterations ?? CG_MAX_ITERATIONS;
+    this.gates = gapGates(network);
+    const { start, index, weight } = network.gap;
+    this.gated = this.gates ? { start, index, weight: Float64Array.from(weight) } : null;
+    const entries: number[] = [];
+    const rows: number[] = [];
+    if (this.gates) {
+      for (let i = 0; i < n; i++) {
+        for (let e = start[i]; e < start[i + 1]; e++) {
+          if (this.gates[e] !== 0) {
+            entries.push(e);
+            rows.push(i);
+          }
+        }
+      }
+    }
+    this.rectifiedEntries = Int32Array.from(entries);
+    this.rectifiedRows = Int32Array.from(rows);
     this.rest();
+  }
+
+  // The network as it stands at rest, each rectified junction's gate as the rest sets it: the network itself when it
+  // rectifies none. The rules set at rest, such as the shunt's passive loads, read it.
+  restNetwork(): Network {
+    return gatedAt(
+      this.network,
+      Float64Array.from(this.threshold, (v, i) => v - this.offset[i]),
+    );
   }
 
   // Each neuron's activation at rest, from its offset: the midpoint for every neuron without one.
@@ -328,9 +391,23 @@ export class Brain {
     return this.drawn;
   }
 
+  // The gap rows this step solves with: each rectified junction at its conductance where it conducts at the step's
+  // start, v, and at 0 where it is shut. The network's own rows when it rectifies none, so a step without a rectifier
+  // is the same, bit for bit.
+  private stepRows(v: Float64Array): Rows {
+    const { gates, gated } = this;
+    if (!gates || !gated) return this.network.gap;
+    const { index, weight } = this.network.gap;
+    this.rectifiedEntries.forEach((e, q) => {
+      gated.weight[e] = conducts(gates[e], v[this.rectifiedRows[q]], v[index[e]]) ? weight[e] : 0;
+    });
+    return gated;
+  }
+
   step(dt: number): void {
     const { n, network, voltage: v, activation: s, previousVoltage: vp, previousActivation: sp, d, b } = this;
-    const { gap, chemical } = network;
+    const { chemical } = network;
+    const gap = this.stepRows(v);
     const bdf2 = this.historyStep === dt;
     // BDF2: (3y′ − 4y + y₋₁) / 2dt = f(y′), written as (a y′ − h) / dt with a = 3/2 and h = 2y − y₋₁/2.
     // Implicit Euler: a = 1 and h = y.

@@ -27,6 +27,11 @@ export interface Network {
   // Chemical synapses onto each neuron: row i lists each presynaptic j (itself, for an autapse) and g_ji,
   // with the connection's reversal potential E_ji in `reversal`.
   chemical: Rows & { reversal: Float64Array };
+  // Gap junctions that pass current one way (PLAN §3.4): each pair [from, to] conducts only while `from` is the more
+  // depolarised, so current crosses it only from `from` into `to`. Track S's AVA–A-type junctions are the only ones
+  // (DECISIONS.md, 2026-10-01). Left out or empty, every junction conducts both ways. A lesion or a gain keeps the
+  // list, and a pair whose junction is gone rectifies nothing.
+  rectified?: readonly (readonly [from: number, to: number])[];
 }
 
 // Where each entry lands when entries are grouped by row, keeping their order within a row.
@@ -174,6 +179,68 @@ export function lesion(network: Network, lesioned: readonly string[]): Network {
       chemical.filter(([post, pre]) => !cut.has(post) && !cut.has(pre)),
     ),
   };
+}
+
+// Each gap entry's rule, in row order: 0 for a junction that conducts both ways, 1 for one that conducts only while its
+// row's neuron is the more depolarised (the row is its pair's `from`), and −1 for one that conducts only while its
+// partner is (the row is its `to`). Both entries of a junction read the same comparison, so its conductance is the
+// same in both rows and the system stays symmetric. Null when no junction the network has is rectified.
+export function gapGates(network: Network): Int8Array | null {
+  const pairs = network.rectified ?? [];
+  if (pairs.length === 0) return null;
+  const n = network.names.length;
+  const key = (from: number, to: number): number => from * n + to;
+  const listed = new Set(pairs.map(([from, to]) => key(from, to)));
+  if (pairs.some(([from, to]) => from === to || listed.has(key(to, from)))) {
+    throw new Error('a rectified junction joins two different neurons and passes current one way');
+  }
+  const { start, index } = network.gap;
+  const gates = new Int8Array(index.length);
+  let any = false;
+  for (let i = 0; i < n; i++) {
+    for (let e = start[i]; e < start[i + 1]; e++) {
+      if (listed.has(key(i, index[e]))) gates[e] = 1;
+      else if (listed.has(key(index[e], i))) gates[e] = -1;
+      any ||= gates[e] !== 0;
+    }
+  }
+  return any ? gates : null;
+}
+
+// Whether a gap entry with the given rule conducts, at its row's neuron's voltage and its partner's: a rectified one
+// only while its `from` is strictly the more depolarised.
+export const conducts = (gate: number, row: number, partner: number): boolean =>
+  gate === 0 || (gate > 0 ? row > partner : partner > row);
+
+// The network as it stands at the given voltages: each rectified junction at its conductance where it conducts and at
+// 0 where it is shut, and none rectified, so it is linear. The network itself when none is rectified.
+export function gatedAt(network: Network, voltage: ArrayLike<number>): Network {
+  const gates = gapGates(network);
+  if (!gates) return network;
+  const { start, index, weight } = network.gap;
+  const gated = Float64Array.from(weight);
+  for (let i = 0; i + 1 < start.length; i++) {
+    for (let e = start[i]; e < start[i + 1]; e++) {
+      if (!conducts(gates[e], voltage[i], voltage[index[e]])) gated[e] = 0;
+    }
+  }
+  return { ...network, gap: { start, index, weight: gated }, rectified: [] };
+}
+
+// How many of the network's rectified junctions conduct at the given voltages, of how many it has.
+export function openRectified(network: Network, voltage: ArrayLike<number>): { open: number; of: number } {
+  const gates = gapGates(network);
+  let [open, of] = [0, 0];
+  if (!gates) return { open, of };
+  const { start, index } = network.gap;
+  for (let i = 0; i + 1 < start.length; i++) {
+    for (let e = start[i]; e < start[i + 1]; e++) {
+      if (gates[e] !== 1) continue;
+      of++;
+      if (conducts(1, voltage[i], voltage[index[e]])) open++;
+    }
+  }
+  return { open, of };
 }
 
 function fail(message: string): never {

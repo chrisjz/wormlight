@@ -94,8 +94,7 @@ describe("track S's world", () => {
   });
 
   it("sizes touch's currents at its own rest, and keeps the refit's", () => {
-    const activation = Float64Array.from(world.brain.offset, (o) => restActivation(world.brain.network, o));
-    expect(world.touchSets).toBe(touchData(signed, activation));
+    expect(world.touchSets).toBe(touchData(signed, { offset: world.brain.offset }));
     expect(refit.touchSets).toBe(touchData(data));
     expect(world.touchSets).not.toBe(touchData(signed));
     const tapped = (t: typeof world.touchSets): number[] => Array.from(t.sets.values()).flatMap((c) => Array.from(c));
@@ -108,33 +107,39 @@ describe("track S's world", () => {
 });
 
 describe("the rules set at rest, on track S's model", () => {
-  it("give AWC-ON the gains the table holds for each of track S's variants", { timeout: 60000 }, () => {
-    const variants: Partial<LoopParams>[] = [
-      { measuredSigns: true },
-      trackS,
-      { measuredSigns: true, restOffsets: 'measured with AVA' },
-    ];
-    for (const v of variants) {
-      const offset = v.restOffsets ? restOffsets(signed, v.restOffsets) : undefined;
-      const gains = AWC_GAINS[trackSKey(v)];
-      for (const side of ['AWCL', 'AWCR'] as const) {
-        expect(awcGain(signed, side, 30, 0.01, offset) / gains[side], `${trackSKey(v)} ${side}`).toBeCloseTo(1, 5);
-      }
+  // Track S's whole model, its rectifier included (DECISIONS.md, 2026-10-02), on which its fit is calibrated.
+  const whole: Partial<LoopParams> = { ...trackS, rectified: true };
+  it.each(
+    (
+      [
+        { measuredSigns: true },
+        trackS,
+        { measuredSigns: true, restOffsets: 'measured with AVA' },
+        { measuredSigns: true, rectified: true },
+        whole,
+        { measuredSigns: true, restOffsets: 'measured with AVA', rectified: true },
+      ] as Partial<LoopParams>[]
+    ).map((v) => [trackSKey(v), v] as const),
+  )("give AWC-ON the gains the table holds for track S's model with %s", { timeout: 60000 }, (_, v) => {
+    const offset = v.restOffsets ? restOffsets(signed, v.restOffsets) : undefined;
+    const gains = AWC_GAINS[trackSKey(v)];
+    for (const side of ['AWCL', 'AWCR'] as const) {
+      const gain = awcGain(signed, side, { offset, rectified: v.rectified });
+      expect(gain / gains[side], `${trackSKey(v)} ${side}`).toBeCloseTo(1, 5);
     }
   });
 
-  // The registry's bounds, by their rules, rounded as each rounds (PLAN §7.3): S's model needs no bounds of its own
-  // while its rules' values round to the registry's.
+  // The registry's bounds, by their rules, rounded as each rounds (PLAN §7.3): S's model needs bounds of its own only
+  // where its rules' values round to others, as its rectifier makes g_p's upper bound 7 nS where the registry's is 8.
   it("put the conductance form's bounds, θ_osc's floor and σ_n's bound where the registry has them", () => {
     const worlds = PARAMS.gapGainB.bounds.map(
       (gapGainB) =>
-        new World(data, { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...trackS }),
+        new World(data, { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...whole }),
     );
     const rule = (targets: (w: World) => readonly number[]): [number, number] => {
       let [lo, hi] = [Infinity, 0];
       for (const w of worlds) {
-        const activation = Float64Array.from(w.brain.offset, (o) => restActivation(w.brain.network, o));
-        const loads = passiveLoads(w.brain.network, activation);
+        const loads = passiveLoads(w.brain.restNetwork(), w.brain.restActivations());
         for (const i of targets(w)) {
           const rest = w.brain.threshold[i] - w.brain.offset[i];
           for (const e of [PARAMS.reversalExcitatory.value, PARAMS.reversalInhibitory.value]) {
@@ -150,8 +155,11 @@ describe("the rules set at rest, on track S's model", () => {
       const p = (x: number): number => 10 ** Math.floor(Math.log10(x));
       return [+(Math.floor(lo / p(lo)) * p(lo)).toPrecision(6), +(Math.ceil(hi / p(hi)) * p(hi)).toPrecision(6)];
     };
-    const registered = (id: 'headSwitchGain' | 'proprioceptiveGain'): readonly number[] =>
-      (PARAMS[id] as Param).conductance?.bounds ?? [];
+    // S's own where the registry keeps them beside its own, which its rectifier makes g_p's.
+    const registered = (id: 'headSwitchGain' | 'proprioceptiveGain'): readonly number[] => {
+      const c = (PARAMS[id] as Param).conductance;
+      return c?.trackS?.bounds ?? c?.bounds ?? [];
+    };
     expect(outward(rule((w) => [...w.dorsalSwitch, ...w.ventralSwitch]))).toEqual(registered('headSwitchGain'));
     const p = rule((w) => w.fields.map((f) => f.neuron)).map((g) => g / BOUND_RULE_CURVATURE) as [number, number];
     expect(outward(p)).toEqual(registered('proprioceptiveGain'));
@@ -159,16 +167,16 @@ describe("the rules set at rest, on track S's model", () => {
     const silenced = PARAMS.gapGainB.bounds.map((gapGainB) =>
       new World(
         data,
-        { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...trackS },
+        { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...whole },
         { silenced: true },
       ).headDrive(),
     );
     expect(Math.floor(Math.max(...silenced)) + 1).toBe(PARAMS.oscillatorDriveThreshold.bounds?.[0]);
     // σ_n's bound gives the most-spread neuron at rest 20 mV under white noise: σ / √(2 C G_in).
     const [w] = worlds.slice(-1);
-    const activation = Float64Array.from(w.brain.offset, (o) => restActivation(w.brain.network, o));
+    const [held, activation] = [w.brain.restNetwork(), w.brain.restActivations()];
     let least = Infinity;
-    for (let i = 0; i < w.brain.n; i++) least = Math.min(least, inputConductance(w.brain.network, activation, i));
+    for (let i = 0; i < w.brain.n; i++) least = Math.min(least, inputConductance(held, activation, i));
     const sigma = 0.02 * Math.sqrt(2 * w.brain.network.capacitance * 1e-9 * least * 1e-9) * 1e12;
     expect(+sigma.toPrecision(3)).toBe(PARAMS.noiseIntensity.bounds?.[1]);
   });

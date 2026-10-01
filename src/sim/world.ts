@@ -23,7 +23,7 @@ import { AWC_JUMP, NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
 import { AWC_GAINS, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
-import { restOffsets, trackSKey, withMeasuredSigns, type RestOffsets } from './trackS.ts';
+import { rectify, restOffsets, trackSKey, withMeasuredSigns, type RestOffsets } from './trackS.ts';
 
 // The model's reversal potentials (mV), which the conductance form drives towards.
 const EXCITATORY = PARAMS.reversalExcitatory.value;
@@ -63,6 +63,9 @@ export interface LoopParams {
   // Track S's class offsets (PLAN §3.3; DECISIONS.md, 2026-10-02): the D-types rest above their thresholds, or AVA
   // too, for a sensitivity setting. Left out, every neuron rests at its threshold.
   restOffsets?: RestOffsets;
+  // Track S's rectifier (PLAN §3.4; DECISIONS.md, 2026-10-01): every AVA–A-type gap junction the brain has passes
+  // current only from the A-type into AVA. Left out, every junction conducts both ways.
+  rectified?: boolean;
 }
 
 // The values of track R's model, the registry's (PLAN §9), in the registry's units, as LoopParams.
@@ -248,14 +251,16 @@ export class World {
     const seed = options.seed ?? 0;
     // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
     const bTypes = new Set(data.neurons.flatMap((n, i) => (n.oscillator === 'B' ? [i] : [])));
-    const whole = scaleGap(options.network ?? cookNetwork(data), bTypes, params.gapGainB ?? 1);
+    const built = options.network ?? cookNetwork(data);
+    const whole = scaleGap(params.rectified ? rectify(built) : built, bTypes, params.gapGainB ?? 1);
     // Each neuron's offset below its threshold, and the rest they set, with every activation held at its own value.
     const offset = params.restOffsets ? restOffsets(data, params.restOffsets) : null;
     // The head switch's gate reads its SMDs and their partners as resting at their thresholds and midpoints.
     if (offset && data.neurons.some((n, i) => n.name.startsWith('SMD') && offset[i] !== 0)) {
       throw new Error('the head switch reads its SMDs at their thresholds, so no SMD takes an offset');
     }
-    const rest = offset ? restOf(whole, offset) : null;
+    // With a rectifier, the rest is a fixed point of its gates, at every neuron's threshold without offsets.
+    const rest = offset || params.rectified ? restOf(whole, offset ?? new Float64Array(whole.names.length)) : null;
     const thresholds = rest ? rest.threshold : equilibrium(whole, midpointActivation(whole));
     const lesioned = new Set(options.lesions ?? []);
     for (const name of lesioned) if (!whole.names.includes(name)) throw new Error(`unknown neuron ${name} to lesion`);
@@ -343,7 +348,7 @@ export class World {
     this.odour = options.odour ?? null;
     this.adapt();
 
-    this.touchSets = touchData(data, rest?.activation);
+    this.touchSets = touchData(data, { offset: offset ?? undefined, rectified: params.rectified });
     this.receptors = this.touchSets.receptors.filter((r) => alive(r.name));
     this.touchLeft = new Int32Array(this.receptors.length);
     this.touchCurrent = new Float64Array(this.receptors.length);

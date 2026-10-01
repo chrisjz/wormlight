@@ -7,9 +7,10 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
-import { midpointActivation, responses } from './brain/brain.ts';
-import { cookNetwork } from './brain/network.ts';
+import { midpointActivation, responses, restOf, type Held } from './brain/brain.ts';
+import { cookNetwork, type Network } from './brain/network.ts';
 import { NEURAL_STEP } from './numerics.ts';
+import { rectify, type RestModel } from './trackS.ts';
 
 export interface TouchReceptor {
   // Its place among all the data's touch receptors, its neuron and name, and its field in body coordinates
@@ -74,12 +75,12 @@ const touchOf = new WeakMap<WormlightData, Map<string, Touch>>();
 
 // The data's touch receptors, each neuron that senses along its process, and every reachable set's currents:
 // with activations held at rest, the currents whose responses together raise every receptor in the set by
-// the touch amplitude. Rest is every activation at the midpoint, or each neuron's own where track S's class
-// offsets move it (DECISIONS.md, 2026-10-02), as `restActivation` gives them in the data's order.
-export function touchData(data: WormlightData, restActivation?: ArrayLike<number>): Touch {
+// the touch amplitude. Rest is every activation at the midpoint, or under track S's model (DECISIONS.md, 2026-10-02)
+// each neuron's own at its offset, with each rectified junction's gate as the rest sets it.
+export function touchData(data: WormlightData, model: RestModel = {}): Touch {
   let byRest = touchOf.get(data);
   if (!byRest) touchOf.set(data, (byRest = new Map<string, Touch>()));
-  const key = restActivation ? Array.from(restActivation).join(',') : '';
+  const key = `${model.offset ? Array.from(model.offset).join(',') : ''}${model.rectified ? ' rectified' : ''}`;
   let touch = byRest.get(key);
   if (!touch) {
     const receptors = data.neurons
@@ -88,10 +89,18 @@ export function touchData(data: WormlightData, restActivation?: ArrayLike<number
       )
       .map((r, index) => ({ index, ...r }));
     if (receptors.length > 31) throw new Error('a touch set is a 31-bit mask');
-    const network = cookNetwork(data);
+    const built = cookNetwork(data);
+    let [network, held]: [Network, Held] = [built, midpointActivation(built)];
+    if (model.offset || model.rectified) {
+      const rest = restOf(
+        model.rectified ? rectify(built) : built,
+        model.offset ?? new Float64Array(built.names.length),
+      );
+      [network, held] = [rest.network, rest.activation];
+    }
     const response = responses(
       network,
-      restActivation ?? midpointActivation(network),
+      held,
       receptors.map((r) => r.neuron),
     );
     const sets = new Map<number, Float64Array>();

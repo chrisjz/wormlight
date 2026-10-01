@@ -7,6 +7,7 @@ import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
 import { Brain, equilibrium, midpointActivation, restOf } from './brain/brain.ts';
 import { cookNetwork } from './brain/network.ts';
+import { rectify, type RestModel } from './trackS.ts';
 
 // Anything that gives a concentration (µM) at a point (m), such as an OdourField.
 export interface Odour {
@@ -19,12 +20,16 @@ export const AWC_GAIN = { AWCL: 3.73338, AWCR: 5.51839 } as const;
 export type AwcSide = keyof typeof AWC_GAIN;
 // AWC-ON's gain by the rule below for each model a World runs, keyed by trackSKey (DECISIONS.md, 2026-10-02): the
 // runtime data's, and track S's with its signs, with its D-types' offset as well, and with AVA's offsets too, the
-// last for a sensitivity setting. A test recomputes each.
+// last for a sensitivity setting; then each of those with its rectifier, the second of them track S's whole model and
+// the first its setting with the offsets off. A test recomputes each.
 export const AWC_GAINS: Readonly<Record<string, Readonly<Record<AwcSide, number>>>> = {
   '': AWC_GAIN,
   signs: { AWCL: 3.73539, AWCR: 5.51805 },
   'signs, measured': { AWCL: 3.73541, AWCR: 5.51798 },
   'signs, measured with AVA': { AWCL: 3.73541, AWCR: 5.518 },
+  'signs, rectified': { AWCL: 3.73539, AWCR: 5.51805 },
+  'signs, measured, rectified': { AWCL: 3.7354, AWCR: 5.51799 },
+  'signs, measured with AVA, rectified': { AWCL: 3.7354, AWCR: 5.518 },
 };
 
 // The rise that sets the gain: 2/β, the working width of the sigmoid (mV).
@@ -76,20 +81,19 @@ export class AwcSensor {
 }
 
 // The current, found by bisection, that raises the named neuron AWC_RISE mV at steady state on the connectome
-// alone: Cook's network at its rest thresholds, with no oscillators, no noise and nothing outside the brain. With
-// `offset`, track S's class offsets, the rest is theirs (DECISIONS.md, 2026-10-02).
+// alone: Cook's network at its rest thresholds, with no oscillators, no noise and nothing outside the brain. Under
+// track S's model the rest is its own, at its offsets and with its rectifier (DECISIONS.md, 2026-10-02).
 // Removing odour gives exactly g_AWC whatever T was adapted to, so this is the gain. The rise is measured from
 // rest, the limit of weak odour, where the adapted current is zero; adapted to stronger odour, AWC-ON starts
 // lower and rises further, 16.6 mV from the assay's start at the dish's centre.
-export function awcGain(
-  data: WormlightData,
-  name: string,
-  seconds = 30,
-  dt = 0.01,
-  offset?: ArrayLike<number>,
-): number {
-  const network = cookNetwork(data);
-  const thresholds = offset ? restOf(network, offset).threshold : equilibrium(network, midpointActivation(network));
+export function awcGain(data: WormlightData, name: string, model: RestModel = {}, seconds = 30, dt = 0.01): number {
+  const built = cookNetwork(data);
+  const network = model.rectified ? rectify(built) : built;
+  const { offset } = model;
+  const thresholds =
+    offset || model.rectified
+      ? restOf(network, offset ?? new Float64Array(network.names.length)).threshold
+      : equilibrium(network, midpointActivation(network));
   const neuron = network.names.indexOf(name);
   if (neuron < 0) throw new Error(`there is no neuron ${name}`);
   const rise = (current: number): number => {
