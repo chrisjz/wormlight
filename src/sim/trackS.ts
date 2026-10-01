@@ -96,12 +96,30 @@ export function rectify(network: Network): Network {
   return { ...network, rectified };
 }
 
-// Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
-export const trackSKey = (choice: {
+// The models a calibration searches (PLAN §9): track R's, which every fit so far is, and track S's, the same twelve
+// calibrated parameters on its measured signs, class offsets and rectifier.
+export type Model = 'track R' | 'track S';
+
+// Track S's parts, as the loop's parameters take them.
+export interface TrackSParts {
   measuredSigns?: boolean;
   restOffsets?: RestOffsets;
   rectified?: boolean;
-}): string =>
+}
+
+// Track S's whole model (DECISIONS.md, 2026-10-01 and 2026-10-02): its measured signs, the D-types' offset and its
+// rectifier, which its calibration runs.
+export const TRACK_S: Readonly<TrackSParts> = { measuredSigns: true, restOffsets: 'measured', rectified: true };
+
+// What a model adds to the loop's parameters: nothing for track R's. A name that is neither is refused, not read as R's.
+export function partsOf(model: Model): Readonly<TrackSParts> {
+  if (model === 'track S') return TRACK_S;
+  if (model === 'track R') return {};
+  throw new Error(`there is no model ${String(model)}`);
+}
+
+// Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
+export const trackSKey = (choice: TrackSParts): string =>
   [choice.measuredSigns ? 'signs' : '', choice.restOffsets ?? '', choice.rectified ? 'rectified' : '']
     .filter(Boolean)
     .join(', ');

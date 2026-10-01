@@ -330,6 +330,14 @@ describe("the registry and the calibration's search in the conductance form", ()
     expect(bounds('headSwitchGain', 'conductance')).toEqual([0.02, 50]);
     expect(bounds('proprioceptiveGain', 'conductance')).toEqual([0.0001, 8]);
     expect(bounds('headSwitchGain', 'current')).toEqual(PARAMS.headSwitchGain.bounds);
+    // Track S's model takes its own bound on g_p in the conductance form, kept beside the registry's, and every other
+    // the form's (DECISIONS.md, 2026-10-02).
+    expect(bounds('proprioceptiveGain', 'conductance', 'track S')).toEqual([0.0001, 7]);
+    expect(bounds('headSwitchGain', 'conductance', 'track S')).toEqual([0.02, 50]);
+    expect(bounds('proprioceptiveGain', 'current', 'track S')).toEqual(PARAMS.proprioceptiveGain.bounds);
+    for (const id of CALIBRATED.filter((k) => k !== 'proprioceptiveGain')) {
+      expect(bounds(id, 'conductance', 'track S'), id).toEqual(bounds(id, 'conductance'));
+    }
   });
 
   it('starts from the log midpoints for the two gains and the provisional values for the rest', () => {
@@ -351,6 +359,36 @@ describe("the registry and the calibration's search in the conductance form", ()
 });
 
 describe("the calibration's search in a form", () => {
+  it("maps track S's box onto its own bound, so a point of the survey's hypercube lies where it did in the box", async () => {
+    const top = new Array<number>(CALIBRATED.length).fill(1);
+    const at = CALIBRATED.indexOf('proprioceptiveGain');
+    expect(fromUnit(top, 'conductance', CALIBRATED, undefined, 'track S').proprioceptiveGain).toBe(7);
+    expect(fromUnit(top, 'conductance').proprioceptiveGain).toBe(8);
+    const values = fromUnit(
+      top.map(() => 0.5),
+      'conductance',
+      CALIBRATED,
+      undefined,
+      'track S',
+    );
+    expect(values.proprioceptiveGain).toBeCloseTo(Math.sqrt(0.0001 * 7), 12);
+    expect(toUnit(values, 'conductance', CALIBRATED, 'track S')[at]).toBeCloseTo(0.5, 12);
+    // A search on track S's model stays within its bound.
+    const seen: Values[] = [];
+    const scorer: Scorer = (v) => {
+      seen.push(v);
+      return Promise.resolve({
+        value: v.proprioceptiveGain > 6 ? 0 : 1,
+        errors: { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 },
+        measures: { finite: true, bouts: 1, frequency: 0.3, wavelength: 0.65, speed: 0.22, reversalRate: 1.8 },
+        unconverged: 0,
+      });
+    };
+    await calibrate(scorer, { form: 'conductance', model: 'track S', budget: 60, start: top.map(() => 0.95) });
+    expect(Math.max(...seen.map((v) => v.proprioceptiveGain))).toBeLessThanOrEqual(7);
+    expect(Math.max(...seen.map((v) => v.proprioceptiveGain))).toBeGreaterThan(6);
+  });
+
   it('searches the conductance form within its bounds, from its start, and refuses a registry that lacks it', async () => {
     const seen: Values[] = [];
     const scorer: Scorer = (values) => {

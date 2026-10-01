@@ -6,13 +6,19 @@ import {
   SURVEY,
   surveyStart,
   THIRD_ROUND,
+  TRACK_S_ROUND,
+  provisionalValues as provisional,
   type Evaluated,
 } from '../../src/validation/calibration.ts';
+import { partsOf, TRACK_S } from '../../src/sim/trackS.ts';
+import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import {
   BOUNDED,
   boundedAllowed,
   committedRecord,
+  checkRan,
   continuedFrom,
+  jobParams,
   mayStartAfresh,
   parseArgs,
   PROBE,
@@ -23,6 +29,8 @@ import {
   SUMMARY,
   summary,
   SURVEYED,
+  TRACK_S_RECORD,
+  trackSAllowed,
 } from './run.ts';
 
 describe("the calibration's options", () => {
@@ -43,6 +51,9 @@ describe("the calibration's options", () => {
     expect(parseArgs(['--round-3', '--resume'])).toMatchObject({ mode: 'round 3', resume: true });
     expect(() => parseArgs(['--round-3', '--budget', '20'])).toThrow(/--round-3 takes its own budget/);
     expect(() => parseArgs(['--round-3', '--survey'])).toThrow(/one mode/);
+    expect(parseArgs(['--track-s', '--jobs', '6'])).toMatchObject({ mode: 'track S', jobs: 6 });
+    expect(() => parseArgs(['--track-s', '--budget', '20'])).toThrow(/--track-s takes its own budget/);
+    expect(() => parseArgs(['--track-s', '--round-3'])).toThrow(/one mode/);
     expect(() => parseArgs(['--probe', '--survey'])).toThrow(/one mode/);
     for (const args of [
       ['--budget'],
@@ -103,6 +114,29 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     expect(roundThreeAllowed(null, false)).toBe(false);
   });
 
+  it("searches track S's model by round 3's procedure, once (DECISIONS.md, 2026-10-01)", () => {
+    expect(procedure('track S')).toEqual({ ...procedure('round 3'), model: 'track S' });
+    expect(TRACK_S_ROUND).toEqual({ ...THIRD_ROUND, model: 'track S' });
+    expect(trackSAllowed(false)).toBe(true);
+    expect(trackSAllowed(true)).toBe(false);
+  });
+
+  it("switches track S's parts on in every trial of its jobs, and none in track R's", () => {
+    const values = provisional('conductance');
+    const r = jobParams({ values, form: 'conductance', seed: 1 });
+    const s = jobParams({ values, form: 'conductance', seed: 1, model: 'track S' });
+    expect(s).toEqual({ ...r, ...TRACK_S });
+    expect(r).not.toHaveProperty('measuredSigns');
+    expect(r).not.toHaveProperty('rectified');
+    expect(TRACK_S).toEqual({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    // Each trial reports the model it ran, and a run stops at one that ran another.
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }], 'track S')).not.toThrow();
+    expect(() => checkRan([{ ran: '' }, { ran: '' }])).not.toThrow();
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }, { ran: '' }], 'track S')).toThrow(/ran the model ""/);
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }])).toThrow(/not the ""/);
+    expect(() => partsOf('track T' as never)).toThrow(/no model/);
+  });
+
   it('never starts afresh over a stopped run, which only --resume takes up', () => {
     expect(mayStartAfresh(null)).toBe(true);
     expect(mayStartAfresh({ complete: true })).toBe(true);
@@ -154,6 +188,37 @@ describe("the calibration's record", () => {
     expect((s.targets as Record<string, number>).speed).toBe(0.15);
     expect((s.bounds as Record<string, unknown>).proprioceptiveGain).toEqual([0.0001, 8]);
     expect(ROUND_3.endsWith('data/calibration/r5.json')).toBe(true);
+  });
+
+  it("names track S's model, its parts, the band it scores on and its own bound on g_p, and is committed as s1.json", () => {
+    const s = settings(2000, 'track S');
+    expect(s).toMatchObject({
+      model: 'track S',
+      parts: TRACK_S,
+      frequencyBand: FREQUENCY_BAND,
+      form: 'conductance',
+      round: TRACK_S_ROUND,
+      survey: SURVEY,
+    });
+    expect(s.starts).toEqual(SURVEY.seeds.map((_, j) => surveyStart(j, 0)));
+    expect((s.targets as Record<string, number>).speed).toBe(0.15);
+    // S's own bound on g_p, and every other the conductance form's (DECISIONS.md, 2026-10-02).
+    const b = s.bounds as Record<string, unknown>;
+    expect(b.proprioceptiveGain).toEqual([0.0001, 7]);
+    expect(b.headSwitchGain).toEqual([0.02, 50]);
+    expect({ ...b, proprioceptiveGain: null }).toEqual({
+      ...(settings(2000, 'round 3').bounds as Record<string, unknown>),
+      proprioceptiveGain: null,
+    });
+    expect(TRACK_S_RECORD.endsWith('data/calibration/s1.json')).toBe(true);
+    // Every record that can still be written names the band; the probe's, the survey's and round 3's, made under the
+    // plain count and committed, don't.
+    for (const mode of ['round 2', 'bounded', 'track S'] as const) {
+      expect(settings(2000, mode).frequencyBand, mode).toBe(FREQUENCY_BAND);
+    }
+    for (const mode of ['probe', 'survey', 'round 3'] as const) {
+      expect(settings(2000, mode), mode).not.toHaveProperty('frequencyBand');
+    }
   });
 
   it("names the bounded calibration's form and start, the conductance form's, and is committed as r4.json", () => {

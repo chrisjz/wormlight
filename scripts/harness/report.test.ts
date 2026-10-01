@@ -17,12 +17,20 @@ import { formatNumber } from '../docs/page.ts';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from '../data/sources.ts';
+import * as planned from '../../src/science/planned.ts';
+import * as trackS from '../../src/sim/trackS.ts';
+import * as world from '../../src/sim/world.ts';
+import { provisionalValues } from '../../src/validation/calibration.ts';
 import {
   checkedValues,
   formOf,
+  manifestOf,
   mayTake,
+  modelOf,
   nameOf,
+  paramsOf,
   parseArgs as equivalenceArgs,
+  picked,
   resultNames,
   valuesOf,
   variants,
@@ -373,6 +381,11 @@ describe('the harness report', () => {
     expect(section).toContain('**Partial** at dt and **Pass** at dt/2');
     expect(section).toContain("Solves that didn't converge: 0 at dt and 2 at dt/2");
     expect(equivalenceSection([])).toContain('Not yet run.');
+    // A run that names checkpoint 1's frequency band says so; the committed runs before it say nothing of one.
+    expect(section).not.toContain('band');
+    const banded = equivalenceSection([{ ...run, fit: 'track-s', pick: 2, frequencyBand: 0.31 }]);
+    expect(banded).toContain('#### Track S, pick 2 — **Fail**');
+    expect(banded).toContain('The frequency counts crossings past a band of ±0.31 κL (PLAN §7.4).');
   });
 
   it('takes a fit for the comparison, and a shortened run within its 200 trials', () => {
@@ -398,7 +411,46 @@ describe('the harness report', () => {
     expect(equivalenceArgs(['--fit', 'round-3', '--pick', '3'])).toMatchObject({ fit: 'round-3', pick: 3 });
     expect(() => equivalenceArgs(['--fit', 'round-3', '--pick', '5'])).toThrow(/--pick/);
     expect(() => equivalenceArgs(['--fit', 'round-3', '--pick', '0'])).toThrow(/--pick/);
-    expect(() => equivalenceArgs(['--fit', 'refit', '--pick', '2'])).toThrow(/round 3 alone/);
+    expect(() => equivalenceArgs(['--fit', 'refit', '--pick', '2'])).toThrow(/picks alone/);
+    // Track S's picks likewise, 1 to 4.
+    expect(equivalenceArgs(['--fit', 'track-s', '--pick', '4'])).toMatchObject({ fit: 'track-s', pick: 4 });
+    expect(() => equivalenceArgs(['--fit', 'track-s', '--pick', '5'])).toThrow(/--pick/);
+    expect(picked('track-s') && picked('round-3') && !picked('refit')).toBe(true);
+  });
+
+  it("runs track S's picks on track S's model, and every other fit on track R's", () => {
+    expect(nameOf('track-s', 3)).toBe('track-s-pick-3');
+    expect([modelOf('track-s'), modelOf('round-3'), modelOf('refit')]).toEqual(['track S', 'track R', 'track R']);
+    const values = provisionalValues('conductance');
+    const manifest = {
+      fit: 'track-s' as const,
+      pick: 1,
+      values,
+      form: 'conductance' as const,
+      source: '',
+      step: 0.0025,
+    };
+    const r = paramsOf({ ...manifest, seconds: 120, node: '' }, world, planned, trackS);
+    const s = paramsOf({ ...manifest, model: 'track S', seconds: 120, node: '' }, world, planned, trackS);
+    expect(s).toEqual({ ...r, ...trackS.TRACK_S });
+    expect(r).toEqual(world.loopParams(values, 'conductance'));
+    // A manifest names track S's model and pick, and track R's manifests are as they were, so their sets are reused.
+    const at = { values, form: 'conductance' as const, source: 's' };
+    expect(manifestOf({ fit: 'track-s', pick: 2, ...at }, 0.0025)).toMatchObject({ pick: 2, model: 'track S' });
+    expect(Object.keys(manifestOf({ fit: 'round-3', pick: 2, ...at }, 0.0025))).toEqual([
+      'fit',
+      'pick',
+      'values',
+      'form',
+      'source',
+      'step',
+      'seconds',
+      'node',
+    ]);
+    expect(manifestOf({ fit: 'refit', pick: 1, ...at, form: 'current' }, 0.0025)).not.toHaveProperty('pick');
+    // Until its calibration is committed, track S has no picks to take.
+    if (!existsSync(join(ROOT, 'data/calibration/s1.json')))
+      expect(() => valuesOf('track-s')).toThrow(/no calibration yet/);
   });
 
   it("takes round 3's picks down the four, each only once those before it have failed at their recorded values", () => {
@@ -477,6 +529,13 @@ describe('the harness report', () => {
     const inBox = { ...good.final.values, headSwitchGain: 1, proprioceptiveGain: 0.028 };
     expect(checkedValues({ ...conducting, final: { values: inBox } }, 'x')).toEqual(inBox);
     expect(() => checkedValues({ ...good, final: { values: inBox } }, 'x')).toThrow(/headSwitchGain lies outside/);
+    // A fit of track S's model is held to its model and its own bound on g_p, 7 where track R's is 8.
+    const s = { ...conducting, model: 'track S', final: { values: { ...inBox, proprioceptiveGain: 7.5 } } };
+    expect(() => checkedValues(s, 'x', 'track S')).toThrow(/proprioceptiveGain lies outside/);
+    expect(() => checkedValues(s, 'x')).toThrow(/track R/);
+    const sIn = { ...s, final: { values: { ...inBox, proprioceptiveGain: 6.5 } } };
+    expect(checkedValues(sIn, 'x', 'track S')).toEqual(sIn.final.values);
+    expect(() => checkedValues({ ...conducting, final: { values: inBox } }, 'x', 'track S')).toThrow(/track S's/);
   });
 
   it("reports the voltage diagnostic when the trials carry it, and says nothing of it when they don't", () => {
@@ -594,6 +653,15 @@ describe('the harness report', () => {
       speed: { ...report.speed, atFloor: null },
     });
     expect(failed).not.toContain('speed floor');
+    // Round 3's record, written before track S, names neither; track S's names its model, its record and its band.
+    expect(section).toContain(
+      'from data/calibration/r5.json (generation 60, candidate 3), in the conductance form (PLAN §9).',
+    );
+    const s = chosenSection({ ...report, fit: 'track-s', frequencyBand: 0.31 });
+    expect(s).toContain('### Track S: pick 2, from the search of CMA-ES seed 18 — **Partial**, at the speed floor');
+    expect(s).toContain(
+      "from data/calibration/s1.json (generation 60, candidate 3), on track S's model, its measured signs, the D-types' offset and its rectifier, in the conductance form (PLAN §9), its frequency counting crossings past ±0.31 κL.",
+    );
   });
 
   it("lesions the rules' classes by name in the runtime data: 18 B-types, 21 A-types, AVBL and AVBR", () => {

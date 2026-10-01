@@ -1,4 +1,4 @@
-// npm run calibrate -- [--probe | --survey | --round-3 | --bounded] [--budget N] [--jobs N] [--resume]
+// npm run calibrate -- [--probe | --survey | --round-3 | --bounded | --track-s] [--budget N] [--jobs N] [--resume]
 //
 // PLAN §7.3's calibration of track R's model in R's second round (PLAN §9), in two stages. Stage 1, the crawl:
 // CMA-ES with restarts over the twelve calibrated parameters mapped onto [0, 1], from their provisional values, on
@@ -29,6 +29,11 @@
 // round-3). It writes harness-out/calibration-r5.json and data/calibration/r5.json; a resumed run keeps every search it
 // had finished. It runs once, only after a survey that found a crawl.
 //
+// --track-s runs track S's calibration (PLAN §9; TRACK_S_ROUND): R's third round's procedure on track S's model, its
+// measured signs, the D-types' offset and its rectifier, with its own bound on g_p. It writes harness-out/calibration-s1.json and
+// data/calibration/s1.json, its four picks in the order they take §7.2's comparison (npm run equivalence -- --fit
+// track-s), and names checkpoint 1's frequency band, on which it scores. It runs once: it refuses while s1.json exists.
+//
 // --bounded calibrates the bounded model once by the refit's procedure, should the survey find no crawl (PLAN §9): one
 // search of 2,000 evaluations on all four targets in the conductance form, from its provisional values, without
 // restarts. It writes harness-out/calibration-r4.json and data/calibration/r4.json. It refuses to run while the
@@ -44,7 +49,8 @@ import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
-import { CALIBRATED, loopParams, type Form } from '../../src/sim/world.ts';
+import { partsOf, TRACK_S, trackSKey, type Model } from '../../src/sim/trackS.ts';
+import { CALIBRATED, loopParams, type Form, type LoopParams } from '../../src/sim/world.ts';
 import {
   ALL_TARGETS,
   CALIBRATION,
@@ -54,6 +60,7 @@ import {
   SURVEY,
   TARGETS,
   THIRD_ROUND,
+  TRACK_S_ROUND,
   bounds,
   calibrate,
   measure,
@@ -69,6 +76,7 @@ import {
   type Values,
 } from '../../src/validation/calibration.ts';
 import { checkpoint1, type Diagnostics } from '../../src/validation/checkpoints.ts';
+import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatJson } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
@@ -89,17 +97,20 @@ interface ProbeRun {
   diagnostics?: Diagnostics;
 }
 
-interface Job {
+export interface Job {
   values: Values;
   // The form the values are in (PLAN §4.3).
   form: Form;
   seed: number;
   // The whole record, for grading by checkpoint 1, not only what the objective reads.
   whole?: boolean;
+  // The model, named only when it isn't track R's (track S's).
+  model?: Model;
 }
 
-// What a trial gives the objective, and its brain solves that didn't converge; or, for grading, the whole record.
-type TrialResult = (KinematicRecord & { unconverged: number }) | TrialRecord;
+// What a trial gives the objective, its brain solves that didn't converge and the model it ran, as trackSKey names it;
+// or, for grading, the whole record.
+type TrialResult = (KinematicRecord & { unconverged: number; ran: string }) | TrialRecord;
 
 interface Result {
   job: Job;
@@ -116,19 +127,27 @@ export const PROBE = join(ROOT, 'data/calibration/r3-probe.json');
 export const SURVEYED = join(ROOT, 'data/calibration/survey.json');
 export const BOUNDED = join(ROOT, 'data/calibration/r4.json');
 export const ROUND_3 = join(ROOT, 'data/calibration/r5.json');
+export const TRACK_S_RECORD = join(ROOT, 'data/calibration/s1.json');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
 
+// A job's loop parameters: its values in its form, on its model.
+export const jobParams = (job: Job): LoopParams => ({
+  ...loopParams(job.values, job.form),
+  ...partsOf(job.model ?? 'track R'),
+});
+
 async function runJob(job: Job): Promise<TrialResult> {
   cached ??= { data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))), postures: await readPostures() };
+  const params = jobParams(job);
   const r = runTrial(cached.data, {
     seed: job.seed,
     seconds: CALIBRATION.trialSeconds,
-    params: loopParams(job.values, job.form),
+    params,
     postures: cached.postures,
   });
   if (job.whole) return r;
-  // Only what the objective reads.
+  // Only what the objective reads, and the model the trial ran, which the scorer holds to the one it asked for.
   return {
     finite: r.finite,
     velocity: r.velocity,
@@ -136,7 +155,16 @@ async function runJob(job: Job): Promise<TrialResult> {
     front: r.front,
     rear: r.rear,
     unconverged: r.unconverged,
+    ran: trackSKey(params),
   };
+}
+
+// Every trial ran the model a run asked for, as trackSKey names it, or the run stops (DECISIONS.md, 2026-10-02): the
+// record names its model from the run's settings, and this ties it to what ran.
+export function checkRan(records: readonly { ran: string }[], model: Model = 'track R'): void {
+  const asked = trackSKey(partsOf(model));
+  const other = records.find((r) => r.ran !== asked);
+  if (other) throw new Error(`a trial ran the model "${other.ran}", not the "${asked}" the run asked for`);
 }
 
 // A trial of 120 s takes seconds; one still running after this is stuck.
@@ -197,15 +225,17 @@ class Pool {
 }
 
 // What a run is: R's second round, whole or shortened for a look; its probe; the survey of the bounded model; R's third
-// round; or the bounded model's calibration by the refit's procedure (PLAN §9).
-export type Mode = 'round 2' | 'probe' | 'survey' | 'round 3' | 'bounded';
+// round; the bounded model's calibration by the refit's procedure (PLAN §9); or track S's calibration.
+export type Mode = 'round 2' | 'probe' | 'survey' | 'round 3' | 'bounded' | 'track S';
 const MODES: Record<string, Mode> = {
   '--probe': 'probe',
   '--survey': 'survey',
   '--round-3': 'round 3',
   '--bounded': 'bounded',
+  '--track-s': 'track S',
 };
-const USAGE = 'npm run calibrate -- [--probe | --survey | --round-3 | --bounded] [--budget N] [--jobs N] [--resume]';
+const USAGE =
+  'npm run calibrate -- [--probe | --survey | --round-3 | --bounded | --track-s] [--budget N] [--jobs N] [--resume]';
 
 export function parseArgs(args: readonly string[]): { budget: number; jobs: number; resume: boolean; mode: Mode } {
   const out = {
@@ -233,10 +263,10 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
     out[flag === '--budget' ? 'budget' : 'jobs'] = Number(text);
     a++;
   }
-  // The probe, the survey and round 3 take their own budgets; round 2 and the bounded calibration may be shortened for
-  // a look.
-  if ((out.mode === 'probe' || out.mode === 'survey' || out.mode === 'round 3') && budgeted) {
-    throw new Error(`--${out.mode.replace(' ', '-')} takes its own budget; usage: ${USAGE}`);
+  // The probe, the survey, round 3 and track S take their own budgets; round 2 and the bounded calibration may be
+  // shortened for a look.
+  if (['probe', 'survey', 'round 3', 'track S'].includes(out.mode) && budgeted) {
+    throw new Error(`--${out.mode.toLowerCase().replace(' ', '-')} takes its own budget; usage: ${USAGE}`);
   }
   return out;
 }
@@ -244,6 +274,9 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
 // What a run was: the settings a reader needs to interpret its units and scores.
 export function settings(budget: number, mode: Mode = 'round 2'): Record<string, unknown> {
   const shared = { mapping: MAPPING, targets: TARGETS, errorCap: ERROR_CAP, calibration: CALIBRATION };
+  // Every record that can still be written names checkpoint 1's frequency band, on which its measures count crossings
+  // (PLAN §7.4). The probe's, the survey's and round 3's were made under the plain count, and none of them runs again.
+  const band = { frequencyBand: FREQUENCY_BAND };
   if (mode === 'survey') {
     const form = SURVEY.form;
     return {
@@ -270,10 +303,27 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
       targets: THIRD_ROUND.goals,
     };
   }
+  if (mode === 'track S') {
+    const { form } = TRACK_S_ROUND;
+    return {
+      model: 'track S',
+      // The model's parts, as the loop's parameters take them.
+      parts: TRACK_S,
+      ...band,
+      form,
+      round: TRACK_S_ROUND,
+      survey: SURVEY,
+      starts: TRACK_S_ROUND.seeds.map((_, j) => surveyStart(j, 0)),
+      bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id, form, 'track S')])),
+      ...shared,
+      targets: TRACK_S_ROUND.goals,
+    };
+  }
   if (mode === 'bounded') {
     const form: Form = 'conductance';
     return {
       model: 'track R, bounded',
+      ...band,
       form,
       budget,
       start: provisionalValues(form),
@@ -287,6 +337,8 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
     budget:
       mode === 'probe' ? { crawl: SECOND_ROUND.probe.budget } : { crawl: budget, noise: SECOND_ROUND.noise.budget },
     calibration: CALIBRATION,
+    // The probe ran under the plain count; round 2's full run and its looks would run under the band.
+    ...(mode === 'probe' ? {} : band),
     secondRound: SECOND_ROUND,
     // Round 2 runs the current form (PLAN §4.3).
     form: ROUND_FORM,
@@ -298,10 +350,12 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
   };
 }
 
-// How a mode searches (PLAN §7.3, §9): its form; the targets its objective reads, and their values when a round sets
-// its own; whether a worm without a bout of 10 s is scored by its spectral frequency; and its restart rule, if any.
-// Round 2's is its first stage's, which its probe runs; its second stage, the noise, is set where it runs.
+// How a mode searches (PLAN §7.3, §9): its model, track R's unless named; its form; the targets its objective reads,
+// and their values when a round sets its own; whether a worm without a bout of 10 s is scored by its spectral
+// frequency; and its restart rule, if any. Round 2's is its first stage's, which its probe runs; its second stage, the
+// noise, is set where it runs.
 export interface Procedure {
+  model?: Model;
   form: Form;
   targets: readonly Target[];
   goals?: Readonly<Record<Target, number>>;
@@ -314,6 +368,10 @@ export function procedure(mode: Mode): Procedure {
   if (mode === 'round 3') {
     const { form, targets, goals, spectral } = THIRD_ROUND;
     return { form, targets, goals, spectral, restarts: THIRD_ROUND.restart };
+  }
+  if (mode === 'track S') {
+    const { model, form, targets, goals, spectral } = TRACK_S_ROUND;
+    return { model, form, targets, goals, spectral, restarts: TRACK_S_ROUND.restart };
   }
   // The refit's: all four targets, without the spectral frequency or restarts, in the conductance form.
   if (mode === 'bounded') return { form: 'conductance', targets: ALL_TARGETS, spectral: false };
@@ -344,6 +402,9 @@ export function committedRecord(mode: Mode, full: boolean, exists: (path: string
 
 export const roundThreeAllowed = (survey: SurveyVerdict | null, recorded: boolean): boolean =>
   survey !== null && survey.complete === true && survey.partial === true && !recorded;
+
+// Whether track S's calibration may run: once, before its record is committed (PLAN §9).
+export const trackSAllowed = (recorded: boolean): boolean => !recorded;
 
 // Whether a run may start afresh where another left its file: only if there is none, or that run finished. A stopped
 // run is resumed with --resume, or moved aside by hand, never overwritten.
@@ -393,6 +454,7 @@ if (process.argv.includes('--worker')) {
     survey: 'calibration-survey.json',
     'round 3': 'calibration-r5.json',
     bounded: full ? 'calibration-r4.json' : `calibration-r4-${options.budget}.json`,
+    'track S': 'calibration-s1.json',
   }[mode];
   const file = join(ROOT, 'harness-out', name);
   // A resumed run replays each stage's evaluations, and keeps every stage on disk until it is replayed; a resumed
@@ -405,6 +467,10 @@ if (process.argv.includes('--worker')) {
     seconds?: number;
   } = { stages: {} };
   const committed = commit();
+  // Track S's calibration runs, and resumes, only at a commit, so that its evaluations all come from one code.
+  if (mode === 'track S' && /uncommitted/.test(committed)) {
+    throw new Error("commit first: track S's calibration records the commit it runs at, and resumes only there");
+  }
   if (
     !options.resume &&
     !mayStartAfresh(existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as object) : null)
@@ -442,6 +508,10 @@ if (process.argv.includes('--worker')) {
       );
     }
   }
+  // Track S's calibration runs once (PLAN §9).
+  if (mode === 'track S' && !trackSAllowed(existsSync(TRACK_S_RECORD))) {
+    throw new Error("track S's calibration runs once: data/calibration/s1.json is already committed");
+  }
   const replaces = committedRecord(mode, full, existsSync);
   if (replaces) {
     throw new Error(
@@ -464,14 +534,26 @@ if (process.argv.includes('--worker')) {
   const started = Date.now() - 1000 * (resumed.seconds ?? 0);
   const elapsed = (): number => (Date.now() - started) / 1000;
   mkdirSync(dirname(file), { recursive: true });
-  // A scorer: the objective on its targets, for values in a form; round 2 and the survey score a worm without a bout
-  // by its spectral frequency, and the refit's procedure, which the bounded calibration follows, and round 3 don't.
+  // A scorer: the objective on its targets, for values in a form on a model; round 2 and the survey score a worm
+  // without a bout by its spectral frequency, and the refit's procedure, which the bounded calibration follows, round 3
+  // and track S don't.
   const scorer =
-    (targets: readonly Target[], form: Form, spectral: boolean, goals?: Readonly<Record<Target, number>>): Scorer =>
+    (
+      targets: readonly Target[],
+      form: Form,
+      spectral: boolean,
+      goals?: Readonly<Record<Target, number>>,
+      model?: Model,
+    ): Scorer =>
     async (values, seeds) => {
-      const records = (await Promise.all(seeds.map((seed) => pool.run({ values, form, seed })))) as (KinematicRecord & {
+      const named = model && model !== 'track R' ? { model } : {};
+      const records = (await Promise.all(
+        seeds.map((seed) => pool.run({ values, form, seed, ...named })),
+      )) as (KinematicRecord & {
         unconverged: number;
+        ran: string;
       })[];
+      checkRan(records, model);
       const measures = measure(records, { spectral });
       return {
         measures,
@@ -586,9 +668,11 @@ if (process.argv.includes('--worker')) {
           ? "A pick grades at least partial: R's third round runs on the bounded model, by rules of its own.\n"
           : "No pick grades partial: R ends, and the bounded model is calibrated once by the refit's procedure.\n",
       );
-    } else if (mode === 'round 3') {
-      const { form, targets, spectral, restarts, goals } = procedure('round 3');
-      const score = scorer(targets, form, spectral, goals);
+    } else if (mode === 'round 3' || mode === 'track S') {
+      // Track S's calibration is round 3's procedure on its own model (TRACK_S_ROUND).
+      const { form, targets, spectral, restarts, goals, model } = procedure(mode);
+      const round = mode === 'track S' ? TRACK_S_ROUND : THIRD_ROUND;
+      const score = scorer(targets, form, spectral, goals, model);
       // A search a resumed run had finished, its final check included, isn't run again.
       const finished = (stage: string): Fit | null => {
         const s = resumed.stages[stage];
@@ -599,8 +683,9 @@ if (process.argv.includes('--worker')) {
         if (done) return done;
         return calibrate(score, {
           form,
+          model,
           budget,
-          seed: THIRD_ROUND.seeds[j],
+          seed: round.seeds[j],
           restarts,
           start: surveyStart(j, 0),
           restartFrom: (r) => surveyStart(j, r),
@@ -615,16 +700,16 @@ if (process.argv.includes('--worker')) {
       const shown = (x: number | null): string => (x === null || !Number.isFinite(x) ? '∞' : x.toFixed(4));
       // Phase 1: the survey's design, with round 3's objective.
       const first = new Map<number, Fit>();
-      for (const [j, seed] of THIRD_ROUND.seeds.entries()) {
+      for (const [j, seed] of round.seeds.entries()) {
         const stage = `phase 1 ${seed}`;
-        const fit = await search(stage, j, THIRD_ROUND.phase1.budget);
+        const fit = await search(stage, j, round.phase1.budget);
         stages[stage] = fit;
         first.set(seed, fit);
         save(false);
         describe(fit, targets);
       }
       const order = ranked([...first].map(([seed, fit]) => pick(seed, fit)));
-      const continued = order.slice(0, THIRD_ROUND.phase2.continued).map((p) => p.seed);
+      const continued = order.slice(0, round.phase2.continued).map((p) => p.seed);
       process.stdout.write(
         `Phase 1's picks in order: ${order.map((p) => `${p.seed} (${shown(p.value)})`).join(', ')}; phase 2 continues ${continued.join(', ')}.\n`,
       );
@@ -632,7 +717,7 @@ if (process.argv.includes('--worker')) {
       const second = new Map<number, Fit>();
       for (const seed of continued) {
         const stage = `phase 2 ${seed}`;
-        const fit = await search(stage, THIRD_ROUND.seeds.indexOf(seed), THIRD_ROUND.phase2.budget, first.get(seed));
+        const fit = await search(stage, round.seeds.indexOf(seed), round.phase2.budget, first.get(seed));
         stages[stage] = fit;
         second.set(seed, fit);
         save(false);
@@ -642,15 +727,17 @@ if (process.argv.includes('--worker')) {
       const picks = ranked([...second].map(([seed, fit]) => pick(seed, fit)));
       const phase1 = [...first].map(([seed, fit]) => ({
         seed,
-        search: THIRD_ROUND.seeds.indexOf(seed),
+        search: round.seeds.indexOf(seed),
         restarts: Math.max(...fit.generations.map((g) => g.restart)),
         final: fit.final,
       }));
       // Phase 1's ranking, which chose the searches phase 2 continues.
       const ranking = order.map(({ seed, value, from }) => ({ seed, value, from }));
       const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks };
-      // The committed record first, so that a stop between the two writes leaves a run --resume can finish.
-      writeWhole(ROUND_3, await formatJson(JSON.stringify(summary(run)), ROUND_3));
+      // The committed record first, whole, so that a stop between the two writes still leaves the run's result; once it
+      // exists the round won't run again.
+      const record = mode === 'track S' ? TRACK_S_RECORD : ROUND_3;
+      writeWhole(record, await formatJson(JSON.stringify(summary(run)), record));
       writeWhole(file, JSON.stringify(run) + '\n');
       process.stdout.write("The picks, in the order they take §7.2's comparison:\n");
       for (const p of picks) {

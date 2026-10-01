@@ -1,8 +1,9 @@
 // PLAN §7.3's calibration, all but its trials: the search space, the measures and the objective, and the choice
 // of the final parameters. The runner (scripts/calibrate/run.ts) evaluates candidates on the CPU reference.
 
-import { inForm, PARAMS, type Form } from '../science/params.ts';
+import { inForm, PARAMS, type Form, type Param } from '../science/params.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
+import type { Model } from '../sim/trackS.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { spectralPeak } from './checkpoints.ts';
 import { Cmaes, defaultLambda } from './cmaes.ts';
@@ -99,6 +100,12 @@ export const THIRD_ROUND = {
   restart: { ...SECOND_ROUND.restart, until: 250 },
 } as const;
 
+// Track S's calibration (PLAN §9; DECISIONS.md, 2026-10-01, set before any of S was built): R's third round's
+// procedure on track S's model, its searches from the survey's starts in the box's mapped units, so that on its own
+// bound for g_p (`bounds`) each start lies where the survey's did in the box, not at the same values. Its picks, in the
+// order of their objective, take §7.2's comparison down the four until one passes.
+export const TRACK_S_ROUND = { ...THIRD_ROUND, model: 'track S' as Model } as const;
+
 // Searches or picks in the order of their objective, the lower CMA-ES seed first on a tie; one that left the finite
 // numbers, whose objective is infinite, or written to JSON as null, last.
 export function ranked<T extends { seed: number; value: number | null }>(runs: readonly T[]): T[] {
@@ -128,9 +135,10 @@ export function surveyStart(search: number, restart: number): number[] {
 export const ERROR_CAP = 2;
 
 // A parameter's bounds in a form: in the conductance form, g_sw's and g_p's are their conductance entries' (PLAN
-// §7.3).
-export function bounds(id: CalibratedId, form: Form): readonly [number, number] {
-  const b = inForm(id, PARAMS[id], form).bounds;
+// §7.3), and on track S's model those its rules set where they differ, kept beside them (DECISIONS.md, 2026-10-02).
+export function bounds(id: CalibratedId, form: Form, model: Model = 'track R'): readonly [number, number] {
+  const own = model === 'track S' && form === 'conductance' ? (PARAMS[id] as Param).conductance?.trackS : undefined;
+  const b = own?.bounds ?? inForm(id, PARAMS[id], form).bounds;
   if (!b) throw new Error(`${id} has no bounds`);
   if (MAPPING[id] === 'log' && !(b[0] > 0))
     throw new Error(`${id} is searched logarithmically, so its lower bound must be above 0`);
@@ -151,18 +159,20 @@ export function provisionalValues(form: Form): Values {
 }
 
 // A point in [0, 1]ⁿ, one coordinate for each of `ids` in their order, as parameter values in the registry's
-// units for a form, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point inside.
+// units for a form and a model, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point
+// inside.
 export function fromUnit(
   u: readonly number[],
   form: Form,
   ids: readonly CalibratedId[] = CALIBRATED,
   fixed?: Values,
+  model: Model = 'track R',
 ): Values {
   if (u.length !== ids.length) throw new Error(`a candidate needs ${ids.length} coordinates`);
   if (ids.length !== CALIBRATED.length && !fixed) throw new Error('a search over some parameters needs the rest');
   const mapped = Object.fromEntries(
     ids.map((id, i) => {
-      const [lo, hi] = bounds(id, form);
+      const [lo, hi] = bounds(id, form, model);
       const t = clip(u[i]);
       // Held within the bounds, so rounding can't carry a value at a bound past it.
       const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
@@ -172,9 +182,14 @@ export function fromUnit(
   return { ...fixed, ...mapped } as Values;
 }
 
-export function toUnit(values: Values, form: Form, ids: readonly CalibratedId[] = CALIBRATED): number[] {
+export function toUnit(
+  values: Values,
+  form: Form,
+  ids: readonly CalibratedId[] = CALIBRATED,
+  model: Model = 'track R',
+): number[] {
   return ids.map((id) => {
-    const [lo, hi] = bounds(id, form);
+    const [lo, hi] = bounds(id, form, model);
     const v = values[id];
     return MAPPING[id] === 'log' ? Math.log(v / lo) / Math.log(hi / lo) : (v - lo) / (hi - lo);
   });
@@ -346,8 +361,10 @@ export interface Fit {
 export async function calibrate(
   score: Scorer,
   options: {
-    // The form of the model searched, whose bounds and start g_sw and g_p take (PLAN §4.3).
+    // The form of the model searched, whose bounds and start g_sw and g_p take (PLAN §4.3), and the model, track R's
+    // unless given, whose bounds may be its own (track S's).
     form: Form;
+    model?: Model;
     budget: number;
     ids?: readonly CalibratedId[];
     fixed?: Values;
@@ -364,8 +381,9 @@ export async function calibrate(
 ): Promise<Fit> {
   const ids = options.ids ?? CALIBRATED;
   const { form } = options;
-  const at = (u: readonly number[]): Values => fromUnit(u, form, ids, options.fixed);
-  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(form), form, ids))];
+  const model = options.model ?? 'track R';
+  const at = (u: readonly number[]): Values => fromUnit(u, form, ids, options.fixed, model);
+  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(form), form, ids, model))];
   if (start.length !== ids.length) throw new Error(`the start needs ${ids.length} coordinates`);
   const seed = options.seed ?? CALIBRATION.seed;
   let restart = 0;
