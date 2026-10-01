@@ -3133,4 +3133,4 @@ Checkpoint 1 ran again beside it, on the same refit, with the same grades and me
   - the wording "a link from another version", which now names the model or data version, the test's reading of the citation's fields, and a test that the citation's DOIs are in the registry;
   - the README's "Citing", which now says how to cite first, and this entry's heading and Status.
 
-**Status.** Built and revised after review. The tag `v0.1.0` and its Release follow the merge, on the maintainer's go-ahead.
+**Status.** Built and revised after review. Released on 2026-10-01: on the maintainer's go-ahead, the merge commit `5dbb0c5` was tagged `v0.1.0`, an annotated tag pushed by name, after `main`'s CI and deploy had passed on it, and the Release "Wormlight 0.1.0" was made from the tag as a draft, seen by the maintainer and published (noted 2026-10-01).
