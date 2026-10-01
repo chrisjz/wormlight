@@ -34,6 +34,7 @@ import {
   WARMUP,
 } from '../src/gpu/parityCases.ts';
 import { NO_NEURON, OUTSIDE, ROD_CONSTANTS } from '../src/gpu/brainShader.ts';
+import { gapGates, openRectified } from '../src/sim/brain/network.ts';
 import { awcLayout, checkOdour, checkRing, packLoop, packOdour } from '../src/gpu/loopLayout.ts';
 import { currentParams, World } from '../src/sim/world.ts';
 import { boyleBody } from '../src/sim/body/body.ts';
@@ -247,6 +248,27 @@ describe("the loop's parity", () => {
       else expect(toggles, name).toBeLessThanOrEqual(1);
     }
     expect(packLoop(new World(data, LOOP_SETUPS[0].params)).conductance).toBe(false);
+  });
+
+  it("includes track S's whole model, its brain's junctions flagged for the shader and its gates turning", () => {
+    const setup = LOOP_SETUPS.find((s) => s.name === 'track S');
+    if (!setup) throw new Error('no track S setup');
+    expect(setup.params).toMatchObject({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    const world = new World(data, setup.params, {
+      seed: setup.seed ?? SEED,
+      switchThreshold: setup.switchThreshold,
+      odour: assayField(),
+    });
+    // The flags packNetwork lays out for the shader (src/gpu/brain.test.ts): both entries of each of the 37 junctions.
+    expect(gapGates(world.brain.network)?.filter((g) => g !== 0)).toHaveLength(74);
+    // Over the span its states are taken from, the open gates change, so the GPU's gating is exercised.
+    let [changes, open] = [0, openRectified(world.brain.network, world.brain.voltage).open];
+    for (let k = 0; k < Math.round((WARMUP + INTERVAL * setup.states) / NEURAL_STEP); k++) {
+      world.step();
+      const now = openRectified(world.brain.network, world.brain.voltage).open;
+      if (now !== open) [changes, open] = [changes + 1, now];
+    }
+    expect(changes).toBeGreaterThan(10);
   });
 
   it("includes the values the app runs, the registry's, whatever a fit sets", () => {

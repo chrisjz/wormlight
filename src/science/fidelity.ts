@@ -106,7 +106,8 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
   strengths: {
     name: 'Synaptic strengths',
     solid: 'Relative sizes from EM',
-    notSolid: 'Strength assumed proportional to section count, with one conductance per unit',
+    notSolid:
+      "Strength assumed proportional to section count, with one conductance per unit, and every gap junction conducting both ways; track S's model, which no fit uses yet, rectifies AVA's junctions with the A-types",
     upgrade: 'Per-connection physiology (paired recordings, voltage imaging)',
     sources: [],
   },
@@ -208,7 +209,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "Cook et al. 2019, with the lab's July 2020 corrections and 2023 BDU–ALM and BDU–PLM junctions (Emmons 2024)",
     caveats:
-      'As above; no rectification or innexin identity, though current crosses the AVA–A-type junctions only from the motor neurons into AVA (Liu et al. 2017); the 14 junctions between a neuron and itself are omitted',
+      "As above; no innexin identity, and no rectification in the model the app runs, though current crosses the AVA–A-type junctions only from the motor neurons into AVA (Liu et al. 2017), which track S's model builds; the 14 junctions between a neuron and itself are omitted",
     upgrade: 'Innexin expression and rectification data',
     sources: ['cook2019', 'emmons2024', 'liu2017'],
     testedBy: [],
@@ -352,6 +353,25 @@ export const COMPONENTS: readonly Component[] = [
     testedBy: [
       { check: 'unit', detail: 'it scales every junction with a B-type on either side, and nothing else' },
       { check: 'checkpoint1' },
+    ],
+  },
+  {
+    name: "Track S's rectifier",
+    subsystem: 'strengths',
+    levels: [2, 0],
+    basis:
+      "AVA's 37 gap junctions with the A-types pass current only from the A-type into AVA, g·max(V_A − V_AVA, 0), at each junction's own conductance: Liu et al. 2017 measured the direction with VA5, VA8 and DA4 (5 for those pairs) and read it as holding for every A-type (2). Each gate is set from the voltages at a step's start and both voltages are then implicit, so the solve stays symmetric; the rest is a fixed point of the gates",
+    caveats:
+      "Built for track S's model, which no fit uses yet; the app's junctions conduct both ways. The form is ours (0), with no value to set. The rectifier reads the model's voltages, where AVA and the A-types rest within a few millivolts, so 10 of the 37 gates are open at rest and the noise turns them, where in the animal they are shut. The model reproduces little of the amplification Liu et al. found, and not by their mechanism: removing the junctions lowers the A-types' AVA-evoked depolarisation by about a third at small signals and less at larger ones, as AVA's rise shuts the gates, and AVA's input resistance is a tenth of the measured value (DECISIONS.md, 2026-10-02)",
+    upgrade: 'Recordings of AVA with each A-type, and a frame in which each class keeps its own rest',
+    sources: ['liu2017'],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          'both entries of each junction read one comparison, the rest is a fixed point of the gates, and their open share is the same at half the step',
+      },
+      { check: 'unit', detail: "GPU parity's track S setup, its gates computed in the shader" },
     ],
   },
 
@@ -808,7 +828,7 @@ export const OMITTED: readonly { text: string; sources: readonly CitationId[] }[
     sources: [],
   },
   {
-    text: 'Glia, gap-junction rectification, individual variation, development and learning.',
+    text: "Glia, gap-junction rectification but for track S's AVA–A-type junctions, in a model no fit uses yet, individual variation, development and learning.",
     sources: [],
   },
 ];

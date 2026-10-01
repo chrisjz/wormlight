@@ -63,6 +63,10 @@ export interface ConductanceForm {
   bounds: readonly [number, number];
   provisional: number;
   rule: string;
+  // Bounds of its own on track S's whole model (PLAN §7.3; DECISIONS.md, 2026-10-01 and 2026-10-02), where the same
+  // rule, rerun there, rounds to others: kept beside the registry's rather than replacing them, since the survey's and
+  // round 3's records are held to those.
+  trackS?: { bounds: readonly [number, number]; rule: string };
 }
 
 // PLAN §7.3's 1 mV rule for the conductance form's bounds: at the lower bound no target moves more than 1 mV at
@@ -486,6 +490,10 @@ export const PARAMS = {
       bounds: [0.0001, 8],
       provisional: 0.028,
       rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gives 0.00017–7.8, rounded outward to one significant figure; it starts at the bounds' log midpoint, 0.028 as the rules give it",
+      trackS: {
+        bounds: [0.0001, 7],
+        rule: "the same rule, which gives 0.00014–6.4 there, since its rectifier shuts most of the AVA–A-type junctions at rest and so lightens the A-types' loads, DA8's the largest",
+      },
     },
   },
 

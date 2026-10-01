@@ -34,11 +34,13 @@ export const MAX_MUSCLES = 128;
 
 // The uniform block, in the order the shader declares it: the brain's eight u32 and twelve f32, then the
 // loop's twelve u32 and twenty-four f32, which are LOOP_SCALARS, where in the weights the muscles' offsets
-// start, and whether the head switch and proprioception take the conductance form (PLAN §4.3), padded to a whole
-// 16 bytes.
+// start, and whether the head switch and proprioception take the conductance form (PLAN §4.3); then, read whether
+// looping or not, where in the topology the rectified junctions are described, 0 for none, padded to a whole 16
+// bytes.
 export const PARAM_WORDS = 60;
 export const NM_OFFSET_AT = 56;
 export const CONDUCTANCE_FORM_AT = 57;
+export const RECT_AT = 58;
 export const LOOP_SCALARS_AT = 32;
 export const LOOP_SCALARS = [
   'proprio_gain',
@@ -121,10 +123,17 @@ const body = (per: number): string => {
       if (i < n) {${inner}
       }
     }`;
-  // (diag(d) − G) applied to the vector published in the pool's x, for neuron i.
+  // (diag(d) − G) applied to the vector published in the pool's x, for neuron i: its rectified junctions first, the
+  // first rect[k] entries of its row, each only if its gate is open this step, then the rest.
   const product = (vector: string): string => `
         var product = d[k] * ${vector}[k];
-        for (var e = topology[i]; e < topology[i + 1u]; e++) {
+        let row_start = topology[i];
+        for (var slot = 0u; slot < rect[k]; slot++) {
+          if (((gates[k] >> slot) & 1u) != 0u) {
+            product -= weights[row_start + slot] * pool[${POOL.x}u + topology[params.gap_index_at + row_start + slot]];
+          }
+        }
+        for (var e = row_start + rect[k]; e < topology[i + 1u]; e++) {
           product -= weights[e] * pool[${POOL.x}u + topology[params.gap_index_at + e]];
         }`;
   return /* wgsl */ `
@@ -188,7 +197,7 @@ struct Params {
   odour_cell: f32,
   nm_offset_at: u32,
   conductance_form: u32,
-  _pad3: u32,
+  rect_at: u32,
   _pad4: u32,
 }
 
@@ -677,6 +686,10 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
   var p: array<f32, ${per}>;
   var q: array<f32, ${per}>;
   var drive_in: array<f32, ${per}>;
+  // Each neuron's rectified junctions, the first rect[k] of its gap row, and which of them conduct this step, a bit
+  // each in gates[k] (packNetwork puts them first and holds them to 32).
+  var rect: array<u32, ${per}>;
+  var gates: array<u32, ${per}>;
   // In the conductance form, each neuron's conductance from the layers outside the brain (nS) and Σ g·E (pA).
   var g_in: array<f32, ${per}>;
   var ge_in: array<f32, ${per}>;
@@ -895,14 +908,18 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
     // Implicit Euler: a = 1 and h = y.
     let bdf2 = history == dt && !restart;
     let a = select(1.0, 1.5, bdf2);
-    // Every read of the pool above was made before total()'s barriers.
+    // Every read of the pool above was made before total()'s barriers. Each neuron's voltage at the step's start, which
+    // the rectified junctions' gates read and from which conjugate gradients start, and its activation extrapolated.
     ${own(`
+        pool[${POOL.x}u + i] = v[k];
         pool[${POOL.s}u + i] = select(s[k], 2.0 * s[k] - s_prev[k], bdf2);`)}
     workgroupBarrier();
 
     // Each neuron's row of the system: leak, gap-junction and synaptic conductances with the synapses'
     // activation extrapolated to the new step, and the oscillator's current linearised about this step's
-    // voltage, implicit where the cubic stabilises and explicit where it destabilises.
+    // voltage, implicit where the cubic stabilises and explicit where it destabilises. A rectified junction conducts
+    // this step only if its from side is the more depolarised at the step's start (Brain.stepRows): its bit in
+    // the topology says whether this neuron is that side.
     ${own(`
         var g = a * c + params.leak + g_in[k];
         var current = c * select(v[k], 2.0 * v[k] - 0.5 * v_prev[k], bdf2) + params.leak * params.leak_potential + drive_in[k] + ge_in[k];
@@ -914,7 +931,21 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
             current += noise * gaussian(params.seed, steps, i);
           }
         }
-        for (var e = topology[i]; e < topology[i + 1u]; e++) {
+        let row_start = topology[i];
+        rect[k] = 0u;
+        gates[k] = 0u;
+        if (params.rect_at != 0u) {
+          rect[k] = topology[params.rect_at + 2u * i];
+          let from_here = topology[params.rect_at + 2u * i + 1u];
+          for (var slot = 0u; slot < rect[k]; slot++) {
+            let partner = pool[${POOL.x}u + topology[params.gap_index_at + row_start + slot]];
+            if (select(partner > v[k], v[k] > partner, ((from_here >> slot) & 1u) != 0u)) {
+              gates[k] |= 1u << slot;
+              g += weights[row_start + slot];
+            }
+          }
+        }
+        for (var e = row_start + rect[k]; e < topology[i + 1u]; e++) {
           g += weights[e];
         }
         for (var e = topology[params.chem_start_at + i]; e < topology[params.chem_start_at + i + 1u]; e++) {
@@ -932,11 +963,9 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         }
         d[k] = g;
         b[k] = current;
-        x[k] = v[k];
-        pool[${POOL.x}u + i] = x[k];`)}
-    workgroupBarrier();
+        x[k] = v[k];`)}
 
-    // Conjugate gradients from x = v, stopping as the CPU's do.
+    // Conjugate gradients from x = v, published before the rows were built, stopping as the CPU's do.
     var sums = vec4<f32>(0.0);
     ${own(`${product('x')}
         r[k] = b[k] - product;

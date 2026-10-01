@@ -7,6 +7,7 @@ import {
   NEURON_WORDS,
   NM_OFFSET_AT,
   PARAM_WORDS,
+  RECT_AT,
   STATE_WORDS,
   STATUS_WORDS,
 } from './brainShader.ts';
@@ -30,6 +31,8 @@ describe("the kernel's layout", () => {
     expect(params[NM_OFFSET_AT]).toBe('nm_offset_at');
     // And whether the loop takes the conductance form in the word after it.
     expect(params[CONDUCTANCE_FORM_AT]).toBe('conductance_form');
+    // And where the rectified junctions are described in the word after that, written whether looping or not.
+    expect(params[RECT_AT]).toBe('rect_at');
     expect(PARAM_WORDS % 4).toBe(0);
     expect(fields('NeuronConstants')[2]).toBe('osc_gain');
     expect(fields('State')).toHaveLength(STATE_WORDS);

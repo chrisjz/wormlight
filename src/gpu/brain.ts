@@ -6,7 +6,7 @@
 
 import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
 import { checkOscillators, restActivation } from '../sim/brain/brain.ts';
-import type { Network } from '../sim/brain/network.ts';
+import { gapGates, type Network } from '../sim/brain/network.ts';
 import { CG_MAX_ITERATIONS, CG_TOLERANCE_GPU } from '../sim/numerics.ts';
 import { TOUCH_STEPS } from '../sim/touch.ts';
 import type { WorldState } from '../sim/world.ts';
@@ -18,6 +18,7 @@ import {
   MAX_MUSCLES,
   CONDUCTANCE_FORM_AT,
   NM_OFFSET_AT,
+  RECT_AT,
   MAX_NEURONS,
   MAX_RODS,
   NEURON_WORDS,
@@ -72,7 +73,10 @@ export interface GpuBrainStatus {
 
 // The wiring in the shader's layout. Topology holds the gap rows' starts, the chemical rows' starts, the gap
 // partners and the chemical presynaptic neurons; the weight arrays have at least one element, since WebGPU
-// binds no empty buffer.
+// binds no empty buffer. With rectified junctions (track S's, PLAN §3.4), each row lists its rectified entries first,
+// the rest after, each group in the network's order, and the topology ends with two words a neuron at `rectAt`: how
+// many rectified entries its row starts with, and a bit for each, set where the neuron is its junction's `from` side.
+// Without them `rectAt` is 0, and the layout is the network's own.
 export interface PackedNetwork {
   topology: Uint32Array;
   gapWeight: Float32Array;
@@ -80,7 +84,11 @@ export interface PackedNetwork {
   chemStartAt: number;
   gapIndexAt: number;
   chemIndexAt: number;
+  rectAt: number;
 }
+
+// The most rectified junctions a neuron may have, a bit each in a u32.
+export const MAX_RECTIFIED = 32;
 
 export function packNetwork(network: Network): PackedNetwork {
   const n = network.names.length;
@@ -90,19 +98,44 @@ export function packNetwork(network: Network): PackedNetwork {
   const chemStartAt = n + 1;
   const gapIndexAt = 2 * (n + 1);
   const chemIndexAt = gapIndexAt + gaps;
-  const topology = new Uint32Array(chemIndexAt + synapses);
+  const gates = gapGates(network);
+  const rectAt = gates ? chemIndexAt + synapses : 0;
+  // Each gap entry the shader reads at each place, and each neuron's two words.
+  const order = Int32Array.from({ length: gaps }, (_, e) => e);
+  const described = new Uint32Array(gates ? 2 * n : 0);
+  if (gates) {
+    for (let i = 0; i < n; i++) {
+      const row = Array.from({ length: gap.start[i + 1] - gap.start[i] }, (_, q) => gap.start[i] + q);
+      const rectified = row.filter((e) => gates[e] !== 0);
+      if (rectified.length > MAX_RECTIFIED) {
+        throw new Error(
+          `the GPU gates at most ${MAX_RECTIFIED} rectified junctions a neuron, not ${network.names[i]}'s`,
+        );
+      }
+      [...rectified, ...row.filter((e) => gates[e] === 0)].forEach((e, q) => (order[gap.start[i] + q] = e));
+      described[2 * i] = rectified.length;
+      rectified.forEach((e, bit) => {
+        if (gates[e] > 0) described[2 * i + 1] |= 1 << bit;
+      });
+    }
+  }
+  const topology = new Uint32Array(chemIndexAt + synapses + described.length);
   topology.set(gap.start, 0);
   topology.set(chemical.start, chemStartAt);
-  topology.set(gap.index, gapIndexAt);
+  topology.set(
+    Int32Array.from(order, (e) => gap.index[e]),
+    gapIndexAt,
+  );
   topology.set(chemical.index, chemIndexAt);
+  topology.set(described, chemIndexAt + synapses);
   const gapWeight = new Float32Array(Math.max(gaps, 1));
-  gapWeight.set(gap.weight);
+  gapWeight.set(Float64Array.from(order, (e) => gap.weight[e]));
   const packed = new Float32Array(Math.max(2 * synapses, 2));
   for (let k = 0; k < synapses; k++) {
     packed[2 * k] = chemical.weight[k];
     packed[2 * k + 1] = chemical.reversal[k];
   }
-  return { topology, gapWeight, chemical: packed, chemStartAt, gapIndexAt, chemIndexAt };
+  return { topology, gapWeight, chemical: packed, chemStartAt, gapIndexAt, chemIndexAt, rectAt };
 }
 
 // Read when used, not at import, so a page without WebGPU can still load this module to explain itself.
@@ -516,6 +549,7 @@ export class GpuBrain {
         new Uint32Array(words).set([at.nmOffset], NM_OFFSET_AT);
         new Uint32Array(words).set([loop.conductance ? 1 : 0], CONDUCTANCE_FORM_AT);
       }
+      new Uint32Array(words).set([wiring.rectAt], RECT_AT);
       new Float32Array(words).set(
         [
           dt,
