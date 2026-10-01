@@ -16,6 +16,7 @@ abstract: >-
 authors:
   - family-names: Zaharia
     given-names: Chris Julian
+    orcid: 'https://orcid.org/0009-0005-6849-8081'
 version: 0.1.0
 date-released: 2026-10-01
 license: Apache-2.0
