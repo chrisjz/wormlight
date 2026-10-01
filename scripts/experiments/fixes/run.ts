@@ -13,6 +13,9 @@
 //
 // DECISIONS.md's results came from a5e763f. After review its resamplings draw from the model's hash, and its verdicts
 // record each clause's difference, so a rerun's chance figures differ slightly from those; its trials don't.
+// Since 2026-10-01 checkpoint 1's frequency counts a crossing only once the mid-body curvature has left a band
+// about the mean (DECISIONS.md), and this script grades through checkpoint1() and measure(), so a rerun's frequencies,
+// wavelengths and chance figures differ from DECISIONS.md's tables wherever a gait lingers near its mean.
 
 import { fork } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

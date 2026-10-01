@@ -266,7 +266,7 @@ describe('the harness report', () => {
       info,
     );
     expect(section).toContain('### Checkpoint 1: crawling — **Fail**');
-    expect(section).toContain('| Wavelength (body lengths) | unmeasured: no mid-body bending |');
+    expect(section).toContain('| Wavelength (body lengths) | unmeasured: no mid-body bend past the band |');
     expect(section).toContain('| Speed (body lengths/s) | 0.020 |');
     expect(section).toContain('| Posture variance the four eigenworms capture | unmeasured: too few postures |');
     expect(section).toContain('crossed its mean 0 times, 0.0 a bout');

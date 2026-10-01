@@ -85,6 +85,8 @@ export interface BuildFacts {
   // The magnitude of their mean κL over the model's proprioceptive fields: the fields, its median and its 95th
   // percentile, which PLAN §7.3's 1 mV rule takes.
   fieldCurvature: { fields: number; median: number; p95: number };
+  // At the mid-body, the postures' κL's mean and the percentiles of its departure from it, the 5th of which is
+  // checkpoint 1's frequency band (PLAN §7.4).
   midCurvature: { at: number; mean: number; p5: number; p10: number; median: number };
 }
 
@@ -243,6 +245,6 @@ export function buildReport({
     '## Starting postures',
     `The pinned real postures, which checkpoints 0 and 1 start their trials from, are ${grouped(postures.count)} rows of ${postures.angles} tangent angles, each with its mean removed to within ${postures.largestMean.toExponential(1)} rad. The first four eigenworms capture ${(100 * postures.captured).toFixed(2)}% of their variance, by the harness's own measure (PLAN §7.4). They are read from their pinned URL and never redistributed.`,
     `Over the model's ${fieldCurvature.fields} proprioceptive fields, the magnitude of the postures' mean scaled curvature κL has a median of ${fieldCurvature.median.toFixed(2)} and a 95th percentile of ${fieldCurvature.p95.toFixed(2)}. PLAN §7.3's 1 mV rule takes the percentile, to one decimal place, for proprioception's bounds in the conductance form, and a test holds the registry's figure to it.`,
-    `At the mid-body, body coordinate ${midCurvature.at.toFixed(2)}, read over one segment's span as the model reads its own curvature there, the postures' κL has a mean of ${midCurvature.mean.toFixed(3)}, and the magnitude of its departure from that mean has a 5th percentile of ${midCurvature.p5.toFixed(3)}, a 10th of ${midCurvature.p10.toFixed(2)} and a median of ${midCurvature.median.toFixed(2)}. Checkpoint 1's frequency takes the 5th percentile, to two significant figures, as the band its count of crossings needs the curvature to leave (PLAN §7.4), and a test holds the code's figure to it.`,
+    `At the mid-body, body coordinate ${midCurvature.at.toFixed(2)}, read over one segment's span as the model reads its own curvature there, the postures' κL has a mean of ${midCurvature.mean.toFixed(3).replace('-', '−')}, and the magnitude of its departure from that mean has a 5th percentile of ${midCurvature.p5.toFixed(3)}, a 10th of ${midCurvature.p10.toFixed(2)} and a median of ${midCurvature.median.toFixed(2)}. Checkpoint 1's frequency takes the 5th percentile, to two significant figures, as the band its count of crossings needs the curvature to leave (PLAN §7.4), and a test holds the code's figure to it.`,
   ].join('\n\n');
 }

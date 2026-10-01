@@ -170,7 +170,7 @@ export function kinematics(trials: readonly BoutSamples[], separation: number): 
   const speed = forward / samples;
   const frequency = crossings / 2 / duration;
   const measured = { ...none, crossings, meanCrossings: plain, speed, frequency };
-  if (frequency === 0) return { ...measured, unmeasured: 'no mid-body bending' };
+  if (frequency === 0) return { ...measured, unmeasured: 'no mid-body bend past the band' };
   const half = Math.min(Math.floor(PER_SECOND / (2 * frequency)), Math.round(LAG_MAX * PER_SECOND));
   const centred = all.map(({ t, r }) => {
     const front = slice(t.front, r);

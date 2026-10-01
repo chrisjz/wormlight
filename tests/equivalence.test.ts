@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { formatMarkdown } from '../scripts/data/render.ts';
 import { ROOT } from '../scripts/data/sources.ts';
+import { recorded } from '../scripts/harness/equivalence.ts';
 import { equivalenceSection, replaceSection, type EquivalenceRun } from '../scripts/harness/report.ts';
 
 describe("VALIDATION.md's comparison section", () => {
@@ -20,5 +21,16 @@ describe("VALIDATION.md's comparison section", () => {
       (fit) => JSON.parse(readFileSync(join(ROOT, 'data', 'equivalence', `${fit}.json`), 'utf8')) as EquivalenceRun,
     );
     expect(await formatMarkdown(replaceSection(page, 'equivalence', equivalenceSection(runs)), path)).toBe(page);
+  });
+});
+
+describe("the comparison's committed records", () => {
+  // A full run refuses while its record exists, since those were made under the plain count of crossings
+  // (DECISIONS.md, 2026-10-01).
+  it('counts every committed record as recorded, and a fit without one as not', () => {
+    for (const name of ['refit', 'round-2', 'planned', 'round-3-pick-1', 'round-3-pick-4']) {
+      expect(recorded(name), name).toBe(true);
+    }
+    expect(recorded('track-s')).toBe(false);
   });
 });

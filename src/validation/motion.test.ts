@@ -169,7 +169,7 @@ describe('kinematics', () => {
       0.125,
     );
     expect(still.speed).toBeCloseTo(0.05, 12);
-    expect([still.frequency, still.wavelength, still.unmeasured]).toEqual([0, null, 'no mid-body bending']);
+    expect([still.frequency, still.wavelength, still.unmeasured]).toEqual([0, null, 'no mid-body bend past the band']);
   });
 });
 

@@ -16,6 +16,10 @@
 //
 // DECISIONS.md's results came from aaacc70. Its resamplings have since moved to the model's hash, so a rerun's chance
 // figures differ slightly from those; its trials don't.
+// Since 2026-10-01 checkpoint 1's frequency counts a crossing only once the mid-body curvature has left a band
+// about the mean (DECISIONS.md), and this script grades through checkpoint1() and measure(), so a rerun's frequencies,
+// wavelengths and chance figures differ from DECISIONS.md's tables wherever a gait lingers near its mean. The
+// oscillator alone (oscillator.ts) keeps its own count.
 
 import { fork } from 'node:child_process';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
