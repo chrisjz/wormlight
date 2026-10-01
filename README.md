@@ -100,7 +100,9 @@ The rest, from the data build to the behavioural harness and GPU parity, is list
 
 ## Citing
 
-Wormlight's releases are numbered, the first 0.1.0, and listed under the repository's [Releases](https://github.com/chrisjz/wormlight/releases); the live site runs `main`, which can be ahead of the latest, and About the science names the version and commit it runs. To cite Wormlight, use "Cite this repository" on its GitHub page, which reads [CITATION.cff](CITATION.cff), and give the version you used. Please cite the connectome too: Cook et al. 2019, as released in Emmons 2024.
+To cite Wormlight, use "Cite this repository" on its GitHub page, which reads [CITATION.cff](CITATION.cff), and give the version you used. Please cite the connectome too, [Cook et al. 2019](https://doi.org/10.1038/s41586-019-1352-7) as released in [Emmons 2024](https://doi.org/10.1371/journal.pbio.3002939), and the works the synapse signs come from, [Fenyves et al. 2020](https://doi.org/10.1371/journal.pcbi.1007974) and [Wang et al. 2024](https://doi.org/10.7554/eLife.95402).
+
+Releases are numbered from 0.1.0 and published under the repository's [Releases](https://github.com/chrisjz/wormlight/releases). The live site runs `main`, which can be ahead of the latest release, so About the science names the version it was built after and the commit it runs.
 
 ## Credits
 

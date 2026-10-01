@@ -1,15 +1,18 @@
 cff-version: 1.2.0
 message: >-
-  If you use Wormlight, please cite it as below, giving the version you used. Please also cite the connectome it runs:
-  Cook et al. 2019, as released in Emmons 2024.
+  If you use Wormlight, please cite it as below, giving the version you used. Please also cite the connectome it runs,
+  Cook et al. 2019 as released in Emmons 2024, and the works its synapse signs come from, Fenyves et al. 2020 and Wang
+  et al. 2024; all four are listed below.
 type: software
 title: Wormlight
 abstract: >-
   A living C. elegans in the browser. The adult hermaphrodite's connectome, run through a graded neuron model and a
-  small, documented set of mechanisms the wiring can't supply, drives a physically simulated body on an agar plate on
-  the GPU, against a CPU reference. Its behavioural checkpoints were fixed in advance from published measurements.
-  Crawling as the first of them asks for it does not yet emerge from the connectome, and the project reports that as
-  its result.
+  small, documented set of mechanisms the wiring can't supply, drives a physically simulated body on an agar plate. It
+  runs on the GPU in WebGPU, checked against a CPU reference on which every behavioural trial runs. The behavioural
+  checkpoints' thresholds were fixed before their results, from published measurements, and every later change is
+  logged. Crawling as the first checkpoint asks for it does not yet emerge from the connectome, and the project reports
+  that as its result: on the chosen fit the worm moves forward slowly, paced by a rhythm in its head, one of the
+  mechanisms outside the wiring, rather than by the network.
 authors:
   - family-names: Zaharia
     given-names: Chris Julian
@@ -17,7 +20,6 @@ version: 0.1.0
 date-released: 2026-10-01
 license: Apache-2.0
 repository-code: 'https://github.com/chrisjz/wormlight'
-url: 'https://chrisjz.github.io/wormlight/'
 keywords:
   - Caenorhabditis elegans
   - connectome
@@ -62,6 +64,7 @@ references:
     start: 63
     end: 71
     year: 2019
+    month: 7
     doi: 10.1038/s41586-019-1352-7
   - type: article
     title: >-
@@ -75,4 +78,56 @@ references:
     issue: 12
     start: e3002939
     year: 2024
+    month: 12
     doi: 10.1371/journal.pbio.3002939
+  - type: article
+    title: >-
+      Synaptic polarity and sign-balance prediction using gene expression data in the Caenorhabditis elegans chemical
+      synapse neuronal connectome network
+    authors:
+      - family-names: Fenyves
+        given-names: Bánk G.
+      - family-names: Szilágyi
+        given-names: Gábor S.
+      - family-names: Vassy
+        given-names: Zsolt
+      - family-names: Sőti
+        given-names: Csaba
+      - family-names: Csermely
+        given-names: Peter
+    journal: PLOS Computational Biology
+    volume: 16
+    issue: 12
+    start: e1007974
+    year: 2020
+    month: 12
+    doi: 10.1371/journal.pcbi.1007974
+  - type: article
+    title: A neurotransmitter atlas of C. elegans males and hermaphrodites
+    authors:
+      - family-names: Wang
+        given-names: Chen
+      - family-names: Vidal
+        given-names: Berta
+      - family-names: Sural
+        given-names: Surojit
+      - family-names: Loer
+        given-names: Curtis
+      - family-names: Aguilar
+        given-names: G Robert
+      - family-names: Merritt
+        given-names: Daniel M
+      - family-names: Toker
+        given-names: Itai Antoine
+      - family-names: Vogt
+        given-names: Merly C
+      - family-names: Cros
+        given-names: Cyril C
+      - family-names: Hobert
+        given-names: Oliver
+    journal: eLife
+    volume: 13
+    start: RP95402
+    year: 2024
+    month: 10
+    doi: 10.7554/eLife.95402

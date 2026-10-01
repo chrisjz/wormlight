@@ -5,7 +5,7 @@
 // carries and can't promise, with the versions running, and the sources. `?about=science` opens it from a link, and
 // the URL says so while it is open.
 
-import { COMMIT, RELEASE } from '../build.ts';
+import { COMMIT, DIRTY, RELEASE } from '../build.ts';
 import type { WormlightData } from '../data/schema.ts';
 import { CITATIONS, type Citation, type CitationId } from '../science/citations.ts';
 import { countFacts, type Facts } from '../science/facts.ts';
@@ -310,12 +310,14 @@ function references(): HTMLElement {
 
 // What a link to the app carries and can't promise, and the versions running (PLAN §1, §8).
 function links(versions: Versions): HTMLElement {
+  // The site deploys from main, so between releases it runs code newer than the last; the commit says which.
   const running = el('p');
   running.append(
-    `This is Wormlight ${RELEASE}`,
-    ...(COMMIT ? [', built from commit ', link(COMMIT, `${GITHUB}/commit/${COMMIT}`)] : []),
-    `, running model version ${versions.model} on data version ${versions.data}; a link from another version runs ` +
-      'on these, and the app says so.',
+    RELEASE === 'unknown' ? 'This is Wormlight' : `This is Wormlight ${RELEASE} or later`,
+    ...(COMMIT ? [', built from commit ', link(COMMIT.slice(0, 7), `${GITHUB}/commit/${COMMIT}`)] : []),
+    DIRTY ? ' with uncommitted changes' : '',
+    `, running model version ${versions.model} on data version ${versions.data}; a link made with another model or ` +
+      'data version runs on these, and the app says so.',
   );
   return section(
     'Sharing a link',
