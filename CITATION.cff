@@ -12,7 +12,7 @@ abstract: >-
   its result.
 authors:
   - family-names: Zaharia
-    given-names: Chris
+    given-names: Chris Julian
 version: 0.1.0
 date-released: 2026-10-01
 license: Apache-2.0
