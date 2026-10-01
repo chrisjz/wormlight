@@ -128,9 +128,9 @@ const body = (per: number): string => {
   const product = (vector: string): string => `
         var product = d[k] * ${vector}[k];
         let row_start = topology[i];
-        for (var q = 0u; q < rect[k]; q++) {
-          if (((gates[k] >> q) & 1u) != 0u) {
-            product -= weights[row_start + q] * pool[${POOL.x}u + topology[params.gap_index_at + row_start + q]];
+        for (var slot = 0u; slot < rect[k]; slot++) {
+          if (((gates[k] >> slot) & 1u) != 0u) {
+            product -= weights[row_start + slot] * pool[${POOL.x}u + topology[params.gap_index_at + row_start + slot]];
           }
         }
         for (var e = row_start + rect[k]; e < topology[i + 1u]; e++) {
@@ -937,11 +937,11 @@ fn advance(@builtin(local_invocation_index) lid: u32) {
         if (params.rect_at != 0u) {
           rect[k] = topology[params.rect_at + 2u * i];
           let from_here = topology[params.rect_at + 2u * i + 1u];
-          for (var q = 0u; q < rect[k]; q++) {
-            let partner = pool[${POOL.x}u + topology[params.gap_index_at + row_start + q]];
-            if (select(partner > v[k], v[k] > partner, ((from_here >> q) & 1u) != 0u)) {
-              gates[k] |= 1u << q;
-              g += weights[row_start + q];
+          for (var slot = 0u; slot < rect[k]; slot++) {
+            let partner = pool[${POOL.x}u + topology[params.gap_index_at + row_start + slot]];
+            if (select(partner > v[k], v[k] > partner, ((from_here >> slot) & 1u) != 0u)) {
+              gates[k] |= 1u << slot;
+              g += weights[row_start + slot];
             }
           }
         }

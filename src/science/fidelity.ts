@@ -106,7 +106,8 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
   strengths: {
     name: 'Synaptic strengths',
     solid: 'Relative sizes from EM',
-    notSolid: 'Strength assumed proportional to section count, with one conductance per unit',
+    notSolid:
+      "Strength assumed proportional to section count, with one conductance per unit, and every gap junction conducting both ways; track S's model, which no fit uses yet, rectifies AVA's junctions with the A-types",
     upgrade: 'Per-connection physiology (paired recordings, voltage imaging)',
     sources: [],
   },
@@ -114,7 +115,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     name: 'Neuron dynamics',
     solid: "Kunert et al.'s published whole-network model and parameters",
     notSolid:
-      "Every neuron is the same passive cell, with no spikes, plateaus or channel diversity, resting at its threshold; track S's model, which no fit uses yet, rests the D-types above theirs and rectifies AVA's junctions with the A-types",
+      "Every neuron is the same passive cell, with no spikes, plateaus or channel diversity, resting at its threshold; track S's model, which no fit uses yet, rests the D-types above theirs",
     upgrade: 'Cell-type-specific membrane models',
     sources: ['kunert2014'],
   },
@@ -361,7 +362,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "AVA's 37 gap junctions with the A-types pass current only from the A-type into AVA, g·max(V_A − V_AVA, 0), at each junction's own conductance: Liu et al. 2017 measured the direction with VA5, VA8 and DA4 (5 for those pairs) and read it as holding for every A-type (2). Each gate is set from the voltages at a step's start and both voltages are then implicit, so the solve stays symmetric; the rest is a fixed point of the gates",
     caveats:
-      "Built for track S's model, which no fit uses yet; the app's junctions conduct both ways. The form is ours (0), with no value to set. The rectifier reads the model's voltages, where AVA and the A-types rest within a few millivolts, so 10 of the 37 gates are open at rest and the noise turns them, where in the animal they are shut. The model shows no amplifier: removing the junctions lowers the A-types' AVA-evoked depolarisation by a quarter at most, against the large loss Liu et al. found (DECISIONS.md, 2026-10-02)",
+      "Built for track S's model, which no fit uses yet; the app's junctions conduct both ways. The form is ours (0), with no value to set. The rectifier reads the model's voltages, where AVA and the A-types rest within a few millivolts, so 10 of the 37 gates are open at rest and the noise turns them, where in the animal they are shut. The model reproduces little of the amplification Liu et al. found, and not by their mechanism: removing the junctions lowers the A-types' AVA-evoked depolarisation by about a third at small signals and less at larger ones, as AVA's rise shuts the gates, and AVA's input resistance is a tenth of the measured value (DECISIONS.md, 2026-10-02)",
     upgrade: 'Recordings of AVA with each A-type, and a frame in which each class keeps its own rest',
     sources: ['liu2017'],
     testedBy: [
@@ -827,7 +828,7 @@ export const OMITTED: readonly { text: string; sources: readonly CitationId[] }[
     sources: [],
   },
   {
-    text: 'Glia, gap-junction rectification, individual variation, development and learning.',
+    text: "Glia, gap-junction rectification but for track S's AVA–A-type junctions, in a model no fit uses yet, individual variation, development and learning.",
     sources: [],
   },
 ];

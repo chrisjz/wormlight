@@ -4,8 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { Brain, equilibrium, restOf } from '../src/sim/brain/brain.ts';
+import { PARAMS } from '../src/science/params.ts';
+import { Brain, equilibrium, inputConductance, midpointActivation, restOf } from '../src/sim/brain/brain.ts';
 import {
+  chemicalRows,
   conducts,
   cookNetwork,
   gapGates,
@@ -16,7 +18,7 @@ import {
   type Network,
 } from '../src/sim/brain/network.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
-import { touchData } from '../src/sim/touch.ts';
+import { tap, touchData } from '../src/sim/touch.ts';
 import { rectify, restOffsets, trackSKey, withMeasuredSigns } from '../src/sim/trackS.ts';
 import { currentParams, loopParams, World, type LoopParams } from '../src/sim/world.ts';
 import { provisionalValues } from '../src/validation/calibration.ts';
@@ -146,7 +148,9 @@ describe("track S's rest under its rectifier", () => {
   it('differs from the rest with every junction open, by more than 2 mV in the A-types', () => {
     const open = restOf({ ...network, rectified: [] }, offset);
     let worst = 0;
-    for (let i = 0; i < open.voltage.length; i++) worst = Math.max(worst, Math.abs(open.voltage[i] - rest.voltage[i]));
+    for (let i = 0; i < open.voltage.length; i++) {
+      if (A_TYPE.test(network.names[i])) worst = Math.max(worst, Math.abs(open.voltage[i] - rest.voltage[i]));
+    }
     expect(worst).toBeGreaterThan(2);
     expect(openRectified(network, open.voltage).open).toBe(13);
   });
@@ -159,7 +163,32 @@ describe("track S's rest under its rectifier", () => {
     expect(worst).toBeLessThan(1e-6);
   });
 
-  it('opens 4 of the 37 gates in the runtime model rectified, as the rules found', () => {
+  it('takes each step with its gates as the voltages at its start set them, on the diagonal and the solve alike', () => {
+    const brain = new Brain(network, rest.threshold, {}, offset);
+    const aval = network.names.indexOf('AVAL');
+    const pattern = (v: ArrayLike<number>): string =>
+      Array.from(gatedAt(network, v).gap.weight, (w) => (w === 0 ? 0 : 1)).join('');
+    let [changes, last] = [0, pattern(brain.voltage)];
+    for (let k = 0; k < 50; k++) {
+      // A current into AVAL that swings both ways, so the gates turn away from rest.
+      const current = 20 * Math.sin(k / 4);
+      const state = brain.snapshot();
+      const frozen = new Brain(gatedAt(network, state.voltage), rest.threshold, {}, offset);
+      frozen.restore(state);
+      for (const b of [brain, frozen]) {
+        b.input.fill(0);
+        b.input[aval] = current;
+        b.step(NEURAL_STEP);
+      }
+      expect(brain.voltage).toEqual(frozen.voltage);
+      expect(brain.activation).toEqual(frozen.activation);
+      const now = pattern(brain.voltage);
+      if (now !== last) [changes, last] = [changes + 1, now];
+    }
+    expect(changes).toBeGreaterThan(5);
+  });
+
+  it("opens 4 of the 37 gates in the runtime model rectified, the count the rules' review found", () => {
     const runtime = rectify(cookNetwork(data));
     const at = restOf(runtime, new Float64Array(runtime.names.length));
     expect(openRectified(runtime, at.voltage)).toEqual({ open: 4, of: 37 });
@@ -179,7 +208,15 @@ describe("track S's whole world", () => {
 
   it("sizes touch's currents at that rest, gated, unlike the unrectified model's", () => {
     expect(world.touchSets).toBe(touchData(signed, { offset: world.brain.offset, rectified: true }));
-    expect(world.touchSets).not.toBe(touchData(signed, { offset: world.brain.offset }));
+    const unrectified = touchData(signed, { offset: world.brain.offset });
+    const tapped = (t: typeof unrectified): number[] => Array.from(t.sets.values()).flatMap((c) => Array.from(c));
+    expect(tapped(world.touchSets)).not.toEqual(tapped(unrectified));
+    // A tap AVM alone reaches takes the current that holds it 10 mV up in the network as the rest gates it.
+    const rest = restOf(rectify(cookNetwork(signed)), restOffsets(signed, 'measured'));
+    const avm = world.touchSets.receptors.find((r) => r.name === 'AVM');
+    if (!avm) throw new Error('no AVM');
+    const held = PARAMS.touchAmplitude.value * inputConductance(rest.network, rest.activation, avm.neuron);
+    expect(tap(world.touchSets, 0.045).currents[avm.index] / held).toBeCloseTo(1, 9);
   });
 
   it('refuses a model whose AWC gain is not set', () => {
@@ -213,5 +250,60 @@ describe("track S's whole world", () => {
     expect(full).toBeGreaterThan(0.05);
     expect(full).toBeLessThan(0.95);
     expect(Math.abs(full - half)).toBeLessThan(0.02);
+  });
+});
+
+describe('the rest of a small rectified network', () => {
+  // Seeded random networks of six neurons, some of whose junctions rectify: with activations held the gates' fixed
+  // point exists and is unique, and the iteration must find it however many gated solves it takes.
+  const random = (seed: number): (() => number) => {
+    let state = seed >>> 0;
+    return () => (state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  };
+  const small = (seed: number): Network => {
+    const next = random(seed);
+    const n = 6;
+    const gap: [number, number, number][] = [];
+    const rectified: [number, number][] = [];
+    const chemical: [number, number, number, number][] = [];
+    for (let a = 0; a < n; a++) {
+      for (let b = 0; b < n; b++) {
+        if (a < b && next() < 0.6) {
+          gap.push([a, b, 0.05 + 0.45 * next()]);
+          if (next() < 0.6) rectified.push(next() < 0.5 ? [a, b] : [b, a]);
+        }
+        if (a !== b && next() < 0.3) chemical.push([a, b, 0.01 + 0.29 * next(), next() < 0.5 ? 0 : -48]);
+      }
+    }
+    return {
+      names: Array.from({ length: n }, (_, i) => `N${i}`),
+      capacitance: 0.001,
+      leak: 0.01,
+      leakPotential: -35,
+      rise: 1,
+      decay: 5,
+      slope: 0.125,
+      gap: gapRows(n, gap),
+      chemical: chemicalRows(n, chemical),
+      rectified,
+    };
+  };
+
+  it('is found, consistent with its gates, including where one gated solve is not enough', () => {
+    let rounds = 0;
+    for (let seed = 1; seed <= 100; seed++) {
+      const network = small(seed);
+      const s = midpointActivation(network);
+      const rest = restOf(network, new Float64Array(6));
+      expect(rest.network.gap.weight).toEqual(gatedAt(network, rest.voltage).gap.weight);
+      const again = equilibrium(rest.network, s);
+      again.forEach((v, i) => expect(v).toBeCloseTo(rest.voltage[i], 9));
+      // Whether the first gated solve, from every junction open, already set its own gates.
+      const first = equilibrium(gatedAt(network, equilibrium({ ...network, rectified: [] }, s)), s);
+      const gates = (v: ArrayLike<number>): string => Array.from(gatedAt(network, v).gap.weight).join(',');
+      if (gates(first) !== gates(rest.voltage)) rounds++;
+    }
+    // 5 of the 100 need more than two gated solves, where every variant of S's model needs two.
+    expect(rounds).toBeGreaterThan(0);
   });
 });

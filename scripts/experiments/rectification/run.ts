@@ -3,12 +3,13 @@
 //
 //   node scripts/experiments/rectification/run.ts
 //
-// The amplifier. Liu et al. 2017 found that knocking the AVA–A-type junctions down greatly reduces AVA's bursts of
-// transmission in VA5 and DA4: the rectified junction amplifies the chemical synapse. Here each AVA takes a current
-// step for 1 s from rest, on the brain alone, with no oscillators, no noise and nothing outside it, in S's model three
-// ways: its junctions rectified, the 37 removed, and conducting both ways. Each network starts at its own rest, as a
-// rewired brain solves its own (PLAN §3.3). It prints AVA's rise, the A-types' mean rise in voltage and in activation,
-// VA5's and DA4's, and how many gates are open at the step's end.
+// The amplifier. Liu et al. 2017 found that knocking the AVA–A-type junctions down greatly reduces the frequency of
+// the bursts of synaptic currents AVA drives in VA5 and DA4, and read the rectified junction as an amplifier of the
+// chemical synapse. The model's proxy: each AVA takes a current step for 1 s from rest, on the brain alone, with no
+// oscillators, no noise and nothing outside it, in S's model three ways: its junctions rectified, the 37 removed, and
+// conducting both ways. Each network starts at its own rest, as a rewired brain solves its own (PLAN §3.3). It prints
+// AVA's rise, the A-types' mean rise in voltage and in activation, VA5's and DA4's, and how many gates are open at the
+// step's end. Then the other way round: each A-type takes the step, and AVA's rise is printed beside theirs.
 //
 // The input resistances: each neuron's with every activation held at rest and each gate as the rest sets it, in the
 // runtime model, in S's model without its rectifier, and in S's whole model, beside Liu et al.'s 2.50 GΩ for AVA and
@@ -48,22 +49,28 @@ console.log(
 console.log(
   '| ------------- | --------- | -------- | ------------ | -------------------- | -------- | -------- | ---- |',
 );
-for (const current of [10, 50]) {
-  for (const [label, network] of [
-    ['rectified', rectified],
-    ['removed', removed],
-    ['both ways', both],
-  ] as const) {
-    const rest = restOf(network, offset);
-    const brain = new Brain(network, rest.threshold, {}, offset);
-    const [v0, s0] = [Float64Array.from(brain.voltage), Float64Array.from(brain.activation)];
-    for (let k = Math.round(1 / NEURAL_STEP); k > 0; k--) {
-      brain.input.fill(0);
-      for (const i of ava) brain.input[i] = current;
-      brain.step(NEURAL_STEP);
-    }
-    const mean = (of: Float64Array, from: Float64Array, set: number[]): number =>
-      set.reduce((sum, i) => sum + of[i] - from[i], 0) / set.length;
+const variants = [
+  ['rectified', rectified],
+  ['removed', removed],
+  ['both ways', both],
+] as const;
+const mean = (of: Float64Array, from: Float64Array, set: number[]): number =>
+  set.reduce((sum, i) => sum + of[i] - from[i], 0) / set.length;
+// A brain at its own rest after a 1 s step of `current` into each of `into`, and its rest.
+const stepped = (network: Network, into: number[], current: number): [Brain, Float64Array, Float64Array] => {
+  const rest = restOf(network, offset);
+  const brain = new Brain(network, rest.threshold, {}, offset);
+  const [v0, s0] = [Float64Array.from(brain.voltage), Float64Array.from(brain.activation)];
+  for (let k = Math.round(1 / NEURAL_STEP); k > 0; k--) {
+    brain.input.fill(0);
+    for (const i of into) brain.input[i] = current;
+    brain.step(NEURAL_STEP);
+  }
+  return [brain, v0, s0];
+};
+for (const current of [1, 10, 50]) {
+  for (const [label, network] of variants) {
+    const [brain, v0, s0] = stepped(network, ava, current);
     const open = network === rectified ? `${openRectified(network, brain.voltage).open} of 37` : '';
     console.log(
       `| ${current} pA | ${label} | ${fixed(mean(brain.voltage, v0, ava))} | ${fixed(mean(brain.voltage, v0, aTypes))} | ` +
@@ -71,6 +78,17 @@ for (const current of [10, 50]) {
         `${fixed(brain.voltage[at('DA4')] - v0[at('DA4')])} | ${open} |`,
     );
   }
+}
+
+console.log("\nThe other way: 1 pA into each A-type for 1 s, from rest, in S's model.\n");
+console.log('| Junctions | A-types (mV) | AVA (mV) | Gates open at the end |');
+console.log('| --------- | ------------ | -------- | --------------------- |');
+for (const [label, network] of variants) {
+  const [brain, v0] = stepped(network, aTypes, 1);
+  const open = network === rectified ? `${openRectified(network, brain.voltage).open} of 37` : '';
+  console.log(
+    `| ${label} | ${fixed(mean(brain.voltage, v0, aTypes))} | ${fixed(mean(brain.voltage, v0, ava))} | ${open} |`,
+  );
 }
 
 console.log('\nInput resistances (GΩ), every activation held at rest and each gate as the rest sets it.\n');

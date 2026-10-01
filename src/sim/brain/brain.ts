@@ -152,17 +152,19 @@ export function responses(network: Network, s: Held, neurons: readonly number[])
 // offset, so the rest is the equilibrium with every activation held at its value, one sparse solve, and each
 // threshold is the rest plus its offset. With every offset 0 it is the rest PLAN §3.3 has always set.
 // With rectified junctions the rest is a fixed point of their gates (DECISIONS.md, 2026-10-01): every junction starts
-// open, the rest is solved, each gate is set from it, and the solve repeats until no gate changes; gates that cycle
-// throw. `network` is the network as it stands at rest, each gate as the rest sets it, which the rules set at rest
-// read: the network itself when it rectifies nothing.
+// open, the rest is solved, each gate is set from it, and the solve repeats until no gate changes. With activations
+// held, the rectified network's currents are the gradient of a strictly convex energy, the leak's and ½g·max(V_A −
+// V_AVA, 0)² for each junction, so that fixed point exists and is unique; gates that cycle could only come of a near
+// tie within the solve's tolerance, and throw. `network` is the network as it stands at rest, each gate as the rest
+// sets it, which the rules set at rest read: the network itself when it rectifies nothing.
 export function restOf(
   network: Network,
   offset: ArrayLike<number>,
 ): { voltage: Float64Array; activation: Float64Array; threshold: Float64Array; network: Network } {
   const activation = Float64Array.from(offset, (o) => restActivation(network, o));
   const gates = gapGates(network);
-  let held = gates ? { ...network, rectified: [] } : network;
-  let voltage = equilibrium(held, activation);
+  let atRest = gates ? { ...network, rectified: [] } : network;
+  let voltage = equilibrium(atRest, activation);
   if (gates) {
     // Which rectified entries conduct at the given voltages, in entry order.
     const { start, index } = network.gap;
@@ -178,14 +180,14 @@ export function restOf(
     let open = openAt(voltage).replace(/0/g, '1');
     const seen = new Set([open]);
     for (let now = openAt(voltage); now !== open; now = openAt(voltage)) {
-      if (seen.has(now)) throw new Error("the rectifier's gates cycle at rest, so the rest has no fixed point");
+      if (seen.has(now)) throw new Error("the rectifier's gates cycle at rest: the iteration found no fixed point");
       seen.add(now);
       open = now;
-      held = gatedAt(network, voltage);
-      voltage = equilibrium(held, activation, undefined, voltage);
+      atRest = gatedAt(network, voltage);
+      voltage = equilibrium(atRest, activation, undefined, voltage);
     }
   }
-  return { voltage, activation, threshold: Float64Array.from(voltage, (v, i) => v + offset[i]), network: held };
+  return { voltage, activation, threshold: Float64Array.from(voltage, (v, i) => v + offset[i]), network: atRest };
 }
 
 export class Brain {
