@@ -186,9 +186,9 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   const [floor, ceiling] = [PARAMS.reversalInhibitory.value as number, PARAMS.reversalExcitatory.value as number];
   const outsideSamples: number[] = [];
   const farSamples: number[] = [];
-  // The shunt's targets, and their passive loads in this world's network, lesioned or silenced as it is.
+  // The shunt's targets, and their passive loads in this world's network, lesioned or silenced as it is, at its rest.
   const conducting = world.params.form === 'conductance';
-  const loads = conducting ? passiveLoads(world.brain.network) : null;
+  const loads = conducting ? passiveLoads(world.brain.network, world.brain.restActivations()) : null;
   const switchTargets = [...world.dorsalSwitch, ...world.ventralSwitch];
   const fieldTargets = world.fields.map((f) => f.neuron);
   const shunt: { switch: number[]; proprioception: number[] } = { switch: [], proprioception: [] };

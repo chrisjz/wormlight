@@ -86,7 +86,8 @@ describe('the ledger', () => {
       anatomy: '5–4',
       signs: '5–0',
       strengths: '2–0',
-      neurons: '3–1',
+      // Track S's class offsets, built beside the model the app runs, add their shared midpoint, ours (0).
+      neurons: '3–0',
       rhythm: '3–0',
       sensing: '4–0',
       body: '3–0',

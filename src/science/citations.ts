@@ -278,6 +278,14 @@ export const CITATIONS = {
     venue: 'Nature Communications 8:14818',
     doi: '10.1038/ncomms14818',
   },
+  liu2020: {
+    short: 'Liu, Chen & Wang 2020',
+    authors: 'Liu P, Chen B, Wang ZW',
+    year: 2020,
+    title: 'GABAergic motor neurons bias locomotor decision-making in C. elegans',
+    venue: 'Nature Communications 11:5076',
+    doi: '10.1038/s41467-020-18893-9',
+  },
   lugg1968: {
     short: 'Lugg 1968',
     authors: 'Lugg GA',

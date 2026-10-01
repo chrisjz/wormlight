@@ -15,6 +15,9 @@ export interface MuscleParams {
   // junctions onto the muscles starting at 0.3 body lengths or beyond. The planned model has neither.
   relative?: boolean;
   smdGain?: number;
+  // Each neuron's activation at rest, in the data's order, for relative drive's baseline: track S's model's, whose
+  // class offsets move it. Left out, every neuron at the sigmoid's midpoint.
+  restActivation?: ArrayLike<number>;
 }
 
 // Where κ_SMD starts: the SMDs' junctions onto muscles whose field starts this far along the body or beyond.
@@ -57,8 +60,9 @@ export class Muscles {
     if (intact.some(({ m, n }) => m < 0 || n < 0)) throw new Error('a neuromuscular connection names an unknown cell');
     const count = this.names.length;
     // Relative drive's range, from the intact map, the same for every brain and lesion: u_rest with every
-    // activation at the sigmoid's midpoint, a_r/(a_r + 2a_d), and u_max with every excitatory one at the most a
-    // synapse reaches, a_r/(a_r + a_d), and every inhibitory one at 0 (PLAN §9).
+    // activation at the sigmoid's midpoint, a_r/(a_r + 2a_d), or at its neuron's own rest in track S's model, whose
+    // class offsets move it (DECISIONS.md, 2026-10-02), and u_max with every excitatory one at the most a synapse
+    // reaches, a_r/(a_r + a_d), and every inhibitory one at 0 (PLAN §9).
     const span = new Float64Array(count).fill(1);
     this.offset = new Float64Array(count);
     if (params.relative) {
@@ -66,8 +70,9 @@ export class Muscles {
       const [mid, most] = [rise / (rise + 2 * decay), rise / (rise + decay)];
       const rest = new Float64Array(count);
       const max = new Float64Array(count);
-      for (const { m, w } of intact) {
-        rest[m] += w * mid;
+      const at = params.restActivation;
+      for (const { m, n, w } of intact) {
+        rest[m] += w * (at ? at[n] : mid);
         if (w > 0) max[m] += w * most;
       }
       for (let m = 0; m < count; m++) {
