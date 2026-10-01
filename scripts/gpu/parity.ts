@@ -2,9 +2,12 @@
 // checks run the GPU against the CPU reference from identical states, the brain alone and then the whole loop,
 // and the odour field's stepping.
 // This prints the results and the speed benchmark, and with --long the long runs, writes each to the output
-// directory, and fails if any check fails.
+// directory, and fails if any check fails. With --shards=N it deals the one-second checks across N pages, each
+// Chrome of its own, and merges their reports (src/gpu/parityShards.ts): CI's software GPU runs a world on one CPU
+// core, so the shards use the runner's others (DECISIONS.md, 2026-10-02). A sharded run takes no benchmark.
 //
-//   npm run gpu:parity [-- outDir] [--long] [--safari]      (default gpu-out, or gpu-out/safari)
+//   npm run gpu:parity [-- outDir] [--long] [--safari] [--shards=N]      (default gpu-out, or gpu-out/safari)
+//   --shards=N        N pages, each with its share of the one-second checks; 4 on CI (WEBGPU_CI), else 1
 //   --long            adds long-run parity: 265 seeds a side for 60 s, 11 to 18 minutes on an M5 Max and
 //                     far too long for CI's software GPU
 //   --safari          runs the page in Safari, on this Mac's GPU, through safaridriver (scripts/safari.ts),
@@ -13,7 +16,17 @@
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { ADAPTER, closeChrome, collectErrors, describeAdapter, launchChrome, serve, withTimeout } from '../browser.ts';
+import { mergeShards, type Shard } from '../../src/gpu/parityShards.ts';
+import {
+  ADAPTER,
+  ci,
+  closeChrome,
+  collectErrors,
+  describeAdapter,
+  launchChrome,
+  serve,
+  withTimeout,
+} from '../browser.ts';
 import { ROOT } from '../data/sources.ts';
 import { Safari } from '../safari.ts';
 
@@ -68,13 +81,19 @@ interface Long {
   pass: boolean;
 }
 interface Report {
+  shard: Shard;
+  timing?: Record<string, number>;
   pass: boolean;
   brainPass: boolean;
+  oneSecondPlaces: number;
+  shardFailures?: string[];
   loop:
     | {
         api: { name: string; detail: string; pass: boolean }[];
         oneStep: LoopStep[];
         oneSecond: LoopSecond[];
+        oneSecondPlaces: number;
+        timing?: Record<string, number>;
         pass: boolean;
         seconds: number;
       }
@@ -122,6 +141,17 @@ const args = process.argv.slice(2);
 const long = args.includes('--long');
 const safari = args.includes('--safari');
 const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? (safari ? 'gpu-out/safari' : 'gpu-out'));
+for (const a of args) {
+  if (a.startsWith('--') && !['--long', '--safari'].includes(a) && !/^--shards=/.test(a)) {
+    throw new Error(`unknown option ${a}; the options are --long, --safari and --shards=N`);
+  }
+}
+if (args.filter((a) => !a.startsWith('--')).length > 1) throw new Error('give at most one output directory');
+const shardsArg = args.find((a) => a.startsWith('--shards='));
+const shards = shardsArg ? Number(shardsArg.slice('--shards='.length)) : ci && !safari && !long ? 4 : 1;
+if (!Number.isInteger(shards) || shards < 1 || shards > 16)
+  throw new Error('--shards=N takes a whole number from 1 to 16');
+if (shards > 1 && (safari || long)) throw new Error('a sharded run is for Chrome alone, without --long');
 mkdirSync(outDir, { recursive: true });
 // A run without --long leaves the last long runs' results where they are.
 for (const file of ['parity.json', 'bench.json', ...(long ? ['long.json'] : [])]) {
@@ -187,19 +217,63 @@ async function safariDriver(url: string): Promise<Driver> {
   }
 }
 
-let driver: Driver | null = null;
+// The speed benchmark of a whole run, which prints and writes its results.
+async function benchmark(browser: Driver): Promise<void> {
+  const bench = await withTimeout(browser.call<Bench>('__bench'), 120000, 'the benchmark');
+  writeFileSync(join(outDir, 'bench.json'), `${JSON.stringify(bench, null, 2)}\n`);
+  console.log(`\nspeed of the brain step at ${1000 * bench.dt} ms`);
+  for (const r of bench.gpu) {
+    console.log(
+      `  ${String(r.stepsPerDispatch).padStart(3)} steps a dispatch: ${g(r.milliseconds, 2)} ms, ` +
+        `${g(r.realTime, 1)}× real time`,
+    );
+  }
+  console.log(
+    `  the CPU reference in the page: ${g(bench.cpuRealTime, 1)}× real time; ${g(bench.meanIterations, 1)} GPU ` +
+      'iterations a step',
+  );
+  console.log('the whole step, brain and loop');
+  for (const r of bench.loop) {
+    console.log(
+      `  ${String(r.stepsPerDispatch).padStart(3)} steps a dispatch: ${g(r.milliseconds, 2)} ms, ` +
+        `${g(r.realTime, 1)}× real time`,
+    );
+  }
+}
+
+let drivers: Driver[] = [];
 let stopServer = (): void => {};
 let failed = true;
 let errors: string[] = [];
 try {
   stopServer = await serve([], PORT);
   const url = `http://localhost:${PORT}/parity.html`;
-  const browser = (driver = safari ? await safariDriver(url) : await chrome(url));
-  console.log(browser.name);
+  const pages = Array.from({ length: shards }, (_, k) => (shards === 1 ? url : `${url}?shard=${k + 1}/${shards}`));
+  if (safari) drivers = [await safariDriver(url)];
+  else {
+    const launched = await Promise.allSettled(pages.map((page) => chrome(page)));
+    drivers = launched.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+    const refused = launched.find((r) => r.status === 'rejected');
+    if (refused) throw refused.reason;
+  }
+  const browser = drivers[0];
+  console.log(shards === 1 ? browser.name : `${browser.name}, ${shards} pages each in a Chrome of its own`);
   console.log(`GPU adapter: ${await browser.adapter()}`);
-  // CI's software GPU took 462 to 599 s over the checks in September 2026, against a limit of 600 s then.
-  const report = await withTimeout(browser.call<Report>('__parity'), 900000, 'the parity checks');
-  writeFileSync(join(outDir, 'parity.json'), `${JSON.stringify(report, null, 2)}\n`);
+  // CI's software GPU took 462 to 599 s over the checks in September 2026, against a limit of 600 s then, and 621 s
+  // whole on 2026-10-01, when the run was first dealt across shards.
+  const reports = await Promise.all(
+    drivers.map((d, k) =>
+      withTimeout(d.call<Report>('__parity'), 900000, shards === 1 ? 'the parity checks' : `shard ${k + 1}'s checks`),
+    ),
+  );
+  // Each shard's own report first, so a merge that refuses them still leaves them to read.
+  if (shards > 1) {
+    reports.forEach((r, k) =>
+      writeFileSync(join(outDir, `parity-shard-${k + 1}.json`), `${JSON.stringify(r, null, 2)}\n`),
+    );
+  }
+  const report = shards === 1 ? reports[0] : mergeShards(reports);
+  writeFileSync(join(outDir, 'parity.json'), `${JSON.stringify({ ...report, shards }, null, 2)}\n`);
   const { noise, thresholds } = report;
   console.log(
     `\n${mark(noise.pass)} noise: ${noise.hashes} hashes (${noise.hashMismatches} different), ${noise.gaussians} ` +
@@ -281,28 +355,24 @@ try {
     `\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}, the field ` +
       `${field.pass ? 'passed' : 'FAILED'}`,
   );
-  console.log(`parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s`);
-
-  const bench = await withTimeout(browser.call<Bench>('__bench'), 120000, 'the benchmark');
-  writeFileSync(join(outDir, 'bench.json'), `${JSON.stringify(bench, null, 2)}\n`);
-  console.log(`\nspeed of the brain step at ${1000 * bench.dt} ms`);
-  for (const r of bench.gpu) {
-    console.log(
-      `  ${String(r.stepsPerDispatch).padStart(3)} steps a dispatch: ${g(r.milliseconds, 2)} ms, ` +
-        `${g(r.realTime, 1)}× real time`,
-    );
-  }
+  for (const failure of report.shardFailures ?? []) console.log(`✗ ${failure} failed; see parity-shard-*.json`);
+  // Where the time went, by part, in each page: reported, not graded.
+  const parts = (t: Record<string, number> | undefined): string =>
+    Object.entries(t ?? {})
+      .map(([k, v]) => `${k} ${v.toFixed(0)}`)
+      .join(', ');
+  console.log('\ntime by part (s):');
+  reports.forEach((r, k) => {
+    const loopTiming = 'error' in r.loop ? undefined : r.loop.timing;
+    console.log(`  ${shards === 1 ? 'run' : `shard ${k + 1}`}: brain ${parts(r.timing)}; loop ${parts(loopTiming)}`);
+  });
   console.log(
-    `  the CPU reference in the page: ${g(bench.cpuRealTime, 1)}× real time; ${g(bench.meanIterations, 1)} GPU ` +
-      'iterations a step',
+    `parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s` +
+      (shards === 1 ? '' : `, the slowest of ${shards} shards`),
   );
-  console.log('the whole step, brain and loop');
-  for (const r of bench.loop) {
-    console.log(
-      `  ${String(r.stepsPerDispatch).padStart(3)} steps a dispatch: ${g(r.milliseconds, 2)} ms, ` +
-        `${g(r.realTime, 1)}× real time`,
-    );
-  }
+
+  if (shards === 1) await benchmark(browser);
+  else console.log('\nno benchmark: a sharded run shares its cores');
   let longPass = true;
   if (long) {
     const result = await withTimeout(browser.call<Long>('__long'), 3600000, 'the long runs');
@@ -325,14 +395,16 @@ try {
     );
     longPass = result.pass;
   }
-  errors = await browser.errors();
+  errors = (await Promise.all(drivers.map((d) => d.errors()))).flatMap((list, k) =>
+    shards === 1 ? list : list.map((e) => `shard ${k + 1}: ${e}`),
+  );
   if (errors.length > 0) throw new Error('the page reported errors');
   failed = !report.pass || !longPass;
 } catch (e) {
   console.error(`✗ ${e instanceof Error ? e.message : String(e)}`);
   for (const error of errors) console.error(`    ${error}`);
 } finally {
-  await driver?.close().catch(() => undefined);
+  await Promise.all(drivers.map((d) => d.close().catch(() => undefined)));
   stopServer();
 }
 process.exit(failed ? 1 : 0);
