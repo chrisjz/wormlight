@@ -3354,3 +3354,26 @@ W's compute is PLAN §7.5's figure for round 3's procedure on the real wiring an
 - **Smaller:** the unmeasured wavelength's reason, a duplicated header I had written into the convergence study's script, a stale known simplification, the pointers in PLAN §7.2, §7.3 and §9, where "debounced" read like the time debounce this rejects, the sources' description of the postures, a comment on the report's facts, and the report's minus sign.
 
 **Status.** Set before its build, built, revised after review, and checkpoint 1's section regenerated on the refit; no other record is rerun.
+
+## 2026-10-01 — Track S's signs, built: a side file, a generated module and a switch only track S's model throws
+
+**Why.** Track S's rules set its build in three pull requests, the signs first (the entry before last). This records the first: the measured signs, the citations they rest on, and the switch that applies them to track S's model alone, leaving the refit and the app as they are.
+
+**Decision.**
+
+- **The side file.** `data/sign-overrides-s.csv` has the main overrides file's columns and 41 rows, one per Cook connection, each with its citation and a quote from the source with the row's caveat. Every quoted fragment was checked against the paper's full text before the file was written, from the sign audit's local copies (`harness-out/sign-audit/`, gitignored, which hold the publishers' texts): each was found verbatim.
+  - **Flipped to inhibitory,** tier A's 25 connections, 326 sections: AVA→AVB 3 and AVB→AVA 4 (Roberts et al. 2016), PVP→AVA 4 (Zhang et al. 2025), AIB→RIM 4 (Piggott et al. 2011), AIB→RIB 2 (Wang et al. 2020) and SAA→RIM 8 (Huo et al. 2024).
+  - **Confirmed,** 16 connections, 477 sections, their signs unchanged and raised to cited physiology: PVP→AVB 4 and DVC→AVA 2 (Zhang et al. 2025), AIY→AIZ 2 and AIY→RIB 2 (Li et al. 2014), AIY→RIA 2 (Liu et al. 2018), AIZ→RIA 2 (Lin et al. 2024), and AVA→VA5 2 (Liu et al. 2017).
+- **Two rows the rules named, settled by the full texts.**
+  - **AVA→DA4 is left out.** Liu et al. 2017 recorded DA4's coupling with AVA and its bursts of postsynaptic currents falling when unc-7 is knocked down in AVA, but the proof that AVA's transmission is cholinergic and excitatory, AVA's acetylcholine release knocked down, is in VA5 alone. DA4's sign would be inference by analogy, which the criterion leaves out; the rules expected both.
+  - **DVC→PVP has no Cook connection.** Zhang et al. 2025 record DVC inhibiting PVP by patch clamp, which the criterion would adopt, but Cook has no chemical connection from DVC to PVP, so it is moot. DVC→AVB, the one Cook has, gave no response in their recordings and takes no sign.
+- **The build checks it as it checks the main file:** each row parses, cites the registry, names a connection Cook has, and appears once across both files, by `signChemical` run on the two merged. The build report gains a section listing each row beside the sign the runtime file gives it (`data/reports/data-build.md`, "Track S's measured signs").
+- **The generated module.** The build writes `src/data/trackSSigns.ts`, each row's connection, sign and citation, with the side file's digest, and `data:check` fails when it is stale. A module rather than a file the app fetches, so that track S's rows reach a World in Node and in the browser alike, the GPU's parity page among them.
+- **The switch.** `measuredSigns` on the loop's parameters makes a World build everything from a copy of the data with S's rows applied (`src/sim/trackS.ts`): its brain, and every layer read from the data. Left out, as the refit and the app have it, the World reads the runtime data as it is, so neither moves: the runtime file, its version and the model's fingerprint are unchanged. The offsets and rectification add their own switches in the pull requests that build them, and track S's model is all three together.
+- **Citations.** Nine are registered, each checked against Crossref: roberts2016, meng2024, zhang2025, piggott2011, wang2020, huo2024, li2014, liu2018 and lin2024. Meng et al. 2024 is cited by the caveats on AVA⇄AVB. Kumar et al. 2024, which the rules listed, isn't cited by any row, since Huo et al. 2024 carries SAA→RIM, so it isn't registered; liu2020 waits for the offsets' sensitivity setting.
+- **The ledger.** A component, "Track S's measured signs", at level 5, says the signs are built for track S's model, which no fit uses yet, and gives the caveats; `FIDELITY.md` regenerates with it, and the app's "About the science" shows it.
+- **Corrected from the rules.** They said S's file would be listed in `DATA_SOURCES.md` beside the main overrides. That page lists datasets, and the main overrides aren't on it; both files are reported in the build's report instead.
+
+**Exploration, disclosed.** None. No trial ran; the full texts were read from the sign audit's local copies, and the citations checked on Crossref by anonymous requests.
+
+**Status.** Built. The offsets come next, in a pull request of their own.

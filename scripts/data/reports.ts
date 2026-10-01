@@ -88,6 +88,9 @@ export interface BuildFacts {
   // At the mid-body, the postures' κL's mean and the percentiles of its departure from it, the 5th of which is
   // checkpoint 1's frequency band (PLAN §7.4).
   midCurvature: { at: number; mean: number; p5: number; p10: number; median: number };
+  // Track S's measured signs, from data/sign-overrides-s.csv, each with the sign and source the runtime file gives the
+  // same edge, which the app runs until track S's fit is chosen (DECISIONS.md, 2026-10-01).
+  trackS: readonly { pre: string; post: string; sign: 1 | -1; citation: string; was: number; wasSource: string }[];
 }
 
 export function buildReport({
@@ -102,6 +105,7 @@ export function buildReport({
   postures,
   fieldCurvature,
   midCurvature,
+  trackS,
 }: BuildFacts): string {
   const chemical = data.chemical;
   const connections = chemical.length;
@@ -212,6 +216,7 @@ export function buildReport({
       ]),
     ),
     ...fenyves.map((f) => `Ignored rows in ${f.label}: ${f.ignoredRows.join(', ') || 'none'}.`),
+    ...trackSSection(trackS, new Map(chemical.map((c) => [`${c.pre}→${c.post}`, c.sections]))),
     '## Neuromuscular signs (PLAN §4.4)',
     `Each presynaptic cell's primary release identity decides: acetylcholine excites and GABA inhibits, through the body wall muscle's receptors (Richmond & Jorgensen 1999); any other identity has no fast effect. Cells with a second identity take their primary one.`,
     table(
@@ -247,4 +252,28 @@ export function buildReport({
     `Over the model's ${fieldCurvature.fields} proprioceptive fields, the magnitude of the postures' mean scaled curvature κL has a median of ${fieldCurvature.median.toFixed(2)} and a 95th percentile of ${fieldCurvature.p95.toFixed(2)}. PLAN §7.3's 1 mV rule takes the percentile, to one decimal place, for proprioception's bounds in the conductance form, and a test holds the registry's figure to it.`,
     `At the mid-body, body coordinate ${midCurvature.at.toFixed(2)}, read over one segment's span as the model reads its own curvature there, the postures' κL has a mean of ${midCurvature.mean.toFixed(3).replace('-', '−')}, and the magnitude of its departure from that mean has a 5th percentile of ${midCurvature.p5.toFixed(3)}, a 10th of ${midCurvature.p10.toFixed(2)} and a median of ${midCurvature.median.toFixed(2)}. Checkpoint 1's frequency takes the 5th percentile, to two significant figures, as the band its count of crossings needs the curvature to leave (PLAN §7.4), and a test holds the code's figure to it.`,
   ].join('\n\n');
+}
+
+// Track S's measured signs, beside what the runtime file gives each edge: a flip where the signs differ, a confirmation
+// where they agree (DECISIONS.md, 2026-10-01).
+function trackSSection(rows: BuildFacts['trackS'], sections: ReadonlyMap<string, number>): string[] {
+  const size = (r: BuildFacts['trackS'][number]): number => sections.get(`${r.pre}→${r.post}`) ?? 0;
+  const flips = rows.filter((r) => r.sign !== r.was);
+  const confirmed = rows.filter((r) => r.sign === r.was);
+  const total = (list: typeof rows): number => list.reduce((n, r) => n + size(r), 0);
+  const signed = (s: number): string => (s > 0 ? '+' : s < 0 ? '−' : '0');
+  return [
+    "### Track S's measured signs",
+    `\`data/sign-overrides-s.csv\` holds ${rows.length} rows, which only track S's model applies until its fit is chosen; the runtime file and the app keep the signs above (DECISIONS.md, 2026-10-01). Each is a sign for which a response was recorded in the postsynaptic cell to a manipulation targeted at the presynaptic cell. ${flips.length} change the sign the runtime file gives (${grouped(total(flips))} sections), and ${confirmed.length} confirm it (${grouped(total(confirmed))} sections), raising it to cited physiology.`,
+    table(
+      ['Connection', 'Sections', 'Runtime sign (source)', "Track S's sign", 'Citation'],
+      rows.map((r) => [
+        `${r.pre} → ${r.post}`,
+        String(size(r)),
+        `${signed(r.was)} (${r.wasSource})`,
+        signed(r.sign),
+        r.citation,
+      ]),
+    ),
+  ];
 }
