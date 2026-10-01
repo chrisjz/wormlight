@@ -1,4 +1,4 @@
-// npm run equivalence -- --fit <refit|round-2|planned|round-3> [--pick N] [--jobs N] [--trials N]
+// npm run equivalence -- --fit <refit|round-2|planned|round-3|track-s> [--pick N] [--jobs N] [--trials N]
 //
 // PLAN §7.2's comparison with the noise on (the paragraph after its table, set 2026-09-28 before it first ran): a
 // fit's 200 trials of 120 s at the model's step dt and at dt/2, seeds 1 to 200, each step in a copy of the
@@ -19,16 +19,22 @@
 // trials again with the head switch off and at its lower bound and with the B-types, the A-types, and AVBL and AVBR
 // lesioned (PLAN §7.4), writing data/calibration/r5-chosen.json; VALIDATION.md's checkpoint 1 section waits until
 // the harness runs the fit from the registry.
+//
+// Track S's picks (`--fit track-s`, from data/calibration/s1.json) take it the same way, on track S's model, its
+// measured signs, class offsets and rectifier, which each trial switches on in its tree; their records are
+// track-s-pick-<N>.json, and the first to pass writes data/calibration/s1-chosen.json (DECISIONS.md, 2026-10-01). Every
+// record a run writes names checkpoint 1's frequency band, on which it grades.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
+import type { Model } from '../../src/sim/trackS.ts';
 import { CALIBRATED, type Form, type LoopParams } from '../../src/sim/world.ts';
-import { bounds, THIRD_ROUND, type Values } from '../../src/validation/calibration.ts';
+import { bounds, THIRD_ROUND, TRACK_S_ROUND, type Values } from '../../src/validation/calibration.ts';
 import { checkpoint1, SEEDS, summariseTrial, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import {
   atSpeedFloor,
@@ -37,6 +43,7 @@ import {
   EQUIVALENCE_SEEDS,
   speedInterval,
 } from '../../src/validation/equivalence.ts';
+import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import type { TrialRecord } from '../../src/validation/trial.ts';
 import { formatJson, formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
@@ -46,14 +53,23 @@ import { readPinned } from './pinned.ts';
 import { chosenSection, equivalenceSection, replaceSection, type ChosenReport, type EquivalenceRun } from './report.ts';
 
 type Fit = EquivalenceRun['fit'];
-const FITS: readonly Fit[] = ['refit', 'round-2', 'planned', 'round-3'];
-// Where R's fits are recorded, each by its calibration's summary.
+const FITS: readonly Fit[] = ['refit', 'round-2', 'planned', 'round-3', 'track-s'];
+// Where each calibrated fit is recorded, by its calibration's summary.
 const RECORDS: Partial<Record<Fit, string>> = {
   refit: 'data/calibration/r2.json',
   'round-2': 'data/calibration/r3.json',
   'round-3': 'data/calibration/r5.json',
+  'track-s': 'data/calibration/s1.json',
 };
-export const CHOSEN = join(ROOT, 'data/calibration/r5-chosen.json');
+// The fits whose calibrations give four picks, each taking the comparison in order (PLAN §9), and where the first to
+// pass is recorded.
+const PICKED: Partial<Record<Fit, { count: number; chosen: string }>> = {
+  'round-3': { count: THIRD_ROUND.phase2.continued, chosen: join(ROOT, 'data/calibration/r5-chosen.json') },
+  'track-s': { count: TRACK_S_ROUND.phase2.continued, chosen: join(ROOT, 'data/calibration/s1-chosen.json') },
+};
+export const picked = (fit: Fit): boolean => PICKED[fit] !== undefined;
+// The model a fit runs: track S's for its calibration's picks, track R's for every other.
+export const modelOf = (fit: Fit): Model => (fit === 'track-s' ? 'track S' : 'track R');
 const STEPS: [number, number] = [NEURAL_STEP, NEURAL_STEP / 2];
 const OUT = join(ROOT, 'harness-out', 'equivalence');
 const RESULTS = join(ROOT, 'data', 'equivalence');
@@ -62,15 +78,16 @@ const STAMP = '.source';
 // A short name for a set of sources, for the folders.
 const keyOf = (source: string): string => createHash('sha1').update(source).digest('hex').slice(0, 10);
 const tree = (step: number, source: string): string => join(OUT, `tree-${Math.round(step * 1e6)}us-${keyOf(source)}`);
-// A fit's name in files and folders: round 3's carries its pick.
-export const nameOf = (fit: Fit, pick: number): string => (fit === 'round-3' ? `round-3-pick-${pick}` : fit);
+// A fit's name in files and folders: a picked fit's carries its pick.
+export const nameOf = (fit: Fit, pick: number): string => (picked(fit) ? `${fit}-pick-${pick}` : fit);
 const setDir = (name: string, step: number, source: string): string =>
   join(OUT, `${name}-${Math.round(step * 1e6)}us-${keyOf(source)}`);
 
-// The committed results VALIDATION.md's section shows, in the runner's order: R's fits first, round 3's picks last.
+// The committed results VALIDATION.md's section shows, in the runner's order: R's fits first, then round 3's picks,
+// then track S's.
 export function resultNames(): string[] {
-  const picks = Array.from({ length: THIRD_ROUND.phase2.continued }, (_, k) => nameOf('round-3', k + 1));
-  const names = [...FITS.filter((fit) => fit !== 'round-3'), ...picks];
+  const picks = (fit: Fit): string[] => Array.from({ length: PICKED[fit]?.count ?? 0 }, (_, k) => nameOf(fit, k + 1));
+  const names = [...FITS.filter((fit) => !picked(fit)), ...picks('round-3'), ...picks('track-s')];
   return existsSync(RESULTS) ? names.filter((name) => readdirSync(RESULTS).includes(`${name}.json`)) : [];
 }
 
@@ -84,10 +101,12 @@ function ensureTree(step: number, source: string): string {
   return dir;
 }
 
-interface Manifest {
+export interface Manifest {
   fit: Fit;
-  // Round 3's pick; absent for the other fits, so that their earlier manifests still match.
+  // A picked fit's pick; absent for the other fits, so that their earlier manifests still match.
   pick?: number;
+  // The model, named only when it isn't track R's, so that earlier manifests still match.
+  model?: Model;
   // An R fit's values, from its record, so that a set is reused only for the values it ran; null for the planned fit.
   values: Values | null;
   // Its form, named only when it isn't the current form, so that earlier manifests still match (PLAN §4.3).
@@ -109,10 +128,16 @@ interface Job {
 
 type World = typeof import('../../src/sim/world.ts');
 type Planned = typeof import('../../src/science/planned.ts');
+type TrackS = typeof import('../../src/sim/trackS.ts');
 
-// A fit's parameters in a tree: an R fit's recorded values, or the planned model's fit.
-function paramsOf(manifest: Manifest, world: World, planned: Planned): LoopParams {
-  if (manifest.values) return world.loopParams(manifest.values, manifest.form ?? 'current');
+// A fit's parameters in a tree: a calibrated fit's recorded values, on its model, or the planned model's fit.
+export function paramsOf(manifest: Manifest, world: World, planned: Planned, trackS: TrackS): LoopParams {
+  if (manifest.values) {
+    return {
+      ...world.loopParams(manifest.values, manifest.form ?? 'current'),
+      ...trackS.partsOf(manifest.model ?? 'track R'),
+    };
+  }
   return world.plannedParams(planned.PLANNED.calibrated);
 }
 
@@ -132,17 +157,17 @@ const readRecord = (fit: Fit): CalibrationRecord | null => {
   return JSON.parse(readFileSync(path, 'utf8')) as CalibrationRecord;
 };
 
-// An R fit's final values, from its calibration's committed summary, which must be a whole run of track R with a
-// value for every calibrated parameter, each within its bounds; for round 3, its pick's, from 1 in their order; null
-// for the planned fit, whose values are src/science/planned.ts's.
+// A calibrated fit's final values, from its calibration's committed summary, which must be a whole run of the fit's
+// model with a value for every calibrated parameter, each within its bounds; for a picked fit, its pick's, from 1 in
+// their order; null for the planned fit, whose values are src/science/planned.ts's.
 export function valuesOf(fit: Fit, pick = 1): Values | null {
   const run = readRecord(fit);
   if (!run) return null;
   const record = RECORDS[fit] as string;
-  if (fit !== 'round-3') return checkedValues(run, record);
+  if (!picked(fit)) return checkedValues(run, record);
   const chosen = run.picks?.[pick - 1];
   if (!chosen) throw new Error(`${record} has no pick ${pick}`);
-  return checkedValues({ ...run, final: chosen }, `${record}'s pick ${pick}`);
+  return checkedValues({ ...run, final: chosen }, `${record}'s pick ${pick}`, modelOf(fit));
 }
 
 // An R fit's form, from its record: a record that names none is the current form, as every record before round 3.
@@ -150,11 +175,12 @@ export function formOf(fit: Fit): Form {
   return readRecord(fit)?.form ?? 'current';
 }
 
-// A calibration summary's final values, once it is known to be a whole run of track R with a value for every
-// calibrated parameter, each within its bounds.
-export function checkedValues(run: CalibrationRecord, record: string): Values {
+// A calibration summary's final values, once it is known to be a whole run of the model, track R's unless named, with
+// a value for every calibrated parameter, each within the model's bounds.
+export function checkedValues(run: CalibrationRecord, record: string, model: Model = 'track R'): Values {
   if (!run.complete) throw new Error(`${record} isn't a whole run`);
-  if (!run.model?.startsWith('track R')) throw new Error(`${record} isn't a fit of track R's model`);
+  const fits = model === 'track R' ? run.model?.startsWith('track R') : run.model === model;
+  if (!fits) throw new Error(`${record} isn't a fit of ${model}'s model`);
   const values = run.final?.values ?? {};
   const keys = Object.keys(values).sort();
   if (JSON.stringify(keys) !== JSON.stringify([...CALIBRATED].sort())) {
@@ -162,7 +188,7 @@ export function checkedValues(run: CalibrationRecord, record: string): Values {
   }
   for (const id of CALIBRATED) {
     const v = values[id];
-    const [lo, hi] = bounds(id, run.form ?? 'current');
+    const [lo, hi] = bounds(id, run.form ?? 'current', model);
     if (typeof v !== 'number' || !(v >= lo && v <= hi)) throw new Error(`${record}'s ${id} lies outside its bounds`);
   }
   return values as Values;
@@ -192,13 +218,14 @@ async function runJob(job: Job): Promise<void> {
   if (step !== job.manifest.step) throw new Error(`${job.tree} steps at ${step}, not ${job.manifest.step}`);
   const world = await from<World>('src/sim/world.ts');
   const planned = await from<Planned>('src/science/planned.ts');
+  const trackS = await from<TrackS>('src/sim/trackS.ts');
   const { runTrial } = await from<typeof import('../../src/validation/trial.ts')>('src/validation/trial.ts');
   const { readPostures } = await from<typeof import('./pinned.ts')>('scripts/harness/pinned.ts');
   const data = validateWormlightData(JSON.parse(readFileSync(join(job.tree, 'public/data/wormlight.v1.json'), 'utf8')));
   const record = runTrial(data, {
     seed: job.seed,
     seconds: job.manifest.seconds,
-    params: paramsOf(job.manifest, world, planned),
+    params: paramsOf(job.manifest, world, planned, trackS),
     lesions: job.manifest.lesions,
     postures: await readPostures(),
   });
@@ -210,7 +237,7 @@ async function runJob(job: Job): Promise<void> {
 // results 2026-10-01, DECISIONS.md), so a full run refuses while one exists; moving it aside is a decision to rerun.
 export const recorded = (name: string): boolean => existsSync(join(RESULTS, `${name}.json`));
 
-const USAGE = 'npm run equivalence -- --fit <refit|round-2|planned|round-3> [--pick N] [--jobs N] [--trials N]';
+const USAGE = 'npm run equivalence -- --fit <refit|round-2|planned|round-3|track-s> [--pick N] [--jobs N] [--trials N]';
 
 // Every option given once, each with its value after it, so that a mistyped one can't run the full comparison.
 export function parseArgs(args: readonly string[]): { fit: Fit; pick: number; jobs: number; trials: number } {
@@ -226,7 +253,7 @@ export function parseArgs(args: readonly string[]): { fit: Fit; pick: number; jo
   }
   const fit = values.get('--fit') as Fit | undefined;
   if (fit === undefined || !FITS.includes(fit)) throw new Error(`usage: ${USAGE}`);
-  if (values.has('--pick') && fit !== 'round-3') throw new Error('--pick is for round 3 alone');
+  if (values.has('--pick') && !picked(fit)) throw new Error("--pick is for round 3's and track S's picks alone");
   const whole = (flag: string, least: number, most: number, otherwise: number): number => {
     const text = values.get(flag);
     if (text === undefined) return otherwise;
@@ -237,7 +264,7 @@ export function parseArgs(args: readonly string[]): { fit: Fit; pick: number; jo
   };
   return {
     fit,
-    pick: whole('--pick', 1, THIRD_ROUND.phase2.continued, 1),
+    pick: whole('--pick', 1, PICKED[fit]?.count ?? 1, 1),
     jobs: whole('--jobs', 1, 1024, availableParallelism()),
     trials: whole('--trials', 2, EQUIVALENCE.trials, EQUIVALENCE.trials),
   };
@@ -249,13 +276,14 @@ export function variants(
   neurons: readonly { name: string; oscillator?: string | null }[],
   values: Values,
   form: Form,
+  model: Model = 'track R',
 ): { name: string; values: Values; lesions?: string[] }[] {
   const of = (c: string): string[] => neurons.filter((n) => n.oscillator === c).map((n) => n.name);
   return [
     { name: 'The head switch off, g_sw at 0', values: { ...values, headSwitchGain: 0 } },
     {
       name: 'g_sw at its lower bound',
-      values: { ...values, headSwitchGain: bounds('headSwitchGain', form)[0] },
+      values: { ...values, headSwitchGain: bounds('headSwitchGain', form, model)[0] },
     },
     { name: `The ${of('B').length} B-types lesioned`, values, lesions: of('B') },
     { name: `The ${of('A').length} A-types lesioned`, values, lesions: of('A') },
@@ -271,7 +299,8 @@ if (process.argv[2] === '--worker') {
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
   const { fit, pick } = options;
-  const round3 = fit === 'round-3';
+  const picks = picked(fit);
+  const model = modelOf(fit);
   const name = nameOf(fit, pick);
   const full = options.trials === EQUIVALENCE.trials;
   const committed = commit();
@@ -279,7 +308,7 @@ if (process.argv[2] === '--worker') {
   const values = valuesOf(fit, pick);
   const form = values ? formOf(fit) : 'current';
   const earlier = (k: number): { values?: unknown; comparison?: { pass?: boolean } } | null => {
-    const path = join(RESULTS, `${nameOf('round-3', k)}.json`);
+    const path = join(RESULTS, `${nameOf(fit, k)}.json`);
     return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as { comparison?: { pass?: boolean } }) : null;
   };
   if (full && recorded(name)) {
@@ -287,7 +316,7 @@ if (process.argv[2] === '--worker') {
       `data/equivalence/${name}.json already records this comparison, under the plain count of crossings; no past comparison is run again under the band (DECISIONS.md, 2026-10-01). Move it aside to rerun on purpose, or use --trials for a look.`,
     );
   }
-  if (round3 && full && !mayTake(pick, earlier, (k) => valuesOf('round-3', k))) {
+  if (picks && full && !mayTake(pick, earlier, (k) => valuesOf(fit, k))) {
     throw new Error(`pick ${pick} takes the comparison only once picks 1 to ${pick - 1} have failed it (PLAN §9)`);
   }
   const source = treeSource();
@@ -295,7 +324,8 @@ if (process.argv[2] === '--worker') {
   mkdirSync(OUT, { recursive: true });
   const base = (step: number): Manifest => ({
     fit,
-    ...(round3 ? { pick } : {}),
+    ...(picks ? { pick } : {}),
+    ...(model !== 'track R' ? { model } : {}),
     values,
     ...(form === 'conductance' ? { form } : {}),
     source,
@@ -327,8 +357,9 @@ if (process.argv[2] === '--worker') {
   const basis = await readPinned('eigenworms');
   const result: EquivalenceRun = {
     fit,
-    ...(round3 ? { pick } : {}),
+    ...(picks ? { pick } : {}),
     values,
+    frequencyBand: FREQUENCY_BAND,
     date: new Date().toISOString().slice(0, 10),
     commit: committed,
     trials: options.trials,
@@ -356,15 +387,16 @@ if (process.argv[2] === '--worker') {
     process.stderr.write('A shortened run: data/equivalence/ and VALIDATION.md are left as they were.\n');
   }
 
-  // Round 3's fit, the first pick to pass: checkpoint 1 from the comparison's first 20 trials at dt, the speed's
-  // interval, and the runs that show what paces its crawl, at dt (PLAN §7.4, §9).
-  if (round3 && full && result.comparison.pass && values) {
+  // Round 3's or track S's fit, the first pick to pass: checkpoint 1 from the comparison's first 20 trials at dt, the
+  // speed's interval, and the runs that show what paces its crawl, at dt (PLAN §7.4, §9).
+  const chosenAt = PICKED[fit]?.chosen;
+  if (chosenAt && full && result.comparison.pass && values) {
     const own = coarse.slice(0, SEEDS.length);
     if (own.some((r, k) => r.seed !== SEEDS[k])) throw new Error("the comparison's first trials aren't checkpoint 1's");
     // The neurons by name as the trials' own tree holds them.
     const at = ensureTree(STEPS[0], source);
     const data = validateWormlightData(JSON.parse(readFileSync(join(at, 'public/data/wormlight.v1.json'), 'utf8')));
-    const runs = variants(data.neurons, values, form).map((v) => ({
+    const runs = variants(data.neurons, values, form, model).map((v) => ({
       ...v,
       dir: setDir(`${name}-${v.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, STEPS[0], source),
       manifest: { ...base(STEPS[0]), values: v.values, variant: v.name, ...(v.lesions ? { lesions: v.lesions } : {}) },
@@ -373,8 +405,10 @@ if (process.argv[2] === '--worker') {
     const graded = checkpoint1(own, basis);
     const speed = speedInterval(own);
     const fineSpeed = result.comparison.clauses.find((c) => c.name === 'speed')?.fine ?? null;
-    const record = (readRecord('round-3') as CalibrationRecord).picks?.[pick - 1] as { seed: number; from: string };
+    const record = (readRecord(fit) as CalibrationRecord).picks?.[pick - 1] as { seed: number; from: string };
     const report: ChosenReport = {
+      ...(fit === 'track-s' ? { fit } : {}),
+      frequencyBand: FREQUENCY_BAND,
       pick,
       seed: record.seed,
       from: record.from,
@@ -404,8 +438,10 @@ if (process.argv[2] === '--worker') {
         };
       }),
     };
-    writeFileSync(CHOSEN, await formatJson(JSON.stringify({ ...report, source }), CHOSEN));
+    writeFileSync(chosenAt, await formatJson(JSON.stringify({ ...report, source }), chosenAt));
     process.stdout.write(`${chosenSection(report)}\n\n`);
-    process.stderr.write('Wrote data/calibration/r5-chosen.json: round 3 has its fit.\n');
+    process.stderr.write(
+      `Wrote ${relative(ROOT, chosenAt)}: ${fit === 'track-s' ? 'track S' : 'round 3'} has its fit.\n`,
+    );
   }
 }

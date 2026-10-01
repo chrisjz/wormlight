@@ -468,10 +468,14 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
   ].join('\n\n');
 }
 
-// Round 3's chosen pick, the first of its four to pass §7.2's comparison, as data/calibration/r5-chosen.json records
-// it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its speed's interval, and the
-// runs that show what paces its crawl, each graded by checkpoint 1's grading.
+// Round 3's or track S's chosen pick, the first of its four to pass §7.2's comparison, as data/calibration/r5-chosen.json
+// or s1-chosen.json records it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its
+// speed's interval, and the runs that show what paces its crawl, each graded by checkpoint 1's grading.
 export interface ChosenReport {
+  // Track S's, or round 3's when absent, as round 3's record was written before track S.
+  fit?: 'track-s';
+  // Checkpoint 1's frequency band (κL), which the grading counts crossings past; absent in records made before it.
+  frequencyBand?: number;
   pick: number;
   // The CMA-ES seed of the search the pick came from, and where in it.
   seed: number;
@@ -526,9 +530,14 @@ export function chosenSection(r: ChosenReport): string {
     percent(v.forward),
     v.meanVelocity.toFixed(4),
   ]);
+  const [title, record, model] =
+    r.fit === 'track-s'
+      ? ['Track S', 'data/calibration/s1.json', "on track S's model, its measured signs, class offsets and rectifier, "]
+      : ["R's third round", 'data/calibration/r5.json', ''];
+  const band = r.frequencyBand === undefined ? '' : `, its frequency counting crossings past ±${r.frequencyBand} κL`;
   return [
-    `### R's third round: pick ${r.pick}, from the search of CMA-ES seed ${r.seed} — ${GRADE[c.grade]}${c.grade === 'partial' && r.speed.atFloor ? ', at the speed floor' : ''}`,
-    `Checkpoint 1 graded from the first 20 of §7.2's trials at dt, seeds 1 to 20, run on ${r.date} at \`${r.commit}\`, on the pick's values from data/calibration/r5.json (${r.from}), in the conductance form (PLAN §9).`,
+    `### ${title}: pick ${r.pick}, from the search of CMA-ES seed ${r.seed} — ${GRADE[c.grade]}${c.grade === 'partial' && r.speed.atFloor ? ', at the speed floor' : ''}`,
+    `Checkpoint 1 graded from the first 20 of §7.2's trials at dt, seeds 1 to 20, run on ${r.date} at \`${r.commit}\`, on the pick's values from ${record} (${r.from}), ${model}in the conductance form (PLAN §9)${band}.`,
     table(['Clause', 'Measured', 'Pass', 'Partial', 'Grade', 'Kind'], c.clauses.map(clauseRow)),
     speed,
     diagnosticsText(c.diagnostics),
@@ -543,9 +552,12 @@ export function chosenSection(r: ChosenReport): string {
 
 // A run of §7.2's comparison with the noise on, as data/equivalence/<fit>.json records it.
 export interface EquivalenceRun {
-  fit: 'refit' | 'round-2' | 'planned' | 'round-3';
-  // Round 3's pick, from 1, in the order its picks take the comparison (PLAN §9).
+  fit: 'refit' | 'round-2' | 'planned' | 'round-3' | 'track-s';
+  // Round 3's or track S's pick, from 1, in the order its picks take the comparison (PLAN §9).
   pick?: number;
+  // Checkpoint 1's frequency band (κL), which the grades and the frequency's clause count crossings past; runs before
+  // it was named (2026-10-02) used the band from 2026-10-01 or the plain count before it, as their dates show.
+  frequencyBand?: number;
   // An R fit's values, from its calibration record, so the result stays tied to what ran; null for the planned fit.
   // Runs before 2026-09-29 didn't record them.
   values?: Record<string, number> | null;
@@ -567,9 +579,10 @@ const FITS = {
   'round-2': "R's second round's fit",
   planned: "The planned model's fit",
   'round-3': "R's third round",
+  'track-s': 'Track S',
 } as const;
 const fitName = (run: EquivalenceRun): string =>
-  run.fit === 'round-3' ? `${FITS[run.fit]}, pick ${run.pick ?? 1}` : FITS[run.fit];
+  run.fit === 'round-3' || run.fit === 'track-s' ? `${FITS[run.fit]}, pick ${run.pick ?? 1}` : FITS[run.fit];
 const MEASURED: Record<Measure, { label: string; digits: number }> = {
   frequency: { label: 'Frequency (Hz)', digits: 4 },
   wavelength: { label: 'Wavelength (body lengths)', digits: 4 },
@@ -608,7 +621,7 @@ export function equivalenceSection(runs: readonly EquivalenceRun[]): string {
     const [dt, half] = run.steps.map((s) => formatNumber(s * 1000));
     parts.push(
       `#### ${fitName(run)} — ${c.pass ? '**Pass**' : '**Fail**'}`,
-      `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, seeds 1 to ${run.trials}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).`,
+      `Run on ${run.date} at \`${run.commit}\`: ${count(run.trials, 'trial')} of ${run.seconds} s at each step, seeds 1 to ${run.trials}, at dt = ${dt} ms and dt/2 = ${half} ms. Each clause's 95% interval for the difference, the value at dt less the value at dt/2, comes from ${grouped(run.resamples)} resamples of the seeds, and must lie within its margin (PLAN §7.2).${run.frequencyBand === undefined ? '' : ` The frequency counts crossings past a band of ±${run.frequencyBand} κL (PLAN §7.4).`}`,
       table(['Clause', 'dt', 'dt/2', 'Difference', '95% interval', 'Margin', 'Result'], rows),
       `Checkpoint 1's grade over these trials, reported and not compared: ${GRADE[run.grades[0]]} at dt and ${GRADE[run.grades[1]]} at dt/2. Solves that didn't converge: ${grouped(run.unconverged[0])} at dt and ${grouped(run.unconverged[1])} at dt/2. ${c.nonFinite === 0 ? 'Every trial stayed within the finite numbers.' : `${count(c.nonFinite, 'trial')} left the finite numbers, which fails the comparison.`}`,
     );
