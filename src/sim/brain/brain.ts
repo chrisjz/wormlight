@@ -61,9 +61,21 @@ export interface SolverOptions {
 // Activation at the sigmoid's midpoint when V = V_th, which makes that state a fixed point (PLAN §3.3).
 export const midpointActivation = (network: Network): number => network.rise / (network.rise + 2 * network.decay);
 
-// With every activation held at s: each neuron's total conductance (leak, gap junctions and synapses), the
-// diagonal of the system, and the constant current into it.
-function held(network: Network, s: number, input?: Float64Array): { d: Float64Array; b: Float64Array } {
+// A neuron's activation at rest when it rests `offset` mV below its threshold (track S's class offsets, PLAN §3.3;
+// DECISIONS.md, 2026-10-02): the steady state of ds/dt = a_r φ (1 − s) − a_d s with φ at V_th − offset. At an offset
+// of 0 it is the midpoint value, given as midpointActivation gives it.
+export function restActivation(network: Network, offset: number): number {
+  if (offset === 0) return midpointActivation(network);
+  const phi = 1 / (1 + Math.exp(network.slope * offset));
+  return (network.rise * phi) / (network.rise * phi + network.decay);
+}
+
+// Activations held at rest: one value for every neuron, or each neuron's own.
+export type Held = number | ArrayLike<number>;
+
+// With every activation held at its value: each neuron's total conductance (leak, gap junctions and synapses), the
+// diagonal of the system, and the constant current into it. A synapse's activation is its presynaptic neuron's.
+function held(network: Network, s: Held, input?: Float64Array): { d: Float64Array; b: Float64Array } {
   const n = network.names.length;
   const d = new Float64Array(n);
   const b = new Float64Array(n);
@@ -73,8 +85,9 @@ function held(network: Network, s: number, input?: Float64Array): { d: Float64Ar
     let current = network.leak * network.leakPotential + (input ? input[i] : 0);
     for (let k = gap.start[i]; k < gap.start[i + 1]; k++) g += gap.weight[k];
     for (let k = chemical.start[i]; k < chemical.start[i + 1]; k++) {
-      g += chemical.weight[k] * s;
-      current += chemical.weight[k] * s * chemical.reversal[k];
+      const sj = typeof s === 'number' ? s : s[chemical.index[k]];
+      g += chemical.weight[k] * sj;
+      current += chemical.weight[k] * sj * chemical.reversal[k];
     }
     d[i] = g;
     b[i] = current;
@@ -85,7 +98,8 @@ function held(network: Network, s: number, input?: Float64Array): { d: Float64Ar
 // Each neuron's passive load at rest (nS): its leak, its gap junctions and its synapses at the midpoint activation,
 // with its partners held and the oscillators off. The conductance form's bounds and shunt are taken against it
 // (PLAN §4.3, §7.3).
-export const passiveLoads = (network: Network): Float64Array => held(network, midpointActivation(network)).d;
+export const passiveLoads = (network: Network, s: Held = midpointActivation(network)): Float64Array =>
+  held(network, s).d;
 
 function solveHeld(network: Network, d: Float64Array, b: Float64Array, x: Float64Array, tolerance: number): void {
   const n = network.names.length;
@@ -97,7 +111,7 @@ function solveHeld(network: Network, d: Float64Array, b: Float64Array, x: Float6
 // midpoint value and no input, these are the rest thresholds. The solve warm-starts from `start`.
 export function equilibrium(
   network: Network,
-  s: number,
+  s: Held,
   input?: Float64Array,
   start?: Float64Array,
   tolerance = 1e-12,
@@ -110,7 +124,7 @@ export function equilibrium(
 
 // A neuron's input conductance with every activation held at s: the current that holds it 1 mV from its
 // equilibrium once the neurons it is coupled to have followed.
-export function inputConductance(network: Network, s: number, neuron: number): number {
+export function inputConductance(network: Network, s: Held, neuron: number): number {
   const { d } = held(network, s);
   const unit = new Float64Array(d.length);
   unit[neuron] = 1;
@@ -121,7 +135,7 @@ export function inputConductance(network: Network, s: number, neuron: number): n
 
 // How a set of neurons respond to one another with every activation held at s: entry [j][i] is how far neuron
 // neurons[i] moves from its equilibrium, in mV, under 1 pA into neurons[j], once all have followed.
-export function responses(network: Network, s: number, neurons: readonly number[]): Float64Array[] {
+export function responses(network: Network, s: Held, neurons: readonly number[]): Float64Array[] {
   const { d } = held(network, s);
   return neurons.map((j) => {
     const unit = new Float64Array(d.length);
@@ -130,6 +144,18 @@ export function responses(network: Network, s: number, neurons: readonly number[
     solveHeld(network, d, unit, response, 1e-12);
     return Float64Array.from(neurons, (i) => response[i]);
   });
+}
+
+// A network's rest with each neuron `offset` mV below its threshold (PLAN §3.3): each activation is known from its
+// offset, so the rest is the equilibrium with every activation held at its value, one sparse solve, and each
+// threshold is the rest plus its offset. With every offset 0 it is the rest PLAN §3.3 has always set.
+export function restOf(
+  network: Network,
+  offset: ArrayLike<number>,
+): { voltage: Float64Array; activation: Float64Array; threshold: Float64Array } {
+  const activation = Float64Array.from(offset, (o) => restActivation(network, o));
+  const voltage = equilibrium(network, activation);
+  return { voltage, activation, threshold: Float64Array.from(voltage, (v, i) => v + offset[i]) };
 }
 
 export class Brain {
@@ -181,12 +207,18 @@ export class Brain {
   private readonly tolerance: number;
   private readonly maxIterations: number;
 
-  constructor(network: Network, threshold: Float64Array, options: SolverOptions = {}) {
+  // How far each neuron rests below its threshold, in mV: 0 for every neuron but in track S's model, whose class
+  // offsets rest the A-types below theirs and the D-types above (PLAN §3.3; DECISIONS.md, 2026-10-02).
+  readonly offset: Float64Array;
+
+  constructor(network: Network, threshold: Float64Array, options: SolverOptions = {}, offset?: ArrayLike<number>) {
     const n = network.names.length;
     this.network = network;
     if (threshold.length !== n) throw new Error(`expected ${n} thresholds`);
+    if (offset && offset.length !== n) throw new Error(`expected ${n} offsets`);
     this.n = n;
     this.threshold = Float64Array.from(threshold);
+    this.offset = offset ? Float64Array.from(offset) : new Float64Array(n);
     this.voltage = new Float64Array(n);
     this.activation = new Float64Array(n);
     this.input = new Float64Array(n);
@@ -221,10 +253,14 @@ export class Brain {
     this.historyStep = 0;
   }
 
-  // Every neuron at its threshold with activation at the midpoint: the network's fixed point with no input,
-  // and with oscillators off. Oscillators start on their w-nullclines.
+  // Every neuron its offset below its threshold, at its activation there: the network's fixed point with no input,
+  // and with oscillators off. Without offsets, every neuron at its threshold with activation at the midpoint.
+  // Oscillators start on their w-nullclines.
   rest(): void {
-    this.setState(this.threshold, new Float64Array(this.n).fill(midpointActivation(this.network)));
+    this.setState(
+      Float64Array.from(this.threshold, (v, i) => v - this.offset[i]),
+      Float64Array.from(this.offset, (o) => restActivation(this.network, o)),
+    );
     if (this.oscillators) this.setOscillators(this.oscillators);
   }
 

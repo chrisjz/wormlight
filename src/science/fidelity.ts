@@ -389,6 +389,25 @@ export const COMPONENTS: readonly Component[] = [
     testedBy: [{ check: 'checkpoint5' }],
   },
   {
+    name: "Track S's class offsets",
+    subsystem: 'neurons',
+    levels: [2, 0],
+    basis:
+      "The D-types rest 7.4 mV above their thresholds, VD5's rest less VB6's at zero current (Liu, Chen & Wang 2014), every class's sigmoid taken to have its midpoint where the B-types rest; each class's activation at rest follows, the rest is one solve with every activation held at its value, the oscillators keep their places relative to rest, and relative drive's baseline, AWC's gain and touch's currents are set at that rest",
+    caveats:
+      "Built for track S's model, which no fit uses yet; the app runs every neuron at its threshold. The shared midpoint is ours (0), and so is giving the dorsal D-types VD5's value. The A-types keep their midpoint: VA5's rest is a down state, and the model's neurons rest near −10 mV, so its difference would put their thresholds above the excitatory reversal potential. AVA and AVB, which hold several stable states, keep theirs; a sensitivity setting gives AVA its offsets from Liu, Chen & Wang 2020 (DECISIONS.md, 2026-10-02)",
+    upgrade: 'Recordings of every motor class, dorsal and ventral, in one preparation, and of where each releases',
+    sources: ['liu2014', 'liu2020'],
+    testedBy: [
+      {
+        check: 'unit',
+        detail:
+          'the rest holds still, every threshold lies within the reversal potentials, and the rules set at rest are rerun',
+      },
+      { check: 'unit', detail: "GPU parity's track S setup, its rest and shifted oscillators on both sides" },
+    ],
+  },
+  {
     name: 'Neural noise',
     subsystem: 'neurons',
     levels: [1],

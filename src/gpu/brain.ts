@@ -5,7 +5,7 @@
 // layout (loopLayout.ts), each step is a whole World's instead: the brain, and the loop outside it.
 
 import type { BrainState, Oscillators } from '../sim/brain/brain.ts';
-import { checkOscillators, midpointActivation } from '../sim/brain/brain.ts';
+import { checkOscillators, restActivation } from '../sim/brain/brain.ts';
 import type { Network } from '../sim/brain/network.ts';
 import { CG_MAX_ITERATIONS, CG_TOLERANCE_GPU } from '../sim/numerics.ts';
 import { TOUCH_STEPS } from '../sim/touch.ts';
@@ -51,6 +51,8 @@ export interface GpuBrainOptions {
   maxIterations?: number;
   // The loop outside the brain, to step a whole World.
   loop?: LoopLayout;
+  // How far each neuron rests below its threshold, as the CPU's Brain has it (track S's class offsets); 0 if left out.
+  offset?: ArrayLike<number>;
 }
 
 // A World's state but its brain's, as the GPU keeps it.
@@ -118,6 +120,7 @@ export class GpuBrain {
 
   private oscillators: Oscillators | null = null;
   private readonly threshold: Float64Array;
+  private readonly offset: Float64Array;
   private readonly wiring: PackedNetwork;
   private readonly wiringBuffers: GPUBuffer[];
   private bindGroup: GPUBindGroup;
@@ -164,6 +167,8 @@ export class GpuBrain {
     this.n = n;
     this.network = network;
     this.threshold = Float64Array.from(threshold);
+    if (options.offset && options.offset.length !== n) throw new Error(`expected ${n} offsets`);
+    this.offset = options.offset ? Float64Array.from(options.offset) : new Float64Array(n);
     this.touchCurrent = new Float32Array(n);
     this.tolerance = options.tolerance ?? CG_TOLERANCE_GPU;
     this.maxIterations = options.maxIterations ?? CG_MAX_ITERATIONS;
@@ -273,17 +278,21 @@ export class GpuBrain {
     this.rest();
   }
 
-  // Every neuron at its threshold with activation at the midpoint, oscillators on their w-nullclines, as the
-  // CPU's rest() leaves it, and no history.
+  // Every neuron its offset below its threshold, at its activation there, oscillators on their w-nullclines, as the
+  // CPU's rest() leaves it, and no history. Without offsets, every neuron at its threshold, at the midpoint.
   rest(): void {
     const n = this.n;
     const count = this.oscillators?.neurons.length ?? 0;
-    // At threshold, x = −θ/v₀.
+    // At rest V − V_th is −offset, so x = (−offset − θ)/v₀; −θ/v₀ at threshold.
     const v0 = 1 / (2 * this.network.slope);
-    const recovery = Float64Array.from(this.oscillators?.shift ?? [], (shift) => (-shift / v0 + FHN_A) / FHN_B);
+    const neurons = this.oscillators?.neurons ?? new Int32Array(0);
+    const recovery = Float64Array.from(
+      this.oscillators?.shift ?? [],
+      (shift, k) => ((-this.offset[neurons[k]] - shift) / v0 + FHN_A) / FHN_B,
+    );
     this.restore({
-      voltage: this.threshold,
-      activation: new Float64Array(n).fill(midpointActivation(this.network)),
+      voltage: Float64Array.from(this.threshold, (v, i) => v - this.offset[i]),
+      activation: Float64Array.from(this.offset, (o) => restActivation(this.network, o)),
       recovery,
       previousVoltage: new Float64Array(n),
       previousActivation: new Float64Array(n),

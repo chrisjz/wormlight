@@ -5,7 +5,7 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { PARAMS } from '../science/params.ts';
-import { Brain, equilibrium, midpointActivation } from './brain/brain.ts';
+import { Brain, equilibrium, midpointActivation, restOf } from './brain/brain.ts';
 import { cookNetwork } from './brain/network.ts';
 
 // Anything that gives a concentration (µM) at a point (m), such as an OdourField.
@@ -17,6 +17,15 @@ export interface Odour {
 // current that raises that AWC 16 mV on the connectome alone. awcGain finds them, and a test holds these to it.
 export const AWC_GAIN = { AWCL: 3.73338, AWCR: 5.51839 } as const;
 export type AwcSide = keyof typeof AWC_GAIN;
+// AWC-ON's gain by the rule below for each model a World runs, keyed by trackSKey (DECISIONS.md, 2026-10-02): the
+// runtime data's, and track S's with its signs, with its D-types' offset as well, and with AVA's offsets too, the
+// last for a sensitivity setting. A test recomputes each.
+export const AWC_GAINS: Readonly<Record<string, Readonly<Record<AwcSide, number>>>> = {
+  '': AWC_GAIN,
+  signs: { AWCL: 3.73539, AWCR: 5.51805 },
+  'signs, measured': { AWCL: 3.73541, AWCR: 5.51798 },
+  'signs, measured with AVA': { AWCL: 3.73541, AWCR: 5.518 },
+};
 
 // The rise that sets the gain: 2/β, the working width of the sigmoid (mV).
 export const AWC_RISE = 16;
@@ -67,17 +76,24 @@ export class AwcSensor {
 }
 
 // The current, found by bisection, that raises the named neuron AWC_RISE mV at steady state on the connectome
-// alone: Cook's network at its rest thresholds, with no oscillators, no noise and nothing outside the brain.
+// alone: Cook's network at its rest thresholds, with no oscillators, no noise and nothing outside the brain. With
+// `offset`, track S's class offsets, the rest is theirs (DECISIONS.md, 2026-10-02).
 // Removing odour gives exactly g_AWC whatever T was adapted to, so this is the gain. The rise is measured from
 // rest, the limit of weak odour, where the adapted current is zero; adapted to stronger odour, AWC-ON starts
 // lower and rises further, 16.6 mV from the assay's start at the dish's centre.
-export function awcGain(data: WormlightData, name: string, seconds = 30, dt = 0.01): number {
+export function awcGain(
+  data: WormlightData,
+  name: string,
+  seconds = 30,
+  dt = 0.01,
+  offset?: ArrayLike<number>,
+): number {
   const network = cookNetwork(data);
-  const thresholds = equilibrium(network, midpointActivation(network));
+  const thresholds = offset ? restOf(network, offset).threshold : equilibrium(network, midpointActivation(network));
   const neuron = network.names.indexOf(name);
   if (neuron < 0) throw new Error(`there is no neuron ${name}`);
   const rise = (current: number): number => {
-    const brain = new Brain(network, thresholds);
+    const brain = new Brain(network, thresholds, {}, offset);
     const rest = brain.voltage[neuron];
     for (let k = Math.round(seconds / dt); k > 0; k--) {
       brain.input.fill(0);

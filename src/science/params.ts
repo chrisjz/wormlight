@@ -213,6 +213,18 @@ export const PARAMS = {
     bounds: [0, 0.169],
     provisional: 0.148,
   },
+  restOffsetD: {
+    name: "Track S's D-type rest offset",
+    symbol: 'Δ_D',
+    value: -7.4,
+    unit: 'mV',
+    level: 2,
+    subsystem: 'neural',
+    sources: ['liu2014'],
+    note: "How far the D-types rest below their thresholds in track S's model, Δ = V_th − V_rest: VD5's rest less VB6's, both recorded at zero current (−45.8 and −53.2 mV), with every class's sigmoid taken to have its midpoint where the B-types rest, so they rest 7.4 mV above theirs. The dorsal D-types take VD5's value. The A-types keep their midpoint: VA5's −71.7 mV is a down state, and in the model's frame it would put their thresholds above the excitatory reversal potential (DECISIONS.md, 2026-10-02). No fit uses it yet.",
+    upgrade:
+      'Recordings of the D-types, dorsal and ventral, against the B-types in one preparation, and of where each class releases',
+  },
   noiseCorrelation: {
     name: 'Neural noise correlation time',
     symbol: 'τ_n',

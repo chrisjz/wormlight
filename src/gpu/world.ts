@@ -26,6 +26,7 @@ export class GpuWorld {
     const brain = await GpuBrain.create(device, world.brain.network, world.brain.threshold, {
       ...options,
       loop: layout,
+      offset: world.brain.offset,
     });
     try {
       brain.setOscillators(world.brain.oscillators);

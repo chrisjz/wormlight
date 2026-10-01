@@ -70,13 +70,17 @@ function solve(a: number[][], b: number[]): number[] {
   return m.map((row, i) => row[n] / row[i]);
 }
 
-const touchOf = new WeakMap<WormlightData, Touch>();
+const touchOf = new WeakMap<WormlightData, Map<string, Touch>>();
 
 // The data's touch receptors, each neuron that senses along its process, and every reachable set's currents:
 // with activations held at rest, the currents whose responses together raise every receptor in the set by
-// the touch amplitude.
-export function touchData(data: WormlightData): Touch {
-  let touch = touchOf.get(data);
+// the touch amplitude. Rest is every activation at the midpoint, or each neuron's own where track S's class
+// offsets move it (DECISIONS.md, 2026-10-02), as `restActivation` gives them in the data's order.
+export function touchData(data: WormlightData, restActivation?: ArrayLike<number>): Touch {
+  let byRest = touchOf.get(data);
+  if (!byRest) touchOf.set(data, (byRest = new Map<string, Touch>()));
+  const key = restActivation ? Array.from(restActivation).join(',') : '';
+  let touch = byRest.get(key);
   if (!touch) {
     const receptors = data.neurons
       .flatMap((n, neuron) =>
@@ -87,7 +91,7 @@ export function touchData(data: WormlightData): Touch {
     const network = cookNetwork(data);
     const response = responses(
       network,
-      midpointActivation(network),
+      restActivation ?? midpointActivation(network),
       receptors.map((r) => r.neuron),
     );
     const sets = new Map<number, Float64Array>();
@@ -105,7 +109,7 @@ export function touchData(data: WormlightData): Touch {
       sets.set(mask, currents);
     }
     touch = { receptors, sets };
-    touchOf.set(data, touch);
+    byRest.set(key, touch);
   }
   return touch;
 }
