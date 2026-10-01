@@ -3316,3 +3316,25 @@ W's compute is PLAN §7.5's figure for round 3's procedure on the real wiring an
 - **Smaller:** the dorsal classes' values are our choice; the clash's history and the probe's variant; rectification's extension at level 2, and DA4 measured; the paper's reviewer's dissent; Liu et al.'s amplifier and input resistances as reported checks; the open item made conditional; S's fairness bullet; the entry above's error on VB6's and VD5's rests, corrected in place.
 
 **Status.** Set before any of it is built, and revised after review, for the maintainer's approval in this pull request; nothing in it has run.
+
+## 2026-10-01 — Checkpoint 1's frequency counts a crossing once the bend has left a band (changed after results; set before its build)
+
+**Why.** The programme after R fixes checkpoint 1's frequency measure before any new calibration, by a rule independent of any pick, and track S's calibration waits on it (the two entries above). Checkpoint 1 takes the frequency as half the mid-body curvature's crossings of each bout's mean, over the bouts' total duration (PLAN §7.4). Gaits that linger near the mean cross it in pairs a fraction of a second apart: 17% to 23% of the crossings in R's third round's picks 1 and 4 were pairs under 1 s apart, the count moved with the step while the head switch's cycle barely did, and the calibration's objective, which reads the same count against 0.30 Hz, may have rewarded the short crossings (2026-09-30). This changes checkpoint 1's measure after results, as spec §8 allows when it is logged and the checkpoint marked; it is set here before it is built.
+
+**Decision.**
+
+- **The rule.** A crossing of a bout's mean counts once the mid-body curvature has left a band of ±h about that mean on the side opposite to the one it last left it on. A bend that stays within the band, or noise about the mean, counts none; a bend that leaves it and comes back on the same side counts none either. The frequency is half these crossings over the bouts' total duration, and the wavelength follows it as before (PLAN §7.4).
+- **The band, from real worms alone.** h is the band within which real worms' mid-body curvature sits 5% of the time: over the 6,655 pinned postures, the 5th percentile of the magnitude of κL less its mean, at the mid-body, read over one segment's span about the body's midpoint, as the model reads its own rod 24 of 49. It is 0.308, so h = 0.31 κL to two significant figures. For scale, the same distribution's 10th percentile is 0.71, its median 4.6 and its standard deviation 6.7, so every real undulation leaves the band. The data build reports the figure from the pinned postures, and a test holds the code's to the report, as the 1 mV rule's curvature is held (PLAN §7.3).
+- **Where it applies.** Checkpoint 1's kinematics, and through them every calibration's objective and §7.2's comparison from now on, track S's first. It doesn't apply to GPU parity's long-run statistic (`src/sim/bodyWave.ts`), which compares the GPU with the CPU by its own count and grades no worm, or to the go/no-go's and the convergence study's scripts, which reproduce their records.
+- **No past grade is revisited.** The records made under the plain count keep it: the calibrations' records and §7.2's comparisons, with their verdicts, are not rerun, and each names the commit it was made at, which names its measure. Checkpoint 1's section is regenerated on the refit, as the harness writes it, with the plain count reported beside the new one. The refit fails checkpoint 1 on its speed and its bouts whatever the frequency, so the change can't alter its grade.
+- **The markers.** Checkpoint 1's row in PLAN §7.4 carries a "Changed after results" marker, and `VALIDATION.md`'s "What changed after results" gains the change.
+- Considered:
+  - a time debounce, as PLAN §7.1's head swings count crossings at least 0.5 s apart, which would count a chatter of three crossings as two;
+  - a band at the 1st percentile, 0.025, which debounces almost nothing, or at the 10th, 0.71, further from the convention;
+  - a band relative to each bout's own spread, which would count a bout of tiny wiggles in full;
+  - the mid-body spectrum's peak, whose resolution over a bout of 10 s is 0.1 Hz;
+  - the ±0.5 κL band the entry of 2026-09-30 tried, which was seen passing three of round 3's picks.
+
+**Exploration, disclosed.** The rule was set after the entry of 2026-09-30 found that a band of ±0.5 κL would pass three of round 3's four picks at the half step. This band comes from the pinned postures alone, and was computed before any trial ran under it; no comparison of round 3's picks is run again under it.
+
+**Status.** Set before its build; built in the same pull request (below).
