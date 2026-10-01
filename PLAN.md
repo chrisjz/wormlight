@@ -599,6 +599,13 @@ Safari and Firefox run their own WebGPU engines, which CI can't cover, so milest
 - `visual`: fixed views pixel-compared against baselines, as Universe does: the graph's from milestone 1, and the plate's from milestone 3.
 - `deploy`: Pages, gated on `DEPLOY_PAGES`, when the built app's files changed and after `checks`, `data`, `visual` and `gpu` pass or are skipped. Live since 2026-09-26 at https://chrisjz.github.io/wormlight/.
 
+**Releases** (set 2026-10-01, after milestone 6, DECISIONS.md). Releases are numbered `MAJOR.MINOR.PATCH`, the first 0.1.0, and stay below 1.0.0 while the model can still change; when to call one 1.0.0 is the maintainer's choice.
+
+- **The release version names the software,** beside the two versions links carry (§1): `MODEL_VERSION`, how the worm behaves, and the data version, the connectome's build. A minor release brings a new model version, a new data version or new features; a patch brings fixes that leave both as they were.
+- **It lives in `package.json` and `CITATION.cff`,** which a unit test keeps equal, with the citation's licence equal to the package's and its release date a real date. The app shows it in About the science with the commit it was built from, beside the model and data versions, since the site deploys from `main` and can run ahead of the latest release.
+- **A release** is a pull request that sets the version and the citation's release date; after it merges, its merge commit is tagged `vX.Y.Z` (annotated) and a GitHub Release made from the tag. The notes give the model and data versions, the checkpoints' status and what changed since the last release, pointing at `DECISIONS.md`. Tags and Releases are public, so each waits on the maintainer's go-ahead. No changelog is kept beside the notes.
+- **`CITATION.cff`** gives GitHub's "Cite this repository": the maintainer as author, the title, an abstract stating the result, keywords, the licence, the repository and the site, and references to the connectome's papers, Cook et al. 2019 and Emmons 2024, which its message asks to be cited too. A DOI, through Zenodo's archive of each Release, is left for later.
+
 ## 9. Milestones
 
 Each milestone is one or more focused PRs, each merged before the next starts, and ends with a summary of what works, what doesn't, and checkpoint status.

@@ -5,6 +5,7 @@
 // carries and can't promise, with the versions running, and the sources. `?about=science` opens it from a link, and
 // the URL says so while it is open.
 
+import { COMMIT, RELEASE } from '../build.ts';
 import type { WormlightData } from '../data/schema.ts';
 import { CITATIONS, type Citation, type CitationId } from '../science/citations.ts';
 import { countFacts, type Facts } from '../science/facts.ts';
@@ -33,7 +34,8 @@ import { usedCitations } from '../science/used.ts';
 import { CALIBRATION_TARGETS, REFERENCE_DATA } from '../science/validation.ts';
 import { aboutUrl, type Versions } from './params.ts';
 
-const REPOSITORY = 'https://github.com/chrisjz/wormlight/blob/main';
+const GITHUB = 'https://github.com/chrisjz/wormlight';
+const REPOSITORY = `${GITHUB}/blob/main`;
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -306,16 +308,22 @@ function references(): HTMLElement {
   return section('Sources', folded(`The ${ids.length} works the ledger cites`, ul), more);
 }
 
-// What a link to the app carries and can't promise, and the versions running (PLAN §1).
+// What a link to the app carries and can't promise, and the versions running (PLAN §1, §8).
 function links(versions: Versions): HTMLElement {
+  const running = el('p');
+  running.append(
+    `This is Wormlight ${RELEASE}`,
+    ...(COMMIT ? [', built from commit ', link(COMMIT, `${GITHUB}/commit/${COMMIT}`)] : []),
+    `, running model version ${versions.model} on data version ${versions.data}; a link from another version runs ` +
+      'on these, and the app says so.',
+  );
   return section(
     'Sharing a link',
     paragraph(
       "A link to the app sets up its experiment afresh: the food on the dish, the worm's seed, the brain and any " +
-        'lesions, with the versions of the model and data it was made with. The app runs model version ' +
-        `${versions.model} on data version ${versions.data}; a link from another version runs on these, and the app ` +
-        'says so.',
+        'lesions, with the versions of the model and data it was made with.',
     ),
+    running,
     paragraph(
       "On another GPU the worm's path can differ, though the setup is the same: GPUs may compute the same arithmetic " +
         "differently in its last bits, and the worm's dynamics amplify the difference.",

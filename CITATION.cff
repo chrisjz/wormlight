@@ -1,0 +1,78 @@
+cff-version: 1.2.0
+message: >-
+  If you use Wormlight, please cite it as below, giving the version you used. Please also cite the connectome it runs:
+  Cook et al. 2019, as released in Emmons 2024.
+type: software
+title: Wormlight
+abstract: >-
+  A living C. elegans in the browser. The adult hermaphrodite's connectome, run through a graded neuron model and a
+  small, documented set of mechanisms the wiring can't supply, drives a physically simulated body on an agar plate on
+  the GPU, against a CPU reference. Its behavioural checkpoints were fixed in advance from published measurements.
+  Crawling as the first of them asks for it does not yet emerge from the connectome, and the project reports that as
+  its result.
+authors:
+  - family-names: Zaharia
+    given-names: Chris
+version: 0.1.0
+date-released: 2026-10-01
+license: Apache-2.0
+repository-code: 'https://github.com/chrisjz/wormlight'
+url: 'https://chrisjz.github.io/wormlight/'
+keywords:
+  - Caenorhabditis elegans
+  - connectome
+  - computational neuroscience
+  - neuromechanical model
+  - WebGPU
+references:
+  - type: article
+    title: Whole-animal connectomes of both Caenorhabditis elegans sexes
+    authors:
+      - family-names: Cook
+        given-names: Steven J.
+      - family-names: Jarrell
+        given-names: Travis A.
+      - family-names: Brittin
+        given-names: Christopher A.
+      - family-names: Wang
+        given-names: Yi
+      - family-names: Bloniarz
+        given-names: Adam E.
+      - family-names: Yakovlev
+        given-names: Maksim A.
+      - family-names: Nguyen
+        given-names: Ken C. Q.
+      - family-names: Tang
+        given-names: Leo T.-H.
+      - family-names: Bayer
+        given-names: Emily A.
+      - family-names: Duerr
+        given-names: Janet S.
+      - family-names: Bülow
+        given-names: Hannes E.
+      - family-names: Hobert
+        given-names: Oliver
+      - family-names: Hall
+        given-names: David H.
+      - family-names: Emmons
+        given-names: Scott W.
+    journal: Nature
+    volume: 571
+    issue: 7763
+    start: 63
+    end: 71
+    year: 2019
+    doi: 10.1038/s41586-019-1352-7
+  - type: article
+    title: >-
+      Comprehensive analysis of the C. elegans connectome reveals novel circuits and functions of previously unstudied
+      neurons
+    authors:
+      - family-names: Emmons
+        given-names: Scott W.
+    journal: PLOS Biology
+    volume: 22
+    issue: 12
+    start: e3002939
+    year: 2024
+    doi: 10.1371/journal.pbio.3002939

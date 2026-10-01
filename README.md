@@ -98,6 +98,10 @@ The rest, from the data build to the behavioural harness and GPU parity, is list
 | [docs/sign-audit.md](docs/sign-audit.md) | An audit of the command circuit's synapse signs against the literature       |
 | [docs/spec-audit.md](docs/spec-audit.md) | An audit of the repository against the spec, requirement by requirement      |
 
+## Citing
+
+Wormlight's releases are numbered, the first 0.1.0, and listed under the repository's [Releases](https://github.com/chrisjz/wormlight/releases); the live site runs `main`, which can be ahead of the latest, and About the science names the version and commit it runs. To cite Wormlight, use "Cite this repository" on its GitHub page, which reads [CITATION.cff](CITATION.cff), and give the version you used. Please cite the connectome too: Cook et al. 2019, as released in Emmons 2024.
+
 ## Credits
 
 Connectome: [Cook et al. 2019](https://doi.org/10.1038/s41586-019-1352-7), _Nature_ 571:63, as released in [Emmons 2024](https://doi.org/10.1371/journal.pbio.3002939), _PLoS Biol_ 22:e3002939 (CC BY 4.0). Neurotransmitter identities: [Wang et al. 2024](https://doi.org/10.7554/eLife.95402), _eLife_ 13:RP95402. Exported via [Quantum Nematode](https://github.com/SyntheticBrains/nematode). Synapse signs: [Fenyves et al. 2020](https://doi.org/10.1371/journal.pcbi.1007974), joined by Wormlight's own data build.

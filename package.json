@@ -1,7 +1,7 @@
 {
   "name": "wormlight",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "license": "Apache-2.0",
   "description": "A living C. elegans in the browser: its connectome, simulated on the GPU, drives a physically simulated worm.",
