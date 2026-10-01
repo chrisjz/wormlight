@@ -3412,4 +3412,19 @@ W's compute is PLAN §7.5's figure for round 3's procedure on the real wiring an
 
 **Review.** A review of the code found the deal and the pass rules correct, every shard placing each check alike, and the runner closing every Chrome when a shard fails. It found, and the code now does: every shard's odour-field check counts, where the first draft took only the first shard's; each page reports the run's number of places, so a shard short of its last result is caught; each shard's report is written before the merge, and a shard that fails a check it runs whole is named; and the corrections to the page, the runner, the CI workflow's comment and four comments citing the wrong date.
 
-**Status.** Built and revised after review; the breakdown by part follows from the next CI run.
+**Where a shard's time goes** (CI at `c88f4ff`: the checks 410.7 s, the job 474 s). Each shard, by part, in seconds:
+
+| Part                                                | Shard 1 | Shard 2 | Shard 3 | Shard 4 | Dealt |
+| --------------------------------------------------- | ------- | ------- | ------- | ------- | ----- |
+| Loop, one-second states                             | 208     | 206     | 205     | 204     | Yes   |
+| Brain, one-second states                            | 34      | 27      | 29      | 31      | Yes   |
+| Loop, states: each setup's trajectory and GPU world | 62      | 62      | 62      | 63      | No    |
+| Loop, API checks                                    | 66      | 66      | 66      | 67      | No    |
+| Loop, one-step states                               | 12      | 12      | 12      | 12      | No    |
+| Brain: states, noise, API, one-step states, variant | 27      | 27      | 27      | 27      | No    |
+
+- **The duplicated parts aren't free.** About 167 s of every shard's 410 is work every shard repeats, on the same four cores.
+- **The dealt parts slow down too.** A loop one-second state takes about 5.7 s under four shards, against 3.2 s in the whole run, so the cores are shared more than a single-threaded SwiftShader would explain, and dealing everything perfectly would give at most about 2.2 times.
+- **Left, with its estimate.** Dealing the loop's API and one-step checks by setup, and giving the brain's whole checks to one shard each, would cut about 70 s from each shard; the loop's states would still repeat unless one GPU world served every setup, which would change what its API checks test. Together, a job of about 5.5 to 6 minutes, against 7.5 now, for a merge rebuilt around which shard owns which setup. Not taken now: the job is already about four minutes shorter, and the rest is a smaller gain for more machinery.
+
+**Status.** Built and revised after review; the checks are 1.5 to 1.6 times faster on CI.
