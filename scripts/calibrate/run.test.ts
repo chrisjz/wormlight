@@ -11,6 +11,7 @@ import {
 import {
   BOUNDED,
   boundedAllowed,
+  committedRecord,
   continuedFrom,
   mayStartAfresh,
   parseArgs,
@@ -160,5 +161,23 @@ describe("the calibration's record", () => {
     expect(s).toMatchObject({ model: 'track R, bounded', form: 'conductance', budget: 2000 });
     expect(s.start).toEqual(provisionalValues('conductance'));
     expect(BOUNDED.endsWith('data/calibration/r4.json')).toBe(true);
+  });
+});
+
+describe("the calibration's committed records (DECISIONS.md, 2026-10-01)", () => {
+  // Every committed record exists, so each mode that would replace one names it and refuses.
+  const all = (): boolean => true;
+  it("names the record that round 2's full run, the probe and the survey would replace", () => {
+    expect(committedRecord('round 2', true, all)).toBe(SUMMARY);
+    expect(committedRecord('probe', true, all)).toBe(PROBE);
+    expect(committedRecord('survey', true, all)).toBe(SURVEYED);
+  });
+  it('lets a shortened round 2, which writes no committed record, run', () => {
+    expect(committedRecord('round 2', false, all)).toBeNull();
+  });
+  it('leaves round 3 and the bounded calibration to their own rules, and lets a run with no record go ahead', () => {
+    expect(committedRecord('round 3', true, all)).toBeNull();
+    expect(committedRecord('bounded', true, all)).toBeNull();
+    expect(committedRecord('probe', true, () => false)).toBeNull();
   });
 });

@@ -17,6 +17,11 @@ export const REVERSAL_MIN = 1; // s
 export const MID_ROD = 24;
 export const FRONT_ROD = 14;
 export const REAR_ROD = 20;
+// The band about a bout's mean that the mid-body curvature must leave, on the far side, for a crossing of the mean
+// to count (PLAN §7.4, changed after results 2026-10-01, DECISIONS.md): the band within which real worms' mid-body
+// curvature sits 5% of the time, from the pinned postures, to two significant figures. The data build reports it, and
+// a test holds this figure to the report.
+export const FREQUENCY_BAND = 0.31; // κL
 // The longest lag the wavelength's search reaches, half the shortest bout, so every lag pairs at least half of
 // each bout's samples.
 export const LAG_MAX = BOUT_MIN / 2; // s
@@ -84,10 +89,13 @@ export interface BoutSamples {
 }
 
 export interface Kinematics {
-  // The bouts' count and total duration (s), and the mid-body curvature's crossings of each bout's mean.
+  // The bouts' count and total duration (s); the mid-body curvature's crossings of each bout's mean, counted as it
+  // leaves FREQUENCY_BAND on the far side, which give the frequency; and its plain crossings of the mean, which gave
+  // it until 2026-10-01 and are reported beside them.
   bouts: number;
   duration: number;
   crossings: number;
+  meanCrossings: number;
   // Body lengths per second, Hz, and body lengths; null when not measured.
   speed: number | null;
   frequency: number | null;
@@ -102,8 +110,31 @@ export interface Kinematics {
 const slice = (a: ArrayLike<number>, r: Run): number[] => Array.from({ length: r.length }, (_, i) => a[r.start + i]);
 const mean = (a: readonly number[]): number => a.reduce((x, y) => x + y, 0) / a.length;
 
+// Crossings of `m`, each counted once the series has left the band m ± band on the side opposite to the one it last
+// left it on: a bend that stays within the band, or returns to the side it left, counts none.
+export function bandCrossings(series: ArrayLike<number>, m: number, band: number): number {
+  let side = 0;
+  let count = 0;
+  for (let i = 0; i < series.length; i++) {
+    const v = series[i];
+    const at = v > m + band ? 1 : v < m - band ? -1 : 0;
+    if (at === 0) continue;
+    if (side !== 0 && at !== side) count++;
+    side = at;
+  }
+  return count;
+}
+
+// Plain crossings of `m`: sign changes between successive samples.
+export function meanCrossings(series: ArrayLike<number>, m: number): number {
+  let count = 0;
+  for (let i = 1; i < series.length; i++) if ((series[i - 1] - m) * (series[i] - m) < 0) count++;
+  return count;
+}
+
 // The kinematics pooled over every trial's bouts (PLAN §7.4). Speed is the mean forward velocity. Frequency
-// is half the mid-body curvature's crossings of each bout's mean over the bouts' duration. Wavelength is the
+// is half the mid-body curvature's crossings of each bout's mean over the bouts' duration, each counted once the
+// curvature leaves FREQUENCY_BAND about the mean on the far side. Wavelength is the
 // rods' separation over the frequency times the lag at which the rear rod's curvature correlates best with
 // the front's, the correlations summed over bouts. Lags are searched both ways, within half a period and
 // LAG_MAX, and the peak must fall strictly inside on the rear's side, the wave running from head to tail;
@@ -117,6 +148,7 @@ export function kinematics(trials: readonly BoutSamples[], separation: number): 
     bouts: all.length,
     duration,
     crossings: 0,
+    meanCrossings: 0,
     speed: null,
     frequency: null,
     wavelength: null,
@@ -127,16 +159,18 @@ export function kinematics(trials: readonly BoutSamples[], separation: number): 
   if (all.length === 0) return none;
   let forward = 0;
   let crossings = 0;
+  let plain = 0;
   for (const { t, r } of all) {
     forward += slice(t.velocity, r).reduce((a, b) => a + b, 0);
     const mid = slice(t.mid, r);
     const m = mean(mid);
-    for (let i = 1; i < mid.length; i++) if ((mid[i - 1] - m) * (mid[i] - m) < 0) crossings++;
+    crossings += bandCrossings(mid, m, FREQUENCY_BAND);
+    plain += meanCrossings(mid, m);
   }
   const speed = forward / samples;
   const frequency = crossings / 2 / duration;
-  const measured = { ...none, crossings, speed, frequency };
-  if (frequency === 0) return { ...measured, unmeasured: 'no mid-body bending' };
+  const measured = { ...none, crossings, meanCrossings: plain, speed, frequency };
+  if (frequency === 0) return { ...measured, unmeasured: 'no mid-body bend past the band' };
   const half = Math.min(Math.floor(PER_SECOND / (2 * frequency)), Math.round(LAG_MAX * PER_SECOND));
   const centred = all.map(({ t, r }) => {
     const front = slice(t.front, r);

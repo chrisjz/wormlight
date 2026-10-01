@@ -12,6 +12,7 @@ import { bodyFrame, checkAxes, muscles, oscillator, position, sensing } from './
 import { dataSourcesPage, noticePage } from './docs.ts';
 import { parseMorphology, type Morphology } from './nml.ts';
 import { formatMarkdown, renderJson } from './render.ts';
+import { MID_ROD } from '../../src/validation/motion.ts';
 import { addPosture, covariance, emptySums, spanCurvature, varianceCaptured } from '../../src/validation/posture.ts';
 import { checkEigenworms, checkPostures, parseMatrix } from './eigenworms.ts';
 import { checkExport, type NematodeExport } from './export.ts';
@@ -148,6 +149,16 @@ async function build(): Promise<Map<string, string>> {
     .sort((a, b) => a - b);
   const quantile = (q: number): number => bends[Math.floor(q * (bends.length - 1))];
   const fieldCurvature = { fields: fields.length, median: quantile(0.5), p95: quantile(0.95) };
+  // The band checkpoint 1's frequency takes (PLAN §7.4, changed after results 2026-10-01, DECISIONS.md): the 5th
+  // percentile of the magnitude of the mid-body κL less its mean, read over one segment's span about the rod the
+  // trials record, as the model reads it.
+  const segment = 1 / PARAMS.bodyUnits.value;
+  const centre = MID_ROD * segment;
+  const mids = postureRows.map((row) => spanCurvature(row, centre - segment / 2, centre + segment / 2));
+  const midMean = mids.reduce((a, b) => a + b, 0) / mids.length;
+  const spread = mids.map((k) => Math.abs(k - midMean)).sort((a, b) => a - b);
+  const at = (q: number): number => spread[Math.floor(q * (spread.length - 1))];
+  const midCurvature = { at: centre, mean: midMean, p5: at(0.05), p10: at(0.1), median: at(0.5) };
   const report = buildReport({
     data,
     fenyves: [fenyvesS1, fenyvesS5],
@@ -159,6 +170,7 @@ async function build(): Promise<Map<string, string>> {
     eigenworms,
     postures,
     fieldCurvature,
+    midCurvature,
   });
 
   const outputs = new Map<string, string>();

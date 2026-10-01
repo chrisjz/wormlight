@@ -29,8 +29,10 @@ function crawler(seed: number, frequency: number, lag: number, options: { revers
     ava: Array<number>(n).fill(0),
   };
 }
-// The frequency's interval for set(0.3) against set(0.301) over 80 resamples, from the model's hash.
-const PINNED = [-0.002732240437158473, 0.0002293577981651307];
+// The frequency's interval for set(0.3) against set(0.301) over 80 resamples, from the model's hash. Re-pinned when
+// checkpoint 1's count took its band (PLAN §7.4, changed after results 2026-10-01), which moves where a crossing near
+// a bout's edge is counted; under the plain count it was [-0.002732240437158473, 0.0002293577981651307].
+const PINNED = [-0.0015981735159817378, -0.00022831050228311334];
 // Twenty trials whose frequencies spread around `centre`, a few of them reversing once.
 const set = (centre: number): TrialRecord[] =>
   Array.from({ length: 20 }, (_, k) =>

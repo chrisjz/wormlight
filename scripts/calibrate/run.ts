@@ -41,7 +41,7 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { CALIBRATED, loopParams, type Form } from '../../src/sim/world.ts';
@@ -333,6 +333,15 @@ export const boundedAllowed = (survey: SurveyVerdict | null): boolean =>
 
 // Whether round 3 may run on the real wiring: only once the survey has run to its end and found a pick at least
 // partial, and only once, before its record is committed (PLAN §9).
+// The committed record a run would replace, if it exists: round 2's full run, the probe and the survey have run, under
+// checkpoint 1's plain count of crossings, and none runs again under the band that replaced it (PLAN §7.4, changed after
+// results 2026-10-01, DECISIONS.md). Round 3 and the bounded calibration have rules of their own. Moving the record
+// aside is a decision to rerun.
+export function committedRecord(mode: Mode, full: boolean, exists: (path: string) => boolean): string | null {
+  const path = mode === 'probe' ? PROBE : mode === 'survey' ? SURVEYED : mode === 'round 2' && full ? SUMMARY : null;
+  return path !== null && exists(path) ? path : null;
+}
+
 export const roundThreeAllowed = (survey: SurveyVerdict | null, recorded: boolean): boolean =>
   survey !== null && survey.complete === true && survey.partial === true && !recorded;
 
@@ -432,6 +441,12 @@ if (process.argv.includes('--worker')) {
         'round 3 runs once, after a survey that found a crawl: data/calibration/survey.json says otherwise, or data/calibration/r5.json is already committed',
       );
     }
+  }
+  const replaces = committedRecord(mode, full, existsSync);
+  if (replaces) {
+    throw new Error(
+      `${relative(ROOT, replaces)} already records this run, under checkpoint 1's plain count of crossings; none runs again under the band (DECISIONS.md, 2026-10-01). Move it aside to rerun on purpose.`,
+    );
   }
   const head = {
     ...settings(options.budget, mode),

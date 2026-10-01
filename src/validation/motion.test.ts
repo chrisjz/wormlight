@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { bouts, forwardVelocity, kinematics, reversals, runs, type BoutSamples } from './motion.ts';
+import {
+  FREQUENCY_BAND,
+  bandCrossings,
+  bouts,
+  forwardVelocity,
+  kinematics,
+  meanCrossings,
+  reversals,
+  runs,
+  type BoutSamples,
+} from './motion.ts';
 
 // Samples every 0.1 s of a centroid moving along x at `speed` body lengths per second, with the head a
 // quarter of a body length ahead of it (or behind, for a worm backing up).
@@ -137,6 +147,7 @@ describe('kinematics', () => {
       bouts: 0,
       duration: 0,
       crossings: 0,
+      meanCrossings: 0,
       speed: null,
       frequency: null,
       wavelength: null,
@@ -158,6 +169,59 @@ describe('kinematics', () => {
       0.125,
     );
     expect(still.speed).toBeCloseTo(0.05, 12);
-    expect([still.frequency, still.wavelength, still.unmeasured]).toEqual([0, null, 'no mid-body bending']);
+    expect([still.frequency, still.wavelength, still.unmeasured]).toEqual([0, null, 'no mid-body bend past the band']);
+  });
+});
+
+describe("the frequency's band (PLAN §7.4, changed after results 2026-10-01)", () => {
+  const sine = (f: number, amplitude: number, n: number): number[] =>
+    Array.from({ length: n }, (_, k) => amplitude * Math.sin(2 * Math.PI * f * k * 0.1));
+
+  it('counts a clean wave as the plain count does', () => {
+    const wave = sine(0.3, 5, 400).map((v) => v + 0.4);
+    expect(bandCrossings(wave, 0.4, FREQUENCY_BAND)).toBe(meanCrossings(wave, 0.4));
+    expect(bandCrossings(wave, 0.4, FREQUENCY_BAND)).toBe(23);
+  });
+
+  it('counts no crossing for chatter that stays within the band', () => {
+    const chatter = Array.from({ length: 200 }, (_, k) => (k % 2 === 0 ? 0.2 : -0.2));
+    expect(meanCrossings(chatter, 0)).toBe(199);
+    expect(bandCrossings(chatter, 0, FREQUENCY_BAND)).toBe(0);
+  });
+
+  // A slow, shallow wave lingers near its mean, where a flicker of ±0.15 κL rides on it: the plain count takes 39
+  // crossings, the band the wave's 7.
+  const flicker = (v: number, k: number): number => (Math.abs(v) < 0.5 ? v + (k % 2 === 0 ? 0.15 : -0.15) : v);
+
+  it('counts each crossing of a wave once when chatter rides on it', () => {
+    const [clean, wave] = [sine(0.1, 1, 400), sine(0.1, 1, 400).map(flicker)];
+    expect(meanCrossings(clean, 0)).toBe(7);
+    expect(meanCrossings(wave, 0)).toBe(39);
+    expect(bandCrossings(wave, 0, FREQUENCY_BAND)).toBe(7);
+  });
+
+  it('counts none when a bend leaves the band and returns to the same side', () => {
+    const bumps = [0, 1, 0, 1, 0, 1, 0];
+    expect(bandCrossings(bumps, 0, FREQUENCY_BAND)).toBe(0);
+    expect(bandCrossings([0, 1, 0, -1, 0, 1], 0, FREQUENCY_BAND)).toBe(2);
+  });
+
+  it('measures a crawling worm whose bends flicker about its mean as a clean one', () => {
+    const trial = (flickers: boolean): BoutSamples => {
+      const n = 400;
+      const at = (t: number): number => Math.sin(2 * Math.PI * 0.1 * t);
+      const t = Array.from({ length: n }, (_, k) => k * 0.1);
+      return {
+        velocity: t.map(() => 0.22),
+        mid: t.map((s, k) => (flickers ? flicker(at(s), k) : at(s))),
+        front: t.map(at),
+        rear: t.map((s) => at(s - 0.125 / (0.1 * 0.65))),
+        bouts: [{ start: 0, length: n }],
+      };
+    };
+    const [clean, flickering] = [kinematics([trial(false)], 0.125), kinematics([trial(true)], 0.125)];
+    expect(flickering.frequency).toBe(clean.frequency);
+    expect(flickering.wavelength).toBe(clean.wavelength);
+    expect(flickering.meanCrossings).toBeGreaterThan(clean.meanCrossings);
   });
 });

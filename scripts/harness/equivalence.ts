@@ -7,10 +7,11 @@
 // from data/calibration/r2.json, the second round's from r3.json and round 3's picks from r5.json, whatever the
 // registry holds; the planned fit is src/science/planned.ts's, with its white noise. A full run writes
 // data/equivalence/<fit>.json, round-3-pick-<N>.json for round 3's, and regenerates VALIDATION.md's section from every
-// fit's file; --trials shortens a run for a look, writing only to harness-out/. Trees and records go to
-// harness-out/equivalence/, in folders named by a hash of the sources the trials depend on (treeSource), so a run at
-// other sources never touches another's, and a set is reused whole or in part while its manifest matches. Each tree
-// carries its sources, which every trial checks before it runs.
+// fit's file, and refuses while that fit's record exists, since those were made under checkpoint 1's plain count of
+// crossings (DECISIONS.md, 2026-10-01); --trials shortens a run for a look, writing only to harness-out/. Trees and
+// records go to harness-out/equivalence/, in folders named by a hash of the sources the trials depend on (treeSource),
+// so a run at other sources never touches another's, and a set is reused whole or in part while its manifest
+// matches. Each tree carries its sources, which every trial checks before it runs.
 //
 // Round 3's picks take the comparison in their order, down the four until one passes (PLAN §9): a full run of pick N
 // needs picks 1 to N − 1 to have failed it, at their recorded values. The first to pass is round 3's fit. Its run
@@ -204,6 +205,11 @@ async function runJob(job: Job): Promise<void> {
   writeWhole(job.out, JSON.stringify(record));
 }
 
+// Whether a full run of `name` would replace a committed record. Those records were made under checkpoint 1's plain
+// count of crossings, and no past comparison is graded again under the band that replaced it (PLAN §7.4, changed after
+// results 2026-10-01, DECISIONS.md), so a full run refuses while one exists; moving it aside is a decision to rerun.
+export const recorded = (name: string): boolean => existsSync(join(RESULTS, `${name}.json`));
+
 const USAGE = 'npm run equivalence -- --fit <refit|round-2|planned|round-3> [--pick N] [--jobs N] [--trials N]';
 
 // Every option given once, each with its value after it, so that a mistyped one can't run the full comparison.
@@ -276,6 +282,11 @@ if (process.argv[2] === '--worker') {
     const path = join(RESULTS, `${nameOf('round-3', k)}.json`);
     return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as { comparison?: { pass?: boolean } }) : null;
   };
+  if (full && recorded(name)) {
+    throw new Error(
+      `data/equivalence/${name}.json already records this comparison, under the plain count of crossings; no past comparison is run again under the band (DECISIONS.md, 2026-10-01). Move it aside to rerun on purpose, or use --trials for a look.`,
+    );
+  }
   if (round3 && full && !mayTake(pick, earlier, (k) => valuesOf('round-3', k))) {
     throw new Error(`pick ${pick} takes the comparison only once picks 1 to ${pick - 1} have failed it (PLAN §9)`);
   }

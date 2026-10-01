@@ -272,7 +272,7 @@
       "use": "tests",
       "pins": ["oist-postures"],
       "dataset": "Real postures from the OIST Physics of Behavior tutorials (Zenodo doi:10.5281/zenodo.15099731, v1.0), `data/shapes.csv`: 6,655 postures that the tutorial introduces as coming from the experiment of Stephens et al. 2008",
-      "takes": "The starting postures of checkpoints 0 and 1: each trial starts from one, drawn by its seed (PLAN §7.4). The data build also scores the eigenworm basis on them, the in-sample check above",
+      "takes": "The starting postures of checkpoints 0 and 1: each trial starts from one, drawn by its seed (PLAN §7.4). The data build also scores the eigenworm basis on them, the in-sample check above, and takes from them the curvature PLAN §7.3's 1 mV rule reads for proprioception's bounds and the band checkpoint 1's frequency count needs the mid-body curvature to leave (PLAN §7.4)",
       "route": "Downloaded and checked by the data build; read by the harness",
       "licence": "CC BY 4.0, per the Zenodo record of v1.0, whose archive holds this file byte for byte. Not redistributed: the build and the harness read it from its pinned URL"
     },

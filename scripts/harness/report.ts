@@ -20,6 +20,7 @@ import {
   type TrialSummary,
 } from '../../src/validation/checkpoints.ts';
 import type { Measure, StepComparison } from '../../src/validation/equivalence.ts';
+import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import { FAR_OUTSIDE } from '../../src/validation/trial.ts';
 import { table } from '../data/render.ts';
 import { formatNumber } from '../docs/page.ts';
@@ -360,7 +361,7 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
       ? 'No trial had a forward bout of 10 s or more, so the kinematics are unmeasured.'
       : [
           `The kinematics come from ${count(k.bouts, 'forward bout')} of 10 s or more, ${k.duration.toFixed(1)} s in all.`,
-          `Over them the mid-body curvature crossed its mean ${count(k.crossings, 'time')}, ${(k.crossings / k.bouts).toFixed(1)} a bout; a full undulation crosses twice.`,
+          `Over them the mid-body curvature crossed its mean ${count(k.crossings, 'time')}, ${(k.crossings / k.bouts).toFixed(1)} a bout, counting a crossing once the curvature left ±${FREQUENCY_BAND} κL about the mean on the far side; a full undulation crosses twice. By the plain count it replaced (PLAN §7.4, changed after results 2026-10-01), it crossed ${count(k.meanCrossings, 'time')}, for a frequency of ${(k.meanCrossings / 2 / k.duration).toFixed(3)} Hz.`,
           k.lag === null
             ? ''
             : `The rear rod's curvature correlated best with the front's at a lag of ${fixed(k.lag, 2)} s (correlation ${fixed(k.correlation ?? 0, 2)})${k.wavelength === null ? `: ${k.unmeasured}` : ''}.`,
