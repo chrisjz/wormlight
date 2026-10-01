@@ -95,9 +95,9 @@ function held(network: Network, s: Held, input?: Float64Array): { d: Float64Arra
   return { d, b };
 }
 
-// Each neuron's passive load at rest (nS): its leak, its gap junctions and its synapses at the midpoint activation,
-// with its partners held and the oscillators off. The conductance form's bounds and shunt are taken against it
-// (PLAN §4.3, §7.3).
+// Each neuron's passive load at rest (nS): its leak, its gap junctions and its synapses at their resting activations,
+// the midpoint unless given, with its partners held and the oscillators off. The conductance form's bounds and shunt
+// are taken against it (PLAN §4.3, §7.3).
 export const passiveLoads = (network: Network, s: Held = midpointActivation(network)): Float64Array =>
   held(network, s).d;
 
@@ -208,7 +208,7 @@ export class Brain {
   private readonly maxIterations: number;
 
   // How far each neuron rests below its threshold, in mV: 0 for every neuron but in track S's model, whose class
-  // offsets rest the A-types below theirs and the D-types above (PLAN §3.3; DECISIONS.md, 2026-10-02).
+  // offsets rest the D-types above theirs (PLAN §3.3; DECISIONS.md, 2026-10-02).
   readonly offset: Float64Array;
 
   constructor(network: Network, threshold: Float64Array, options: SolverOptions = {}, offset?: ArrayLike<number>) {
@@ -236,6 +236,11 @@ export class Brain {
     this.rest();
   }
 
+  // Each neuron's activation at rest, from its offset: the midpoint for every neuron without one.
+  restActivations(): Float64Array {
+    return Float64Array.from(this.offset, (o) => restActivation(this.network, o));
+  }
+
   // Attach oscillators, each starting on its w-nullcline at the neuron's present voltage.
   setOscillators(oscillators: Oscillators | null): void {
     checkOscillators(oscillators);
@@ -259,7 +264,7 @@ export class Brain {
   rest(): void {
     this.setState(
       Float64Array.from(this.threshold, (v, i) => v - this.offset[i]),
-      Float64Array.from(this.offset, (o) => restActivation(this.network, o)),
+      this.restActivations(),
     );
     if (this.oscillators) this.setOscillators(this.oscillators);
   }

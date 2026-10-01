@@ -53,7 +53,7 @@ export const REST_OFFSET = { D: PARAMS.restOffsetD.value } as const;
 // Wang 2020), against VB6's −53.2 mV, so 29.0 and 16.0 mV above their midpoints. A cell that holds several stable
 // states has no single rest, so track S's model leaves AVA at its midpoint and the setting shows what an offset
 // would do.
-export const AVA_REST_OFFSET = { AVAL: -29.0, AVAR: -16.0 } as const;
+export const AVA_REST_OFFSET = { AVAL: PARAMS.restOffsetAvaL.value, AVAR: PARAMS.restOffsetAvaR.value } as const;
 
 // Which offsets a World's model takes: none, track S's measured classes, or those with AVA's as well.
 export type RestOffsets = 'measured' | 'measured with AVA';

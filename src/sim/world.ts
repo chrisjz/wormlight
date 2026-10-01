@@ -60,8 +60,8 @@ export interface LoopParams {
   // Track S's model (PLAN §9; DECISIONS.md, 2026-10-01): its measured signs, applied to the data before anything is
   // built from it. Left out, the runtime data's signs, which the refit runs on.
   measuredSigns?: boolean;
-  // Track S's class offsets (PLAN §3.3; DECISIONS.md, 2026-10-02): the A-types rest below their thresholds and the
-  // D-types above, or AVA too, for a sensitivity setting. Left out, every neuron rests at its threshold.
+  // Track S's class offsets (PLAN §3.3; DECISIONS.md, 2026-10-02): the D-types rest above their thresholds, or AVA
+  // too, for a sensitivity setting. Left out, every neuron rests at its threshold.
   restOffsets?: RestOffsets;
 }
 
@@ -251,6 +251,10 @@ export class World {
     const whole = scaleGap(options.network ?? cookNetwork(data), bTypes, params.gapGainB ?? 1);
     // Each neuron's offset below its threshold, and the rest they set, with every activation held at its own value.
     const offset = params.restOffsets ? restOffsets(data, params.restOffsets) : null;
+    // The head switch's gate reads its SMDs and their partners as resting at their thresholds and midpoints.
+    if (offset && data.neurons.some((n, i) => n.name.startsWith('SMD') && offset[i] !== 0)) {
+      throw new Error('the head switch reads its SMDs at their thresholds, so no SMD takes an offset');
+    }
     const rest = offset ? restOf(whole, offset) : null;
     const thresholds = rest ? rest.threshold : equilibrium(whole, midpointActivation(whole));
     const lesioned = new Set(options.lesions ?? []);
@@ -432,8 +436,8 @@ export class World {
 
   // Take on the state of another world on the same neurons, body and seed, as a worm whose brain has just changed
   // under it: a lesion made or undone, or another brain in its place (spec §6). Every neuron keeps its voltage
-  // relative to its threshold, its activation and its noise current, so a neuron at its old brain's rest lands at its
-  // new brain's, which a lesion leaves where it was (PLAN §3.3) and a swap moves (changed after review, 2026-09-30,
+  // relative to its rest, its threshold less its offset, its activation and its noise current, so a neuron at its old
+  // brain's rest lands at its new brain's, which a lesion leaves where it was (PLAN §3.3) and a swap moves (changed after review, 2026-09-30,
   // DECISIONS.md). Every oscillator both worlds share keeps its recovery, and every touch receptor both share its
   // pulse; the body, muscles, head switch, AWC-ON and the step count carry over whole. An oscillator only this world
   // has starts on its w-nullcline at its neuron's voltage, as a new world's do, and a receptor only it has starts
@@ -447,7 +451,8 @@ export class World {
     if (brain.recovery.length !== from.brain.recovery.length || state.touchLeft.length !== from.receptors.length) {
       throw new Error("the state isn't the world it is carried from");
     }
-    const shift = Float64Array.from(this.brain.threshold, (t, i) => t - from.brain.threshold[i]);
+    const rest = (w: World, i: number): number => w.brain.threshold[i] - w.brain.offset[i];
+    const shift = Float64Array.from(this.brain.threshold, (_, i) => rest(this, i) - rest(from, i));
     const voltage = Float64Array.from(brain.voltage, (v, i) => v + shift[i]);
     const previousVoltage = Float64Array.from(brain.previousVoltage, (v, i) => v + shift[i]);
     // Every oscillator on its nullcline at the voltages carried, then the shared ones' recovery carried over.

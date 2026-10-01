@@ -351,7 +351,8 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     states: 10,
   },
   // Track S's model (DECISIONS.md, 2026-10-02): its measured signs and class offsets, in the conductance form it is
-  // calibrated in, so that both sides rest its A- and D-types off their thresholds and shift their oscillators.
+  // calibrated in, so that both sides rest its D-types above their thresholds, set its touch's currents and its
+  // muscles' baseline at that rest, and run its signs.
   {
     name: 'track S',
     params: {

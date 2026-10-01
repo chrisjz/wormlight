@@ -97,7 +97,9 @@ describe("track S's world", () => {
     const activation = Float64Array.from(world.brain.offset, (o) => restActivation(world.brain.network, o));
     expect(world.touchSets).toBe(touchData(signed, activation));
     expect(refit.touchSets).toBe(touchData(data));
-    expect(world.touchSets).not.toBe(refit.touchSets);
+    expect(world.touchSets).not.toBe(touchData(signed));
+    const tapped = (t: typeof world.touchSets): number[] => Array.from(t.sets.values()).flatMap((c) => Array.from(c));
+    expect(tapped(world.touchSets)).not.toEqual(tapped(touchData(signed)));
   });
 
   it('refuses a model whose AWC gain is not set', () => {
@@ -168,6 +170,49 @@ describe("the rules set at rest, on track S's model", () => {
     let least = Infinity;
     for (let i = 0; i < w.brain.n; i++) least = Math.min(least, inputConductance(w.brain.network, activation, i));
     const sigma = 0.02 * Math.sqrt(2 * w.brain.network.capacitance * 1e-9 * least * 1e-9) * 1e12;
+    expect(+sigma.toPrecision(3)).toBe(PARAMS.noiseIntensity.bounds?.[1]);
+  });
+});
+
+describe('an offset on an oscillating neuron, and the AVA setting', () => {
+  it("puts an oscillator's recovery where its neuron's rest leaves it: x = −θ/v₀ whatever the offset", () => {
+    const network = cookNetwork(data);
+    const offset = new Float64Array(network.names.length);
+    const neuron = at('VA5');
+    offset[neuron] = 12;
+    const rest = restOf(network, offset);
+    const brain = new Brain(network, rest.threshold, {}, offset);
+    const theta = 3;
+    brain.setOscillators({
+      neurons: Int32Array.of(neuron),
+      shift: Float64Array.of(theta - offset[neuron]),
+      gain: Float64Array.of(1),
+      recovery: 1,
+    });
+    const v0 = 1 / (2 * network.slope);
+    expect(brain.voltage[neuron]).toBeCloseTo(rest.threshold[neuron] - 12, 12);
+    expect(brain.recovery[0]).toBeCloseTo((-theta / v0 + 0.7) / 0.8, 12);
+  });
+
+  it("rests AVA above its threshold, every threshold within the reversal potentials, and the head's drive at 0", () => {
+    const ava = new World(data, { ...currentParams(), measuredSigns: true, restOffsets: 'measured with AVA' });
+    const { voltage, threshold } = ava.brain;
+    expect(threshold[at('AVAL')] - voltage[at('AVAL')]).toBeCloseTo(-29, 9);
+    expect(threshold[at('AVAR')] - voltage[at('AVAR')]).toBeCloseTo(-16, 9);
+    for (let i = 0; i < threshold.length; i++) {
+      expect(threshold[i], data.neurons[i].name).toBeLessThan(PARAMS.reversalExcitatory.value);
+      expect(threshold[i], data.neurons[i].name).toBeGreaterThan(PARAMS.reversalInhibitory.value);
+    }
+    expect(Math.abs(ava.headDrive())).toBeLessThan(1e-9);
+  });
+
+  it("finds σ_n's bound where the registry has it on the runtime model too: IL2DL at 20 mV", () => {
+    const network = cookNetwork(data);
+    let least = Infinity;
+    for (let i = 0; i < network.names.length; i++) {
+      least = Math.min(least, inputConductance(network, midpointActivation(network), i));
+    }
+    const sigma = 0.02 * Math.sqrt(2 * network.capacitance * 1e-9 * least * 1e-9) * 1e12;
     expect(+sigma.toPrecision(3)).toBe(PARAMS.noiseIntensity.bounds?.[1]);
   });
 });
