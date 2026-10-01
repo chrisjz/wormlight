@@ -40,6 +40,7 @@ import {
   type ParityCase,
   type ParitySetup,
 } from './parityCases.ts';
+import { brainPasses, takes, WHOLE, type Shard } from './parityShards.ts';
 import { RNG_WGSL } from './rngShader.ts';
 
 async function gpuBrain(device: GPUDevice, setup: ParitySetup): Promise<GpuBrain> {
@@ -438,7 +439,13 @@ export interface ParityReport {
   seconds: number;
 }
 
-export async function runParity(device: GPUDevice, adapter: string, data: WormlightData): Promise<ParityReport> {
+// The brain's checks; a shard runs every one-second check its deal gives it, and every other check whole.
+export async function runParity(
+  device: GPUDevice,
+  adapter: string,
+  data: WormlightData,
+  shard: Shard = WHOLE,
+): Promise<ParityReport> {
   const started = performance.now();
   const setup = paritySetup(data);
   const variant = variantSetup(setup);
@@ -449,7 +456,8 @@ export async function runParity(device: GPUDevice, adapter: string, data: Wormli
   const gpu = await gpuBrain(device, setup);
   try {
     for (const c of setup.cases) oneStep.push(await checkOneStep(gpu, setup, c));
-    for (const c of setup.cases) oneSecond.push(await checkOneSecond(gpu, setup, c));
+    for (const [k, c] of setup.cases.entries())
+      if (takes(shard, k)) oneSecond.push(await checkOneSecond(gpu, setup, c));
   } finally {
     gpu.destroy();
   }
@@ -474,15 +482,7 @@ export async function runParity(device: GPUDevice, adapter: string, data: Wormli
     oneStep,
     oneSecond,
     variant: variantResult,
-    pass:
-      noise.pass &&
-      api.every((r) => r.pass) &&
-      oneStep.every((r) => r.pass) &&
-      oneSecond.every((r) => r.pass) &&
-      oneSecond.filter((r) => !r.graded).length <= MOST_ILL_POSED * oneSecond.length &&
-      variantResult.oneStep.pass &&
-      variantResult.oneSecond.graded &&
-      variantResult.oneSecond.pass,
+    pass: brainPasses({ noise, api, oneStep, oneSecond, variant: variantResult }),
     seconds: (performance.now() - started) / 1000,
   };
 }

@@ -17,6 +17,7 @@ import {
 } from './loopParity.ts';
 import { runFieldParity, type FieldReport } from './fieldParity.ts';
 import { runBench, runParity, type BenchReport, type ParityReport, type StepResult } from './parity.ts';
+import { parseShard, type Shard } from './parityShards.ts';
 import { describeGpuSupport, probeWebGpu } from './support.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -132,6 +133,9 @@ function showParity(report: ParityReport): void {
 }
 
 type FullReport = ParityReport & {
+  // The share of the one-second checks this page ran (DECISIONS.md, 2026-10-01): the whole run unless its query
+  // names a shard, as CI's runner does.
+  shard: Shard;
   loop: LoopReport | { error: string; pass: false };
   field: FieldReport | { error: string; pass: false };
   brainPass: boolean;
@@ -306,7 +310,7 @@ function fail(e: unknown): void {
 
 async function start(): Promise<{
   parity: Promise<FullReport>;
-  bench: Promise<FullBench>;
+  bench: () => Promise<FullBench>;
   long: () => Promise<LongReport>;
 }> {
   const support = await probeWebGpu(navigator.gpu);
@@ -324,16 +328,19 @@ async function start(): Promise<{
   if (!response.ok) throw new Error(`the connectome could not be loaded: the server answered ${response.status}`);
   const data: WormlightData = validateWormlightData(await response.json());
   // The loop's and the field's checks run after the brain's; if they stop, the brain's results still stand.
+  const query = new URLSearchParams(location.search);
+  const shard = parseShard(query.get('shard'));
   const began = performance.now();
-  const parity = runParity(device, adapter, data).then(async (brain): Promise<FullReport> => {
+  const parity = runParity(device, adapter, data, shard).then(async (brain): Promise<FullReport> => {
     const stopped = (e: unknown): { error: string; pass: false } => ({
       error: e instanceof Error ? e.message : String(e),
       pass: false,
     });
-    const loop = await runLoopParity(device, data).catch(stopped);
+    const loop = await runLoopParity(device, data, shard).catch(stopped);
     const field = await runFieldParity(device).catch(stopped);
     return {
       ...brain,
+      shard,
       loop,
       field,
       brainPass: brain.pass,
@@ -341,21 +348,28 @@ async function start(): Promise<{
       seconds: (performance.now() - began) / 1000,
     };
   });
-  const bench = parity.then(async (): Promise<FullBench> => ({
-    ...(await runBench(device, adapter, data)),
-    loop: await runLoopBench(device, data),
-  }));
+  // The benchmark follows the checks on a whole run, and waits to be asked for on a shard, whose fellows may still
+  // be running on the same cores.
+  let benched: Promise<FullBench> | null = null;
+  const runBenchmark = (): Promise<FullBench> =>
+    (benched ??= parity.then(async (): Promise<FullBench> => ({
+      ...(await runBench(device, adapter, data)),
+      loop: await runLoopBench(device, data),
+    })));
+  const bench = shard.count === 1 ? runBenchmark() : parity.then(() => null);
   let long: Promise<LongReport> | null = null;
-  const runLong = (): Promise<LongReport> => (long ??= bench.then(() => runLongParity(device, data)));
+  const runLong = (): Promise<LongReport> => (long ??= runBenchmark().then(() => runLongParity(device, data)));
   parity.then((report) => {
     showParity(report);
     showLoop(report.loop);
     showField(report.field);
   }, fail);
-  bench.then(showBench, fail).finally(() => {
-    if (!new URLSearchParams(location.search).has('long')) status.remove();
-  });
-  if (new URLSearchParams(location.search).has('long')) {
+  bench
+    .then((report) => report && showBench(report), fail)
+    .finally(() => {
+      if (!query.has('long')) status.remove();
+    });
+  if (query.has('long')) {
     void bench.then(() => {
       status.textContent = 'Running the long runs…';
     });
@@ -363,7 +377,7 @@ async function start(): Promise<{
       .then(showLong, fail)
       .finally(() => status.remove());
   }
-  return { parity, bench, long: runLong };
+  return { parity, bench: runBenchmark, long: runLong };
 }
 
 const started = start();
@@ -374,5 +388,5 @@ const hooks = window as unknown as {
   __long: () => Promise<LongReport>;
 };
 hooks.__parity = () => started.then((s) => s.parity);
-hooks.__bench = () => started.then((s) => s.bench);
+hooks.__bench = () => started.then((s) => s.bench());
 hooks.__long = () => started.then((s) => s.long());

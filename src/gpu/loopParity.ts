@@ -33,7 +33,6 @@ import {
   LOOP_SETUPS,
   LOOP_STEP,
   loopCases,
-  MOST_ILL_POSED,
   movedAndTurned,
   ONE_SECOND,
   OTHER_SEED,
@@ -53,6 +52,7 @@ import {
   type LoopSetup,
 } from './parityCases.ts';
 import { GpuField } from './field.ts';
+import { loopPasses, takes, WHOLE, type Shard } from './parityShards.ts';
 import { packOdour } from './loopLayout.ts';
 import { GpuWorld } from './world.ts';
 
@@ -517,11 +517,14 @@ async function checkAwcApi(device: GPUDevice, data: WormlightData, gpu: GpuWorld
   }
 }
 
-export async function runLoopParity(device: GPUDevice, data: WormlightData): Promise<LoopReport> {
+// The loop's checks; a shard runs every one-second check its deal gives it, by the check's place over every setup,
+// and every other check whole.
+export async function runLoopParity(device: GPUDevice, data: WormlightData, shard: Shard = WHOLE): Promise<LoopReport> {
   const started = performance.now();
   const api: ApiResult[] = [];
   const oneStep: LoopStepResult[] = [];
   const oneSecond: LoopSecondResult[] = [];
+  let place = 0;
   for (const setup of LOOP_SETUPS) {
     const cases = loopCases(data, setup);
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
@@ -543,7 +546,7 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
         oneStep.push(await checkLoopStep(gpu, data, c));
       }
       for (const c of withCopies(cases, setup, true, radii, wall, receptors, sets)) {
-        oneSecond.push(await checkLoopSecond(gpu, data, c));
+        if (takes(shard, place++)) oneSecond.push(await checkLoopSecond(gpu, data, c));
       }
     } finally {
       gpu.destroy();
@@ -553,11 +556,7 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData): Pro
     api,
     oneStep,
     oneSecond,
-    pass:
-      api.every((r) => r.pass) &&
-      oneStep.every((r) => r.pass) &&
-      oneSecond.every((r) => r.pass) &&
-      oneSecond.filter((r) => !r.graded).length <= MOST_ILL_POSED * oneSecond.length,
+    pass: loopPasses({ api, oneStep, oneSecond }),
     seconds: (performance.now() - started) / 1000,
   };
 }

@@ -3393,3 +3393,19 @@ W's compute is PLAN §7.5's figure for round 3's procedure on the real wiring an
 - **The code:** a module comment claiming AWC's gains read the signs; CI skipping the data job when only the module changed; errors naming the wrong file; a network accepted beside the switch; the side file's line endings; an export that would have run the build if imported; and the copy rebuilt for every world.
 
 **Status.** Built and revised after review. The offsets come next, in a pull request of their own.
+
+## 2026-10-02 — GPU parity's one-second checks, dealt across four Chromes in CI
+
+**Why.** The GPU job had grown to about eleven minutes, much the slowest of CI's jobs, and the maintainer asked for ways to shorten it. Its parity checks took 621 s at `2312fe1` and the benchmark after them about 20 s more; setup took under a minute. The run's own figures put the cost in the one-second checks: on SwiftShader, Chrome's software GPU, a loop step takes about 8 ms, and the loop's 145 one-second states take 400 steps each, about 470 s, with the brain's 21 about 60 s more; the CPU reference in the page, at 13 times real time, takes about 30 s. The shader runs a whole world in one workgroup, which SwiftShader executes on one CPU core, so three of the runner's four cores sat idle. Track S's offsets and rectifier will add parity setups, which would take the run towards the runner's 900 s limit.
+
+**Decision.** The maintainer chose the recommendation: deal the checks across shards, and take no benchmark in CI.
+
+- **What is dealt.** Only the one-second checks, the brain's and the loop's, round-robin by their place in the whole run's order; every shard runs everything else whole: the noise, the API checks, the one-step states, the lesioned variant and the odour field. Those are cheap and deterministic, and run in parallel, so they cost no time, and every shard must pass them.
+- **The merge** (`src/gpu/parityShards.ts`). The runner launches four pages, each in a Chrome of its own, with `?shard=k/4`, and merges their reports: each list of one-second results is interleaved back into the whole run's order, after checking each shard holds exactly the results the deal gives it, and the pass rules are applied again to the merged run. So the rule that at most a quarter of the states may go ungraded is taken over the whole run, never per shard. The pass rules moved into that module, so the page and the merge apply the same ones.
+- **Defaults.** `npm run gpu:parity` takes four shards on CI (`WEBGPU_CI`) and one elsewhere, and `--shards=N` sets it. The long runs and Safari take one: they run locally, on a real GPU. A sharded page takes its benchmark only when asked, and the runner asks only on a whole run, since a finished shard's benchmark would share the cores the others are still using. The benchmark times SwiftShader, which says nothing about a real GPU, and nothing grades it.
+- **Checked here.** On this Mac's GPU the whole run and four shards gave identical results, every one-step and one-second state in the same order, and both passed: 19.6 s whole, 8.7 s in four shards. CI's first sharded run gives the software GPU's figure (below).
+- Considered: fewer one-second states, which would weaken the check and change PLAN §7.2's protocol; running parity only after merging, which would let a failure reach `main`; a larger runner, which a run bound to one core can't use; Mesa's lavapipe in place of SwiftShader, whose gain is unknown; a world spread over many workgroups, a shader rework out of proportion to a CI saving; and skipping the GPU's second for states the CPU leaves ungraded, which would drop their errors from the report, left for now.
+
+**Exploration, disclosed.** None; parity's checks and thresholds are unchanged, and no trial ran.
+
+**Status.** Built.
