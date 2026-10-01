@@ -26,7 +26,7 @@ const OVERRIDES = 'data/sign-overrides.csv';
 // Track S's measured signs, which only its model applies until its fit is chosen (DECISIONS.md, 2026-10-01), and the
 // module the build generates from them.
 const TRACK_S_OVERRIDES = 'data/sign-overrides-s.csv';
-export const TRACK_S_MODULE = 'src/data/trackSSigns.ts';
+const TRACK_S_MODULE = 'src/data/trackSSigns.ts';
 
 function firstFile(pin: Pin): NonNullable<Pin['files']>[number] {
   const file = pin.files?.[0];
@@ -81,7 +81,7 @@ async function build(): Promise<Map<string, string>> {
   // Track S's rows are checked as the main file's are, and against it: each cites the registry, names an edge Cook
   // has, and appears once across both files, which signChemical below enforces with them merged.
   const trackSText = readFileSync(join(ROOT, TRACK_S_OVERRIDES), 'utf8');
-  const trackS = parseOverrides(trackSText);
+  const trackS = parseOverrides(trackSText, TRACK_S_OVERRIDES);
   for (const o of trackS) {
     if (!isCitation(o.citation))
       throw new Error(`track S's sign ${o.pre} → ${o.post} cites ${o.citation}, which is not in the registry`);

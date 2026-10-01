@@ -13,7 +13,7 @@ export interface TrackSSign {
 
 export const TRACK_S_SOURCE = {
   path: 'data/sign-overrides-s.csv',
-  sha256: '05bdb533e44a6ac1ddc5c682a6a0438ee585dd8c239e4bae1e4c97b0188c864b',
+  sha256: '8e2b5a2505344c324fab4c8b1f5808593347f8540f9e79d2b50699c1faff0951',
 } as const;
 
 export const TRACK_S_SIGNS: readonly TrackSSign[] = [
@@ -24,6 +24,8 @@ export const TRACK_S_SIGNS: readonly TrackSSign[] = [
   { pre: 'AVBL', post: 'AVAR', sign: -1, citation: 'roberts2016' },
   { pre: 'AVBR', post: 'AVAL', sign: -1, citation: 'roberts2016' },
   { pre: 'AVBR', post: 'AVAR', sign: -1, citation: 'roberts2016' },
+  { pre: 'ASHL', post: 'AVBL', sign: -1, citation: 'roberts2016' },
+  { pre: 'ASHR', post: 'AVBR', sign: -1, citation: 'roberts2016' },
   { pre: 'PVPL', post: 'AVAL', sign: -1, citation: 'zhang2025' },
   { pre: 'PVPL', post: 'AVAR', sign: -1, citation: 'zhang2025' },
   { pre: 'PVPR', post: 'AVAL', sign: -1, citation: 'zhang2025' },
@@ -48,14 +50,15 @@ export const TRACK_S_SIGNS: readonly TrackSSign[] = [
   { pre: 'PVPR', post: 'AVBR', sign: 1, citation: 'zhang2025' },
   { pre: 'DVC', post: 'AVAL', sign: 1, citation: 'zhang2025' },
   { pre: 'DVC', post: 'AVAR', sign: 1, citation: 'zhang2025' },
+  { pre: 'ASHL', post: 'AVAL', sign: 1, citation: 'piggott2011' },
+  { pre: 'ASHL', post: 'AVAR', sign: 1, citation: 'piggott2011' },
+  { pre: 'ASHR', post: 'AVAR', sign: 1, citation: 'piggott2011' },
+  { pre: 'ASHL', post: 'AIBL', sign: 1, citation: 'piggott2011' },
+  { pre: 'ASHR', post: 'AIBR', sign: 1, citation: 'piggott2011' },
   { pre: 'AIYL', post: 'AIZL', sign: -1, citation: 'li2014' },
   { pre: 'AIYR', post: 'AIZR', sign: -1, citation: 'li2014' },
   { pre: 'AIYL', post: 'RIBL', sign: 1, citation: 'li2014' },
   { pre: 'AIYR', post: 'RIBR', sign: 1, citation: 'li2014' },
-  { pre: 'AIYL', post: 'RIAL', sign: -1, citation: 'liu2018' },
-  { pre: 'AIYR', post: 'RIAR', sign: -1, citation: 'liu2018' },
   { pre: 'AIZL', post: 'RIAL', sign: 1, citation: 'lin2024' },
   { pre: 'AIZR', post: 'RIAR', sign: 1, citation: 'lin2024' },
-  { pre: 'AVAL', post: 'VA5', sign: 1, citation: 'liu2017' },
-  { pre: 'AVAR', post: 'VA5', sign: 1, citation: 'liu2017' },
 ];

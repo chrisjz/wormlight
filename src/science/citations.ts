@@ -278,14 +278,6 @@ export const CITATIONS = {
     venue: 'Nature Communications 8:14818',
     doi: '10.1038/ncomms14818',
   },
-  liu2018: {
-    short: 'Liu et al. 2018',
-    authors: 'Liu H, Yang W, Wu T, et al.',
-    year: 2018,
-    title: 'Cholinergic sensorimotor integration regulates olfactory steering',
-    venue: 'Neuron 97:390–405',
-    doi: '10.1016/j.neuron.2017.12.003',
-  },
   lugg1968: {
     short: 'Lugg 1968',
     authors: 'Lugg GA',

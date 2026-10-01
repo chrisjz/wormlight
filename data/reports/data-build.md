@@ -62,7 +62,7 @@ Ignored rows in S5 Data: RID>DD6, SMDDL>RMED, SMDDL>RMEV, SMDDR>RMED, SMDVL>RMEV
 
 ### Track S's measured signs
 
-`data/sign-overrides-s.csv` holds 41 rows, which only track S's model applies until its fit is chosen; the runtime file and the app keep the signs above (DECISIONS.md, 2026-10-01). Each is a sign for which a response was recorded in the postsynaptic cell to a manipulation targeted at the presynaptic cell. 25 change the sign the runtime file gives (326 sections), and 16 confirm it (477 sections), raising it to cited physiology.
+`data/sign-overrides-s.csv` holds 44 rows, which only track S's model applies until its fit is chosen; the runtime file and the app keep the signs above (DECISIONS.md, 2026-10-01). Each is a sign for which a response was recorded in the postsynaptic cell to a manipulation targeted at the presynaptic cell. 27 change the sign the runtime file gives (346 sections), and 17 confirm it (413 sections), raising it to cited physiology.
 
 | Connection   | Sections | Runtime sign (source) | Track S's sign | Citation    |
 | ------------ | -------- | --------------------- | -------------- | ----------- |
@@ -73,6 +73,8 @@ Ignored rows in S5 Data: RID>DD6, SMDDL>RMED, SMDDL>RMEV, SMDDR>RMED, SMDVL>RMEV
 | AVBL → AVAR  | 14       | + (rule)              | −              | roberts2016 |
 | AVBR → AVAL  | 10       | + (rule)              | −              | roberts2016 |
 | AVBR → AVAR  | 14       | + (rule)              | −              | roberts2016 |
+| ASHL → AVBL  | 14       | + (expression)        | −              | roberts2016 |
+| ASHR → AVBR  | 6        | + (expression)        | −              | roberts2016 |
 | PVPL → AVAL  | 4        | + (rule)              | −              | zhang2025   |
 | PVPL → AVAR  | 3        | + (rule)              | −              | zhang2025   |
 | PVPR → AVAL  | 1        | + (rule)              | −              | zhang2025   |
@@ -97,16 +99,17 @@ Ignored rows in S5 Data: RID>DD6, SMDDL>RMED, SMDDL>RMEV, SMDDR>RMED, SMDVL>RMEV
 | PVPR → AVBR  | 11       | + (expression)        | +              | zhang2025   |
 | DVC → AVAL   | 14       | + (expression)        | +              | zhang2025   |
 | DVC → AVAR   | 16       | + (expression)        | +              | zhang2025   |
+| ASHL → AVAL  | 15       | + (expression)        | +              | piggott2011 |
+| ASHL → AVAR  | 1        | + (expression)        | +              | piggott2011 |
+| ASHR → AVAR  | 10       | + (expression)        | +              | piggott2011 |
+| ASHL → AIBL  | 13       | + (expression)        | +              | piggott2011 |
+| ASHR → AIBR  | 7        | + (expression)        | +              | piggott2011 |
 | AIYL → AIZL  | 67       | − (expression)        | −              | li2014      |
 | AIYR → AIZR  | 70       | − (expression)        | −              | li2014      |
 | AIYL → RIBL  | 42       | + (expression)        | +              | li2014      |
 | AIYR → RIBR  | 60       | + (expression)        | +              | li2014      |
-| AIYL → RIAL  | 51       | − (expression)        | −              | liu2018     |
-| AIYR → RIAR  | 50       | − (expression)        | −              | liu2018     |
 | AIZL → RIAL  | 29       | + (rule)              | +              | lin2024     |
 | AIZR → RIAR  | 25       | + (rule)              | +              | lin2024     |
-| AVAL → VA5   | 7        | + (rule)              | +              | liu2017     |
-| AVAR → VA5   | 2        | + (rule)              | +              | liu2017     |
 
 ## Neuromuscular signs (PLAN §4.4)
 

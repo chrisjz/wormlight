@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseOverrides } from '../scripts/data/signs.ts';
+import { parseOverrides, signChemical } from '../scripts/data/signs.ts';
 import { ROOT } from '../scripts/data/sources.ts';
 import { TRACK_S_SIGNS, TRACK_S_SOURCE } from '../src/data/trackSSigns.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
@@ -37,12 +37,12 @@ describe("track S's side file and its module", () => {
     }
   });
 
-  it('flips 25 connections to inhibitory and confirms 16, as the rules set', () => {
+  it('flips 27 connections to inhibitory and confirms 17', () => {
     const now = new Map(data.chemical.map((c) => [key(c.pre, c.post), c.sign]));
     const flips = TRACK_S_SIGNS.filter((r) => now.get(key(r.pre, r.post)) !== r.sign);
-    expect(flips).toHaveLength(25);
+    expect(flips).toHaveLength(27);
     expect(flips.every((r) => r.sign === -1)).toBe(true);
-    expect(TRACK_S_SIGNS.length - flips.length).toBe(16);
+    expect(TRACK_S_SIGNS.length - flips.length).toBe(17);
   });
 });
 
@@ -76,5 +76,27 @@ describe("track S's data", () => {
     expect(reversal(refit, 'AVAL', 'AVBL')).toBe(PARAMS.reversalExcitatory.value);
     expect(reversal(trackS, 'AVAL', 'AVBL')).toBe(PARAMS.reversalInhibitory.value);
     expect(reversal(trackS, 'AWCL', 'AIYL')).toBe(reversal(refit, 'AWCL', 'AIYL'));
+  });
+});
+
+describe("track S's guards", () => {
+  it('refuses a network beside the switch, since the World could not see which signs built it', () => {
+    const network = new World(data, currentParams()).brain.network;
+    expect(() => new World(data, { ...currentParams(), measuredSigns: true }, { network })).toThrow(/takes no network/);
+  });
+
+  it('builds one copy of the data for every world that reads it', () => {
+    expect(withMeasuredSigns(data)).toBe(withMeasuredSigns(data));
+  });
+
+  it('names the edge an override lists twice across the two files, and the file a bad row is in', () => {
+    const row = side[0];
+    const edges = data.chemical.map((c) => ({ pre: c.pre, post: c.post, sections: c.sections }));
+    const inputs = { identities: new Map(), ruleSign: new Map(), fenyves: [] };
+    expect(() => signChemical(edges, { ...inputs, overrides: [row, row] })).toThrow(
+      new RegExp(`list ${row.pre}.*${row.post} twice`),
+    );
+    const bad = 'pre,post,sign,citation,evidence\nAVAL,AVBL,+1,roberts2016,"x"\n';
+    expect(() => parseOverrides(bad, 'data/sign-overrides-s.csv')).toThrow(/sign-overrides-s\.csv row 2/);
   });
 });

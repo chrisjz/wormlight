@@ -235,7 +235,11 @@ export class World {
     if (given.chemical.some((c) => 'original' in c))
       throw new Error('a world takes the real data; give a rewired brain as its network');
     this.params = params;
-    // Track S's model reads its measured signs from here on, its layers included.
+    // Track S's model reads its measured signs from here on, its layers included. A brain given as a network was built
+    // from data the World can't see, so track S's model refuses one until its contrast brains are built from its data.
+    if (params.measuredSigns && options.network) {
+      throw new Error("track S's model builds its brain from its own signs; it takes no network yet");
+    }
     const data = params.measuredSigns ? withMeasuredSigns(given) : given;
     const seed = options.seed ?? 0;
     // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
