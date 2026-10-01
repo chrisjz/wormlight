@@ -29,6 +29,12 @@ export async function formatJson(json: string, path: string): Promise<string> {
   return format(json, { ...options, parser: 'json', filepath: path });
 }
 
+// TypeScript as Prettier would write it, for a generated module that's committed.
+export async function formatTypeScript(source: string, path: string): Promise<string> {
+  const options = (await resolveConfig(path, { editorconfig: true })) ?? {};
+  return format(source, { ...options, parser: 'typescript', filepath: path });
+}
+
 // A Markdown table from a header and rows, escaping the pipes a cell's text may hold.
 export function table(header: string[], rows: string[][]): string {
   const cell = (text: string): string => text.replaceAll('|', '\\|').replaceAll('\n', ' ');

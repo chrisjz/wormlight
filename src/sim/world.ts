@@ -22,6 +22,7 @@ import { AWC_JUMP, NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
 import { AWC_GAIN, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
+import { withMeasuredSigns } from './trackS.ts';
 
 // The model's reversal potentials (mV), which the conductance form drives towards.
 const EXCITATORY = PARAMS.reversalExcitatory.value;
@@ -55,6 +56,9 @@ export interface LoopParams {
   gapGainB?: number;
   smdGain?: number;
   relativeDrive?: boolean;
+  // Track S's model (PLAN §9; DECISIONS.md, 2026-10-01): its measured signs, applied to the data before anything is
+  // built from it. Left out, the runtime data's signs, which the refit runs on.
+  measuredSigns?: boolean;
 }
 
 // The values of track R's model, the registry's (PLAN §9), in the registry's units, as LoopParams.
@@ -225,12 +229,18 @@ export class World {
   readonly touchApplied: Float64Array;
   private readonly smd: Set<number>;
 
-  constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
+  constructor(given: WormlightData, params: LoopParams, options: WorldOptions = {}) {
     // The layers outside the brain, touch's currents among them, are built on the real wiring, the same for every
     // brain (PLAN §4.2): a rewired brain comes as `network`, never as the data.
-    if (data.chemical.some((c) => 'original' in c))
+    if (given.chemical.some((c) => 'original' in c))
       throw new Error('a world takes the real data; give a rewired brain as its network');
     this.params = params;
+    // Track S's model reads its measured signs from here on, its layers included. A brain given as a network was built
+    // from data the World can't see, so track S's model refuses one until its contrast brains are built from its data.
+    if (params.measuredSigns && options.network) {
+      throw new Error("track S's model builds its brain from its own signs; it takes no network yet");
+    }
+    const data = params.measuredSigns ? withMeasuredSigns(given) : given;
     const seed = options.seed ?? 0;
     // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
     const bTypes = new Set(data.neurons.flatMap((n, i) => (n.oscillator === 'B' ? [i] : [])));

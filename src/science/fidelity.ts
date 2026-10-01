@@ -287,6 +287,18 @@ export const COMPONENTS: readonly Component[] = [
     ],
   },
   {
+    name: "Track S's measured signs",
+    subsystem: 'signs',
+    levels: [5],
+    basis:
+      "The chemical signs for which the sign audit's sources (docs/sign-audit.md) record a response in the postsynaptic cell to a manipulation targeted at the presynaptic cell: 27 connections flipped to inhibitory, AVA⇄AVB, ASH→AVB, PVP→AVA, AIB→RIM, AIB→RIB and SAA→RIM, and 17 confirmed",
+    caveats:
+      "Built for track S's model, which no fit uses yet; the app runs the signs above. Several rest on calcium imaging, at level 5 here though weaker than patch clamp, some in freely moving worms; some drivers reached other cells too. AVA⇄AVB's and ASH→AVB's currents may be polysynaptic, and AVB→AVA is contested (Meng et al. 2024). The model's synapses have one timescale, so AVA→AVB takes its fast, inhibitory sign (DECISIONS.md, 2026-10-01)",
+    upgrade: 'Recordings of each command-circuit synapse with cell-specific drivers, and of their timescales',
+    sources: ['roberts2016', 'zhang2025', 'piggott2011', 'wang2020', 'huo2024', 'li2014', 'lin2024', 'meng2024'],
+    testedBy: [{ check: 'unit', detail: "the side file's rows reach track S's brain, and no other" }],
+  },
+  {
     name: 'Neuromuscular signs',
     subsystem: 'signs',
     levels: [4, 0],

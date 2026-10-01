@@ -175,6 +175,14 @@ export const CITATIONS = {
     doi: '10.1371/journal.pcbi.1008914',
     note: 'Its repository, iteal/wormpose, distributes the eigenworm basis the harness pins.',
   },
+  huo2024: {
+    short: 'Huo et al. 2024',
+    authors: 'Huo J, Xu T, Liu Q, et al.',
+    year: 2024,
+    title: 'Hierarchical behavior control by a single class of interneurons',
+    venue: 'PNAS 121:e2410789121',
+    doi: '10.1073/pnas.2410789121',
+  },
   ji2021: {
     short: 'Ji et al. 2021',
     authors: 'Ji H, Fouad AD, Teng S, et al.',
@@ -237,6 +245,22 @@ export const CITATIONS = {
     venue: 'Neuron 105:534–548',
     doi: '10.1016/j.neuron.2019.10.034',
   },
+  li2014: {
+    short: 'Li et al. 2014',
+    authors: 'Li Z, Liu J, Zheng M, Xu XZS',
+    year: 2014,
+    title: 'Encoding of both analog- and digital-like behavioral outputs by one C. elegans interneuron',
+    venue: 'Cell 159:751–765',
+    doi: '10.1016/j.cell.2014.09.056',
+  },
+  lin2024: {
+    short: 'Lin et al. 2024',
+    authors: 'Lin C, Shan Y, Wang Z, et al.',
+    year: 2024,
+    title: 'Molecular and circuit mechanisms underlying avoidance of rapid cooling stimuli in C. elegans',
+    venue: 'Nature Communications 15:297',
+    doi: '10.1038/s41467-023-44638-5',
+  },
   liu2014: {
     short: 'Liu, Chen & Wang 2014',
     authors: 'Liu P, Chen B, Wang ZW',
@@ -262,6 +286,14 @@ export const CITATIONS = {
     venue: 'Analytical Chemistry 40:1072–1077',
     doi: '10.1021/ac60263a006',
   },
+  meng2024: {
+    short: 'Meng et al. 2024',
+    authors: 'Meng J, Ahamed T, Yu B, et al.',
+    year: 2024,
+    title: 'A tonically active master neuron modulates mutually exclusive motor states at two timescales',
+    venue: 'Science Advances 10:eadk0002',
+    doi: '10.1126/sciadv.adk0002',
+  },
   nagumo1962: {
     short: 'Nagumo, Arimoto & Yoshizawa 1962',
     authors: 'Nagumo J, Arimoto S, Yoshizawa S',
@@ -279,6 +311,14 @@ export const CITATIONS = {
     venue: 'Zenodo (CC BY 4.0)',
     doi: '10.5281/zenodo.15099731',
     note: 'Its data/shapes.csv holds 6,655 real postures that the tutorial introduces as coming from the experiment of Stephens et al. 2008.',
+  },
+  piggott2011: {
+    short: 'Piggott et al. 2011',
+    authors: 'Piggott BJ, Liu J, Feng Z, Wescott SA, Xu XZS',
+    year: 2011,
+    title: 'The neural circuits and synaptic mechanisms underlying motor initiation in C. elegans',
+    venue: 'Cell 147:922–933',
+    doi: '10.1016/j.cell.2011.08.053',
   },
   ramot2008: {
     short: 'Ramot et al. 2008',
@@ -304,6 +344,14 @@ export const CITATIONS = {
     title: 'One GABA and two acetylcholine receptors function at the C. elegans neuromuscular junction',
     venue: 'Nature Neuroscience 2:791–797',
     doi: '10.1038/12160',
+  },
+  roberts2016: {
+    short: 'Roberts et al. 2016',
+    authors: 'Roberts WM, Augustine SB, Lawton KJ, et al.',
+    year: 2016,
+    title: 'A stochastic neuronal model predicts random search behaviors at multiple spatial scales in C. elegans',
+    venue: 'eLife 5:e12572',
+    doi: '10.7554/eLife.12572',
   },
   sawin2000: {
     short: 'Sawin, Ranganathan & Horvitz 2000',
@@ -363,6 +411,14 @@ export const CITATIONS = {
     title: 'Structural properties of the Caenorhabditis elegans neuronal network',
     venue: 'PLoS Computational Biology 7:e1001066',
     doi: '10.1371/journal.pcbi.1001066',
+  },
+  wang2020: {
+    short: 'Wang et al. 2020',
+    authors: 'Wang Y, Zhang X, Xin Q, et al.',
+    year: 2020,
+    title: 'Flexible motor sequence generation during stereotyped escape responses',
+    venue: 'eLife 9:e56942',
+    doi: '10.7554/eLife.56942',
   },
   wang2024: {
     short: 'Wang et al. 2024',
@@ -430,6 +486,14 @@ export const CITATIONS = {
       'A sensory-motor neuron type mediates proprioceptive coordination of steering in C. elegans via two TRPC channels',
     venue: 'PLoS Biology 16:e2004929',
     doi: '10.1371/journal.pbio.2004929',
+  },
+  zhang2025: {
+    short: 'Zhang et al. 2025',
+    authors: 'Zhang Y, Shi Y, Zeng K, Chen L, Gao S',
+    year: 2025,
+    title: 'Hierarchical competing inhibition circuits govern motor stability in C. elegans',
+    venue: 'Nature Communications 16:4405',
+    doi: '10.1038/s41467-025-59668-4',
   },
 } as const satisfies Record<string, Citation>;
 

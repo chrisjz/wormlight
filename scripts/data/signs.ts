@@ -118,14 +118,15 @@ export function csvFields(line: string): string[] {
 
 const OVERRIDE_HEADER = ['pre', 'post', 'sign', 'citation', 'evidence'];
 
-// Parse data/sign-overrides.csv: a header, then one row of exactly five fields per overridden edge.
-export function parseOverrides(csv: string): Override[] {
+// Parse an overrides file, data/sign-overrides.csv or track S's data/sign-overrides-s.csv, named in its errors: a
+// header, then one row of exactly five fields per overridden edge.
+export function parseOverrides(csv: string, file = 'data/sign-overrides.csv'): Override[] {
   const [header, ...lines] = csv.replaceAll('\r\n', '\n').trim().split('\n');
   if (csvFields(header).join(',') !== OVERRIDE_HEADER.join(',')) {
-    throw new Error(`sign-overrides.csv: the header must be ${OVERRIDE_HEADER.join(',')}`);
+    throw new Error(`${file}: the header must be ${OVERRIDE_HEADER.join(',')}`);
   }
   return lines.map((line, i) => {
-    const where = `sign-overrides.csv row ${i + 2}`;
+    const where = `${file} row ${i + 2}`;
     const fields = csvFields(line);
     if (fields.length !== OVERRIDE_HEADER.length) throw new Error(`${where}: ${fields.length} fields, expected 5`);
     const [pre, post, sign, citation, evidence] = fields;
@@ -177,12 +178,16 @@ export function signChemical(
   edges: { pre: string; post: string; sections: number }[],
   inputs: SignInputs,
 ): { chemical: Chemical[]; setAside: SetAside[] } {
-  const overrides = new Map(inputs.overrides.map((o) => [edgeKey(o.pre, o.post), o]));
+  const overrides = new Map<string, Override>();
+  for (const o of inputs.overrides) {
+    const key = edgeKey(o.pre, o.post);
+    if (overrides.has(key)) throw new Error(`the sign overrides list ${key} twice`);
+    overrides.set(key, o);
+  }
   const keys = new Set(edges.map((e) => edgeKey(e.pre, e.post)));
   for (const key of overrides.keys()) {
     if (!keys.has(key)) throw new Error(`sign override for ${key}, which Cook does not have`);
   }
-  if (overrides.size !== inputs.overrides.length) throw new Error('sign-overrides.csv lists an edge twice');
 
   const setAside: SetAside[] = [];
   const chemical = edges.map(({ pre, post, sections }): Chemical => {
