@@ -1,4 +1,4 @@
-// npm run calibrate -- [--probe | --survey | --round-3 | --bounded] [--budget N] [--jobs N] [--resume]
+// npm run calibrate -- [--probe | --survey | --round-3 | --bounded | --track-s] [--budget N] [--jobs N] [--resume]
 //
 // PLAN §7.3's calibration of track R's model in R's second round (PLAN §9), in two stages. Stage 1, the crawl:
 // CMA-ES with restarts over the twelve calibrated parameters mapped onto [0, 1], from their provisional values, on
@@ -30,7 +30,7 @@
 // had finished. It runs once, only after a survey that found a crawl.
 //
 // --track-s runs track S's calibration (PLAN §9; TRACK_S_ROUND): R's third round's procedure on track S's model, its
-// measured signs, class offsets and rectifier, with its own bound on g_p. It writes harness-out/calibration-s1.json and
+// measured signs, the D-types' offset and its rectifier, with its own bound on g_p. It writes harness-out/calibration-s1.json and
 // data/calibration/s1.json, its four picks in the order they take §7.2's comparison (npm run equivalence -- --fit
 // track-s), and names checkpoint 1's frequency band, on which it scores. It runs once: it refuses while s1.json exists.
 //
@@ -49,7 +49,7 @@ import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
-import { partsOf, TRACK_S, type Model } from '../../src/sim/trackS.ts';
+import { partsOf, TRACK_S, trackSKey, type Model } from '../../src/sim/trackS.ts';
 import { CALIBRATED, loopParams, type Form, type LoopParams } from '../../src/sim/world.ts';
 import {
   ALL_TARGETS,
@@ -108,8 +108,9 @@ export interface Job {
   model?: Model;
 }
 
-// What a trial gives the objective, and its brain solves that didn't converge; or, for grading, the whole record.
-type TrialResult = (KinematicRecord & { unconverged: number }) | TrialRecord;
+// What a trial gives the objective, its brain solves that didn't converge and the model it ran, as trackSKey names it;
+// or, for grading, the whole record.
+type TrialResult = (KinematicRecord & { unconverged: number; ran: string }) | TrialRecord;
 
 interface Result {
   job: Job;
@@ -138,14 +139,15 @@ export const jobParams = (job: Job): LoopParams => ({
 
 async function runJob(job: Job): Promise<TrialResult> {
   cached ??= { data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))), postures: await readPostures() };
+  const params = jobParams(job);
   const r = runTrial(cached.data, {
     seed: job.seed,
     seconds: CALIBRATION.trialSeconds,
-    params: jobParams(job),
+    params,
     postures: cached.postures,
   });
   if (job.whole) return r;
-  // Only what the objective reads.
+  // Only what the objective reads, and the model the trial ran, which the scorer holds to the one it asked for.
   return {
     finite: r.finite,
     velocity: r.velocity,
@@ -153,7 +155,16 @@ async function runJob(job: Job): Promise<TrialResult> {
     front: r.front,
     rear: r.rear,
     unconverged: r.unconverged,
+    ran: trackSKey(params),
   };
+}
+
+// Every trial ran the model a run asked for, as trackSKey names it, or the run stops (DECISIONS.md, 2026-10-02): the
+// record names its model from the run's settings, and this ties it to what ran.
+export function checkRan(records: readonly { ran: string }[], model: Model = 'track R'): void {
+  const asked = trackSKey(partsOf(model));
+  const other = records.find((r) => r.ran !== asked);
+  if (other) throw new Error(`a trial ran the model "${other.ran}", not the "${asked}" the run asked for`);
 }
 
 // A trial of 120 s takes seconds; one still running after this is stuck.
@@ -263,6 +274,9 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
 // What a run was: the settings a reader needs to interpret its units and scores.
 export function settings(budget: number, mode: Mode = 'round 2'): Record<string, unknown> {
   const shared = { mapping: MAPPING, targets: TARGETS, errorCap: ERROR_CAP, calibration: CALIBRATION };
+  // Every record that can still be written names checkpoint 1's frequency band, on which its measures count crossings
+  // (PLAN §7.4). The probe's, the survey's and round 3's were made under the plain count, and none of them runs again.
+  const band = { frequencyBand: FREQUENCY_BAND };
   if (mode === 'survey') {
     const form = SURVEY.form;
     return {
@@ -293,9 +307,9 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
     const { form } = TRACK_S_ROUND;
     return {
       model: 'track S',
-      // The model's parts, as the loop's parameters take them, and checkpoint 1's frequency band, which it scores on.
+      // The model's parts, as the loop's parameters take them.
       parts: TRACK_S,
-      frequencyBand: FREQUENCY_BAND,
+      ...band,
       form,
       round: TRACK_S_ROUND,
       survey: SURVEY,
@@ -309,6 +323,7 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
     const form: Form = 'conductance';
     return {
       model: 'track R, bounded',
+      ...band,
       form,
       budget,
       start: provisionalValues(form),
@@ -322,6 +337,8 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
     budget:
       mode === 'probe' ? { crawl: SECOND_ROUND.probe.budget } : { crawl: budget, noise: SECOND_ROUND.noise.budget },
     calibration: CALIBRATION,
+    // The probe ran under the plain count; round 2's full run and its looks would run under the band.
+    ...(mode === 'probe' ? {} : band),
     secondRound: SECOND_ROUND,
     // Round 2 runs the current form (PLAN §4.3).
     form: ROUND_FORM,
@@ -450,6 +467,10 @@ if (process.argv.includes('--worker')) {
     seconds?: number;
   } = { stages: {} };
   const committed = commit();
+  // Track S's calibration runs, and resumes, only at a commit, so that its evaluations all come from one code.
+  if (mode === 'track S' && /uncommitted/.test(committed)) {
+    throw new Error("commit first: track S's calibration records the commit it runs at, and resumes only there");
+  }
   if (
     !options.resume &&
     !mayStartAfresh(existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as object) : null)
@@ -530,7 +551,9 @@ if (process.argv.includes('--worker')) {
         seeds.map((seed) => pool.run({ values, form, seed, ...named })),
       )) as (KinematicRecord & {
         unconverged: number;
+        ran: string;
       })[];
+      checkRan(records, model);
       const measures = measure(records, { spectral });
       return {
         measures,
@@ -711,7 +734,8 @@ if (process.argv.includes('--worker')) {
       // Phase 1's ranking, which chose the searches phase 2 continues.
       const ranking = order.map(({ seed, value, from }) => ({ seed, value, from }));
       const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks };
-      // The committed record first, so that a stop between the two writes leaves a run --resume can finish.
+      // The committed record first, whole, so that a stop between the two writes still leaves the run's result; once it
+      // exists the round won't run again.
       const record = mode === 'track S' ? TRACK_S_RECORD : ROUND_3;
       writeWhole(record, await formatJson(JSON.stringify(summary(run)), record));
       writeWhole(file, JSON.stringify(run) + '\n');

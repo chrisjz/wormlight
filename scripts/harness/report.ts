@@ -468,8 +468,8 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
   ].join('\n\n');
 }
 
-// Round 3's or track S's chosen pick, the first of its four to pass §7.2's comparison, as data/calibration/r5-chosen.json
-// or s1-chosen.json records it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its
+// Round 3's or track S's chosen pick, the first of its four to pass §7.2's comparison, as r5-chosen.json or
+// s1-chosen.json in data/calibration/ records it (PLAN §7.4, §9): checkpoint 1 graded from the comparison's first 20 trials at dt, its
 // speed's interval, and the runs that show what paces its crawl, each graded by checkpoint 1's grading.
 export interface ChosenReport {
   // Track S's, or round 3's when absent, as round 3's record was written before track S.
@@ -532,7 +532,11 @@ export function chosenSection(r: ChosenReport): string {
   ]);
   const [title, record, model] =
     r.fit === 'track-s'
-      ? ['Track S', 'data/calibration/s1.json', "on track S's model, its measured signs, class offsets and rectifier, "]
+      ? [
+          'Track S',
+          'data/calibration/s1.json',
+          "on track S's model, its measured signs, the D-types' offset and its rectifier, ",
+        ]
       : ["R's third round", 'data/calibration/r5.json', ''];
   const band = r.frequencyBand === undefined ? '' : `, its frequency counting crossings past ±${r.frequencyBand} κL`;
   return [
@@ -556,7 +560,7 @@ export interface EquivalenceRun {
   // Round 3's or track S's pick, from 1, in the order its picks take the comparison (PLAN §9).
   pick?: number;
   // Checkpoint 1's frequency band (κL), which the grades and the frequency's clause count crossings past; runs before
-  // it was named (2026-10-02) used the band from 2026-10-01 or the plain count before it, as their dates show.
+  // it was named (2026-10-02), all made before the band (2026-10-01), used the plain count of crossings.
   frequencyBand?: number;
   // An R fit's values, from its calibration record, so the result stays tied to what ran; null for the planned fit.
   // Runs before 2026-09-29 didn't record them.

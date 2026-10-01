@@ -10,12 +10,13 @@ import {
   provisionalValues as provisional,
   type Evaluated,
 } from '../../src/validation/calibration.ts';
-import { TRACK_S } from '../../src/sim/trackS.ts';
+import { partsOf, TRACK_S } from '../../src/sim/trackS.ts';
 import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import {
   BOUNDED,
   boundedAllowed,
   committedRecord,
+  checkRan,
   continuedFrom,
   jobParams,
   mayStartAfresh,
@@ -128,6 +129,12 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     expect(r).not.toHaveProperty('measuredSigns');
     expect(r).not.toHaveProperty('rectified');
     expect(TRACK_S).toEqual({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    // Each trial reports the model it ran, and a run stops at one that ran another.
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }], 'track S')).not.toThrow();
+    expect(() => checkRan([{ ran: '' }, { ran: '' }])).not.toThrow();
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }, { ran: '' }], 'track S')).toThrow(/ran the model ""/);
+    expect(() => checkRan([{ ran: 'signs, measured, rectified' }])).toThrow(/not the ""/);
+    expect(() => partsOf('track T' as never)).toThrow(/no model/);
   });
 
   it('never starts afresh over a stopped run, which only --resume takes up', () => {
@@ -204,6 +211,14 @@ describe("the calibration's record", () => {
       proprioceptiveGain: null,
     });
     expect(TRACK_S_RECORD.endsWith('data/calibration/s1.json')).toBe(true);
+    // Every record that can still be written names the band; the probe's, the survey's and round 3's, made under the
+    // plain count and committed, don't.
+    for (const mode of ['round 2', 'bounded', 'track S'] as const) {
+      expect(settings(2000, mode).frequencyBand, mode).toBe(FREQUENCY_BAND);
+    }
+    for (const mode of ['probe', 'survey', 'round 3'] as const) {
+      expect(settings(2000, mode), mode).not.toHaveProperty('frequencyBand');
+    }
   });
 
   it("names the bounded calibration's form and start, the conductance form's, and is committed as r4.json", () => {

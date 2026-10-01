@@ -111,8 +111,12 @@ export interface TrackSParts {
 // rectifier, which its calibration runs.
 export const TRACK_S: Readonly<TrackSParts> = { measuredSigns: true, restOffsets: 'measured', rectified: true };
 
-// What a model adds to the loop's parameters: nothing for track R's.
-export const partsOf = (model: Model): Readonly<TrackSParts> => (model === 'track S' ? TRACK_S : {});
+// What a model adds to the loop's parameters: nothing for track R's. A name that is neither is refused, not read as R's.
+export function partsOf(model: Model): Readonly<TrackSParts> {
+  if (model === 'track S') return TRACK_S;
+  if (model === 'track R') return {};
+  throw new Error(`there is no model ${String(model)}`);
+}
 
 // Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
 export const trackSKey = (choice: TrackSParts): string =>

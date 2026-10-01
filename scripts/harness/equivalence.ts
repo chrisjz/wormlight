@@ -21,7 +21,7 @@
 // the harness runs the fit from the registry.
 //
 // Track S's picks (`--fit track-s`, from data/calibration/s1.json) take it the same way, on track S's model, its
-// measured signs, class offsets and rectifier, which each trial switches on in its tree; their records are
+// measured signs, the D-types' offset and its rectifier, which each trial switches on in its tree; their records are
 // track-s-pick-<N>.json, and the first to pass writes data/calibration/s1-chosen.json (DECISIONS.md, 2026-10-01). Every
 // record a run writes names checkpoint 1's frequency band, on which it grades.
 
@@ -194,6 +194,26 @@ export function checkedValues(run: CalibrationRecord, record: string, model: Mod
   return values as Values;
 }
 
+// A run's manifest at a step: its fit, a picked fit's pick, its model where it isn't track R's, its values and form,
+// the sources its trees carry, and how long each trial runs.
+export function manifestOf(
+  run: { fit: Fit; pick: number; values: Values | null; form: Form; source: string },
+  step: number,
+): Manifest {
+  const model = modelOf(run.fit);
+  return {
+    fit: run.fit,
+    ...(picked(run.fit) ? { pick: run.pick } : {}),
+    ...(model !== 'track R' ? { model } : {}),
+    values: run.values,
+    ...(run.form === 'conductance' ? { form: run.form } : {}),
+    source: run.source,
+    step,
+    seconds: TRIAL_SECONDS,
+    node: process.version,
+  };
+}
+
 // Whether round 3's pick may take the comparison in full: only once each pick before it has failed it, at the values
 // its record now holds (PLAN §9).
 export function mayTake(
@@ -219,13 +239,21 @@ async function runJob(job: Job): Promise<void> {
   const world = await from<World>('src/sim/world.ts');
   const planned = await from<Planned>('src/science/planned.ts');
   const trackS = await from<TrackS>('src/sim/trackS.ts');
+  // The model a manifest names is its fit's, and the trial runs it, or the job stops.
+  const model = job.manifest.model ?? 'track R';
+  if (model !== modelOf(job.manifest.fit))
+    throw new Error(`${job.manifest.fit}'s trials run ${modelOf(job.manifest.fit)}'s model, not ${model}'s`);
+  const params = paramsOf(job.manifest, world, planned, trackS);
+  if (trackS.trackSKey(params) !== trackS.trackSKey(trackS.partsOf(model))) {
+    throw new Error(`a trial of ${job.manifest.fit} would run the model "${trackS.trackSKey(params)}"`);
+  }
   const { runTrial } = await from<typeof import('../../src/validation/trial.ts')>('src/validation/trial.ts');
   const { readPostures } = await from<typeof import('./pinned.ts')>('scripts/harness/pinned.ts');
   const data = validateWormlightData(JSON.parse(readFileSync(join(job.tree, 'public/data/wormlight.v1.json'), 'utf8')));
   const record = runTrial(data, {
     seed: job.seed,
     seconds: job.manifest.seconds,
-    params: paramsOf(job.manifest, world, planned, trackS),
+    params,
     lesions: job.manifest.lesions,
     postures: await readPostures(),
   });
@@ -312,8 +340,14 @@ if (process.argv[2] === '--worker') {
     return existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as { comparison?: { pass?: boolean } }) : null;
   };
   if (full && recorded(name)) {
+    // A record that names no band was made under the plain count of crossings (DECISIONS.md, 2026-10-01).
+    const banded = (JSON.parse(readFileSync(join(RESULTS, `${name}.json`), 'utf8')) as EquivalenceRun).frequencyBand;
+    const why =
+      banded === undefined
+        ? ', under the plain count of crossings; no past comparison is run again under the band (DECISIONS.md, 2026-10-01)'
+        : '';
     throw new Error(
-      `data/equivalence/${name}.json already records this comparison, under the plain count of crossings; no past comparison is run again under the band (DECISIONS.md, 2026-10-01). Move it aside to rerun on purpose, or use --trials for a look.`,
+      `data/equivalence/${name}.json already records this comparison${why}. Move it aside to rerun on purpose, or use --trials for a look.`,
     );
   }
   if (picks && full && !mayTake(pick, earlier, (k) => valuesOf(fit, k))) {
@@ -322,17 +356,7 @@ if (process.argv[2] === '--worker') {
   const source = treeSource();
   const seeds = EQUIVALENCE_SEEDS.slice(0, options.trials);
   mkdirSync(OUT, { recursive: true });
-  const base = (step: number): Manifest => ({
-    fit,
-    ...(picks ? { pick } : {}),
-    ...(model !== 'track R' ? { model } : {}),
-    values,
-    ...(form === 'conductance' ? { form } : {}),
-    source,
-    step,
-    seconds: TRIAL_SECONDS,
-    node: process.version,
-  });
+  const base = (step: number): Manifest => manifestOf({ fit, pick, values, form, source }, step);
   const run = async (sets: { dir: string; manifest: Manifest; seeds: readonly number[] }[]): Promise<void> => {
     const jobs: Job[] = [];
     for (const set of sets) {

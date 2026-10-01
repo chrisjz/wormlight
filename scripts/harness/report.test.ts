@@ -24,6 +24,7 @@ import { provisionalValues } from '../../src/validation/calibration.ts';
 import {
   checkedValues,
   formOf,
+  manifestOf,
   mayTake,
   modelOf,
   nameOf,
@@ -433,6 +434,20 @@ describe('the harness report', () => {
     const s = paramsOf({ ...manifest, model: 'track S', seconds: 120, node: '' }, world, planned, trackS);
     expect(s).toEqual({ ...r, ...trackS.TRACK_S });
     expect(r).toEqual(world.loopParams(values, 'conductance'));
+    // A manifest names track S's model and pick, and track R's manifests are as they were, so their sets are reused.
+    const at = { values, form: 'conductance' as const, source: 's' };
+    expect(manifestOf({ fit: 'track-s', pick: 2, ...at }, 0.0025)).toMatchObject({ pick: 2, model: 'track S' });
+    expect(Object.keys(manifestOf({ fit: 'round-3', pick: 2, ...at }, 0.0025))).toEqual([
+      'fit',
+      'pick',
+      'values',
+      'form',
+      'source',
+      'step',
+      'seconds',
+      'node',
+    ]);
+    expect(manifestOf({ fit: 'refit', pick: 1, ...at, form: 'current' }, 0.0025)).not.toHaveProperty('pick');
     // Until its calibration is committed, track S has no picks to take.
     if (!existsSync(join(ROOT, 'data/calibration/s1.json')))
       expect(() => valuesOf('track-s')).toThrow(/no calibration yet/);
@@ -645,7 +660,7 @@ describe('the harness report', () => {
     const s = chosenSection({ ...report, fit: 'track-s', frequencyBand: 0.31 });
     expect(s).toContain('### Track S: pick 2, from the search of CMA-ES seed 18 — **Partial**, at the speed floor');
     expect(s).toContain(
-      "from data/calibration/s1.json (generation 60, candidate 3), on track S's model, its measured signs, class offsets and rectifier, in the conductance form (PLAN §9), its frequency counting crossings past ±0.31 κL.",
+      "from data/calibration/s1.json (generation 60, candidate 3), on track S's model, its measured signs, the D-types' offset and its rectifier, in the conductance form (PLAN §9), its frequency counting crossings past ±0.31 κL.",
     );
   });
 
