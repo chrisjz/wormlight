@@ -1,5 +1,5 @@
 // GPU parity's checks dealt across shards, each a page of its own, so that a software GPU that runs a world's
-// workgroup on one CPU core can use several (PLAN §7.2; DECISIONS.md, 2026-10-01). Only the one-second checks are
+// workgroup on one CPU core can use several (PLAN §7.2; DECISIONS.md, 2026-10-02). Only the one-second checks are
 // dealt, round-robin by their place in the full run: they take nearly all the time, about 400 GPU steps each. Every
 // shard runs everything else, which is cheap and deterministic, so the shards agree on it. The pass rules are here,
 // so the page and the merge apply the same ones; the share of ungraded states is taken over the merged run.
@@ -27,10 +27,11 @@ export const shardText = (shard: Shard): string => `${shard.index + 1}/${shard.c
 export const takes = (shard: Shard, place: number): boolean => place % shard.count === shard.index;
 
 // The full run's list from the shards' lists, each in the full run's order: the place k is shard k mod n's
-// (k div n)-th. Each shard's list must be as long as the deal makes it.
-export function interleave<T>(lists: readonly (readonly T[])[]): T[] {
+// (k div n)-th. The run has `total` places, and each shard's list must be as long as the deal makes it.
+export function interleave<T>(lists: readonly (readonly T[])[], total: number): T[] {
   const n = lists.length;
-  const total = lists.reduce((sum, list) => sum + list.length, 0);
+  const held = lists.reduce((sum, list) => sum + list.length, 0);
+  if (held !== total) throw new Error(`the shards hold ${held} results of the run's ${total}`);
   lists.forEach((list, i) => {
     const dealt = Math.ceil((total - i) / n);
     if (list.length !== dealt) throw new Error(`shard ${i + 1} of ${n} has ${list.length} results, not ${dealt}`);
@@ -81,16 +82,25 @@ export const loopPasses = (r: LoopChecks): boolean =>
 // field's below, each of those an error if it stopped.
 export interface ShardReport extends BrainChecks {
   shard: Shard;
-  loop: (LoopChecks & { pass: boolean; seconds: number }) | { error: string; pass: false };
+  oneSecondPlaces: number;
+  loop: (LoopChecks & { oneSecondPlaces: number; pass: boolean; seconds: number }) | { error: string; pass: false };
   field: Passing;
   brainPass: boolean;
   pass: boolean;
   seconds: number;
+  // On a merged run, which shards failed which of the checks every shard runs whole.
+  shardFailures?: string[];
+}
+
+// Every shard must count the same places for a list, or they dealt different runs.
+function places(counts: readonly number[], what: string): number {
+  if (counts.some((c) => c !== counts[0])) throw new Error(`the shards counted ${counts.join(', ')} ${what}`);
+  return counts[0];
 }
 
 // The full run from its shards, given in order: the first shard's report with every shard's one-second results
-// dealt back into place, and the pass rules applied again. What every shard runs whole must pass in each, and the
-// odour field's check is the first shard's.
+// dealt back into place, and the pass rules applied again. What every shard runs whole must pass in each, the odour
+// field's check among them, and a shard that fails one is named.
 export function mergeShards<R extends ShardReport>(reports: readonly R[]): R {
   const [first] = reports;
   if (!first) throw new Error('no shards to merge');
@@ -106,25 +116,54 @@ export function mergeShards<R extends ShardReport>(reports: readonly R[]): R {
     b.variant.oneStep.pass &&
     b.variant.oneSecond.graded &&
     b.variant.oneSecond.pass;
-  const oneSecond = interleave(reports.map((r) => r.oneSecond));
+  const shardFailures = reports.flatMap((r, i) => [
+    ...(whole(r) ? [] : [`shard ${i + 1}: the brain's checks run whole`]),
+    ...('error' in r.loop || (r.loop.api.every((x) => x.pass) && r.loop.oneStep.every((x) => x.pass))
+      ? []
+      : [`shard ${i + 1}: the loop's checks run whole`]),
+    ...(r.field.pass ? [] : [`shard ${i + 1}: the odour field`]),
+  ]);
+  const brainPlaces = places(
+    reports.map((r) => r.oneSecondPlaces),
+    'brain one-second places',
+  );
+  const oneSecond = interleave(
+    reports.map((r) => r.oneSecond),
+    brainPlaces,
+  );
   const brainPass = brainPasses({ ...first, oneSecond }) && reports.every(whole);
   let loop: R['loop'];
   const stopped = reports.flatMap((r, i) => ('error' in r.loop ? [`shard ${i + 1}: ${r.loop.error}`] : []));
   if (stopped.length > 0) {
     loop = { error: stopped.join('; '), pass: false };
   } else {
-    const loops = reports.map((r) => r.loop as LoopChecks & { pass: boolean; seconds: number });
-    const merged = { ...loops[0], oneSecond: interleave(loops.map((l) => l.oneSecond)) };
+    const loops = reports.map(
+      (r) => r.loop as LoopChecks & { oneSecondPlaces: number; pass: boolean; seconds: number },
+    );
+    const loopPlaces = places(
+      loops.map((l) => l.oneSecondPlaces),
+      'loop one-second places',
+    );
+    const merged = {
+      ...loops[0],
+      oneSecond: interleave(
+        loops.map((l) => l.oneSecond),
+        loopPlaces,
+      ),
+    };
     const shared = loops.every((l) => l.api.every((x) => x.pass) && l.oneStep.every((x) => x.pass));
     loop = { ...merged, pass: loopPasses(merged) && shared, seconds: Math.max(...loops.map((l) => l.seconds)) };
   }
+  const field = reports.find((r) => !r.field.pass)?.field ?? first.field;
   return {
     ...first,
     shard: WHOLE,
     oneSecond,
     brainPass,
     loop,
-    pass: brainPass && loop.pass && first.field.pass,
+    field,
+    pass: brainPass && loop.pass && reports.every((r) => r.field.pass),
     seconds: Math.max(...reports.map((r) => r.seconds)),
+    shardFailures,
   };
 }

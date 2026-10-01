@@ -4,7 +4,7 @@
 // This prints the results and the speed benchmark, and with --long the long runs, writes each to the output
 // directory, and fails if any check fails. With --shards=N it deals the one-second checks across N pages, each
 // Chrome of its own, and merges their reports (src/gpu/parityShards.ts): CI's software GPU runs a world on one CPU
-// core, so the shards use the runner's others (DECISIONS.md, 2026-10-01). A sharded run takes no benchmark.
+// core, so the shards use the runner's others (DECISIONS.md, 2026-10-02). A sharded run takes no benchmark.
 //
 //   npm run gpu:parity [-- outDir] [--long] [--safari] [--shards=N]      (default gpu-out, or gpu-out/safari)
 //   --shards=N        N pages, each with its share of the one-second checks; 4 on CI (WEBGPU_CI), else 1
@@ -82,13 +82,18 @@ interface Long {
 }
 interface Report {
   shard: Shard;
+  timing?: Record<string, number>;
   pass: boolean;
   brainPass: boolean;
+  oneSecondPlaces: number;
+  shardFailures?: string[];
   loop:
     | {
         api: { name: string; detail: string; pass: boolean }[];
         oneStep: LoopStep[];
         oneSecond: LoopSecond[];
+        oneSecondPlaces: number;
+        timing?: Record<string, number>;
         pass: boolean;
         seconds: number;
       }
@@ -136,6 +141,12 @@ const args = process.argv.slice(2);
 const long = args.includes('--long');
 const safari = args.includes('--safari');
 const outDir = resolve(ROOT, args.find((a) => !a.startsWith('--')) ?? (safari ? 'gpu-out/safari' : 'gpu-out'));
+for (const a of args) {
+  if (a.startsWith('--') && !['--long', '--safari'].includes(a) && !/^--shards=/.test(a)) {
+    throw new Error(`unknown option ${a}; the options are --long, --safari and --shards=N`);
+  }
+}
+if (args.filter((a) => !a.startsWith('--')).length > 1) throw new Error('give at most one output directory');
 const shardsArg = args.find((a) => a.startsWith('--shards='));
 const shards = shardsArg ? Number(shardsArg.slice('--shards='.length)) : ci && !safari && !long ? 4 : 1;
 if (!Number.isInteger(shards) || shards < 1 || shards > 16)
@@ -255,6 +266,12 @@ try {
       withTimeout(d.call<Report>('__parity'), 900000, shards === 1 ? 'the parity checks' : `shard ${k + 1}'s checks`),
     ),
   );
+  // Each shard's own report first, so a merge that refuses them still leaves them to read.
+  if (shards > 1) {
+    reports.forEach((r, k) =>
+      writeFileSync(join(outDir, `parity-shard-${k + 1}.json`), `${JSON.stringify(r, null, 2)}\n`),
+    );
+  }
   const report = shards === 1 ? reports[0] : mergeShards(reports);
   writeFileSync(join(outDir, 'parity.json'), `${JSON.stringify({ ...report, shards }, null, 2)}\n`);
   const { noise, thresholds } = report;
@@ -338,6 +355,17 @@ try {
     `\nthe brain ${report.brainPass ? 'passed' : 'FAILED'}, the loop ${loop.pass ? 'passed' : 'FAILED'}, the field ` +
       `${field.pass ? 'passed' : 'FAILED'}`,
   );
+  for (const failure of report.shardFailures ?? []) console.log(`✗ ${failure} failed; see parity-shard-*.json`);
+  // Where the time went, by part, in each page: reported, not graded.
+  const parts = (t: Record<string, number> | undefined): string =>
+    Object.entries(t ?? {})
+      .map(([k, v]) => `${k} ${v.toFixed(0)}`)
+      .join(', ');
+  console.log('\ntime by part (s):');
+  reports.forEach((r, k) => {
+    const loopTiming = 'error' in r.loop ? undefined : r.loop.timing;
+    console.log(`  ${shards === 1 ? 'run' : `shard ${k + 1}`}: brain ${parts(r.timing)}; loop ${parts(loopTiming)}`);
+  });
   console.log(
     `parity ${report.pass ? 'passed' : 'FAILED'} in ${g(report.seconds, 1)} s` +
       (shards === 1 ? '' : `, the slowest of ${shards} shards`),
@@ -367,7 +395,9 @@ try {
     );
     longPass = result.pass;
   }
-  errors = (await Promise.all(drivers.map((d) => d.errors()))).flat();
+  errors = (await Promise.all(drivers.map((d) => d.errors()))).flatMap((list, k) =>
+    shards === 1 ? list : list.map((e) => `shard ${k + 1}: ${e}`),
+  );
   if (errors.length > 0) throw new Error('the page reported errors');
   failed = !report.pass || !longPass;
 } catch (e) {

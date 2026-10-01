@@ -323,6 +323,10 @@ export interface LoopReport {
   api: ApiResult[];
   oneStep: LoopStepResult[];
   oneSecond: LoopSecondResult[];
+  // How many one-second checks the whole run has, of which a shard ran its share.
+  oneSecondPlaces: number;
+  // Seconds each part took over every setup, reported to show where a run's time goes.
+  timing: Record<string, number>;
   pass: boolean;
   seconds: number;
 }
@@ -525,11 +529,20 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData, shar
   const oneStep: LoopStepResult[] = [];
   const oneSecond: LoopSecondResult[] = [];
   let place = 0;
+  const timing: Record<string, number> = { states: 0, api: 0, 'one step': 0, 'one second': 0 };
+  let mark = performance.now();
+  const lap = (part: string): void => {
+    const now = performance.now();
+    timing[part] += (now - mark) / 1000;
+    mark = now;
+  };
   for (const setup of LOOP_SETUPS) {
+    mark = performance.now();
     const cases = loopCases(data, setup);
     const gpu = await GpuWorld.create(device, cpuWorld(data, cases[0].state, undefined, setup));
     try {
       const last = cases[cases.length - 1];
+      lap('states');
       // The state's round trip, a run split across dispatches and the CPU carrying on from the GPU's state: for the
       // trial values, the coloured noise and the conductance form, whose switch records a signed conductance.
       if (setup === LOOP_SETUPS[0] || (setup.params.noiseCorrelation ?? 0) > 0 || setup.params.form === 'conductance') {
@@ -540,14 +553,17 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData, shar
         api.push(...(await checkAwcApi(device, data, gpu, cpuWorld(data, cases[0].state, undefined, setup))));
         api.push(...(await checkTouchApi(gpu, data, last)));
       }
+      lap('api');
       const { radii, wall } = boyleBody();
       const { touch: receptors, touchSets: sets } = gpu.layout;
       for (const c of withCopies(cases, setup, false, radii, wall, receptors, sets)) {
         oneStep.push(await checkLoopStep(gpu, data, c));
       }
+      lap('one step');
       for (const c of withCopies(cases, setup, true, radii, wall, receptors, sets)) {
         if (takes(shard, place++)) oneSecond.push(await checkLoopSecond(gpu, data, c));
       }
+      lap('one second');
     } finally {
       gpu.destroy();
     }
@@ -556,6 +572,8 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData, shar
     api,
     oneStep,
     oneSecond,
+    oneSecondPlaces: place,
+    timing,
     pass: loopPasses({ api, oneStep, oneSecond }),
     seconds: (performance.now() - started) / 1000,
   };

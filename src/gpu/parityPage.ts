@@ -3,7 +3,8 @@
 // GPU and shows the results, which is how the Safari check is made by hand (npm run gpu:parity:safari makes it
 // from a script); /parity.html?long adds long-run parity, which takes 11 to 18 minutes on an M5 Max. Headless
 // Chrome reads the same results through window.__parity(), window.__bench() and window.__long()
-// (scripts/gpu/parity.ts).
+// (scripts/gpu/parity.ts). /parity.html?shard=k/n runs only that shard's share of the one-second checks, as CI's
+// runner does across n pages and then merges (src/gpu/parityShards.ts); its verdicts are the shard's alone.
 
 import '../style.css';
 import { validateWormlightData, type WormlightData } from '../data/schema.ts';
@@ -17,7 +18,7 @@ import {
 } from './loopParity.ts';
 import { runFieldParity, type FieldReport } from './fieldParity.ts';
 import { runBench, runParity, type BenchReport, type ParityReport, type StepResult } from './parity.ts';
-import { parseShard, type Shard } from './parityShards.ts';
+import { parseShard, shardText, type Shard } from './parityShards.ts';
 import { describeGpuSupport, probeWebGpu } from './support.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -133,7 +134,7 @@ function showParity(report: ParityReport): void {
 }
 
 type FullReport = ParityReport & {
-  // The share of the one-second checks this page ran (DECISIONS.md, 2026-10-01): the whole run unless its query
+  // The share of the one-second checks this page ran (DECISIONS.md, 2026-10-02): the whole run unless its query
   // names a shard, as CI's runner does.
   shard: Shard;
   loop: LoopReport | { error: string; pass: false };
@@ -330,6 +331,16 @@ async function start(): Promise<{
   // The loop's and the field's checks run after the brain's; if they stop, the brain's results still stand.
   const query = new URLSearchParams(location.search);
   const shard = parseShard(query.get('shard'));
+  if (shard.count > 1 && query.has('long')) throw new Error('the long runs take a whole page, not a shard');
+  if (shard.count > 1) {
+    root.append(
+      el(
+        'p',
+        `Shard ${shardText(shard)}: this page runs its share of the one-second checks, so its verdicts, the share of ungraded states among them, are the shard's, not the run's.`,
+        'status-body',
+      ),
+    );
+  }
   const began = performance.now();
   const parity = runParity(device, adapter, data, shard).then(async (brain): Promise<FullReport> => {
     const stopped = (e: unknown): { error: string; pass: false } => ({

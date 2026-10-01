@@ -1,4 +1,4 @@
-// GPU parity dealt across shards (DECISIONS.md, 2026-10-01): the deal, the merge and the pass rules, which the page
+// GPU parity dealt across shards (DECISIONS.md, 2026-10-02): the deal, the merge and the pass rules, which the page
 // and the merge share.
 
 import { describe, expect, it } from 'vitest';
@@ -27,13 +27,15 @@ describe('the deal', () => {
       const places = Array.from({ length: 145 }, (_, k) => k);
       const lists = Array.from({ length: count }, (_, index) => places.filter((k) => takes({ index, count }, k)));
       expect(lists.flat().sort((a, b) => a - b)).toEqual(places);
-      expect(interleave(lists)).toEqual(places);
+      expect(interleave(lists, places.length)).toEqual(places);
     }
   });
 
-  it('refuses shards whose lists the deal could not have made', () => {
-    expect(() => interleave([[0, 3], [1], [2, 4]])).toThrow(/shard 2 of 3 has 1 results, not 2/);
-    expect(() => interleave([[0], [1, 3]])).toThrow(/shard 1 of 2/);
+  it('refuses shards whose lists the deal could not have made, or that are short of the run', () => {
+    expect(() => interleave([[0, 3], [1], [2, 4]], 5)).toThrow(/shard 2 of 3 has 1 results, not 2/);
+    expect(() => interleave([[0], [1, 3]], 3)).toThrow(/shard 1 of 2/);
+    // A last shard short by its final result looks like a deal of 7, but the run has 8.
+    expect(() => interleave([[0, 4], [1, 5], [2, 6], [3]], 8)).toThrow(/hold 7 results of the run's 8/);
   });
 });
 
@@ -51,7 +53,7 @@ function shard(
   s: Shard,
   places: number,
   ungraded: readonly number[] = [],
-  options: { apiFails?: boolean; loopStops?: boolean } = {},
+  options: { apiFails?: boolean; loopStops?: boolean; fieldFails?: boolean; places?: number } = {},
 ): TestReport {
   const seconds = Array.from({ length: places }, (_, place) => ({
     place,
@@ -65,11 +67,19 @@ function shard(
     api: [{ pass: !options.apiFails }],
     oneStep: [pass, pass],
     oneSecond: seconds,
+    oneSecondPlaces: options.places ?? places,
     variant: { oneStep: pass, oneSecond: { graded: true, pass: true } },
     loop: options.loopStops
       ? { error: 'the GPU was lost', pass: false }
-      : { api: [pass], oneStep: [pass], oneSecond: seconds, pass: true, seconds: 10 * (s.index + 1) },
-    field: pass,
+      : {
+          api: [pass],
+          oneStep: [pass],
+          oneSecond: seconds,
+          oneSecondPlaces: places,
+          pass: true,
+          seconds: 10 * (s.index + 1),
+        },
+    field: { pass: !options.fieldFails },
     brainPass: true,
     pass: true,
     seconds: 10 * (s.index + 1),
@@ -106,6 +116,22 @@ describe('the merge', () => {
     const merged = mergeShards(stopped);
     expect(merged.pass).toBe(false);
     expect(merged.loop).toEqual({ error: 'shard 2: the GPU was lost', pass: false });
+  });
+
+  it("fails when a later shard's odour field fails, and names the shard", () => {
+    const reports = shards(3, 12);
+    reports[2] = shard({ index: 2, count: 3 }, 12, [], { fieldFails: true });
+    const merged = mergeShards(reports);
+    expect(merged.pass).toBe(false);
+    expect(merged.field.pass).toBe(false);
+    expect(merged.shardFailures).toEqual(['shard 3: the odour field']);
+    expect(mergeShards(shards(3, 12)).shardFailures).toEqual([]);
+  });
+
+  it('refuses shards that counted different runs', () => {
+    const reports = shards(2, 12);
+    reports[1] = shard({ index: 1, count: 2 }, 12, [], { places: 13 });
+    expect(() => mergeShards(reports)).toThrow(/counted 12, 13 brain one-second places/);
   });
 
   it('refuses shards out of order or of another deal', () => {
