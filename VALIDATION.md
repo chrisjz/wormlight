@@ -391,6 +391,10 @@ The response, the touched copies' mean speed over the twins' less one, is −0.3
 
 <!-- /harness:checkpoint-3 -->
 
+<!-- harness:checkpoint-4 -->
+
+<!-- /harness:checkpoint-4 -->
+
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on
