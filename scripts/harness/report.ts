@@ -26,6 +26,15 @@ import { table } from '../data/render.ts';
 import { asRun } from '../../src/science/ledger.ts';
 import type { Model } from '../../src/sim/trackS.ts';
 import { formatNumber } from '../docs/page.ts';
+import { BACK, FRONT } from '../../src/sim/touch.ts';
+import {
+  CHECKPOINT_2,
+  CHECKPOINT_3,
+  type Checkpoint2,
+  type Checkpoint3,
+  type TouchPair,
+  type TouchRun,
+} from '../../src/validation/touch.ts';
 
 export interface RunInfo {
   date: string;
@@ -393,6 +402,111 @@ export function checkpoint1Section(result: Checkpoint1, info: RunInfo): string {
     diagnosticsText(result.diagnostics),
     trialTable(result.trials),
   ].join('\n\n');
+}
+
+// The touch trials' run, which checkpoints 2 and 3 share (PLAN §7.4): how many seeds it took for its touches, and
+// whether they stayed sound.
+function touchRunLine(r: TouchRun, info: RunInfo): string {
+  return [
+    `Run on ${info.date} at \`${info.commit}\`: trials of ${info.seconds} s from real postures, seed 1 upwards, each touched once during forward crawling, at the first 0.1 s sample from an earliest time its seed draws between 20 and 100 s at which the 2 s before were forward, the world forking there into a copy touched at the front (s = ${FRONT}), one at the back (s = ${BACK}) and a sham twin, each run 3.5 s on; ${plural(r.touches, 'touch', 'touches')} from ${count(r.seeds, 'seed')}, on ${parameterText(info.calibrated, info.registry, info.model)}.`,
+    r.unmeasured === null
+      ? `Every trial and copy stayed finite, and ${r.unconverged === 0 ? 'no brain solve failed to converge' : `${count(r.unconverged, 'brain solve')} failed to converge`}.`
+      : `Unmeasured: ${r.unmeasured}, so the checkpoint fails.`,
+  ].join(' ');
+}
+
+// What the investigation of 2026-09-29 previewed, outside the protocols, which every report of checkpoints 2 to 5 names
+// (PLAN §10).
+const PREVIEWS =
+  "Previewed outside the protocol (PLAN §10): an investigation on 2026-09-29 stimulated and lesioned the real wiring at another fit, the second round's probe crawler, on exploration seeds; it pointed to checkpoint 2 failing, with no reversal, and checkpoint 3 likely failing, since stimulating PLM slowed the worm (DECISIONS.md, 2026-09-29).";
+
+export function checkpoint2Section(r: Checkpoint2, info: RunInfo): string {
+  const fitted = info.model === 'track S';
+  const share = (x: number): string => `${(100 * x).toFixed(0)}%`;
+  return [
+    `### Checkpoint 2: anterior touch — ${GRADE[r.grade]}${fitted ? ', reported as fitted' : ''}`,
+    touchRunLine(r, info),
+    table(
+      ['Clause', 'Measured', 'Pass', 'Partial'],
+      [
+        [
+          'Touches followed by a reversal within 2 s',
+          `${r.followed} of ${r.touches} (${share(r.share)})`,
+          `≥ ${share(CHECKPOINT_2.pass)}`,
+          `${share(CHECKPOINT_2.partial)}–${share(CHECKPOINT_2.pass)}`,
+        ],
+        [
+          "Against the sham twins (McNemar's exact test, one-sided)",
+          `${r.shams} twins reversed (${share(r.shamShare)}); ${r.touchedOnly} ${r.touchedOnly === 1 ? 'pair' : 'pairs'} with the touched copy's alone and ${r.shamOnly} with the twin's alone; ${pValue(r.p)}`,
+          `Significant, and at least ${CHECKPOINT_2.ratio}× the twins' share`,
+          'Significant (DECISIONS.md, 2026-10-02)',
+        ],
+      ],
+    ),
+    [
+      `The response, the touched copies' share of reversals less the twins', is ${fixed(r.response, 2)}: what checkpoint 5's touch rows read.`,
+      r.latency === null
+        ? 'No touch was followed by a reversal, so there is no latency to report.'
+        : `Reported, not graded: from the touch to the first backward sample, ${r.latency.mean.toFixed(1)} s on average, ${r.latency.median.toFixed(1)} s the median.`,
+      fitted
+        ? 'Reported as fitted: track S, whose fit this is, was proposed after the previews below, and its measured signs came from an audit the missing backward mode prompted (PLAN §10; DECISIONS.md, 2026-10-01).'
+        : '',
+      PREVIEWS,
+    ]
+      .filter(Boolean)
+      .join(' '),
+    touchTable(r.pairs),
+  ].join('\n\n');
+}
+
+export function checkpoint3Section(r: Checkpoint3, info: RunInfo): string {
+  const response =
+    r.response === null ? 'unmeasured' : `${r.response >= 0 ? '+' : '−'}${(100 * Math.abs(r.response)).toFixed(1)}%`;
+  return [
+    `### Checkpoint 3: posterior touch — ${GRADE[r.grade]}`,
+    touchRunLine(r, info),
+    table(
+      ['Clause', 'Measured', 'Pass', 'Partial'],
+      [
+        [
+          "Mean forward speed over the 2 s after the touch, over the sham twins' (the signed-rank test, one-sided, paired)",
+          `${fixed(r.after, 4)} touched, ${fixed(r.shamAfter, 4)} in the twins (body lengths/s): ${response}; a rank sum of ${r.test.positive} for the touches that led, over ${plural(r.test.n, 'pair', 'pairs')} that differed, ${pValue(r.test.p)}`,
+          `≥ ${(100 * CHECKPOINT_3.pass).toFixed(0)}% above, and significant`,
+          `Significantly above, by ${(100 * CHECKPOINT_3.partial).toFixed(0)}% to ${(100 * CHECKPOINT_3.pass).toFixed(0)}%`,
+        ],
+      ],
+    ),
+    [
+      `The response, the touched copies' mean speed over the twins' less one, is ${response}: what checkpoint 5's touch rows read.`,
+      `Reported, not graded: the forward velocity over the 2 s before the touches, ${fixed(r.before, 4)} body lengths per second, against ${fixed(r.after, 4)} after, by the before-and-after test the cited papers use, a rank sum of ${r.rise.positive} over ${plural(r.rise.n, 'pair', 'pairs')}, ${pValue(r.rise.p)}.`,
+      PREVIEWS,
+    ].join(' '),
+    touchTable(r.pairs),
+  ].join('\n\n');
+}
+
+// Each touch: its trial, when and what it reached, and the touched copy against its sham twin.
+function touchTable(pairs: readonly TouchPair[]): string {
+  return table(
+    [
+      'Seed',
+      'Posture',
+      'Touch at (s)',
+      'Reached',
+      'Reversal: touched / sham',
+      'Speed before (body lengths/s)',
+      'Speed after: touched / sham (body lengths/s)',
+    ],
+    pairs.map((t) => [
+      String(t.seed),
+      String(t.posture + 1),
+      t.time.toFixed(1),
+      t.reached.join(', ') || 'None',
+      `${t.touched ? 'Yes' : 'No'} / ${t.sham ? 'Yes' : 'No'}`,
+      fixed(t.before, 4),
+      `${fixed(t.after, 4)} / ${fixed(t.shamAfter, 4)}`,
+    ]),
+  );
 }
 
 // A sensitivity setting's runs (spec §2.4; PLAN §2.4, §3.2): checkpoint 1 on the setting's brain, and checkpoint 0's

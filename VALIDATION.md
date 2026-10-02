@@ -254,6 +254,14 @@ Diagnostics, reported and not graded (PLAN §7.4): the mid-body curvature's spec
 
 <!-- /harness:checkpoint-1 -->
 
+<!-- harness:checkpoint-2 -->
+
+<!-- /harness:checkpoint-2 -->
+
+<!-- harness:checkpoint-3 -->
+
+<!-- /harness:checkpoint-3 -->
+
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on

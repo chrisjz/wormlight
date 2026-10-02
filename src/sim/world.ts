@@ -365,10 +365,22 @@ export class World {
   // integrator restarts, with no current of its own. A sham where a touch would reach no receptor, or give none a
   // current, does nothing, as that touch wouldn't restart it either. Returns the receptors the touch would reach.
   sham(s: number): TouchReceptor[] {
-    const { mask, currents } = tap(this.touchSets, s);
-    const reached = this.receptors.filter((r) => (mask & (1 << r.index)) !== 0);
-    this.shamLeft = reached.some((r) => currents[r.index] !== 0) ? TOUCH_STEPS : 0;
+    const reached = this.reachedBy(s);
+    this.shamLeft = this.touchRestarts(s) ? TOUCH_STEPS : 0;
     return reached;
+  }
+
+  // Whether a touch at s would restart the integrator, as a sham there does: it reaches a receptor, not lesioned,
+  // that its set gives a current. It changes nothing.
+  touchRestarts(s: number): boolean {
+    const { currents } = tap(this.touchSets, s);
+    return this.reachedBy(s).some((r) => currents[r.index] !== 0);
+  }
+
+  // The receptors, not lesioned, whose fields cover s.
+  private reachedBy(s: number): TouchReceptor[] {
+    const { mask } = tap(this.touchSets, s);
+    return this.receptors.filter((r) => (mask & (1 << r.index)) !== 0);
   }
 
   // The concentration (µM) where AWC senses.
