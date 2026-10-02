@@ -2,6 +2,7 @@
 // row's effect and test, the zero rule, RIM's rise from zero, the touch rows, and the checkpoint's grade.
 
 import { describe, expect, it } from 'vitest';
+import { checkpoint5Section, type RunInfo } from '../scripts/harness/report.ts';
 import { parseArgs } from '../scripts/harness/run.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { currentParams } from '../src/sim/world.ts';
@@ -168,6 +169,65 @@ describe("the rows' effect and test", () => {
     expect(few.rows.find((row) => row.id === 'pvc')?.clauses[0].unmeasured).toMatch(/fewer than 50/);
   });
 
+  it("mark as fitted the clauses that read reversals, PVC's on checkpoint 2 alone in its row", () => {
+    const r = checkpoint5(passing, touched);
+    expect(r.rows.map((row) => [row.id, row.readsReversals, row.clauses.map((c) => c.readsReversals)])).toEqual([
+      ['ava-avd', true, [true, true]],
+      ['avb-pvc', false, [false]],
+      ['pvc', false, [false, true]],
+      ['ava', true, [true, true]],
+      ['rim', true, [true]],
+    ]);
+  });
+
+  it('fail a touch clause that moves the other way, and give no direction to a tie', () => {
+    // Intact, 10 of 50 touches reversing in the touched copy alone; lesioned, 40: significant, the wrong way.
+    const more = checkpoint5(passing, {
+      ...touched,
+      [INTACT]: touches(12, 2, 0.08, 0.07),
+      'ava-avd': touches(42, 2, 0.08, 0.07),
+    });
+    expect(more.rows.find((row) => row.id === 'ava-avd')?.clauses[0]).toMatchObject({ pass: false, direction: false });
+    expect(more.rows.find((row) => row.id === 'ava-avd')?.clauses[0].p).toBeLessThan(0.05);
+    const same = checkpoint5(passing, { ...touched, 'ava-avd': touched[INTACT] });
+    const tie = same.rows.find((row) => row.id === 'ava-avd')?.clauses[0];
+    expect(tie?.direction).toBeNull();
+    expect(tie?.p).toBeCloseTo(1, 12);
+    // PVC's lesion making the posterior touch's speed-up larger, not smaller.
+    const faster = checkpoint5(passing, { ...touched, pvc: touches(40, 2, 0.1, 0.07) });
+    expect(faster.rows.find((row) => row.id === 'pvc')?.clauses[0]).toMatchObject({ pass: false, direction: false });
+  });
+
+  it("report every lesion's measures, and check the reported arms as the graded ones", () => {
+    const r = checkpoint5(passing, touched);
+    expect(r.primaryMeasures.map((l) => l.id)).toEqual(['ava-avd', 'avb-pvc', 'pvc', 'ava', 'rim']);
+    const avb = r.primaryMeasures.find((l) => l.id === 'avb-pvc');
+    // The same pooled measures the row grades.
+    const speed = avb?.measures.find((m) => m.name.startsWith('Mean velocity'));
+    const row = r.rows.find((x) => x.id === 'avb-pvc')?.clauses[0];
+    expect([speed?.intact, speed?.lesioned]).toEqual([row?.intact, row?.lesioned]);
+    expect(speed?.lesioned).toBeCloseTo(0.005, 12);
+    const broken = arm((s) => trial(s, 0.07));
+    broken[2] = { ...broken[2], finite: false };
+    const aiy = checkpoint5({ ...passing, aiy: broken }, touched).secondary.find((l) => l.id === 'aiy');
+    expect(aiy?.unmeasured).toBe("seed 3's trial left the finite numbers");
+    expect(aiy?.measures.every((m) => m.p === null)).toBe(true);
+    expect(() => checkpoint5({ ...passing, aiz: passing.aiz.slice(1) }, touched)).toThrow(/seed by seed/);
+  });
+
+  it("report checkpoint 1's speed beside AVB + PVC's row, its bouts' samples pooled as checkpoint 1 pools them", () => {
+    // Odd seeds forward at 0.05 throughout, a bout of 110 s; even seeds at 0.02 for 15 s, then paused.
+    const mixed = arm((s) => {
+      const t = trial(s, 0.05);
+      return s % 2 ? t : { ...t, velocity: t.velocity.map((_, i) => (i < 150 ? 0.02 : 0)) };
+    });
+    const r = checkpoint5({ ...passing, 'avb-pvc': mixed }, touched);
+    expect(r.boutSpeed.lesioned).toBeCloseTo((15 * 1100 * 0.05 + 15 * 150 * 0.02) / (15 * 1250), 12);
+    expect(r.boutSpeed).toMatchObject({ intactTrials: 30, lesionedTrials: 30 });
+    const still = checkpoint5({ ...passing, 'avb-pvc': arm((s) => trial(s, 0.005)) }, touched);
+    expect(still.boutSpeed).toMatchObject({ lesioned: null, lesionedTrials: 0 });
+  });
+
   it("fail a row whose arm left the finite numbers, and refuse arms that don't pair by seed", () => {
     const broken = arm((s) => trial(s, 0.005));
     broken[4] = { ...broken[4], finite: false };
@@ -176,6 +236,51 @@ describe("the rows' effect and test", () => {
       "seed 5's trial left the finite numbers",
     );
     expect(() => checkpoint5({ ...passing, rim: passing.rim.slice(1) }, touched)).toThrow(/seed by seed/);
+  });
+});
+
+describe("checkpoint 5's section", () => {
+  const info: RunInfo = {
+    date: '2026-10-02',
+    commit: 'abc1234',
+    calibrated: true,
+    model: 'track S',
+    trials: 30,
+    seconds: 120,
+  };
+  const passing = {
+    [INTACT]: arm((s) => trial(s, 0.07, [70, 15])),
+    'ava-avd': arm((s) => trial(s, 0.07)),
+    'avb-pvc': arm((s) => trial(s, 0.005)),
+    pvc: arm((s) => trial(s, 0.07, [70, 15])),
+    ava: arm((s) => trial(s, 0.07, s % 3 === 0 ? [15] : [])),
+    rim: arm((s) => trial(s, 0.07, [70, 15, 15, 15])),
+    aib: arm((s) => trial(s, 0.07, [70, 15])),
+    aiy: arm((s) => trial(s, 0.07, [70, 15])),
+    aiz: arm((s) => trial(s, 0.07, [70, 15])),
+  };
+  const touched = {
+    [INTACT]: touches(40, 2, 0.08, 0.07),
+    'ava-avd': touches(2, 2, 0.08, 0.07),
+    pvc: touches(40, 2, 0.0701, 0.07),
+  };
+
+  it('grades the rows, marks the clauses that read reversals as fitted, and reports every lesion', () => {
+    const section = checkpoint5Section(checkpoint5(passing, touched), info);
+    expect(section).toContain('### Checkpoint 5: lesions — **Pass**, reported as fitted');
+    expect(section).toContain(
+      "Every spontaneous trial stayed finite; no brain solve failed to converge in them or in the touch runs' graded touches.",
+    );
+    expect(section).toContain('5 of the five primary rows pass');
+    expect(section).toMatch(/\| AVA \(fitted\) +\| Long reversals a minute /);
+    expect(section).toMatch(/\| PVC +\| The posterior touch's speed-up \(checkpoint 3's response\) +\|/);
+    expect(section).toContain("| Touch-evoked reversals (checkpoint 2's response) stay (fitted) |");
+    expect(section).toMatch(/\| AVB \+ PVC +\| Forward speed/);
+    expect(section).toContain('0.0700 over the 30 trials with a bout intact and unmeasured, with no bout lesioned');
+    expect(section).toContain("Every primary lesion's spontaneous measures, reported beside the rows");
+    expect(section).toMatch(/\| AIZ +\| Spontaneous reversals a minute/);
+    const planned = checkpoint5Section(checkpoint5(passing, touched), { ...info, model: 'track R' });
+    expect(planned).not.toContain('fitted');
   });
 });
 

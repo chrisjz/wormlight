@@ -9,7 +9,7 @@
 
 import { fisherTwoSided, mannWhitneyTwoSided } from '../sim/stats.ts';
 import { swings } from './mechanism.ts';
-import { reversals, runKinematics, type Run } from './motion.ts';
+import { SEPARATION, bouts, kinematics, reversals, runKinematics, type Run } from './motion.ts';
 import { CHECKPOINT_3, checkpoint2, checkpoint3, type TouchTrialRecord } from './touch.ts';
 import type { TrialRecord } from './trial.ts';
 
@@ -105,6 +105,8 @@ export interface LesionClause {
   direction: boolean | null;
   unmeasured: string | null;
   pass: boolean;
+  // Whether the clause reads reversals, so on track S's fit it is reported as fitted (DECISIONS.md, 2026-10-02).
+  readsReversals: boolean;
 }
 
 export interface LesionRow {
@@ -112,22 +114,26 @@ export interface LesionRow {
   label: string;
   clauses: LesionClause[];
   pass: boolean;
-  // Whether the row reads reversals, so on track S's fit it is reported as fitted (DECISIONS.md, 2026-10-02).
+  // Whether every clause reads reversals, so the row as a whole is reported as fitted on track S's fit.
   readsReversals: boolean;
 }
 
+// A clause as each rule builds it, before the row says whether it reads reversals.
+type Clause = Omit<LesionClause, 'readsReversals'>;
+
 const mean = (x: readonly number[]): number => (x.length > 0 ? x.reduce((a, b) => a + b, 0) / x.length : 0);
 
-// A fall of `amount` in a measure per trial, tested by Mann–Whitney's test between the lesioned and intact trials.
+// A fall in a measure per trial to at most `kept` of the intact measure, a fall of 80% keeping 0.2 and one of 30%
+// keeping 0.7, tested by Mann–Whitney's test between the lesioned and intact trials.
 function fall(
   name: string,
   intact: readonly number[],
   lesioned: readonly number[],
-  amount: number,
+  kept: number,
   sound: string | null,
-): LesionClause {
+): Clause {
   const [i, l] = [mean(intact), mean(lesioned)];
-  const asks = `falls by ${Math.round(100 * amount)}% or more`;
+  const asks = `falls by ${Math.round(100 * (1 - kept))}% or more`;
   const unmeasured = sound ?? (i > 0 ? null : `the intact measure is ${i === 0 ? 'zero' : 'not positive'}`);
   if (unmeasured) return { name, intact: i, lesioned: l, asks, p: null, direction: null, unmeasured, pass: false };
   const t = mannWhitneyTwoSided(lesioned, intact);
@@ -140,17 +146,12 @@ function fall(
     p: t.p,
     direction,
     unmeasured: null,
-    pass: l <= (1 - amount) * i && t.p < ALPHA && direction === true,
+    pass: l <= kept * i && t.p < ALPHA && direction === true,
   };
 }
 
 // A rise in a measure per trial, from zero too, by Mann–Whitney's test.
-function rise(
-  name: string,
-  intact: readonly number[],
-  lesioned: readonly number[],
-  sound: string | null,
-): LesionClause {
+function rise(name: string, intact: readonly number[], lesioned: readonly number[], sound: string | null): Clause {
   const [i, l] = [mean(intact), mean(lesioned)];
   if (sound)
     return { name, intact: i, lesioned: l, asks: 'rises', p: null, direction: null, unmeasured: sound, pass: false };
@@ -171,17 +172,30 @@ function rise(
 export interface Checkpoint5 {
   grade: 'pass' | 'partial' | 'fail';
   rows: LesionRow[];
-  // The secondary lesions, reported: each one's pooled measures beside the intact worm's, with Mann–Whitney's p.
-  secondary: {
-    id: string;
-    label: string;
-    measures: { name: string; intact: number; lesioned: number; p: number }[];
-  }[];
+  // Every lesion's spontaneous measures, reported: the primary ones beside their rows, and the secondary ones.
+  primaryMeasures: ArmMeasures[];
+  secondary: ArmMeasures[];
   // The spontaneous measures of every trial, by lesion, for the report.
   trials: Record<string, Spontaneous[]>;
-  // Reported beside AVB + PVC's row: checkpoint 1's speed over forward bouts, pooled over each arm's trials with one.
-  boutSpeed: { intact: number | null; lesioned: number | null };
+  // Reported beside AVB + PVC's row: checkpoint 1's speed over forward bouts of 10 s or more, its samples pooled over
+  // each arm's trials as checkpoint 1 pools them, null with no bout, and how many trials held a bout.
+  boutSpeed: {
+    intact: number | null;
+    lesioned: number | null;
+    intactTrials: number;
+    lesionedTrials: number;
+  };
+  // Solves that didn't converge, over the spontaneous trials and the touch runs' graded touches.
   unconverged: number;
+}
+
+// A lesion's spontaneous measures pooled over its trials, beside the intact worm's, with Mann–Whitney's two-sided p;
+// unmeasured, with no p, when a trial left the finite numbers.
+export interface ArmMeasures {
+  id: string;
+  label: string;
+  unmeasured: string | null;
+  measures: { name: string; intact: number; lesioned: number; p: number | null }[];
 }
 
 // The grade from the spontaneous trials, by lesion id with INTACT among them, and the touch runs, by the same ids.
@@ -216,7 +230,7 @@ export function checkpoint5(
         ? `the lesioned touches: ${l.unmeasured}`
         : null;
   };
-  const touchFall = (id: string): LesionClause => {
+  const touchFall = (id: string): Clause => {
     const name = "Touch-evoked reversals (checkpoint 2's response)";
     const [i, l] = [checkpoint2(touches[INTACT] ?? []), checkpoint2(touches[id] ?? [])];
     const asks = 'falls by 80% or more';
@@ -236,7 +250,8 @@ export function checkpoint5(
       };
     }
     const p = fisherTwoSided(l.touchedOnly, l.touches, i.touchedOnly, i.touches);
-    const direction = l.touchedOnly / l.touches < i.touchedOnly / i.touches;
+    const [ls, is] = [l.touchedOnly / l.touches, i.touchedOnly / i.touches];
+    const direction = ls === is ? null : ls < is;
     return {
       name,
       intact: i.response,
@@ -245,10 +260,10 @@ export function checkpoint5(
       p,
       direction,
       unmeasured: null,
-      pass: l.response <= 0.2 * i.response && p < ALPHA && direction,
+      pass: l.response <= 0.2 * i.response && p < ALPHA && direction === true,
     };
   };
-  const speedFall = (id: string): LesionClause => {
+  const speedFall = (id: string): Clause => {
     const name = "The posterior touch's speed-up (checkpoint 3's response)";
     const [i, l] = [checkpoint3(touches[INTACT] ?? []), checkpoint3(touches[id] ?? [])];
     const asks = 'falls by 80% or more';
@@ -284,7 +299,7 @@ export function checkpoint5(
       pass: l.response <= 0.2 * i.response && t.p < ALPHA && direction === true,
     };
   };
-  const stays = (id: string): LesionClause => {
+  const stays = (id: string): Clause => {
     const name = "Touch-evoked reversals (checkpoint 2's response) stay";
     const [i, l] = [checkpoint2(touches[INTACT] ?? []), checkpoint2(touches[id] ?? [])];
     const asks = 'stays at 70% of intact or more';
@@ -302,48 +317,59 @@ export function checkpoint5(
       pass: unmeasured === null && l.response >= 0.7 * i.response,
     };
   };
-  const row = (id: string, readsReversals: boolean, clauses: LesionClause[]): LesionRow => ({
+  // Each clause with whether it reads reversals: every one but AVB + PVC's speed and PVC's speed-up (the rules'
+  // "Fitted.", DECISIONS.md, 2026-10-02).
+  const row = (id: string, clauses: [Clause, boolean][]): LesionRow => ({
     id,
     label: (PRIMARY.find((l) => l.id === id) as Lesion).label,
-    clauses,
-    pass: clauses.every((c) => c.pass),
-    readsReversals,
+    clauses: clauses.map(([c, readsReversals]) => ({ ...c, readsReversals })),
+    pass: clauses.every(([c]) => c.pass),
+    readsReversals: clauses.every(([, reads]) => reads),
   });
   const reversalRate = 'Spontaneous reversals a minute';
   const rows = [
-    row('ava-avd', true, [
-      touchFall('ava-avd'),
-      fall(reversalRate, values(INTACT, 'reversals'), values('ava-avd', 'reversals'), 0.3, broken('ava-avd')),
+    row('ava-avd', [
+      [touchFall('ava-avd'), true],
+      [fall(reversalRate, values(INTACT, 'reversals'), values('ava-avd', 'reversals'), 0.7, broken('ava-avd')), true],
     ]),
-    row('avb-pvc', false, [
-      fall(
-        'Forward speed, mean velocity towards the head (body lengths/s)',
-        values(INTACT, 'meanVelocity'),
-        values('avb-pvc', 'meanVelocity'),
-        0.8,
-        broken('avb-pvc'),
-      ),
+    row('avb-pvc', [
+      [
+        fall(
+          'Forward speed, mean velocity towards the head (body lengths/s)',
+          values(INTACT, 'meanVelocity'),
+          values('avb-pvc', 'meanVelocity'),
+          0.2,
+          broken('avb-pvc'),
+        ),
+        false,
+      ],
     ]),
-    row('pvc', true, [speedFall('pvc'), stays('pvc')]),
-    row('ava', true, [
-      fall('Long reversals a minute', values(INTACT, 'long'), values('ava', 'long'), 0.8, broken('ava')),
-      fall(reversalRate, values(INTACT, 'reversals'), values('ava', 'reversals'), 0.3, broken('ava')),
+    row('pvc', [
+      [speedFall('pvc'), false],
+      [stays('pvc'), true],
     ]),
-    row('rim', true, [
-      rise('Short reversals a minute', values(INTACT, 'short'), values('rim', 'short'), broken('rim')),
+    row('ava', [
+      [fall('Long reversals a minute', values(INTACT, 'long'), values('ava', 'long'), 0.2, broken('ava')), true],
+      [fall(reversalRate, values(INTACT, 'reversals'), values('ava', 'reversals'), 0.7, broken('ava')), true],
+    ]),
+    row('rim', [
+      [rise('Short reversals a minute', values(INTACT, 'short'), values('rim', 'short'), broken('rim')), true],
     ]),
   ];
   const passed = rows.filter((r) => r.pass).length;
-  const pooledBoutSpeed = (id: string): number | null => {
-    const speeds = (measures[id] ?? []).flatMap((t) => (t.boutSpeed === null ? [] : [t.boutSpeed]));
-    return speeds.length > 0 ? mean(speeds) : null;
-  };
-  return {
-    grade: passed === PRIMARY.length ? 'pass' : passed >= 3 ? 'partial' : 'fail',
-    rows,
-    secondary: SECONDARY.filter((l) => measures[l.id]).map((l) => ({
+  // Checkpoint 1's speed: the samples of every forward bout of 10 s or more, pooled over the arm's trials.
+  const pooledBoutSpeed = (id: string): number | null =>
+    kinematics(
+      (spont[id] ?? []).map((r) => ({ ...r, bouts: bouts(r.velocity) })),
+      SEPARATION,
+    ).speed;
+  const withBout = (id: string): number => (measures[id] ?? []).filter((t) => t.boutSpeed !== null).length;
+  const armMeasures = (l: Lesion): ArmMeasures => {
+    const unmeasured = broken(l.id);
+    return {
       id: l.id,
       label: l.label,
+      unmeasured,
       measures: (
         [
           ['Spontaneous reversals a minute', 'reversals'],
@@ -355,11 +381,24 @@ export function checkpoint5(
         name,
         intact: mean(values(INTACT, key)),
         lesioned: mean(values(l.id, key)),
-        p: mannWhitneyTwoSided(values(l.id, key), values(INTACT, key)).p,
+        p: unmeasured ? null : mannWhitneyTwoSided(values(l.id, key), values(INTACT, key)).p,
       })),
-    })),
+    };
+  };
+  const touchUnconverged = Object.values(touches).reduce((n, rs) => n + checkpoint2(rs).unconverged, 0);
+  return {
+    grade: passed === PRIMARY.length ? 'pass' : passed >= 3 ? 'partial' : 'fail',
+    rows,
+    primaryMeasures: PRIMARY.filter((l) => measures[l.id]).map(armMeasures),
+    secondary: SECONDARY.filter((l) => measures[l.id]).map(armMeasures),
     trials: measures,
-    boutSpeed: { intact: pooledBoutSpeed(INTACT), lesioned: pooledBoutSpeed('avb-pvc') },
-    unconverged: Object.values(spont).reduce((n, rs) => n + rs.reduce((m, r) => m + r.unconverged, 0), 0),
+    boutSpeed: {
+      intact: pooledBoutSpeed(INTACT),
+      lesioned: pooledBoutSpeed('avb-pvc'),
+      intactTrials: withBout(INTACT),
+      lesionedTrials: withBout('avb-pvc'),
+    },
+    unconverged:
+      Object.values(spont).reduce((n, rs) => n + rs.reduce((m, r) => m + r.unconverged, 0), 0) + touchUnconverged,
   };
 }
