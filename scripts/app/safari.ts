@@ -13,6 +13,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { MODEL_VERSION } from '../../src/sim/version.ts';
 import { ADAPTER, serve } from '../browser.ts';
 import { ROOT } from '../data/sources.ts';
 import { Safari } from '../safari.ts';
@@ -81,7 +82,7 @@ const SCENARIOS: Scenario[] = [
     query: '?seed=4',
     check: `
       if (!shown('.pane-plate') || !shown('.pane-graph')) return 'a pane is missing';
-      return param('model') === '1' && /^[0-9a-f]{8}$/.test(param('data') ?? '') ? '' : 'versions not written';`,
+      return param('model') === '${MODEL_VERSION}' && /^[0-9a-f]{8}$/.test(param('data') ?? '') ? '' : 'versions not written';`,
   },
   {
     name: 'plate-alone',
