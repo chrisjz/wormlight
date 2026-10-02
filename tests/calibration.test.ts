@@ -1,6 +1,7 @@
 // The calibrated values against the committed records of the fits that set them (PLAN §7.3, §9): the planned
-// model's, track R's first fit, and R's refit with the coloured noise; and the records of R's second round, the
-// survey and R's third round, none of whose fits was chosen (DECISIONS.md, 2026-09-29).
+// model's, track R's first fit, and R's refit with the coloured noise; the records of R's second round, the survey
+// and R's third round, none of whose fits was chosen (DECISIONS.md, 2026-09-29); and track S's calibration, whose
+// first pick passed §7.2's comparison and is S's fit (DECISIONS.md, 2026-10-02).
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ import {
   SURVEY,
   TARGETS,
   THIRD_ROUND,
+  TRACK_S_ROUND,
   provisionalValues,
   ranked,
   surveyStart,
@@ -273,5 +275,125 @@ describe("R's third round's record (PLAN §7.3, §9)", () => {
     // The app and the harness run the refit, in the current form.
     const refit = readJson<Record>('data/calibration/r2.json').final.values;
     expect(currentParams()).toEqual(loopParams(refit as unknown as RValues, 'current'));
+  });
+});
+
+describe("track S's calibration (PLAN §7.3, §9; DECISIONS.md, 2026-10-01)", () => {
+  interface Pick {
+    seed: number;
+    value: number;
+    from: string;
+    values: { [id: string]: number };
+  }
+  const round = readJson<{
+    model: string;
+    form: string;
+    commit: string;
+    complete: boolean;
+    phase1: { seed: number; final: { value: number; from: string } }[];
+    ranking: { seed: number; value: number; from: string }[];
+    continued: number[];
+    picks: Pick[];
+    stages: {
+      [stage: string]: {
+        generations: { evaluations: number }[];
+        checked: { value: number }[];
+        final: { value: number };
+      };
+    };
+  }>('data/calibration/s1.json');
+
+  it('ran as its rules set, from a clean commit, its picks the continued searches in their order', () => {
+    expect(round).toMatchObject({ model: 'track S', form: 'conductance', complete: true });
+    expect(round.commit).not.toMatch(/uncommitted/);
+    const recorded = round as unknown as { [key: string]: unknown };
+    for (const [key, value] of Object.entries(settings(CALIBRATION.budget, 'track S'))) {
+      expect(recorded[key], key).toEqual(JSON.parse(JSON.stringify(value)));
+    }
+    const order = ranked(round.phase1.map((p) => ({ seed: p.seed, value: p.final.value })));
+    expect(round.ranking.map((r) => r.seed)).toEqual(order.map((r) => r.seed));
+    expect(round.continued).toEqual(order.slice(0, TRACK_S_ROUND.phase2.continued).map((r) => r.seed));
+    for (const seed of TRACK_S_ROUND.seeds) {
+      expect(round.stages[`phase 1 ${seed}`].generations.at(-1)?.evaluations).toBe(TRACK_S_ROUND.phase1.budget);
+    }
+    for (const seed of round.continued) {
+      expect(round.stages[`phase 2 ${seed}`].generations.at(-1)?.evaluations).toBe(TRACK_S_ROUND.phase2.budget);
+    }
+    expect(round.picks).toHaveLength(TRACK_S_ROUND.phase2.continued);
+    expect(round.picks.map((p) => p.seed).sort()).toEqual([...round.continued].sort());
+    expect(round.picks.map((p) => p.seed)).toEqual(ranked(round.picks).map((p) => p.seed));
+    for (const pick of round.picks)
+      expect(pick).toEqual({ seed: pick.seed, ...round.stages[`phase 2 ${pick.seed}`].final });
+    for (const p of round.phase1) expect(p.final).toEqual(round.stages[`phase 1 ${p.seed}`].final);
+    // Each search's final is the lowest of its final check, phase 1's pick among a continued search's candidates.
+    for (const stage of Object.values(round.stages)) {
+      expect(stage.final.value).toBe(Math.min(...stage.checked.map((c) => c.value)));
+    }
+  });
+
+  it("chose its first pick, which passed §7.2's comparison at its recorded values, so no later pick ran", () => {
+    const run = readJson<{
+      fit: string;
+      pick: number;
+      values: unknown;
+      trials: number;
+      seconds: number;
+      steps: number[];
+      resamples: number;
+      unconverged: number[];
+      commit: string;
+      frequencyBand: number;
+      comparison: {
+        pass: boolean;
+        nonFinite: number;
+        clauses: { name: string; interval: [number, number] | null; margin: number | null; pass: boolean }[];
+      };
+    }>('data/equivalence/track-s-pick-1.json');
+    expect(run).toMatchObject({
+      fit: 'track-s',
+      pick: 1,
+      trials: EQUIVALENCE.trials,
+      seconds: 120,
+      steps: [0.0025, 0.00125],
+      resamples: EQUIVALENCE.resamples,
+      unconverged: [0, 0],
+      frequencyBand: 0.31,
+    });
+    expect(run.values).toEqual(round.picks[0].values);
+    expect(run.commit).not.toMatch(/uncommitted/);
+    expect(run.comparison.pass).toBe(true);
+    expect(run.comparison.nonFinite).toBe(0);
+    // Every clause's interval lies within its margin, so the pass doesn't rest on the flag alone.
+    expect(run.comparison.clauses.map((c) => c.name).sort()).toEqual(
+      ['bout', 'frequency', 'reversals', 'speed', 'wavelength'].sort(),
+    );
+    for (const c of run.comparison.clauses) {
+      if (!c.interval || c.margin === null) throw new Error(`${c.name} has no interval or margin`);
+      expect(c.interval[0], c.name).toBeGreaterThanOrEqual(-c.margin);
+      expect(c.interval[1], c.name).toBeLessThanOrEqual(c.margin);
+    }
+    for (const k of [2, 3, 4]) expect(existsSync(join(ROOT, `data/equivalence/track-s-pick-${k}.json`))).toBe(false);
+    // The chosen record: pick 1, from its search, at its values and the comparison's commit.
+    const chosen = readJson<{
+      fit: string;
+      pick: number;
+      seed: number;
+      from: string;
+      values: unknown;
+      commit: string;
+      frequencyBand: number;
+      checkpoint1: { grade: string; trials: { seed: number }[] };
+      speed: { atFloor: boolean | null };
+      variants: { name: string }[];
+    }>('data/calibration/s1-chosen.json');
+    expect(chosen).toMatchObject({ fit: 'track-s', pick: 1, frequencyBand: 0.31 });
+    expect({ seed: chosen.seed, from: chosen.from }).toEqual({ seed: round.picks[0].seed, from: round.picks[0].from });
+    expect(chosen.values).toEqual(round.picks[0].values);
+    expect(chosen.commit).toBe(run.commit);
+    expect(chosen.checkpoint1.grade).toBe('partial');
+    // Graded on checkpoint 1's seeds, 1 to 20, the partial not at the speed floor, with the five runs of its pacing.
+    expect(chosen.checkpoint1.trials.map((t) => t.seed)).toEqual(Array.from({ length: 20 }, (_, k) => k + 1));
+    expect(chosen.speed.atFloor).toBe(false);
+    expect(chosen.variants).toHaveLength(5);
   });
 });
