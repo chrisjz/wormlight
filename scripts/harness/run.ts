@@ -9,9 +9,10 @@
 // run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.
 //
-// --sensitivity runs the sensitivity settings (spec §2.4; PLAN §2.4, §3.2; src/validation/sensitivity.ts): under
-// each, checkpoint 1's trials and the same trials of the silenced network, reported and not graded, into
-// harness-out/sensitivity.json and their own section of VALIDATION.md.
+// --sensitivity runs the sensitivity settings (spec §2.4; PLAN §2.4, §3.2; src/validation/sensitivity.ts), of the
+// uncertain signs, the scales and track S's rest: under each, checkpoint 1's trials and the same trials of the
+// silenced network, reported and not graded, into harness-out/sensitivity.json and their own section of
+// VALIDATION.md.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -21,6 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
+import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
 import { currentParams, isCalibrated } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import type { Network } from '../../src/sim/brain/network.ts';
@@ -38,7 +40,7 @@ import {
   TRIALS,
 } from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
-import { SETTINGS, settingNetwork } from '../../src/validation/sensitivity.ts';
+import { SETTINGS, settingNetwork, settingParams } from '../../src/validation/sensitivity.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
@@ -100,7 +102,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: currentParams(),
+    params: job.setting === undefined ? currentParams() : settingParams(currentParams(), job.setting),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
     ...(job.setting !== undefined && brain ? { network: brain.network } : {}),
@@ -198,6 +200,7 @@ if (process.argv.includes('--worker')) {
     date: new Date().toISOString().slice(0, 10),
     commit: commit(),
     calibrated: isCalibrated(),
+    model: CHOSEN_MODEL,
     trials: options.trials,
     seconds: options.seconds,
     ...(options.checkpoints.includes(0) ? { worms, wormSeconds } : {}),

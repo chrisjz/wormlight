@@ -13,6 +13,7 @@ import {
   resigned,
   SETTINGS,
   settingNetwork,
+  settingParams,
   SHARED_SCALES,
   uncertain,
 } from '../src/validation/sensitivity.ts';
@@ -21,8 +22,8 @@ import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
 // The random draws, each a digest of its signs, on the runtime data since track S's signs moved into it (DECISIONS.md,
-// 2026-10-02). The runs VALIDATION.md records ("Sensitivity") drew others, on the data before, on the refit, and are
-// run again on S's fit; their draws were 26f8847794b0, ab84094e7fac, 3611fd17fbfe, 545050fbfc5f, cf154e50588e,
+// 2026-10-02), as the runs VALIDATION.md records ("Sensitivity") drew them on S's fit. The runs before, on the refit
+// and the data before S's signs, drew others: 26f8847794b0, ab84094e7fac, 3611fd17fbfe, 545050fbfc5f, cf154e50588e,
 // 98f548eb58b4, e2e6463bd19a, 1c1db8127608, 073f8feb800e and c48d89cdeca4.
 const DRAWN = [
   'bf9fe2262009',
@@ -48,21 +49,40 @@ describe('the uncertain signs', () => {
 });
 
 describe('the settings', () => {
-  it('are fourteen: the rule, all excitatory, all silent, ten random draws, and the shared scales', () => {
+  it("are sixteen: the rule, all excitatory, all silent, ten random draws, the shared scales, and track S's two of its rest", () => {
     expect(SETTINGS.map((s) => s.id)).toEqual([
       'rule',
       'excitatory',
       'silent',
       ...Array.from({ length: RANDOM_DRAWS }, (_, k) => `random-${k + 1}`),
       'shared-scales',
+      'offsets-off',
+      'ava-offsets',
     ]);
     expect(RANDOM_DRAWS).toBe(10);
     expect(() => resigned(data.chemical, 'random-11')).toThrow(/unknown sensitivity setting/);
     expect(() => resigned(data.chemical, 'inhibitory')).toThrow(/unknown sensitivity setting/);
   });
 
-  it("make the model's own brain by the rule", () => {
+  it("make the model's own brain by the rule, and under the settings of track S's rest", () => {
     expect(settingNetwork(data, 'rule')).toEqual(cookNetwork(data));
+    expect(settingNetwork(data, 'offsets-off')).toEqual(cookNetwork(data));
+    expect(settingNetwork(data, 'ava-offsets')).toEqual(cookNetwork(data));
+  });
+
+  it("change only track S's offsets, and only under the settings of its rest", () => {
+    const params = currentParams();
+    expect(params.restOffsets).toBe('measured');
+    for (const { id } of SETTINGS.filter((s) => s.id !== 'offsets-off' && s.id !== 'ava-offsets')) {
+      expect(settingParams(params, id), id).toBe(params);
+    }
+    expect(settingParams(params, 'offsets-off')).toEqual({ ...params, restOffsets: undefined });
+    expect(settingParams(params, 'ava-offsets')).toEqual({ ...params, restOffsets: 'measured with AVA' });
+    // On a fit without S's offsets they would repeat it, or add an offset it never had, so they refuse.
+    const { restOffsets: none, ...without } = params;
+    expect(none).toBe('measured');
+    expect(() => settingParams(without, 'offsets-off')).toThrow(/doesn't run|don't run/);
+    expect(() => settingParams({ ...params, restOffsets: 'measured with AVA' }, 'ava-offsets')).toThrow(/don't run/);
   });
 
   it('leave every sign with a basis of its own as it is, under every setting', () => {
@@ -143,7 +163,7 @@ describe('a setting in a world', () => {
   const margin = (id: string): number =>
     startingWorld(data, {
       seed: 1,
-      params,
+      params: settingParams(params, id),
       postures,
       silenced: true,
       network: settingNetwork(data, id),
@@ -151,13 +171,30 @@ describe('a setting in a world', () => {
 
   // On track S's fit every setting leaves the silenced head switch shut, by 4.6 mV at least, where on the refit, and the
   // data before S's signs, it was shut by under half a millivolt on the model's own signs and open under eleven of the
-  // fourteen settings (VALIDATION.md, "Sensitivity"; DECISIONS.md, 2026-10-02).
+  // fourteen settings it had (DECISIONS.md, 2026-09-30 and 2026-10-02).
   it("reaches a trial's world, and its silenced network keeps the setting's thresholds", () => {
     expect(margin('rule')).toBeCloseTo(-13.32, 2);
     expect(margin('excitatory')).toBeCloseTo(-14.87, 2);
     expect(margin('shared-scales')).toBeCloseTo(-13.36, 2);
     expect(margin('silent')).toBeCloseTo(-10.07, 2);
     for (let k = 1; k <= RANDOM_DRAWS; k++) expect(margin(`random-${k}`), `draw ${k}`).toBeLessThan(-4);
+    expect(margin('offsets-off')).toBeCloseTo(-13.346, 3);
+    expect(margin('ava-offsets')).toBeCloseTo(-13.325, 3);
+  });
+
+  it("rests the settings of track S's rest as their offsets ask", () => {
+    const brain = (id: string) =>
+      startingWorld(data, { seed: 1, params: settingParams(params, id), postures }).world.brain;
+    const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
+    const [rule, off, ava] = [brain('rule'), brain('offsets-off'), brain('ava-offsets')];
+    // Each neuron's offset below its threshold: the D-types' −7.4 mV under the model's own; none with the offsets
+    // off; and AVAL's −29 and AVAR's −16 beside the D-types' with AVA's (Liu, Chen & Wang 2020).
+    expect([rule.offset[at('VD5')], rule.offset[at('AVAL')], rule.offset[at('AVAR')]]).toEqual([-7.4, 0, 0]);
+    expect(off.offset.every((x) => x === 0)).toBe(true);
+    expect([ava.offset[at('VD5')], ava.offset[at('AVAL')], ava.offset[at('AVAR')]]).toEqual([-7.4, -29, -16]);
+    // Their thresholds move with them: VD5's without its offset, AVA's with theirs.
+    expect(off.threshold[at('VD5')]).not.toBeCloseTo(rule.threshold[at('VD5')], 1);
+    expect(ava.threshold[at('AVAL')]).not.toBeCloseTo(rule.threshold[at('AVAL')], 1);
   });
 
   it("steps the model's own setting as the model, bit for bit", () => {

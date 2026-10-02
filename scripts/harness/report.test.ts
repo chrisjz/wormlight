@@ -151,6 +151,12 @@ describe('the harness report', () => {
     const own = (x: number): string => formatNumber(Number(x.toPrecision(3)));
     expect(parameterText(true)).toContain(`τ_n = ${own(PARAMS.noiseCorrelation.value as number)} s`);
     expect(parameterText(true)).toContain('g_sw = 50 nS');
+    // Track S's model says what it adds to track R's; a run before it names no model, and was R's.
+    expect(parameterText(true, PARAMS, 'track S')).toMatch(
+      /^track S's model, its measured signs, the D-types' offset and its rectifier, in the conductance form, with the calibrated parameters \(PLAN §7\.3\)/,
+    );
+    expect(parameterText(true)).toMatch(/^the calibrated parameters/);
+    expect(parameterText(true, PARAMS, 'track R')).toBe(parameterText(true));
     // R's fit, to three significant figures.
     const calibrated = parameterText(true, fitted);
     expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');
@@ -721,7 +727,7 @@ describe("the sensitivity runs' section", () => {
       [row('By the rule', 0.099, 0, trial(0)), row('Random draw 5', null, 2, trial(0.0079, 0.02))],
       info,
     );
-    expect(section).toContain('### Sensitivity: the uncertain signs, and the scales');
+    expect(section).toContain('### Sensitivity: the uncertain signs, the scales and the rest offsets');
     expect(section).toContain('Run on 2026-09-30 at `abc1234`');
     expect(section).toContain('| By the rule | 80% | 0.020 | 0.099 | 0.71 | 0.029 | 98.4% | 0% | **Fail** |');
     expect(section).toContain('| Random draw 5 | 80% | 0.020 | – | – | – | 98.4% | 0% | **Fail** |');

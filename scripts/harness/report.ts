@@ -24,6 +24,7 @@ import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import { FAR_OUTSIDE } from '../../src/validation/trial.ts';
 import { table } from '../data/render.ts';
 import { asRun } from '../../src/science/ledger.ts';
+import type { Model } from '../../src/sim/trackS.ts';
 import { formatNumber } from '../docs/page.ts';
 
 export interface RunInfo {
@@ -31,6 +32,8 @@ export interface RunInfo {
   commit: string;
   // Whether the run used the calibrated parameters, or the provisional ones.
   calibrated: boolean;
+  // The model the run's fit runs: track R's when absent, as on every run before track S's fit was chosen.
+  model?: Model;
   trials: number;
   seconds: number;
   // Checkpoint 0's assay runs: how many worms, each for up to how long (s).
@@ -42,7 +45,11 @@ export interface RunInfo {
 
 // The parameters a run used: the calibrated ones, to three significant figures, as FIDELITY.md shows them, or
 // the provisional ones, from the registry or one standing in for it, each in the form the chosen fit runs (asRun).
-export function parameterText(calibrated: boolean, registry: Record<string, Param> = PARAMS): string {
+export function parameterText(
+  calibrated: boolean,
+  registry: Record<string, Param> = PARAMS,
+  model: Model = 'track R',
+): string {
   const run = CALIBRATED.map((id): Param => asRun(registry[id]));
   if (calibrated && run.some((p) => p.value === null)) {
     throw new Error("a run on calibrated parameters, but the registry's aren't calibrated");
@@ -51,9 +58,14 @@ export function parameterText(calibrated: boolean, registry: Record<string, Para
     const v = calibrated ? Number((p.value as number).toPrecision(3)) : (p.provisional as number);
     return `${p.symbol} = ${formatNumber(v)}${p.unit ? ` ${p.unit}` : ''}`;
   });
+  // Track S's model says what it adds to track R's, as the chosen pick's section does.
+  const on =
+    model === 'track S'
+      ? "track S's model, its measured signs, the D-types' offset and its rectifier, in the conductance form, with "
+      : '';
   return calibrated
-    ? `the calibrated parameters (PLAN §7.3), here to three significant figures: ${values.join(', ')}`
-    : `the provisional parameters, not calibrated (PLAN §6.2): ${values.join(', ')}`;
+    ? `${on}the calibrated parameters (PLAN §7.3), here to three significant figures: ${values.join(', ')}`
+    : `${on}the provisional parameters, not calibrated (PLAN §6.2): ${values.join(', ')}`;
 }
 
 // "1 trial", "2 trials".
@@ -107,7 +119,7 @@ function runLine(info: RunInfo, trials: readonly TrialSummary[]): string {
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length;
   return [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText(info.calibrated, info.registry)}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${info.trials === 1 ? 'seed 1' : `seeds 1 to ${info.trials}`}, on ${parameterText(info.calibrated, info.registry, info.model)}.`,
     `Every measure starts after each trial's first 10 s. ${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
 }
@@ -146,7 +158,7 @@ export function checkpoint0Section(result: Checkpoint0, info: RunInfo): string {
   const infinite = trials.filter((t) => !t.finite).length + worms.filter((w) => !w.finite).length + touch.twins.broken;
   const minutes = (info.wormSeconds ?? CHECKPOINT_0_CHEMOTAXIS.seconds) / 60;
   const run = [
-    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated, info.registry)}.`,
+    `Run on ${info.date} at \`${info.commit}\`: ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, each run untouched and touched, and ${count(worms.length, 'worm')} in the assay for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min, ${seeds(worms.length)}, on ${parameterText(info.calibrated, info.registry, info.model)}.`,
     `Every trial's measures start after its first 10 s. ${infinite === 0 ? `Every trial, ${touch.twins.count > 0 ? 'sham twin ' : ''}and worm stayed finite` : `${plural(infinite, 'trial, twin or worm', 'trials, twins or worms')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
   ].join(' ');
   const { front, back, window, anteriorPartial, posteriorFloor, first, every } = CHECKPOINT_0_TOUCH;
@@ -413,9 +425,9 @@ export function sensitivitySection(rows: readonly SensitivityRow[], info: RunInf
   const unconverged = trials.reduce((n, t) => n + t.unconverged, 0);
   const infinite = trials.filter((t) => !t.finite).length;
   return [
-    '### Sensitivity: the uncertain signs, and the scales',
+    '### Sensitivity: the uncertain signs, the scales and the rest offsets',
     [
-      `Run on ${info.date} at \`${info.commit}\`: under each setting, checkpoint 1's ${count(info.trials, 'trial')} of ${info.seconds} s and the same trials of the silenced network, ${seeds(info.trials)}, on ${parameterText(info.calibrated, info.registry)}, none of them tuned again.`,
+      `Run on ${info.date} at \`${info.commit}\`: under each setting, checkpoint 1's ${count(info.trials, 'trial')} of ${info.seconds} s and the same trials of the silenced network, ${seeds(info.trials)}, on ${parameterText(info.calibrated, info.registry, info.model)}, none of them tuned again.`,
       `${infinite === 0 ? 'Every trial stayed finite' : `${count(infinite, 'trial')} left the finite numbers`}, and ${unconverged === 0 ? 'no brain solve failed to converge' : `${count(unconverged, 'brain solve')} failed to converge`}.`,
     ].join(' '),
     "Reported, not graded. First checkpoint 1's trials under each setting: the share of the measured time the worm moves forward, and its mean velocity towards its head, over all the trials; the kinematics, from forward bouts of 10 s or more, a dash where there is none to take them from; and the grade checkpoint 1 would give.",
