@@ -8,7 +8,9 @@
 // each. Checkpoints 2 and 3 share one set of trials, up to 100 seeds each touched once during forward crawling,
 // forking three ways (src/validation/touch.ts). Checkpoint 4 runs 100 worms for up to 60 min each, sensing the assay's
 // field and again as their controls with AWC-ON's input off, with the mechanism's samples
-// (src/validation/mechanism.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
+// (src/validation/mechanism.ts). Checkpoint 5 runs 30 trials of 120 s for each lesion and the intact worm, and the
+// touch trials for the intact worm and the lesions whose rows read touches (src/validation/lesions.ts). Each
+// checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
 // section of VALIDATION.md is regenerated. --trials and --seconds shorten a run for a quick look, setting the trials'
 // and the worms' numbers and lengths alike, and the touch trials' seeds and length; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.
@@ -29,6 +31,16 @@ import type { OdourField } from '../../src/sim/env/odour.ts';
 import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
 import { currentParams, isCalibrated, type LoopParams } from '../../src/sim/world.ts';
 import { CHECKPOINT_4, checkpoint4, runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
+import {
+  checkpoint5,
+  INTACT,
+  LESION_SECONDS,
+  LESION_TRIALS,
+  lesionNeurons,
+  PRIMARY,
+  SECONDARY,
+  TOUCHED,
+} from '../../src/validation/lesions.ts';
 import type { Network } from '../../src/sim/brain/network.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
@@ -67,13 +79,14 @@ import {
   checkpoint2Section,
   checkpoint3Section,
   checkpoint4Section,
+  checkpoint5Section,
   replaceSection,
   sensitivitySection,
   type RunInfo,
   type SensitivityRow,
 } from './report.ts';
 
-const CHECKPOINTS = [0, 1, 2, 3, 4] as const;
+const CHECKPOINTS = [0, 1, 2, 3, 4, 5] as const;
 type Checkpoint = (typeof CHECKPOINTS)[number];
 
 // A trial, the same trial touched (checkpoint 0 only), a worm in the chemotaxis assay (checkpoint 0 only), or a trial
@@ -87,6 +100,10 @@ interface Records {
   // Checkpoint 4's worms, sensing the field and as their controls, AWC-ON's input off.
   chemotaxis: ChemotaxisRecord;
   control: ChemotaxisRecord;
+  // Checkpoint 5's trials, each arm lesioned as its job names or intact: spontaneous, with head angles, and touched as
+  // checkpoints 2 and 3 touch.
+  lesion: TrialRecord;
+  lesionTouch: TouchTrialRecord;
 }
 type Kind = keyof Records;
 
@@ -97,6 +114,8 @@ interface Job {
   seconds: number;
   // A sensitivity setting, whose brain the trial runs on; the real wiring without one.
   setting?: string;
+  // Checkpoint 5's arm: a lesion's id, or 'intact' (src/validation/lesions.ts).
+  lesion?: string;
 }
 
 interface Result {
@@ -139,6 +158,12 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord | TouchT
     return runChemotaxis(cached.data, { ...common, odour: assay });
   }
   if (job.kind === 'touch') return runTouchTrial(cached.data, common);
+  if (job.kind === 'lesion' || job.kind === 'lesionTouch') {
+    const lesions = lesionNeurons(job.lesion ?? INTACT);
+    return job.kind === 'lesion'
+      ? runTrial(cached.data, { ...common, lesions, headAngles: true })
+      : runTouchTrial(cached.data, { ...common, lesions });
+  }
   if (job.kind === 'chemotaxis' || job.kind === 'control') {
     assay ??= steadyField('assay');
     return runChemotaxis(cached.data, { ...common, odour: assay, mechanism: true, control: job.kind === 'control' });
@@ -164,7 +189,7 @@ function send(worker: ChildProcess, job: Job): Promise<Result> {
 }
 
 const USAGE =
-  'npm run harness -- --checkpoint <0|1|2|3|4> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
+  'npm run harness -- --checkpoint <0|1|2|3|4|5> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
 
 // A whole number of at least `least`, written in plain digits.
 function whole(flag: string, text: string | undefined, least: number): number {
@@ -255,6 +280,9 @@ if (process.argv.includes('--worker')) {
   // Checkpoint 4's 100 worms for up to 60 min in a full run, as many and as long as a shortened run's trials otherwise.
   const assayWorms = full ? CHECKPOINT_4.worms : options.trials;
   const assaySeconds = full ? CHECKPOINT_4.seconds : options.seconds;
+  // Checkpoint 5's 30 trials of 120 s for each arm in a full run, as many and as long as a shortened run's otherwise.
+  const lesionTrials = full ? LESION_TRIALS : options.trials;
+  const lesionSeconds = full ? LESION_SECONDS : options.seconds;
   const touching = options.checkpoints.some((c) => c === 2 || c === 3);
   // The longest first, so that no long run starts last.
   const queue: Job[] = [
@@ -272,6 +300,16 @@ if (process.argv.includes('--worker')) {
     ...(touching ? jobs(2, 'touch', touchSeeds, options.seconds) : []),
     ...(options.checkpoints.includes(4)
       ? [...jobs(4, 'chemotaxis', assayWorms, assaySeconds), ...jobs(4, 'control', assayWorms, assaySeconds)]
+      : []),
+    ...(options.checkpoints.includes(5)
+      ? [
+          ...[INTACT, ...PRIMARY.map((l) => l.id), ...SECONDARY.map((l) => l.id)].flatMap((lesion) =>
+            jobs(5, 'lesion', lesionTrials, lesionSeconds).map((job) => ({ ...job, lesion })),
+          ),
+          ...[INTACT, ...TOUCHED].flatMap((lesion) =>
+            jobs(5, 'lesionTouch', touchSeeds, options.seconds).map((job) => ({ ...job, lesion })),
+          ),
+        ]
       : []),
   ].sort((a, b) => b.seconds - a.seconds);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
@@ -357,6 +395,44 @@ if (process.argv.includes('--worker')) {
         .filter((r) => r.job.checkpoint === (checkpoint === 3 ? 2 : checkpoint) && r.job.kind === kind)
         .map((r) => r.record as Records[K])
         .sort((a, b) => a.seed - b.seed);
+    if (checkpoint === 5) {
+      // Each arm's records, by lesion id.
+      const byLesion = (kind: 'lesion' | 'lesionTouch'): Record<string, (TrialRecord | TouchTrialRecord)[]> => {
+        const out: Record<string, (TrialRecord | TouchTrialRecord)[]> = {};
+        for (const r of results.filter((x) => x.job.checkpoint === 5 && x.job.kind === kind)) {
+          (out[r.job.lesion ?? INTACT] ??= []).push(r.record as TrialRecord | TouchTrialRecord);
+        }
+        for (const list of Object.values(out)) list.sort((a, b) => a.seed - b.seed);
+        return out;
+      };
+      const [spont, touched] = [byLesion('lesion'), byLesion('lesionTouch')];
+      const file = join(out, full ? 'checkpoint-5.json' : `checkpoint-5-${options.trials}x${options.seconds}s.json`);
+      const { date, commit: at, calibrated, model } = info;
+      const head = {
+        checkpoint,
+        date,
+        commit: at,
+        calibrated,
+        model,
+        trials: lesionTrials,
+        seconds: lesionSeconds,
+        seeds: touchSeeds,
+      };
+      writeFileSync(file, JSON.stringify({ ...head, spontaneous: spont, touches: touched }) + '\n');
+      const summary = checkpoint5(
+        spont as Record<string, TrialRecord[]>,
+        touched as Record<string, TouchTrialRecord[]>,
+      );
+      const section = checkpoint5Section(summary, { ...info, trials: lesionTrials, seconds: lesionSeconds });
+      writeFileSync(
+        file,
+        JSON.stringify({ ...head, summary: { ...summary, trials: undefined }, spontaneous: spont, touches: touched }) +
+          '\n',
+      );
+      process.stdout.write(`${section}\n\n`);
+      if (full) page = replaceSection(page, checkpoint, section);
+      continue;
+    }
     if (checkpoint === 4) {
       const [intact, control] = [of('chemotaxis'), of('control')];
       const file = join(out, full ? 'checkpoint-4.json' : `checkpoint-4-${options.trials}x${options.seconds}s.json`);

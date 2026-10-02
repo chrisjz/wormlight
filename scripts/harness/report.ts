@@ -29,6 +29,7 @@ import { formatNumber } from '../docs/page.ts';
 import { BACK, FRONT } from '../../src/sim/touch.ts';
 import { CHECKPOINT_4, type ChemotaxisRecord, type Checkpoint4 } from '../../src/validation/chemotaxis.ts';
 import type { MechanismRecord, MechanismResult } from '../../src/validation/mechanism.ts';
+import type { Checkpoint5, LesionClause } from '../../src/validation/lesions.ts';
 import {
   CHECKPOINT_2,
   CHECKPOINT_3,
@@ -602,6 +603,70 @@ export function checkpoint4Section(r: Checkpoint4, info: RunInfo): string {
         reach(w.control),
         `${mm(w.intact.closest.odour)} / ${mm(w.control.closest.odour)}`,
       ]),
+    ),
+  ].join('\n\n');
+}
+
+export function checkpoint5Section(r: Checkpoint5, info: RunInfo): string {
+  const fitted = info.model === 'track S';
+  // A clause's values, as its measure reads: checkpoint 3's response as a percentage, the speed to four places, the
+  // rest to two.
+  const show = (c: LesionClause, v: number | null): string =>
+    v === null
+      ? '—'
+      : c.name.startsWith('The posterior')
+        ? `${v >= 0 ? '+' : '−'}${(100 * Math.abs(v)).toFixed(1)}%`
+        : c.name.startsWith('Forward speed')
+          ? fixed(v, 4)
+          : fixed(v, 2);
+  const test = (c: LesionClause): string =>
+    c.p === null
+      ? '—'
+      : `${pValue(c.p)}${c.direction === null ? '' : c.direction ? ', the reported way' : ', the other way'}`;
+  const passed = r.rows.filter((row) => row.pass).length;
+  const rows = r.rows.flatMap((row) =>
+    row.clauses.map((c, k) => [
+      k === 0 ? `${row.label}${fitted && row.readsReversals ? ' (fitted)' : ''}` : '',
+      c.name,
+      show(c, c.intact),
+      show(c, c.lesioned),
+      c.asks,
+      test(c),
+      c.unmeasured ? `Unmeasured: ${c.unmeasured}` : c.pass ? '**Pass**' : '**Fail**',
+    ]),
+  );
+  const avb = r.rows.find((row) => row.id === 'avb-pvc');
+  return [
+    `### Checkpoint 5: lesions — ${GRADE[r.grade]}${fitted ? ', reported as fitted' : ''}`,
+    [
+      `Run on ${info.date} at \`${info.commit}\`: for each lesion and the intact worm, ${count(info.trials, 'trial')} of ${info.seconds} s, ${seeds(info.trials)}, every arm on the same seeds, postures and noise, measured after each trial's first 10 s; and checkpoints 2 and 3's touch trials for the intact worm and for the lesions whose rows read touches, AVA + AVD and PVC; on ${parameterText(info.calibrated, info.registry, info.model)}.`,
+      `${r.unconverged === 0 ? 'No brain solve failed to converge' : `${count(r.unconverged, 'brain solve')} failed to converge`} in the spontaneous trials.`,
+    ].join(' '),
+    `${passed} of the five primary rows ${passed === 1 ? 'passes' : 'pass'}; the checkpoint needs all five to pass, and three or four to be partial (PLAN §7.4). A row needs every clause, and a clause the effect and the test: its pooled measure moves the way it asks by the amount it names, and its test, two-sided at α = 0.05, is significant the reported way. A fall, or PVC's "stays", needs a measured, positive intact measure, checkpoint 3's response at least its 1% floor; RIM's rise counts from zero (DECISIONS.md, 2026-10-02).`,
+    table(['Lesion', 'Clause', 'Intact', 'Lesioned', 'Asks', 'Test', 'Result'], rows),
+    [
+      fitted
+        ? "Every clause would be predicted, since checkpoint 5 is held out of the calibration (spec §1.2), but the rows that read reversals, AVA + AVD, PVC, AVA and RIM, are reported as fitted, and so is the checkpoint's grade: track S, whose fit this is, was proposed after the previews below (PLAN §10; DECISIONS.md, 2026-10-01)."
+        : 'Every clause is predicted, since checkpoint 5 is held out of the calibration (spec §1.2).',
+      avb
+        ? `Reported beside AVB + PVC's row, not graded: checkpoint 1's speed over forward bouts of 10 s or more, ${r.boutSpeed.intact === null ? 'unmeasured' : fixed(r.boutSpeed.intact, 4)} intact and ${r.boutSpeed.lesioned === null ? 'unmeasured, with no bout' : fixed(r.boutSpeed.lesioned, 4)} lesioned (body lengths/s); the row reads the mean velocity, set knowing the preview below (DECISIONS.md, 2026-10-02).`
+        : '',
+      "Previewed outside the protocol (PLAN §10): AVB + PVC's row by the chosen pick's diagnostics with AVBL and AVBR lesioned, its mean velocity falling 91% (DECISIONS.md, 2026-10-02), by round 3's pick 1's, and by the investigation of 2026-09-29 on the probe crawler's corner; and the checkpoint by that investigation, which pointed to checkpoint 5 passing at most one row, and by the refit's AVA lesion, which raised its reversals from 1.42 to 5.41 a minute (DECISIONS.md, 2026-09-28 and 2026-09-29).",
+    ]
+      .filter(Boolean)
+      .join(' '),
+    "The secondary lesions, reported and not graded, since Gray et al. describe their effects through time off food, which depends on neuromodulation the model lacks (PLAN §7.4): each measure pooled over its trials, beside the intact worm's, with Mann–Whitney's two-sided p.",
+    table(
+      ['Lesion', 'Measure', 'Intact', 'Lesioned', 'p'],
+      r.secondary.flatMap((l) =>
+        l.measures.map((m, k) => [
+          k === 0 ? l.label : '',
+          m.name,
+          fixed(m.intact, m.name.startsWith('Mean velocity') ? 4 : 2),
+          fixed(m.lesioned, m.name.startsWith('Mean velocity') ? 4 : 2),
+          pValue(m.p),
+        ]),
+      ),
     ),
   ].join('\n\n');
 }

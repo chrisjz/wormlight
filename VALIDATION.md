@@ -519,6 +519,10 @@ Reported beside them: klinokinesis's companion, the ratio of the mean absolute c
 
 <!-- /harness:checkpoint-4 -->
 
+<!-- harness:checkpoint-5 -->
+
+<!-- /harness:checkpoint-5 -->
+
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on

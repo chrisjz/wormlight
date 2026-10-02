@@ -9,14 +9,13 @@ import { hash, uniform } from '../sim/brain/rng.ts';
 import { ODOUR_CELL } from '../sim/numerics.ts';
 import type { Odour } from '../sim/sensing.ts';
 import { EQUIVALENCE, percentileInterval } from './equivalence.ts';
-import { MEASURE_FROM, MOTION_FLOOR, MOTION_SAMPLE, forwardVelocity, reversals } from './motion.ts';
+import { MEASURE_FROM, MOTION_FLOOR, MOTION_SAMPLE, forwardVelocity, headAngle, reversals } from './motion.ts';
 
 // The blocks: PLAN's undulation period, 3.3 s, 33 samples, from the measures' start.
 export const BLOCK = 33;
 const FROM = Math.round(MEASURE_FROM / MOTION_SAMPLE);
-// Head swings (PLAN §7.1): the head angle between the tangents at 0.05 and 0.2 body lengths, its crossings at least
-// 0.5 s apart with a peak above 10° between them.
-const HEAD = [0.05, 0.2] as const;
+// Head swings (PLAN §7.1): the head angle's crossings (headAngle in motion.ts), at least 0.5 s apart with a peak
+// above 10° between them.
 const SWING_GAP = Math.round(0.5 / MOTION_SAMPLE);
 const SWING_PEAK = (10 * Math.PI) / 180;
 // An omega turn: the front, the line from the midline at 0.2 body lengths to the head, turning by more than 135°
@@ -49,12 +48,6 @@ const wrap = (a: number): number => {
   return x;
 };
 
-// The direction of the body's tangent at s, read from the segment between the rods either side of it.
-function tangent(body: Body, s: number): number {
-  const k = Math.min(Math.max(Math.floor(s * body.params.segments), 0), body.params.segments - 1);
-  return Math.atan2(body.y[k + 1] - body.y[k], body.x[k + 1] - body.x[k]);
-}
-
 // Takes a worm's samples as it runs, from t = 0, every 0.1 s.
 export class MechanismSampler {
   private readonly centroid: number[] = [];
@@ -79,7 +72,7 @@ export class MechanismSampler {
     for (let i = 0; i < body.rods; i++) [x, y] = [x + body.x[i], y + body.y[i]];
     this.centroid.push(x / body.rods, y / body.rods);
     this.head.push(body.x[0], body.y[0]);
-    this.angle.push(wrap(tangent(body, HEAD[0]) - tangent(body, HEAD[1])));
+    this.angle.push(headAngle(body.x, body.y, body.params.segments));
     const [fx, fy] = body.at(FRONT);
     this.front.push(Math.atan2(body.y[0] - fy, body.x[0] - fx));
     const [nx, ny] = body.at(this.nose);
