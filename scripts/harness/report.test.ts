@@ -147,8 +147,10 @@ describe('the harness report', () => {
     expect(parameterText(false)).toContain('κ_gap,B = 1, g_nmj = 22 per unit of relative drive');
     expect(parameterText(false)).toContain('σ_n = 0.148 pA·√s, τ_n = 0.0632 s');
     expect(() => parameterText(true, uncalibrated)).toThrow(/aren't calibrated/);
-    // The registry's own, R's refit.
-    expect(parameterText(true)).toContain(`τ_n = ${formatNumber(PARAMS.noiseCorrelation.value as number)} s`);
+    // The registry's own, track S's fit, in the conductance form.
+    const own = (x: number): string => formatNumber(Number(x.toPrecision(3)));
+    expect(parameterText(true)).toContain(`τ_n = ${own(PARAMS.noiseCorrelation.value as number)} s`);
+    expect(parameterText(true)).toContain('g_sw = 50 nS');
     // R's fit, to three significant figures.
     const calibrated = parameterText(true, fitted);
     expect(calibrated).toContain('the calibrated parameters (PLAN §7.3), here to three significant figures');

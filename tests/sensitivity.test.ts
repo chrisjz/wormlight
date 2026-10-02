@@ -20,25 +20,29 @@ import { startingWorld } from '../src/validation/trial.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
-// The random draws as the recorded runs drew them (VALIDATION.md, "Sensitivity"), each a digest of its signs.
+// The random draws, each a digest of its signs, on the runtime data since track S's signs moved into it (DECISIONS.md,
+// 2026-10-02). The runs VALIDATION.md records ("Sensitivity") drew others, on the data before, on the refit, and are
+// run again on S's fit; their draws were 26f8847794b0, ab84094e7fac, 3611fd17fbfe, 545050fbfc5f, cf154e50588e,
+// 98f548eb58b4, e2e6463bd19a, 1c1db8127608, 073f8feb800e and c48d89cdeca4.
 const DRAWN = [
-  '26f8847794b0',
-  'ab84094e7fac',
-  '3611fd17fbfe',
-  '545050fbfc5f',
-  'cf154e50588e',
-  '98f548eb58b4',
-  'e2e6463bd19a',
-  '1c1db8127608',
-  '073f8feb800e',
-  'c48d89cdeca4',
+  'bf9fe2262009',
+  'a6d0a90676e8',
+  '40cc1d8fe20a',
+  '4436787e81cb',
+  '3201a6926218',
+  'a5d33ca3a2ab',
+  '91f9eb9d0530',
+  '56e13631a0a5',
+  '1675f9ed9bdc',
+  '014d5ee42807',
 ];
 const doubtful = data.chemical.filter(uncertain);
 
 describe('the uncertain signs', () => {
-  it("are the 1,986 connections PLAN §2.4 names: the rule's 1,453 and the 533 with no basis", () => {
-    expect(doubtful.length).toBe(1986);
-    expect(doubtful.filter((c) => c.signSource === 'rule').length).toBe(1453);
+  // 1,986 before track S's signs moved into the data, 27 of which took a measured sign then (PLAN §2.4).
+  it("are the 1,959 connections PLAN §2.4 names: the rule's 1,426 and the 533 with no basis", () => {
+    expect(doubtful.length).toBe(1959);
+    expect(doubtful.filter((c) => c.signSource === 'rule').length).toBe(1426);
     expect(doubtful.filter((c) => c.signSource === 'none').length).toBe(533);
   });
 });
@@ -85,7 +89,7 @@ describe('the settings', () => {
     expect(connections(settingNetwork(data, 'excitatory')).chemical.length).toBe(sure + doubtful.length);
   });
 
-  it('draw the signs they drew when their runs were recorded', () => {
+  it('draw the signs they draw on the runtime data', () => {
     // A digest of each draw's signs, in the data's order: a change to the draws, or to the runtime data's list of
     // chemical connections, changes what every sensitivity run means (VALIDATION.md, "Sensitivity").
     const print = (k: number): string =>
@@ -145,12 +149,15 @@ describe('a setting in a world', () => {
       network: settingNetwork(data, id),
     }).world.headDrive() - params.driveThreshold;
 
+  // On track S's fit every setting leaves the silenced head switch shut, by 4.6 mV at least, where on the refit, and the
+  // data before S's signs, it was shut by under half a millivolt on the model's own signs and open under eleven of the
+  // fourteen settings (VALIDATION.md, "Sensitivity"; DECISIONS.md, 2026-10-02).
   it("reaches a trial's world, and its silenced network keeps the setting's thresholds", () => {
-    expect(margin('rule')).toBeCloseTo(-0.47, 2);
-    expect(margin('excitatory')).toBeCloseTo(-2.05, 2);
-    expect(margin('shared-scales')).toBeCloseTo(-0.55, 2);
-    expect(margin('silent')).toBeCloseTo(2.68, 2);
-    for (let k = 1; k <= RANDOM_DRAWS; k++) expect(margin(`random-${k}`), `draw ${k}`).toBeGreaterThan(5);
+    expect(margin('rule')).toBeCloseTo(-13.32, 2);
+    expect(margin('excitatory')).toBeCloseTo(-14.87, 2);
+    expect(margin('shared-scales')).toBeCloseTo(-13.36, 2);
+    expect(margin('silent')).toBeCloseTo(-10.07, 2);
+    for (let k = 1; k <= RANDOM_DRAWS; k++) expect(margin(`random-${k}`), `draw ${k}`).toBeLessThan(-4);
   });
 
   it("steps the model's own setting as the model, bit for bit", () => {

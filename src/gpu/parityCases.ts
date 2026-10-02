@@ -350,9 +350,10 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     lesions: ['AVBL', 'VB6', 'ALML', 'SMDDL'],
     states: 10,
   },
-  // Track S's model (DECISIONS.md, 2026-10-02): its measured signs, class offsets and rectifier, in the conductance
+  // Track S's model (DECISIONS.md, 2026-10-02) on the trial values: its class offsets and rectifier, in the conductance
   // form it is calibrated in, so that both sides rest its D-types above their thresholds, set its touch's currents and
-  // its muscles' baseline at that rest, run its signs, and gate its AVA–A-type junctions each step.
+  // its muscles' baseline at that rest, and gate its AVA–A-type junctions each step. Its signs are the runtime data's,
+  // as every setup's are; the registry's setup runs its fit.
   {
     name: 'track S',
     params: {
@@ -362,7 +363,6 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
       proprioceptiveGain: 0.05,
       driveThreshold: -3,
       neuromuscularThreshold: -0.2,
-      measuredSigns: true,
       restOffsets: 'measured',
       rectified: true,
     },

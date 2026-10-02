@@ -19,18 +19,18 @@ import {
 } from '../src/sim/brain/network.ts';
 import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { tap, touchData } from '../src/sim/touch.ts';
-import { rectify, restOffsets, trackSKey, withMeasuredSigns } from '../src/sim/trackS.ts';
+import { rectify, restOffsets, trackSKey } from '../src/sim/trackS.ts';
 import { currentParams, loopParams, World, type LoopParams } from '../src/sim/world.ts';
 import { provisionalValues } from '../src/validation/calibration.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
-const signed = withMeasuredSigns(data);
-const whole: Partial<LoopParams> = { measuredSigns: true, restOffsets: 'measured', rectified: true };
+// Track S's whole model, on the runtime data, whose signs are S's since its fit was chosen.
+const whole: Partial<LoopParams> = { restOffsets: 'measured', rectified: true };
 const A_TYPE = /^(DA|VA)\d+$/;
 
 describe("track S's rectified junctions", () => {
-  const network = rectify(cookNetwork(signed));
+  const network = rectify(cookNetwork(data));
   const { names } = network;
 
   it("are AVA's 37 gap junctions with the A-types, 194 sections, each from the A-type into AVA", () => {
@@ -42,12 +42,12 @@ describe("track S's rectified junctions", () => {
     }
     expect(pairs.filter(([, to]) => names[to] === 'AVAL')).toHaveLength(19);
     const named = new Set(pairs.map(([from, to]) => `${names[from]} ${names[to]}`));
-    const sections = signed.gap
+    const sections = data.gap
       .filter((g) => named.has(`${g.a} ${g.b}`) || named.has(`${g.b} ${g.a}`))
       .reduce((sum, g) => sum + g.sections, 0);
     expect(sections).toBe(194);
     // The A-types the data marks for their oscillators.
-    const marked = signed.neurons.flatMap((n) => (n.oscillator === 'A' ? [n.name] : []));
+    const marked = data.neurons.flatMap((n) => (n.oscillator === 'A' ? [n.name] : []));
     expect(names.filter((n) => A_TYPE.test(n))).toEqual(expect.arrayContaining(marked));
     expect(marked).toHaveLength(names.filter((n) => A_TYPE.test(n)).length);
   });
@@ -132,8 +132,8 @@ describe('a rectified junction', () => {
 });
 
 describe("track S's rest under its rectifier", () => {
-  const network = rectify(cookNetwork(signed));
-  const offset = restOffsets(signed, 'measured');
+  const network = rectify(cookNetwork(data));
+  const offset = restOffsets(data, 'measured');
   const rest = restOf(network, offset);
 
   it('is a fixed point of the gates: the solve with each gate as it sets them gives it back', () => {
@@ -188,10 +188,10 @@ describe("track S's rest under its rectifier", () => {
     expect(changes).toBeGreaterThan(5);
   });
 
-  it("opens 4 of the 37 gates in the runtime model rectified, the count the rules' review found", () => {
-    const runtime = rectify(cookNetwork(data));
-    const at = restOf(runtime, new Float64Array(runtime.names.length));
-    expect(openRectified(runtime, at.voltage)).toEqual({ open: 4, of: 37 });
+  it("opens 13 of the 37 gates with S's signs and no offset, where the refit's signs opened 4, as the rules found", () => {
+    const signsAlone = rectify(cookNetwork(data));
+    const at = restOf(signsAlone, new Float64Array(signsAlone.names.length));
+    expect(openRectified(signsAlone, at.voltage)).toEqual({ open: 13, of: 37 });
   });
 });
 
@@ -199,7 +199,8 @@ describe("track S's whole world", () => {
   const world = new World(data, { ...currentParams(), ...whole });
 
   it('rests where the rest under its rectifier puts it, with its D-types above their thresholds', () => {
-    const rest = restOf(rectify(cookNetwork(signed)), restOffsets(signed, 'measured'));
+    // Its own network, the B-types' junctions scaled by κ_gap,B, and rectified.
+    const rest = restOf(world.brain.network, restOffsets(data, 'measured'));
     rest.voltage.forEach((v, i) => expect(world.brain.voltage[i]).toBeCloseTo(v, 9));
     expect(world.brain.restNetwork().gap.weight).toEqual(rest.network.gap.weight);
     const d = world.brain.network.names.indexOf('VD5');
@@ -207,12 +208,12 @@ describe("track S's whole world", () => {
   });
 
   it("sizes touch's currents at that rest, gated, unlike the unrectified model's", () => {
-    expect(world.touchSets).toBe(touchData(signed, { offset: world.brain.offset, rectified: true }));
-    const unrectified = touchData(signed, { offset: world.brain.offset });
+    expect(world.touchSets).toBe(touchData(data, { offset: world.brain.offset, rectified: true }));
+    const unrectified = touchData(data, { offset: world.brain.offset });
     const tapped = (t: typeof unrectified): number[] => Array.from(t.sets.values()).flatMap((c) => Array.from(c));
     expect(tapped(world.touchSets)).not.toEqual(tapped(unrectified));
     // A tap AVM alone reaches takes the current that holds it 10 mV up in the network as the rest gates it.
-    const rest = restOf(rectify(cookNetwork(signed)), restOffsets(signed, 'measured'));
+    const rest = restOf(rectify(cookNetwork(data)), restOffsets(data, 'measured'));
     const avm = world.touchSets.receptors.find((r) => r.name === 'AVM');
     if (!avm) throw new Error('no AVM');
     const held = PARAMS.touchAmplitude.value * inputConductance(rest.network, rest.activation, avm.neuron);
@@ -221,7 +222,7 @@ describe("track S's whole world", () => {
 
   it('refuses a model whose AWC gain is not set', () => {
     expect(trackSKey({ rectified: true })).toBe('rectified');
-    expect(() => new World(data, { ...currentParams(), rectified: true })).toThrow(/no AWC gain/);
+    expect(() => new World(data, { ...currentParams(), restOffsets: 'unmeasured' as never })).toThrow(/no AWC gain/);
   });
 
   // The gates' open share at the loop's step and at half of it (DECISIONS.md, 2026-10-01), over a minute of crawling at

@@ -10,18 +10,18 @@ A disagreement is not an error in either source. The weights are coefficients of
 
 | Sign source | Covered | Agree | Disagree | Unsigned here |
 | ----------- | ------- | ----- | -------- | ------------- |
-| physiology  | 0       | 0     | 0        | 0             |
-| expression  | 467     | 247   | 220      | 0             |
-| rule        | 384     | 240   | 144      | 0             |
+| physiology  | 19      | 10    | 9        | 0             |
+| expression  | 458     | 241   | 217      | 0             |
+| rule        | 374     | 234   | 140      | 0             |
 | none        | 198     | 0     | 0        | 198           |
 
-## The 364 disagreements, by EM sections
+## The 366 disagreements, by EM sections
 
 | Connection    | Sections | Wormlight sign | Source     | Fitted weight |
 | ------------- | -------- | -------------- | ---------- | ------------- |
-| AIYR → AIZR   | 70       | −              | expression | 0.037014      |
-| AIYL → AIZL   | 67       | −              | expression | 0.003136      |
-| AIYR → RIBR   | 60       | +              | expression | -0.004041     |
+| AIYR → AIZR   | 70       | −              | physiology | 0.037014      |
+| AIYL → AIZL   | 67       | −              | physiology | 0.003136      |
+| AIYR → RIBR   | 60       | +              | physiology | -0.004041     |
 | OLLL → AVER   | 53       | +              | expression | -0.007212     |
 | AIYL → RIAL   | 51       | −              | expression | 0.060267      |
 | FLPL → AVAR   | 48       | +              | expression | -0.00741      |
@@ -33,7 +33,6 @@ A disagreement is not an error in either source. The weights are coefficients of
 | RIH → RIAL    | 34       | −              | expression | 0.01704       |
 | FLPL → AVAL   | 33       | +              | expression | -0.020795     |
 | RIAL → SMDDR  | 33       | +              | expression | -0.016804     |
-| SAAVL → RIMR  | 33       | +              | rule       | -0.006243     |
 | RIAR → SMDDL  | 32       | +              | expression | -0.014997     |
 | AUAR → RIBR   | 31       | +              | rule       | -0.00166      |
 | FLPR → AVBL   | 30       | +              | expression | -0.003014     |
@@ -50,6 +49,7 @@ A disagreement is not an error in either source. The weights are coefficients of
 | OLLL → RIBL   | 24       | +              | rule       | -0.002074     |
 | SMDVR → RIAL  | 24       | −              | expression | 0.084303      |
 | FLPR → AVAL   | 23       | +              | expression | -0.019681     |
+| SAADR → RIMR  | 23       | −              | physiology | 0.01944       |
 | AUAR → RIAR   | 22       | +              | rule       | -0.02408      |
 | FLPL → AVBL   | 22       | +              | expression | -0.00445      |
 | OLLL → RMDDL  | 22       | +              | expression | -0.009348     |
@@ -74,7 +74,6 @@ A disagreement is not an error in either source. The weights are coefficients of
 | SAADL → AVAL  | 17       | +              | rule       | -0.025872     |
 | IL2VR → URAVR | 16       | +              | rule       | -0.000067     |
 | OLLR → CEPVR  | 16       | +              | rule       | -0.038816     |
-| SAADL → RIMR  | 16       | +              | rule       | -0.008635     |
 | SMBVL → SAADL | 16       | +              | rule       | -0.066632     |
 | SMDVR → RIAR  | 16       | −              | expression | 0.087748      |
 | URBR → URXR   | 16       | −              | expression | 0.016581      |
@@ -82,20 +81,22 @@ A disagreement is not an error in either source. The weights are coefficients of
 | URAVL → RIPL  | 15       | +              | rule       | -0.038449     |
 | URXL → RIAL   | 15       | −              | expression | 0.029851      |
 | URYDL → RMDDR | 15       | +              | expression | -0.009537     |
+| ASHL → AVBL   | 14       | −              | physiology | 0.018245      |
 | FLPR → FLPL   | 14       | +              | expression | -0.00265      |
+| SAADR → RIML  | 14       | −              | physiology | 0.029026      |
 | ASHR → ADLR   | 13       | +              | rule       | -0.064615     |
 | IL1VL → RIPL  | 13       | +              | rule       | -0.030516     |
 | RIS → AVKR    | 13       | −              | rule       | 0.021067      |
 | ASJR → ASKR   | 12       | +              | rule       | -0.098207     |
 | IL2DR → RMEL  | 12       | +              | expression | -0.01588      |
 | RIVR → SAADL  | 12       | +              | rule       | -0.00196      |
-| SAAVR → RIML  | 12       | +              | rule       | -0.007378     |
 | SMBVR → SAADR | 12       | +              | rule       | -0.002412     |
 | URADL → RIPL  | 12       | +              | rule       | -0.003886     |
 | OLQDR → RMDDL | 11       | +              | expression | -0.002665     |
 | RIML → AVBR   | 11       | +              | expression | -0.002442     |
 | RIML → SMDVL  | 11       | +              | expression | -0.05741      |
 | RIVL → SAADR  | 11       | +              | rule       | -0.000648     |
+| SAADL → RIML  | 11       | −              | physiology | 0.04036       |
 | URYDR → SMDDL | 11       | +              | expression | -0.002708     |
 | URYVR → SMDVL | 11       | +              | expression | -0.001788     |
 | AINL → AFDR   | 10       | +              | rule       | -0.011704     |
@@ -141,10 +142,12 @@ A disagreement is not an error in either source. The weights are coefficients of
 | RIS → CEPVL   | 7        | −              | expression | 0.003779      |
 | RMDL → RMDDR  | 7        | −              | expression | 0.007177      |
 | RMFR → AVKL   | 7        | +              | rule       | -0.004098     |
+| SAAVR → RIMR  | 7        | −              | physiology | 0.009508      |
 | URXR → RIGR   | 7        | +              | rule       | -0.00315      |
 | URYDR → RMED  | 7        | +              | rule       | -0.001985     |
 | AQR → AVAR    | 6        | +              | expression | -0.010979     |
 | ASHL → ADLL   | 6        | +              | rule       | -0.005179     |
+| ASHR → AVBR   | 6        | −              | physiology | 0.007539      |
 | AWAR → RIGR   | 6        | +              | rule       | -0.001331     |
 | IL2VL → RMER  | 6        | +              | expression | -0.007356     |
 | OLLL → RMDL   | 6        | +              | expression | -0.007007     |
@@ -173,7 +176,6 @@ A disagreement is not an error in either source. The weights are coefficients of
 | RIS → OLLR    | 5        | −              | expression | 0.034825      |
 | RIVL → RIAL   | 5        | −              | expression | 0.029793      |
 | SAADR → SMDVL | 5        | +              | rule       | -0.014402     |
-| SAAVL → RIML  | 5        | +              | rule       | -0.001412     |
 | URXL → RMGL   | 5        | +              | rule       | -0.005282     |
 | URYVR → AVBL  | 5        | +              | expression | -0.01841      |
 | ADLR → ASHR   | 4        | +              | rule       | -0.043683     |

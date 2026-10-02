@@ -3,11 +3,11 @@
 //
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
-// bounds set here before it runs (PLAN.md §7.3). They are track R's model's (PLAN.md §9), and their values are
-// its refit's final ones, with the coloured noise, unrounded, which data/calibration/r2.json records and a test
-// holds them to; R's first fit, with white noise, is in data/calibration/r1.json. Their provisional values,
-// where the refit started, stay beside them; the planned model's own are in src/science/planned.ts (PLAN.md
-// §6.2). A parameter fixed in advance (level 0)
+// bounds set here before it runs (PLAN.md §7.3). They are track R's model's twelve (PLAN.md §9), and their values are
+// track S's fit's, its first pick, in the conductance form, unrounded, which data/calibration/s1.json records and a
+// test holds them to (DECISIONS.md, 2026-10-02). R's refit, which S's fit replaced, is in data/calibration/r2.json,
+// and its first fit, with white noise, in r1.json. Their provisional values, where R's refit started, stay beside them;
+// the planned model's own are in src/science/planned.ts (PLAN.md §6.2). A parameter fixed in advance (level 0)
 // either has a value or is set by a stated rule. Every parameter says what new data or research
 // would raise it (spec §1.3).
 
@@ -38,13 +38,18 @@ export interface Param {
   // the coloured noise's set for it (DECISIONS.md 2026-09-28).
   provisional?: number;
   // The head switch's and proprioception's gains in the conductance form (PLAN.md §4.3, set 2026-09-29): the same
-  // parameter, counted once, since a fit uses one form. The entry above is the current form's, which the refit runs.
+  // parameter, counted once, since a fit uses one form. The entry above is the current form's, which the refit ran.
   conductance?: ConductanceForm;
 }
 
-// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
-// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
+// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as the refit took them, or
+// push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
 export type Form = 'current' | 'conductance';
+
+// The form the chosen fit runs, and so the app and the harness: the conductance form, since track S's fit, calibrated
+// in it, replaced the refit (DECISIONS.md, 2026-10-02). g_sw's and g_p's values are their conductance entries'; their
+// current form's, which the refit ran, are null, the refit's own in data/calibration/r2.json.
+export const CHOSEN_FORM: Form = 'conductance';
 
 // The parameters whose entries depend on the form: g_sw and g_p.
 export const FORM_DEPENDENT: readonly string[] = ['headSwitchGain', 'proprioceptiveGain'];
@@ -206,7 +211,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: 0.05943608161917489,
+    value: 0.056463815037003345,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -254,7 +259,7 @@ export const PARAMS = {
   noiseCorrelation: {
     name: 'Neural noise correlation time',
     symbol: 'τ_n',
-    value: 0.2,
+    value: 0.055082096937701844,
     unit: 's',
     level: 1,
     subsystem: 'neural',
@@ -268,7 +273,7 @@ export const PARAMS = {
   gapGainB: {
     name: 'B-type gap junction gain',
     symbol: 'κ_gap,B',
-    value: 1,
+    value: 0.1560110360067542,
     unit: '',
     level: 1,
     subsystem: 'neural',
@@ -386,7 +391,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch gain',
     symbol: 'g_sw',
-    value: 311.74440224351065,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -397,7 +402,7 @@ export const PARAMS = {
     bounds: [20, 400],
     provisional: 371,
     conductance: {
-      value: null,
+      value: 50,
       unit: 'nS',
       bounds: [0.02, 50],
       provisional: 1,
@@ -407,7 +412,7 @@ export const PARAMS = {
   oscillatorExcitability: {
     name: 'A-type oscillator excitability',
     symbol: 'g_osc',
-    value: 5000,
+    value: 837.8361632810063,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -421,7 +426,7 @@ export const PARAMS = {
   oscillatorExcitabilityB: {
     name: 'B-type oscillator excitability',
     symbol: 'g_osc,B',
-    value: 3900.2952142736585,
+    value: 0,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -435,7 +440,7 @@ export const PARAMS = {
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: 2.6416265755471136,
+    value: 1.2252495155772312,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -449,7 +454,7 @@ export const PARAMS = {
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: -28,
+    value: -14.868026123781796,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -474,7 +479,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: 0.18970755200111186,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -485,7 +490,7 @@ export const PARAMS = {
     bounds: [0.1, 30],
     provisional: 0.308,
     conductance: {
-      value: null,
+      value: 0.01574019766708515,
       unit: 'nS per unit of κL',
       bounds: [0.0001, 8],
       provisional: 0.028,
@@ -501,7 +506,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: 7.5460056354475835,
+    value: 40,
     unit: 'per unit of relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -515,7 +520,7 @@ export const PARAMS = {
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: -0.3,
+    value: -0.09942238936802689,
     unit: 'relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -529,7 +534,7 @@ export const PARAMS = {
   smdGain: {
     name: 'SMD junction gain past the head',
     symbol: 'κ_SMD',
-    value: 0.7180212740176531,
+    value: 0.1687180594753887,
     unit: '',
     level: 1,
     subsystem: 'muscle',

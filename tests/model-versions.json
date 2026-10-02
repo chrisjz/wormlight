@@ -3,5 +3,10 @@
     "model": 1,
     "data": "4dc6ffca",
     "prints": ["573f844a2d5cde1d", "f2552929d6409a8c", "b09006eac75ca335", "d0d7f3137e518ae7", "489f583a7b846fb8"]
+  },
+  {
+    "model": 2,
+    "data": "333bf768",
+    "prints": ["a547e38932028c29", "9652693fecedf31f", "c72d875d3d90139b", "5c9968a0a50041b3", "673c93fb0a5c8d90"]
   }
 ]

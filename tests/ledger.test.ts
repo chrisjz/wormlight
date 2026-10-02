@@ -67,11 +67,11 @@ describe("the ledger's components", () => {
 describe('the status', () => {
   const status = ledgerStatus();
 
-  it('says crawling does not yet emerge, what the negative result is, and that R found a crawler it could not choose', () => {
-    expect(status).toContain('**Crawling as checkpoint 1 asks for it does not yet emerge.**');
-    expect(status).toContain('largely indifferent to the chemical wiring');
-    expect(status).toContain('found a partial crawler that holds at half the step');
-    expect(status).toContain('did not let R choose');
+  it("says the worm crawls at partial on track S's fit, what paces it, and that R reached no fit it could choose", () => {
+    expect(status).toContain("**The worm crawls at checkpoint 1's partial grade, paced by its head switch.**");
+    expect(status).toContain('no fit its rules could choose reached partial');
+    expect(status).toContain('holds at half the time step and grades partial on checkpoint 1 on its own trials');
+    expect(status).toContain("The rhythm is not the network's own");
   });
 
   it('warns that "Tested by" lists planned checks, and names the calibrated values it runs on', () => {
@@ -79,7 +79,7 @@ describe('the status', () => {
       'Only checkpoints 0 and 1 and the sensitivity runs have run, so "Tested by" lists the checks planned',
     );
     expect(status).toMatch(
-      /The calibrated parameters are the refit's, shown below rounded from its fit, \d+ of them on a bound/,
+      /The calibrated parameters are track S's fit's, shown below rounded from its fit, 3 of them on a bound/,
     );
   });
 });

@@ -4,7 +4,7 @@
 // advances the body.
 
 import type { WormlightData } from '../data/schema.ts';
-import { inForm, PARAMS, type Form, type Param } from '../science/params.ts';
+import { CHOSEN_FORM, inForm, PARAMS, type Form, type Param } from '../science/params.ts';
 import type { PlannedValues } from '../science/planned.ts';
 import { Body, boyleBody } from './body/body.ts';
 import {
@@ -23,7 +23,7 @@ import { AWC_JUMP, NEURAL_STEP } from './numerics.ts';
 import { curvature, HeadSwitch, proprioceptiveFields, regionMean, type Field } from './proprio.ts';
 import { AWC_GAINS, AwcSensor, type AwcSide, type Odour } from './sensing.ts';
 import { tap, TOUCH_STEPS, touchData, type Touch, type TouchReceptor } from './touch.ts';
-import { rectify, restOffsets, trackSKey, withMeasuredSigns, type RestOffsets } from './trackS.ts';
+import { CHOSEN_MODEL, partsOf, rectify, restOffsets, trackSKey, type RestOffsets } from './trackS.ts';
 
 // The model's reversal potentials (mV), which the conductance form drives towards.
 const EXCITATORY = PARAMS.reversalExcitatory.value;
@@ -57,9 +57,6 @@ export interface LoopParams {
   gapGainB?: number;
   smdGain?: number;
   relativeDrive?: boolean;
-  // Track S's model (PLAN §9; DECISIONS.md, 2026-10-01): its measured signs, applied to the data before anything is
-  // built from it. Left out, the runtime data's signs, which the refit runs on.
-  measuredSigns?: boolean;
   // Track S's class offsets (PLAN §3.3; DECISIONS.md, 2026-10-02): the D-types rest above their thresholds, or AVA
   // too, for a sensitivity setting. Left out, every neuron rests at its threshold.
   restOffsets?: RestOffsets;
@@ -134,13 +131,15 @@ export function provisionalParams(form: Form): LoopParams {
   return loopParams(values as unknown as RValues, form);
 }
 
-// Whether calibration has set every calibrated parameter's value.
-export const isCalibrated = (): boolean => CALIBRATED.every((id) => PARAMS[id].value !== null);
+// Whether calibration has set every calibrated parameter's value, in the form the chosen fit runs.
+export const isCalibrated = (): boolean => CALIBRATED.every((id) => inForm(id, PARAMS[id], CHOSEN_FORM).value !== null);
 
 // The values the app and the harness run on: the calibrated ones once calibration has set them, the provisional
-// ones until then (PLAN §6.2).
-export const currentParams = (): LoopParams =>
-  isCalibrated() ? calibratedParams('current') : provisionalParams('current');
+// ones until then (PLAN §6.2), in the chosen fit's form and on its model.
+export const currentParams = (): LoopParams => ({
+  ...(isCalibrated() ? calibratedParams(CHOSEN_FORM) : provisionalParams(CHOSEN_FORM)),
+  ...partsOf(CHOSEN_MODEL),
+});
 
 export interface WorldOptions {
   seed?: number;
@@ -236,18 +235,12 @@ export class World {
   readonly touchApplied: Float64Array;
   private readonly smd: Set<number>;
 
-  constructor(given: WormlightData, params: LoopParams, options: WorldOptions = {}) {
+  constructor(data: WormlightData, params: LoopParams, options: WorldOptions = {}) {
     // The layers outside the brain, touch's currents among them, are built on the real wiring, the same for every
     // brain (PLAN §4.2): a rewired brain comes as `network`, never as the data.
-    if (given.chemical.some((c) => 'original' in c))
+    if (data.chemical.some((c) => 'original' in c))
       throw new Error('a world takes the real data; give a rewired brain as its network');
     this.params = params;
-    // Track S's model reads its measured signs from here on, its layers included. A brain given as a network was built
-    // from data the World can't see, so track S's model refuses one until its contrast brains are built from its data.
-    if (params.measuredSigns && options.network) {
-      throw new Error("track S's model builds its brain from its own signs; it takes no network yet");
-    }
-    const data = params.measuredSigns ? withMeasuredSigns(given) : given;
     const seed = options.seed ?? 0;
     // κ_gap,B makes a rewired brain, with its own thresholds (PLAN §3.3, §9).
     const bTypes = new Set(data.neurons.flatMap((n, i) => (n.oscillator === 'B' ? [i] : [])));

@@ -6,7 +6,7 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { activations } from '../src/render/glow.ts';
 import { GLOW_COLOUR, GLOW_FLOOR, glowBrightness, glowHalo, NEUTRAL } from '../src/render/palette.ts';
 import { HALO_SHADER, NEURON_SHADER, wgslColour } from '../src/render/shaders.ts';
-import { midpointActivation } from '../src/sim/brain/brain.ts';
+import { midpointActivation, restActivation } from '../src/sim/brain/brain.ts';
 import { World } from '../src/sim/world.ts';
 import { Activity } from '../src/ui/activity.ts';
 import { appWorld } from '../src/ui/start.ts';
@@ -15,16 +15,23 @@ import { readJson, readRepo } from './checks.ts';
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
 
 describe("the glow's source", () => {
-  it("is ½ for every neuron at the model's rest, where its synapses sit at their midpoint", () => {
+  // Track S's model, which the app runs since its fit was chosen, rests the D-types 7.4 mV above their thresholds
+  // (DECISIONS.md, 2026-10-02), so their glow rests at φ(7.4 mV), about 0.72, and every other neuron's at ½.
+  it("is ½ for every neuron at the model's rest but the D-types, which rest at their offset's φ", () => {
     const world = appWorld(data, 1);
-    const { voltage, threshold, network, activation } = world.brain;
+    const { voltage, threshold, network, activation, offset } = world.brain;
     const a = activations(voltage, threshold, network.slope);
-    expect(Array.from(a).every((x) => Math.abs(x - 0.5) < 1e-6)).toBe(true);
-    // The model's own rest: activation at the sigmoid's midpoint, rise / (rise + 2 decay), is the fixed point of
-    // ds/dt = rise φ (1 − s) − decay s at φ = ½.
+    const dType = (i: number): boolean => /^(DD|VD)\d+$/.test(network.names[i]);
+    const atOffset = 1 / (1 + Math.exp(-network.slope * 7.4));
+    expect(atOffset).toBeCloseTo(0.716, 3);
+    Array.from(a).forEach((x, i) => expect(x, network.names[i]).toBeCloseTo(dType(i) ? atOffset : 0.5, 6));
+    // The model's own rest: each neuron's activation is the fixed point of ds/dt = rise φ (1 − s) − decay s at its φ,
+    // rise / (rise + 2 decay) at φ = ½.
     const s = midpointActivation(network);
     expect(0.5 * network.rise * (1 - s) - network.decay * s).toBeCloseTo(0, 12);
-    expect(Array.from(activation).every((x) => Math.abs(x - s) < 1e-12)).toBe(true);
+    Array.from(activation).forEach((x, i) =>
+      expect(x, network.names[i]).toBeCloseTo(restActivation(network, offset[i]), 12),
+    );
   });
 
   it('takes a lesioned world by its intact thresholds, as the model does', () => {

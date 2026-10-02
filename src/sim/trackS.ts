@@ -1,46 +1,13 @@
-// Track S's model (PLAN §9; DECISIONS.md, 2026-10-01 and 2026-10-02). Its measured signs come as a copy of the
-// runtime data with them applied, so that its brain, and every layer a World builds from the data, read them;
-// touch's currents among them. Its class offsets rest the D-types above their thresholds, and its rectifier passes
-// current through the AVA–A-type gap junctions only from the A-type into AVA.
-// AWC's gains and touch's currents are rules set at the rest, and are rerun on whichever model a World runs. The app
-// and the refit read the runtime data as it is, with no offsets, until track S's fit is chosen.
-//
-// The copy keeps the runtime file's `meta.version`, a digest of the runtime file's contents, which its signs no longer
-// match: a link, a record or a manifest tells track S's model apart by its loop parameters, never by the data's
-// version.
+// Track S's model (PLAN §9; DECISIONS.md, 2026-10-01 and 2026-10-02), whose fit the app and the harness run since it
+// replaced the refit. Its measured signs are the runtime data's, moved there from a side file when its fit was chosen.
+// Its class offsets rest the D-types above their thresholds, and its rectifier passes current through the AVA–A-type
+// gap junctions only from the A-type into AVA; both are its parts, which the loop's parameters switch on, so the
+// planned model and track R's run without them. AWC's gains and touch's currents are rules set at the rest, and are
+// rerun on whichever model a World runs.
 
-import { TRACK_S_SIGNS } from '../data/trackSSigns.ts';
 import type { WormlightData } from '../data/schema.ts';
 import type { Network } from './brain/network.ts';
-import { reference } from '../science/citations.ts';
 import { PARAMS } from '../science/params.ts';
-
-const key = (pre: string, post: string): string => `${pre}→${post}`;
-
-// One copy for each runtime data object, so that the many worlds a run builds, sham twins and calibration trials
-// among them, share it and the caches keyed on it, touch's among them.
-const copies = new WeakMap<WormlightData, WormlightData>();
-
-// The runtime data with track S's measured signs applied: each row's connection takes its sign, as cited physiology,
-// and the row's citation joins the file's.
-export function withMeasuredSigns(data: WormlightData): WormlightData {
-  const cached = copies.get(data);
-  if (cached) return cached;
-  const rows = new Map(TRACK_S_SIGNS.map((r) => [key(r.pre, r.post), r]));
-  let applied = 0;
-  const chemical = data.chemical.map((c) => {
-    const row = rows.get(key(c.pre, c.post));
-    if (!row) return c;
-    applied++;
-    return { ...c, sign: row.sign, signSource: 'physiology' as const, citation: row.citation };
-  });
-  if (applied !== rows.size) throw new Error("track S's signs name connections the data doesn't have");
-  const citations = { ...data.meta.citations };
-  for (const row of TRACK_S_SIGNS) citations[row.citation] ??= reference(row.citation);
-  const copy = { ...data, meta: { ...data.meta, citations }, chemical };
-  copies.set(data, copy);
-  return copy;
-}
 
 // Track S's class offsets (PLAN §3.3; DECISIONS.md, 2026-10-01 and 2026-10-02): how far a class rests below its
 // threshold, in mV, with Δ = V_th − V_rest. Liu, Chen & Wang 2014 recorded, at zero current, VB6 at −53.2 mV and VD5
@@ -96,20 +63,25 @@ export function rectify(network: Network): Network {
   return { ...network, rectified };
 }
 
-// The models a calibration searches (PLAN §9): track R's, which every fit so far is, and track S's, the same twelve
-// calibrated parameters on its measured signs, class offsets and rectifier.
+// The models a calibration searches (PLAN §9): track R's, the refit's and round 3's, and track S's, the same twelve
+// calibrated parameters with its class offsets and rectifier, whose fit is chosen. Both run on the runtime data's
+// signs, which since S's fit was chosen hold S's measured signs (DECISIONS.md, 2026-10-02).
 export type Model = 'track R' | 'track S';
+
+// The model the chosen fit runs, and so the app and the harness (DECISIONS.md, 2026-10-02): track S's, since its fit
+// replaced the refit, in the conductance form (CHOSEN_FORM).
+export const CHOSEN_MODEL: Model = 'track S';
 
 // Track S's parts, as the loop's parameters take them.
 export interface TrackSParts {
-  measuredSigns?: boolean;
   restOffsets?: RestOffsets;
   rectified?: boolean;
 }
 
-// Track S's whole model (DECISIONS.md, 2026-10-01 and 2026-10-02): its measured signs, the D-types' offset and its
-// rectifier, which its calibration runs.
-export const TRACK_S: Readonly<TrackSParts> = { measuredSigns: true, restOffsets: 'measured', rectified: true };
+// Track S's whole model (DECISIONS.md, 2026-10-01 and 2026-10-02): the D-types' offset and its rectifier on the
+// runtime data's signs. Its calibration ran with a switch for the signs too, `measuredSigns`, which applied them from
+// their side file before they moved into the data; its record names it.
+export const TRACK_S: Readonly<TrackSParts> = { restOffsets: 'measured', rectified: true };
 
 // What a model adds to the loop's parameters: nothing for track R's. A name that is neither is refused, not read as R's.
 export function partsOf(model: Model): Readonly<TrackSParts> {
@@ -120,6 +92,4 @@ export function partsOf(model: Model): Readonly<TrackSParts> {
 
 // Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
 export const trackSKey = (choice: TrackSParts): string =>
-  [choice.measuredSigns ? 'signs' : '', choice.restOffsets ?? '', choice.rectified ? 'rectified' : '']
-    .filter(Boolean)
-    .join(', ');
+  [choice.restOffsets ?? '', choice.rectified ? 'rectified' : ''].filter(Boolean).join(', ');

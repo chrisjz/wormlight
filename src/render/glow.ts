@@ -22,7 +22,8 @@ export function activations(
 // for that input, so the only error is the sampling's: activity between readings is known only through them. At
 // 10× and 60 frames a second a reading spans about one GCaMP rise, so a change that lasts less than a frame can be
 // missed or blurred (PLAN §1). The stages have unit gain, so an activation held steady shows as itself. Until it is
-// first given activations, the glow is at rest, ½.
+// first given activations, the glow is ½, every neuron's rest but the D-types', which track S's model rests at about
+// 0.72 (DECISIONS.md, 2026-10-02).
 export class Glow {
   // The filtered activation, the glow's value, per neuron; in f64, as in f32 a stage stalls short of its input once
   // each step's change falls below the value's rounding.

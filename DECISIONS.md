@@ -3600,3 +3600,32 @@ Its pooled speed has a 95% interval of 0.0672 to 0.0693 body lengths a second, a
 **Review.** A review of the record reproduced every figure from the committed records and logs and found the choice as the rules make it. It found, and the entry now says: "the first fit" to do both, which probe 14's pick did before; the comparison with round 3 credited to S's model where the band may account for it; objectives compared across two counts of crossings; the fit's corner, its gate that never closes, its clamped SMDs, AVB's new weight and its slips; steps left out of what follows, the sensitivity settings, the app's rest, the long runs' measure, the stale text and the graders; VALIDATION.md's account, which now notes the choice; and smaller wording.
 
 **Status.** Run and chosen. The adoption comes next, in a pull request of its own.
+
+## 2026-10-02 — Track S's fit, adopted: the data, the registry and the app run it, as model version 2
+
+**Why.** Track S's first pick passed §7.2's comparison, so by the rules set before any of S was built it replaced the refit (the entry above). This is the adoption the rules list: the registry takes its values and form, its signs move into the main overrides file, the data's version and `MODEL_VERSION` rise, and the app, the harness and GPU parity run it.
+
+**The signs, into the data.** S's 44 rows moved from `data/sign-overrides-s.csv` into `data/sign-overrides.csv`, beside AWC's seven, and the side file, the module the build generated from it (`src/data/trackSSigns.ts`), the copy of the data it made (`withMeasuredSigns`) and the switch that applied it (`measuredSigns`) are gone; the data build, its report and CI's tracing lose their handling of it. S's parts, which the loop's parameters switch on, are now its offsets and its rectifier. The runtime data's version moves from `4dc6ffca` to `333bf768`. PLAN §2.4's coverage moves with it, marked as changed: 51 connections signed by cited physiology (850 sections), 1,699 by Fenyves (45.8%), 1,426 by the transmitter rule (38.4%) and 533 with no basis; of S's rows, 22 fall on connections Fenyves signs the same way, 2 the other way, and 27 the rule signed. The uncertain signs the sensitivity runs reset are now 1,959, not 1,986. Its record, `s1.json`, names the switch it ran with, and a test reads its parts as they ran.
+
+**The registry.** The twelve calibrated values are S's fit's, its first pick's, unrounded from `data/calibration/s1.json`, and a test holds them to it. The form the chosen fit runs is named once (`CHOSEN_FORM`, the conductance form), as its model is (`CHOSEN_MODEL`, track S's): g_sw and g_p take their conductance entries' values, 50 nS and 0.0157 nS per unit of κL, and their current form's, which the refit ran, are left without a value, the refit's own in `r2.json`. `currentParams()`, which the app and the harness run, is the calibrated values in that form with S's parts. FIDELITY's ledger and the app's "About the science" show each parameter as the fit runs it, g_p with S's bound of 0.0001 to 7, and three of the twelve on a bound. Their shared status, the components that called S's model unused, the omitted biology and the noise's basis say what runs now.
+
+**AWC's gain,** by its rule, moves with the signs: on the runtime data without S's parts, from 3.73338 and 5.51839 to 3.73539 and 5.51805, and on S's whole model, which the app runs, 3.7354 and 5.51799, as before. The table's keys lose the signs, since every model reads them from the data.
+
+**`MODEL_VERSION` rises to 2,** its fingerprint pinned with the data's new version in `tests/model-versions.json`. A link made before carries model version 1, which the app already says was made on another model.
+
+**Tests re-pinned, each to what the new data and fit give.**
+
+- The production check's goldens, by their reference script (`cook_reference.py`), since Cook's wiring now carries S's signs; the CPU reference matches them.
+- The sensitivity runs' draws, by digest, and the silenced head switch's margins under each setting: on S's fit the gate stays shut under every setting, by 4.6 mV at least, where on the refit it was shut by under half a millivolt on the model's own signs and open under eleven of the fourteen. The runs `VALIDATION.md` records stay the refit's until they run again on S's fit.
+- The current form's guard, which pins 400 steps of five worlds, taken again on the refit's recorded values, since the registry's are no longer the current form's.
+- The 1 mV rule on the runtime data, now 0.0217–47.5 nS for g_sw and 0.000171–7.70 for g_p, every bound rounding as it did.
+- Touch's hold: a tap that reaches PLML, PLMR and PVM now leaves PVM 10.215 mV up, against the 10 its currents aim for with activations held, and 10.230 on S's whole model, past the test's 2%. That tolerance is the test's own, not a rule PLAN fixes, so it widens to 2.5%, the cause the network's nonlinearity on S's signs.
+- The glow at rest: ½ for every neuron but the D-types, which S's offset rests at about 0.72.
+
+**The app and the record.** The app's notice says crawling is only partial, at about a third of a real worm's speed, paced by its head's rhythm rather than by the network, and hardly reversing; the inspector's activity note and the glow's comment say where the D-types rest. The README's account, `VALIDATION.md`'s note, PLAN §7.3, §9 and §10 and the fallback menu say S's fit runs, and its picture is taken again. Spec §4's two sentences on S say its model and calibration are the ones that run, for the maintainer's sign-off in this pull request.
+
+**Checks.** GPU parity passes in Chrome on the M5 Max and in Safari, its registry setup now S's fit. `npm run plate:bench` on the app with the rectifier holds 60 frames a second from 1× to 30× real time and saturates at 32.3× when asked for 50×, as before. The app's Safari check ran into the machine's idle display, its window not drawing, and was stopped; it runs with the maintainer at the machine. The visual baselines come from CI's captures, as CLAUDE.md sets.
+
+**Left for later,** one pull request at a time: checkpoints 1 and 0 and the sensitivity runs on S's fit, with S's settings, its offsets off and AVA's; GPU parity's long runs on the banded measure; release 0.2.0; and checkpoints 2 to 6, their graders built first.
+
+**Status.** Adopted in this pull request, the app's Safari check and the visual baselines to follow.

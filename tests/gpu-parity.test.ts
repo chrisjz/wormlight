@@ -253,7 +253,7 @@ describe("the loop's parity", () => {
   it("includes track S's whole model, its brain's junctions flagged for the shader and its gates turning", () => {
     const setup = LOOP_SETUPS.find((s) => s.name === 'track S');
     if (!setup) throw new Error('no track S setup');
-    expect(setup.params).toMatchObject({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    expect(setup.params).toMatchObject({ restOffsets: 'measured', rectified: true });
     const world = new World(data, setup.params, {
       seed: setup.seed ?? SEED,
       switchThreshold: setup.switchThreshold,

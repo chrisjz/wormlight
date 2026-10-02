@@ -214,12 +214,12 @@ export async function startPlate(
   why.href = VALIDATION;
   why.rel = 'noopener';
   notice.append(
-    el('strong', undefined, "Crawling doesn't yet emerge. "),
+    el('strong', undefined, 'Crawling is only partial. '),
     el(
       'span',
       'plate-notice-detail',
-      "The worm moves forward at about an eighth of a real worm's speed, in runs of about ten seconds, each cut " +
-        "short by its head's slow rhythm. ",
+      "The worm crawls at about a third of a real worm's speed, paced by its head's rhythm rather than by the " +
+        'network, and hardly reverses. ',
     ),
     why,
   );
