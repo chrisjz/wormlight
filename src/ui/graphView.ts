@@ -55,7 +55,7 @@ const DIMMED = 0.28;
 // How much of its opacity a link a lesion cuts keeps.
 const CUT = 0.3;
 // How opaque an active synapse's link is at the most, drawn while the neurons glow and none is selected.
-const ACTIVE_LINK = 0.3;
+const ACTIVE_LINK = 0.45;
 // While the neurons glow, how strongly each is rimmed in the palette's neutral grey.
 const RIM = 0.45;
 const HOME_YAW = (-50 * Math.PI) / 180;

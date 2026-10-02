@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { activations, Glow, restingGlow } from '../src/render/glow.ts';
 import {
+  ACTIVE_FLOOR,
   ACTIVE_RISE,
+  ACTIVE_SPAN,
   activeStrength,
   GLOW_COLOUR,
   GLOW_FLOOR,
@@ -75,17 +77,20 @@ describe("the glow's scale", () => {
 });
 
 describe('the synapses lit while the neurons glow, with none selected (DECISIONS.md, 2026-10-02)', () => {
-  it("light as a neuron's glow rises past ACTIVE_RISE above its own rest, more as it rises, and fully at full glow", () => {
-    expect(ACTIVE_RISE).toBe(0.1);
+  it("light as a neuron's glow rises past ACTIVE_RISE above its own rest, visibly at once, and fully ACTIVE_SPAN on", () => {
+    expect([ACTIVE_RISE, ACTIVE_FLOOR, ACTIVE_SPAN]).toEqual([0.1, 0.35, 0.15]);
     expect(activeStrength(0.5, 0.5)).toBeNull();
     expect(activeStrength(0.6, 0.5)).toBeNull();
-    expect(activeStrength(0.65, 0.5)).toBeCloseTo(0.125, 12);
+    expect(activeStrength(0.600001, 0.5)).toBeCloseTo(0.35, 4);
+    expect(activeStrength(0.65, 0.5)).toBeCloseTo(0.35 + 0.65 / 3, 12);
+    expect(activeStrength(0.75, 0.5)).toBeCloseTo(1, 12);
     expect(activeStrength(1, 0.5)).toBe(1);
     // A D-type at its rest, about 0.72, lights nothing, though a fixed ¾ would sit only just above it.
     expect(activeStrength(0.716, 0.716)).toBeNull();
-    expect(activeStrength(0.85, 0.716)).toBeCloseTo((0.85 - 0.716 - 0.1) / (1 - 0.716 - 0.1), 12);
-    for (let g = 0.61; g < 1; g += 0.01)
-      expect(activeStrength(g + 0.01, 0.5)).toBeGreaterThan(activeStrength(g, 0.5) ?? 0);
+    expect(activeStrength(0.85, 0.716)).toBeCloseTo(0.35 + 0.65 * ((0.85 - 0.716 - 0.1) / 0.15), 12);
+    for (let g = 0.61; g < 1; g += 0.01) {
+      expect(activeStrength(g + 0.01, 0.5)).toBeGreaterThanOrEqual(activeStrength(g, 0.5) ?? 0);
+    }
   });
 
   it("light some on the app's model as its worm crawls", () => {

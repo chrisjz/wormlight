@@ -19,12 +19,17 @@ export const GLOW_COLOUR = '#5dfc8f';
 export const NEUTRAL = '#8c9a92';
 export const GLOW_FLOOR = 0.06;
 export const ACTIVE_RISE = 0.1;
+// Lit synapses start at ACTIVE_FLOOR of their full opacity, so that a lit one shows, and reach it ACTIVE_SPAN further
+// up, a rise that track S's most active neurons, the SMDs and the B-types, reach (DECISIONS.md, 2026-10-02).
+export const ACTIVE_FLOOR = 0.35;
+export const ACTIVE_SPAN = 0.15;
 
-// How strongly a neuron's synapses are lit while it glows at g, resting at r: from 0 as it rises past ACTIVE_RISE
-// above its rest to 1 at full glow, and null, not lit, below that.
+// How strongly a neuron's synapses are lit while it glows at g, resting at r: from ACTIVE_FLOOR as it rises past
+// ACTIVE_RISE above its rest to 1 at ACTIVE_SPAN beyond, and null, not lit, below that.
 export function activeStrength(g: number, r: number): number | null {
   const rise = g - r;
-  return rise > ACTIVE_RISE ? Math.min(1, (rise - ACTIVE_RISE) / (1 - r - ACTIVE_RISE)) : null;
+  if (!(rise > ACTIVE_RISE)) return null;
+  return ACTIVE_FLOOR + (1 - ACTIVE_FLOOR) * Math.min(1, (rise - ACTIVE_RISE) / ACTIVE_SPAN);
 }
 
 // A neuron's brightness and halo at a glow g, on the one fixed scale (PLAN §1): brightness rises as g², so rest,
