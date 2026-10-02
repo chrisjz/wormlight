@@ -1,8 +1,9 @@
 cff-version: 1.2.0
 message: >-
   If you use Wormlight, please cite it as below, giving the version you used. Please also cite the connectome it runs,
-  Cook et al. 2019 as released in Emmons 2024, and the works its synapse signs come from, Fenyves et al. 2020 and Wang
-  et al. 2024; all four are listed below.
+  Cook et al. 2019 as released in Emmons 2024, and the works most of its synapse signs come from, Fenyves et al. 2020
+  and Wang et al. 2024; all four are listed below. The recordings behind its few measured signs are cited in its
+  FIDELITY.md.
 type: software
 title: Wormlight
 abstract: >-
@@ -10,15 +11,16 @@ abstract: >-
   small, documented set of mechanisms the wiring can't supply, drives a physically simulated body on an agar plate. It
   runs on the GPU in WebGPU, checked against a CPU reference on which every behavioural trial runs. The behavioural
   checkpoints' thresholds were fixed before their results, from published measurements, and every later change is
-  logged. Crawling as the first checkpoint asks for it does not yet emerge from the connectome, and the project reports
-  that as its result: on the chosen fit the worm moves forward slowly, paced by a rhythm in its head, one of the
-  mechanisms outside the wiring, rather than by the network.
+  logged. On the chosen fit, which gives the model the synapse signs that recordings measure, a resting offset for one
+  class of motor neuron and gap junctions that pass current one way, as recordings show, the worm crawls at the first
+  checkpoint's partial grade, at about a third of a real worm's speed. The rhythm that paces it comes from its head,
+  one of the mechanisms outside the wiring, not from the network, and the worm hardly reverses.
 authors:
   - family-names: Zaharia
     given-names: Chris Julian
     orcid: 'https://orcid.org/0009-0005-6849-8081'
-version: 0.1.0
-date-released: 2026-10-01
+version: 0.2.0
+date-released: 2026-10-02
 license: Apache-2.0
 repository-code: 'https://github.com/chrisjz/wormlight'
 keywords:

@@ -3725,3 +3725,13 @@ Reported, not graded: the body wave's spread, 1.8869 against 1.8887 κL, and its
 **Considered.** Keeping the strength's ramp to full glow, under which lit synapses barely show; a lower fixed threshold, which would light every D-type's synapses at rest, since they rest at about 0.72; the most active few neurons, ranked, which would draw synapses even in a still worm; and a rise of 0.05, which on S's fit lights about four neurons a frame, against two at 0.1.
 
 **Status.** Built in this pull request, after #62, before release 0.2.0, as the maintainer set the order.
+
+## 2026-10-02 — Release 0.2.0: track S's fit, model version 2
+
+**Why.** The choice of S's fit listed a release after its adoption (the entry of 2026-10-01 on S's rules, and the choice's above), and the maintainer set its place: after the checkpoints, the long runs and the graph's lit synapses. Since 0.1.0 the model version has moved from 1 to 2 and the data version from `4dc6ffca` to `333bf768`, so by PLAN §8 it is a minor release, 0.2.0.
+
+**What it sets.** The version, 0.2.0, in `package.json`, its lock file and `CITATION.cff`, and the citation's release date, 2026-10-02, the day of the tag in the repository's local time; if the merge slips past it, a pull request corrects it first, as PLAN §8 sets. The citation's abstract, which stated 0.1.0's result, now states 0.2.0's: on the chosen fit the worm crawls at the first checkpoint's partial grade, at about a third of a real worm's speed, paced by the head's rhythm, not the network, and hardly reversing. Its message asks citers to cite the works "most of" the synapse signs come from, Fenyves et al. 2020 and Wang et al. 2024, since 51 connections are now signed by recordings, 44 of them track S's, and points to `FIDELITY.md`, which cites those recordings; its references stay the four PLAN §8 names. Considered: adding the recordings' papers to the references, about a dozen, which PLAN §8 doesn't list.
+
+**After it merges,** on the maintainer's go-ahead, since both are public: its merge commit is tagged `v0.2.0`, an annotated tag pushed by name, once `main`'s CI has passed on it, and a draft GitHub Release made from the tag with `--verify-tag`, its notes giving the model and data versions, the checkpoints' status and what changed since 0.1.0, which the maintainer sees before it is published.
+
+**Status.** Set in this pull request; tagged and released after it merges, on the maintainer's go-ahead.
