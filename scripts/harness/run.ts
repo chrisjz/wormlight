@@ -9,9 +9,10 @@
 // run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.
 //
-// --sensitivity runs the sensitivity settings (spec §2.4; PLAN §2.4, §3.2; src/validation/sensitivity.ts): under
-// each, checkpoint 1's trials and the same trials of the silenced network, reported and not graded, into
-// harness-out/sensitivity.json and their own section of VALIDATION.md.
+// --sensitivity runs the sensitivity settings (spec §2.4; PLAN §2.4, §3.2; src/validation/sensitivity.ts), of the
+// uncertain signs, the scales and track S's rest: under each, checkpoint 1's trials and the same trials of the
+// silenced network, reported and not graded, into harness-out/sensitivity.json and their own section of
+// VALIDATION.md.
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -21,7 +22,8 @@ import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
-import { currentParams, isCalibrated } from '../../src/sim/world.ts';
+import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
+import { currentParams, isCalibrated, type LoopParams } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import type { Network } from '../../src/sim/brain/network.ts';
 import {
@@ -38,7 +40,7 @@ import {
   TRIALS,
 } from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
-import { SETTINGS, settingNetwork } from '../../src/validation/sensitivity.ts';
+import { SETTINGS, settingNetwork, settingParams } from '../../src/validation/sensitivity.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
@@ -84,6 +86,10 @@ const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 const PAGE = join(ROOT, 'VALIDATION.md');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
+// The loop's parameters a job runs: the registry's fit, or a sensitivity setting's (src/validation/sensitivity.ts).
+export const jobParams = (setting?: string): LoopParams =>
+  setting === undefined ? currentParams() : settingParams(currentParams(), setting);
+
 // A worker's latest sensitivity setting and its brain, as the settings come one after another.
 let brain: { setting: string; network: Network } | undefined;
 // The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
@@ -100,7 +106,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: currentParams(),
+    params: jobParams(job.setting),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
     ...(job.setting !== undefined && brain ? { network: brain.network } : {}),
@@ -198,6 +204,7 @@ if (process.argv.includes('--worker')) {
     date: new Date().toISOString().slice(0, 10),
     commit: commit(),
     calibrated: isCalibrated(),
+    model: CHOSEN_MODEL,
     trials: options.trials,
     seconds: options.seconds,
     ...(options.checkpoints.includes(0) ? { worms, wormSeconds } : {}),
@@ -221,6 +228,8 @@ if (process.argv.includes('--worker')) {
     .sort((a, b) => b.seconds - a.seconds);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
   const settings = options.sensitivity ? SETTINGS : [];
+  // A setting the fit can't run refuses here, before any trial, rather than in a worker after the settings before it.
+  for (const setting of settings) jobParams(setting.id);
   const perSetting = 2 * options.trials;
   const total = queue.length + settings.length * perSetting;
   const results: Result[] = [];
