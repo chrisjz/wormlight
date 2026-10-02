@@ -8,8 +8,9 @@
 //
 //   npm run gpu:parity [-- outDir] [--long] [--safari] [--shards=N]      (default gpu-out, or gpu-out/safari)
 //   --shards=N        N pages, each with its share of the one-second checks; 4 on CI (WEBGPU_CI), else 1
-//   --long            adds long-run parity: 265 seeds a side for 60 s, 11 to 18 minutes on an M5 Max and
-//                     far too long for CI's software GPU
+//   --long            adds long-run parity: 265 seeds a side for 60 s, about 8 minutes in Chrome on an M5 Max
+//                     on track S's fit, 11 to 18 on earlier fits and in Safari, and far too long for CI's
+//                     software GPU
 //   --safari          runs the page in Safari, on this Mac's GPU, through safaridriver (scripts/safari.ts),
 //                     which needs Safari's "Allow remote automation" setting; npm run gpu:parity:safari
 //   CHROME_PATH, WEBGPU_CI as in scripts/browser.ts
@@ -70,14 +71,30 @@ interface LoopSecond {
   graded: boolean;
   pass: boolean;
 }
+interface Equivalent {
+  difference: number;
+  margin: number;
+  p: number;
+  equivalent: boolean;
+}
+interface Measures {
+  finite: boolean;
+  bouts: number;
+  speed: number | null;
+  frequency: number | null;
+  wave: { sd: number; frequency: number };
+}
 interface Long {
   seeds: number;
   seconds: number;
-  cpu: { sd: number; frequency: number }[];
-  gpu: { sd: number; frequency: number }[];
-  sd: { difference: number; margin: number; p: number; equivalent: boolean };
-  frequency: { difference: number; margin: number; p: number; equivalent: boolean };
-  spread: { sd: { ratio: number; p: number }; frequency: { ratio: number; p: number } };
+  cpu: Measures[];
+  gpu: Measures[];
+  speed: Equivalent | null;
+  frequency: Equivalent | null;
+  boutless: { cpu: number; gpu: number };
+  broken: { cpu: number; gpu: number };
+  wave: { sd: Equivalent; frequency: Equivalent };
+  spread: { speed: { ratio: number; p: number } | null; frequency: { ratio: number; p: number } | null };
   unconverged: { cpu: number; gpu: number };
   pass: boolean;
 }
@@ -381,20 +398,38 @@ try {
     const result = await withTimeout(browser.call<Long>('__long'), 3600000, 'the long runs');
     writeFileSync(join(outDir, 'long.json'), `${JSON.stringify(result, null, 2)}\n`);
     const mean = (x: number[]): number => x.reduce((a, b) => a + b, 0) / x.length;
-    console.log(`\nlong runs: ${result.seeds} seeds a side, ${result.seconds} s each`);
-    for (const k of ['sd', 'frequency'] as const) {
+    const line = (pass: boolean, name: string, a: number[], b: number[], e: Equivalent | null): string =>
+      e === null
+        ? `  ${mark(false)} ${name}: fewer than two runs with a bout on a side`
+        : `  ${mark(pass)} ${name}: CPU ${g(mean(a), 4)}, GPU ${g(mean(b), 4)}, difference ${g(e.difference, 4)} ` +
+          `within ±${g(e.margin, 4)}? p = ${g(e.p, 4)}`;
+    const crawled = (side: Measures[], k: 'speed' | 'frequency'): number[] =>
+      side.flatMap((m) => (m[k] === null ? [] : [m[k]]));
+    console.log(
+      `\nlong runs: ${result.seeds} seeds a side, ${result.seconds} s each; each run's crawl over its forward bouts ` +
+        `of 10 s or more, as checkpoint 1 measures it; runs without one, left out: ${result.boutless.cpu} on the ` +
+        `CPU, ${result.boutless.gpu} on the GPU; runs whose body left the finite numbers, which fail: ` +
+        `${result.broken.cpu} on the CPU, ${result.broken.gpu} on the GPU`,
+    );
+    for (const k of ['speed', 'frequency'] as const) {
       const e = result[k];
+      console.log(line(e?.equivalent ?? false, k, crawled(result.cpu, k), crawled(result.gpu, k), e));
+    }
+    for (const k of ['sd', 'frequency'] as const) {
+      const e = result.wave[k];
+      const values = (side: Measures[]): number[] => side.map((m) => m.wave[k]);
       console.log(
-        `  ${mark(e.equivalent)} ${k === 'sd' ? 'SD of κL' : 'frequency'}: CPU ${g(mean(result.cpu.map((w) => w[k])), 4)}, ` +
-          `GPU ${g(mean(result.gpu.map((w) => w[k])), 4)}, difference ${g(e.difference, 4)} within ±${g(e.margin, 4)}? ` +
+        `  reported: the body wave's ${k === 'sd' ? 'SD of κL' : 'frequency'}: CPU ${g(mean(values(result.cpu)), 4)}, ` +
+          `GPU ${g(mean(values(result.gpu)), 4)}, difference ${g(e.difference, 4)} within ±${g(e.margin, 4)}? ` +
           `p = ${g(e.p, 4)}`,
       );
     }
+    const ratio = (r: { ratio: number; p: number } | null): string =>
+      r === null ? '—' : `${g(r.ratio, 3)} (p = ${g(r.p, 3)})`;
     console.log(
-      `  reported: the GPU's variance over the CPU's, ${g(result.spread.sd.ratio, 3)} for the SD ` +
-        `(p = ${g(result.spread.sd.p, 3)}) and ${g(result.spread.frequency.ratio, 3)} for the frequency ` +
-        `(p = ${g(result.spread.frequency.p, 3)}); unconverged solves ${result.unconverged.cpu} on the CPU, ` +
-        `${result.unconverged.gpu} on the GPU`,
+      `  reported: the GPU's variance over the CPU's, ${ratio(result.spread.speed)} for the speed and ` +
+        `${ratio(result.spread.frequency)} for the frequency; unconverged solves ${result.unconverged.cpu} on the ` +
+        `CPU, ${result.unconverged.gpu} on the GPU`,
     );
     longPass = result.pass;
   }

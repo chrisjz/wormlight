@@ -8,10 +8,9 @@ import { passiveLoads } from '../sim/brain/brain.ts';
 import type { Network } from '../sim/brain/network.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
-import { curvature } from '../sim/proprio.ts';
 import type { Odour } from '../sim/sensing.ts';
 import { World, type LoopParams } from '../sim/world.ts';
-import { FRONT_ROD, MEASURE_FROM, MID_ROD, MOTION_SAMPLE, REAR_ROD, forwardVelocity } from './motion.ts';
+import { MEASURE_FROM, MOTION_SAMPLE, forwardVelocity, measuredRun, noMotion, takeMotion } from './motion.ts';
 import { addPosture, emptySums, resample, selfIntersects, tangentAngles, type PostureSums } from './posture.ts';
 
 // Postures are sampled at 4 Hz, as Stephens et al. sampled theirs.
@@ -211,26 +210,13 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
       if (v > high) high = v;
     }
   };
-  const centroid: number[] = [];
-  const head: number[] = [];
-  const bend: [number[], number[], number[]] = [[], [], []];
+  const motion = noMotion();
   const k = new Float64Array(body.rods);
   const sums = emptySums();
   let selfIntersecting = 0;
   let finite = true;
   const sample = (): void => {
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < body.rods; i++) {
-      x += body.x[i];
-      y += body.y[i];
-    }
-    centroid.push(x / body.rods, y / body.rods);
-    head.push(body.x[0], body.y[0]);
-    curvature(body, k);
-    bend[0].push(k[MID_ROD]);
-    bend[1].push(k[FRONT_ROD]);
-    bend[2].push(k[REAR_ROD]);
+    takeMotion(motion, body.x, body.y, length, k);
     avaSamples.push(avaIndex.reduce((a, i) => a + world.brain.activation[i], 0) / avaIndex.length);
     // A voltage that isn't a number counts as outside, in both counts.
     let outside = 0;
@@ -265,7 +251,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     twin.restore(world.snapshot());
     const unconverged = twin.brain.unconverged;
     twin.sham(touch.s);
-    const [c, h] = [[...centroid], [...head]];
+    const [c, h] = [[...motion.centroid], [...motion.head]];
     let ok = true;
     for (let j = 0; j < Math.round(SHAM_SECONDS / NEURAL_STEP); j++) {
       twin.step();
@@ -323,8 +309,10 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
   extremes.push([low, high]);
   toggles.push(turned);
   gate.push([gateSteps, gateOpen, margin, margins]);
-  const velocity = forwardVelocity(centroid, head, length);
-  // The curvature samples that line up with the velocity's: from the first 10 s, as many as it has.
+  const run = measuredRun(motion, length);
+  const { velocity } = run;
+  // The other samples that line up with the velocity's, as its curvature samples do: from the first 10 s, as many
+  // as it has.
   const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
   const aligned = <T>(a: T[]): T[] => a.slice(first, first + velocity.length);
   const measured = aligned(extremes);
@@ -338,9 +326,9 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     turn: start.turn,
     finite,
     velocity: Array.from(velocity),
-    mid: aligned(bend[0]),
-    front: aligned(bend[1]),
-    rear: aligned(bend[2]),
+    mid: run.mid,
+    front: run.front,
+    rear: run.rear,
     postures: sums,
     selfIntersecting,
     unconverged: world.brain.unconverged,

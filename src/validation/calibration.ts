@@ -7,7 +7,7 @@ import type { Model } from '../sim/trackS.ts';
 import { CALIBRATED } from '../sim/world.ts';
 import { spectralPeak } from './checkpoints.ts';
 import { Cmaes, defaultLambda } from './cmaes.ts';
-import { FRONT_ROD, MOTION_FLOOR, MOTION_SAMPLE, REAR_ROD, bouts, kinematics, reversals } from './motion.ts';
+import { MOTION_FLOOR, MOTION_SAMPLE, SEPARATION, bouts, kinematics, reversals } from './motion.ts';
 
 export type CalibratedId = (typeof CALIBRATED)[number];
 export type Values = Record<CalibratedId, number>;
@@ -243,7 +243,7 @@ export function measure(records: readonly KinematicRecord[], options: { spectral
       reversalRate,
     };
   }
-  const k = kinematics(withBouts, (REAR_ROD - FRONT_ROD) / PARAMS.bodyUnits.value);
+  const k = kinematics(withBouts, SEPARATION);
   return {
     finite,
     bouts: count,

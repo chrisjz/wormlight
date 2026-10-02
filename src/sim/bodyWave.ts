@@ -1,6 +1,7 @@
-// The body wave's statistics that long-run GPU parity compares while the worm doesn't crawl (PLAN §7.2):
-// the mid-body curvature's standard deviation and its frequency from crossings of its mean, sampled every
-// 0.1 s after a 10 s warm-up, as the go/no-go experiments measure them (scripts/experiments/go-no-go).
+// The body wave's statistics that long-run GPU parity compared while checkpoint 1 was below partial (PLAN §7.2),
+// and reports, not graded, since: the mid-body curvature's standard deviation and its frequency from crossings of
+// its mean, sampled every 0.1 s after a 10 s warm-up, as the go/no-go experiments measure them
+// (scripts/experiments/go-no-go).
 
 export const WAVE_WARM_UP = 10; // s
 export const WAVE_SAMPLE = 0.1; // s
