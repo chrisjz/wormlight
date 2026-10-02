@@ -316,7 +316,7 @@ describe('the harness report', () => {
       // Checkpoint 0's first touch, at 20 s, needs 3.5 s after it.
       ['--checkpoint', '0', '--seconds', '23'],
       ['--checkpoint', '0x1'],
-      ['--checkpoint', '4'],
+      ['--checkpoint', '5'],
       // Checkpoints 2 and 3's earliest touch, at 20 s, needs 3.5 s after it.
       ['--checkpoint', '2', '--seconds', '23'],
       ['--checkpoint'],

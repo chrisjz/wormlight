@@ -150,9 +150,9 @@ export function statusText(values: string): string {
     "and speed are partial, the speed about a third of a real worm's (DECISIONS.md, 2026-10-02). The rhythm is not the " +
     "network's own: the head switch, a layer the spec permits, paces it at its strongest gain, the B-type motor neurons " +
     "have no oscillator, and the worm hardly reverses. Checkpoint 0 passes on it, and half the sensitivity runs' " +
-    'settings stay partial (`VALIDATION.md`). Of the checkpoints that need crawling, the touch reflexes, checkpoints 2 ' +
-    'and 3, fail on it, and checkpoints 4 to 6 are open and not yet run. ' +
-    'Only checkpoints 0 to 3 and the sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
+    'settings stay partial (`VALIDATION.md`). Of the checkpoints that need crawling, the touch reflexes and ' +
+    'chemotaxis, checkpoints 2 to 4, fail on it, and checkpoints 5 and 6 are open and not yet run. ' +
+    'Only checkpoints 0 to 4 and the sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
     `The calibrated parameters are track S's fit's, ${values} (DECISIONS.md, 2026-10-02).`
   );
 }

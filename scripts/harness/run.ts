@@ -1,12 +1,14 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 // npm run harness -- --sensitivity [--jobs N] [--trials N] [--seconds S]
 //
-// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, and checkpoints 2 and 3, the
-// touches (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one per core by default, on the
-// calibrated parameters, or the provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and
-// touched, each touch forking a sham twin, and 30 worms in the chemotaxis assay for 60 min each. Checkpoints 2 and 3
-// share one set of trials, up to 100 seeds each touched once during forward crawling, forking three ways
-// (src/validation/touch.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
+// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, checkpoints 2 and 3, the
+// touches, and checkpoint 4, chemotaxis (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one
+// per core by default, on the calibrated parameters, or the provisional ones before calibration. Checkpoint 0 runs its
+// 20 trials untouched and touched, each touch forking a sham twin, and 30 worms in the chemotaxis assay for 60 min
+// each. Checkpoints 2 and 3 share one set of trials, up to 100 seeds each touched once during forward crawling,
+// forking three ways (src/validation/touch.ts). Checkpoint 4 runs 100 worms for up to 60 min each, sensing the assay's
+// field and again as their controls with AWC-ON's input off, with the mechanism's samples
+// (src/validation/mechanism.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
 // section of VALIDATION.md is regenerated. --trials and --seconds shorten a run for a quick look, setting the trials'
 // and the worms' numbers and lengths alike, and the touch trials' seeds and length; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.
@@ -26,7 +28,7 @@ import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
 import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
 import { currentParams, isCalibrated, type LoopParams } from '../../src/sim/world.ts';
-import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
+import { CHECKPOINT_4, checkpoint4, runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import type { Network } from '../../src/sim/brain/network.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
@@ -64,13 +66,14 @@ import {
   checkpoint1Section,
   checkpoint2Section,
   checkpoint3Section,
+  checkpoint4Section,
   replaceSection,
   sensitivitySection,
   type RunInfo,
   type SensitivityRow,
 } from './report.ts';
 
-const CHECKPOINTS = [0, 1, 2, 3] as const;
+const CHECKPOINTS = [0, 1, 2, 3, 4] as const;
 type Checkpoint = (typeof CHECKPOINTS)[number];
 
 // A trial, the same trial touched (checkpoint 0 only), a worm in the chemotaxis assay (checkpoint 0 only), or a trial
@@ -81,6 +84,9 @@ interface Records {
   touched: TrialRecord;
   assay: ChemotaxisRecord;
   touch: TouchTrialRecord;
+  // Checkpoint 4's worms, sensing the field and as their controls, AWC-ON's input off.
+  chemotaxis: ChemotaxisRecord;
+  control: ChemotaxisRecord;
 }
 type Kind = keyof Records;
 
@@ -133,6 +139,10 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord | TouchT
     return runChemotaxis(cached.data, { ...common, odour: assay });
   }
   if (job.kind === 'touch') return runTouchTrial(cached.data, common);
+  if (job.kind === 'chemotaxis' || job.kind === 'control') {
+    assay ??= steadyField('assay');
+    return runChemotaxis(cached.data, { ...common, odour: assay, mechanism: true, control: job.kind === 'control' });
+  }
   // Each touched trial's touches fork sham twins, as checkpoint 0's reruns grade them (PLAN §7.4).
   return runTrial(cached.data, {
     ...common,
@@ -154,7 +164,7 @@ function send(worker: ChildProcess, job: Job): Promise<Result> {
 }
 
 const USAGE =
-  'npm run harness -- --checkpoint <0|1|2|3> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
+  'npm run harness -- --checkpoint <0|1|2|3|4> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
 
 // A whole number of at least `least`, written in plain digits.
 function whole(flag: string, text: string | undefined, least: number): number {
@@ -242,6 +252,9 @@ if (process.argv.includes('--worker')) {
   // Checkpoints 2 and 3 share their touch trials, run once whichever is asked for: up to 100 seeds in a full run, as
   // many as a shortened run's trials otherwise (PLAN §7.4).
   const touchSeeds = full ? TOUCH_SEEDS : options.trials;
+  // Checkpoint 4's 100 worms for up to 60 min in a full run, as many and as long as a shortened run's trials otherwise.
+  const assayWorms = full ? CHECKPOINT_4.worms : options.trials;
+  const assaySeconds = full ? CHECKPOINT_4.seconds : options.seconds;
   const touching = options.checkpoints.some((c) => c === 2 || c === 3);
   // The longest first, so that no long run starts last.
   const queue: Job[] = [
@@ -257,6 +270,9 @@ if (process.argv.includes('--worker')) {
           : [],
     ),
     ...(touching ? jobs(2, 'touch', touchSeeds, options.seconds) : []),
+    ...(options.checkpoints.includes(4)
+      ? [...jobs(4, 'chemotaxis', assayWorms, assaySeconds), ...jobs(4, 'control', assayWorms, assaySeconds)]
+      : []),
   ].sort((a, b) => b.seconds - a.seconds);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
   const settings = options.sensitivity ? SETTINGS : [];
@@ -341,6 +357,23 @@ if (process.argv.includes('--worker')) {
         .filter((r) => r.job.checkpoint === (checkpoint === 3 ? 2 : checkpoint) && r.job.kind === kind)
         .map((r) => r.record as Records[K])
         .sort((a, b) => a.seed - b.seed);
+    if (checkpoint === 4) {
+      const [intact, control] = [of('chemotaxis'), of('control')];
+      const file = join(out, full ? 'checkpoint-4.json' : `checkpoint-4-${options.trials}x${options.seconds}s.json`);
+      const { date, commit: at, calibrated, model } = info;
+      const head = { checkpoint, date, commit: at, calibrated, model, worms: assayWorms, seconds: assaySeconds };
+      writeFileSync(file, JSON.stringify({ ...head, intact, control }) + '\n');
+      const summary = checkpoint4(intact, control);
+      const section = checkpoint4Section(summary, { ...info, worms: assayWorms, wormSeconds: assaySeconds });
+      // The summary repeats the runs, which the records already hold, so it leaves them out.
+      writeFileSync(
+        file,
+        JSON.stringify({ ...head, summary: { ...summary, runs: undefined }, intact, control }) + '\n',
+      );
+      process.stdout.write(`${section}\n\n`);
+      if (full) page = replaceSection(page, checkpoint, section);
+      continue;
+    }
     if (checkpoint === 2 || checkpoint === 3) {
       const records = of('touch');
       const file = join(

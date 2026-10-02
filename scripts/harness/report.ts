@@ -27,6 +27,8 @@ import { asRun } from '../../src/science/ledger.ts';
 import type { Model } from '../../src/sim/trackS.ts';
 import { formatNumber } from '../docs/page.ts';
 import { BACK, FRONT } from '../../src/sim/touch.ts';
+import { CHECKPOINT_4, type ChemotaxisRecord, type Checkpoint4 } from '../../src/validation/chemotaxis.ts';
+import type { MechanismRecord, MechanismResult } from '../../src/validation/mechanism.ts';
 import {
   CHECKPOINT_2,
   CHECKPOINT_3,
@@ -507,6 +509,101 @@ function touchTable(pairs: readonly TouchPair[]): string {
       `${fixed(t.after, 4)} / ${fixed(t.shamAfter, 4)}`,
     ]),
   );
+}
+
+const MECHANISM_GRADE = { reproduced: '**Reproduced**', partial: '**Partial**', absent: '**Absent**' } as const;
+
+export function checkpoint4Section(r: Checkpoint4, info: RunInfo): string {
+  const minutes = (info.wormSeconds ?? 3600) / 60;
+  const sum = (f: (m: MechanismRecord) => number): number =>
+    r.runs.reduce((n, w) => n + (w.intact.mechanism ? f(w.intact.mechanism) : 0), 0);
+  const reorientations = sum((m) => m.reversals + m.omegas);
+  // Those klinokinesis attributes to a side: the rest began where dC/dt over the 3.3 s before was exactly zero.
+  const attributed = sum((m) => m.reorientations.down + m.reorientations.up);
+  const value = (x: number | null, digits: number): string => (x === null ? 'undefined' : fixed(x, digits));
+  const interval = (i: [number | null, number | null], digits: number): string =>
+    `${i[0] === null ? 'unbounded' : fixed(i[0], digits)} to ${i[1] === null ? 'unbounded' : fixed(i[1], digits)}`;
+  const row = (name: string, m: MechanismResult | null, digits: number): string[] =>
+    m === null
+      ? [name, 'unmeasured', '—', '—', '—', '—', MECHANISM_GRADE.absent]
+      : [
+          name,
+          `${value(m.intact.value, digits)} (${interval(m.intact.interval, digits)})`,
+          value(m.control, digits),
+          `${value(m.difference.value, digits)} (${interval(m.difference.interval, digits)})`,
+          m.clears ? 'Yes' : 'No',
+          m.differs ? 'Yes' : 'No',
+          MECHANISM_GRADE[m.grade],
+        ];
+  const fitted = info.model === 'track S';
+  const reach = (w: ChemotaxisRecord): string =>
+    w.reached === null ? 'Neither' : `The ${w.reached} at ${((w.time ?? 0) / 60).toFixed(1)} min`;
+  return [
+    `### Checkpoint 4: chemotaxis — ${GRADE[r.grade]}`,
+    [
+      `Run on ${info.date} at \`${info.commit}\`: ${count(r.worms, 'worm')}, ${seeds(r.worms)}, each alone for up to ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} min in the butanone spot's steady field, its centroid starting at the dish's centre, ${mm(SPOT[0], 0)} mm from each spot, and stopped when any part of its body came within ${mm(CAPTURE_RADIUS, 0)} mm of a spot's centre; and each again as its control, with AWC-ON's input off, the world sensing no odour; on ${parameterText(info.calibrated, info.registry, info.model)}.`,
+      r.unmeasured === null
+        ? `Every run stayed finite, and ${r.unconverged === 0 ? 'no brain solve failed to converge' : `${count(r.unconverged, 'brain solve')} failed to converge`}.`
+        : `Unmeasured: ${r.unmeasured}, so the checkpoint fails.`,
+    ].join(' '),
+    table(
+      ['Clause', 'Measured', 'Pass', 'Partial'],
+      [
+        [
+          'Chemotaxis index, (at odour − at control) / every worm',
+          `${fixed(r.intact.index, 2)}: ${r.intact.odour} at the odour, ${r.intact.control} at the control, ${r.intact.neither} neither`,
+          `≥ ${CHECKPOINT_4.pass}`,
+          `${CHECKPOINT_4.partial} to ${CHECKPOINT_4.pass}`,
+        ],
+        [
+          "Above the control (Fisher's exact test, one-sided, on the worms reaching the odour)",
+          `${r.intact.odour} intact worms reached the odour, against ${r.control.odour} controls (the controls' index ${fixed(r.control.index, 2)}: ${r.control.odour} at the odour, ${r.control.control} at the control, ${r.control.neither} neither); ${pValue(r.p)}`,
+          'Significant',
+          'Significant',
+        ],
+      ],
+    ),
+    'Every clause is predicted, since checkpoint 4 is held out of the calibration (spec §1.2).',
+    `The mechanism, reported and never gating (PLAN §7.4; DECISIONS.md, 2026-10-02): each statistic over every worm with its 80% interval over 1,000 resamples of the worms, the control's, and the intact-minus-control difference over paired resamples. Klinokinesis is the ratio of reorientation rates heading down the gradient to up it, its null 1; weathervaning is the slope of the curving rate (rad/mm) against the bearing (rad), over transitions between 3.3 s blocks with no reorientation or backward sample, strides under a quarter of the median left out, its null 0. Each is reproduced when its interval clears its null above it and the difference's lies above 0, partial with one of those. Over the intact runs there ${reorientations === 1 ? 'was 1 reorientation' : `were ${grouped(reorientations)} reorientations`}, ${grouped(sum((m) => m.reversals))} reversals and ${grouped(sum((m) => m.omegas))} omega turns, of which klinokinesis attributes ${grouped(attributed)} to a side: the others began where dC/dt over the 3.3 s before was exactly zero, as it reads where the field is flat, and count on neither.`,
+    table(
+      [
+        'Mechanism',
+        'Intact (80% interval)',
+        'Control',
+        'Intact − control (80% interval)',
+        'Clears its null',
+        'Above the control',
+        'Grade',
+      ],
+      [row('Klinokinesis', r.klinokinesis, 2), row('Weathervaning', r.weathervaning, 4)],
+    ),
+    [
+      r.companions.length > 0
+        ? `Reported beside them: ${r.companions
+            .map(
+              (c) =>
+                `${c.name === 'turning' ? "klinokinesis's companion, the ratio of the mean absolute change in heading from one block to the next, down the gradient over up it" : c.name === 'every transition' ? "weathervaning's slope over every transition, reorientations included, the floor kept" : 'its slope over the clean transitions with no floor'}, ${value(c.intact.value, c.name === 'turning' ? 2 : 4)} (${interval(c.intact.interval, c.name === 'turning' ? 2 : 4)}) intact and ${value(c.control, c.name === 'turning' ? 2 : 4)} in the controls`,
+            )
+            .join('; ')}.`
+        : '',
+      fitted
+        ? "The klinokinesis row counts reversals as reorientations, so on track S's fit it is reported as fitted (PLAN §10; DECISIONS.md, 2026-10-01); weathervaning reads reversals only to leave their blocks out, and isn't marked."
+        : '',
+      "Previewed outside the protocol (PLAN §10): an investigation on 2026-09-29, on another fit, the second round's probe crawler, pointed to checkpoint 4 failing, the worm circling and AWC-ON's drive changing its speed by at most 0.6% (DECISIONS.md, 2026-09-29).",
+    ]
+      .filter(Boolean)
+      .join(' '),
+    table(
+      ['Seed', 'AWC-ON', 'Intact: reached', 'Control: reached', 'Nearest the odour spot, intact / control (mm)'],
+      r.runs.map((w) => [
+        String(w.seed),
+        w.awcSide,
+        reach(w.intact),
+        reach(w.control),
+        `${mm(w.intact.closest.odour)} / ${mm(w.control.closest.odour)}`,
+      ]),
+    ),
+  ].join('\n\n');
 }
 
 // A sensitivity setting's runs (spec §2.4; PLAN §2.4, §3.2): checkpoint 1 on the setting's brain, and checkpoint 0's
