@@ -35,7 +35,8 @@ import {
   valuesOf,
   variants,
 } from './equivalence.ts';
-import { diagnosticsText } from './report.ts';
+import { checkpoint2, checkpoint3, type TouchTrialRecord } from '../../src/validation/touch.ts';
+import { checkpoint2Section, checkpoint3Section, diagnosticsText } from './report.ts';
 import {
   checkpoint0Section,
   checkpoint1Section,
@@ -315,7 +316,9 @@ describe('the harness report', () => {
       // Checkpoint 0's first touch, at 20 s, needs 3.5 s after it.
       ['--checkpoint', '0', '--seconds', '23'],
       ['--checkpoint', '0x1'],
-      ['--checkpoint', '2'],
+      ['--checkpoint', '4'],
+      // Checkpoints 2 and 3's earliest touch, at 20 s, needs 3.5 s after it.
+      ['--checkpoint', '2', '--seconds', '23'],
       ['--checkpoint'],
       ['--help'],
       [],
@@ -738,5 +741,60 @@ describe("the sensitivity runs' section", () => {
   it('says when a trial left the finite numbers or a solve failed to converge', () => {
     const section = sensitivitySection([row('Bad', null, 0, trial(0, 0, 2, false))], info);
     expect(section).toContain('1 trial left the finite numbers, and 2 brain solves failed to converge.');
+  });
+});
+
+describe("checkpoints 2 and 3's sections", () => {
+  const copy = (reversal: boolean, after: number) => ({
+    reached: ['ALML'],
+    finite: true,
+    unconverged: 0,
+    reversal,
+    latency: reversal ? 0.6 : null,
+    after,
+  });
+  const records = (n: number): TouchTrialRecord[] =>
+    Array.from({ length: n }, (_, k) => ({
+      seed: k + 1,
+      posture: k,
+      turn: 0,
+      earliest: 25,
+      time: 30.2,
+      finite: true,
+      unconverged: 0,
+      before: 0.06,
+      front: copy(false, 0.07),
+      back: copy(false, 0.0705),
+      frontSham: copy(false, 0.07),
+      backSham: copy(false, 0.07),
+      sharedSham: true,
+    }));
+  const info: RunInfo = {
+    date: '2026-10-02',
+    commit: 'abc1234',
+    calibrated: true,
+    model: 'track S',
+    trials: 20,
+    seconds: 120,
+  };
+
+  it("grades each, labels checkpoint 2 fitted on track S's fit, and names the previews", () => {
+    const two = checkpoint2Section(checkpoint2(records(50)), info);
+    expect(two).toContain('### Checkpoint 2: anterior touch — **Fail**, reported as fitted');
+    expect(two).toContain('50 touches from 50 seeds');
+    expect(two).toContain('| Touches followed by a reversal within 2 s | 0 of 50 (0%) | ≥ 70% | 40%–70% |');
+    expect(two).toContain('Previewed outside the protocol (PLAN §10)');
+    expect(checkpoint2Section(checkpoint2(records(50)), { ...info, model: 'track R' })).not.toContain('fitted');
+    const three = checkpoint3Section(checkpoint3(records(50)), info);
+    expect(three).toContain('### Checkpoint 3: posterior touch — **Fail**');
+    expect(three).not.toContain('fitted');
+    expect(three).toContain('0.0705 touched, 0.0700 in the twins (body lengths/s): +0.7%');
+    expect(three).toContain('| 1 | 1 | 30.2 | ALML | No / No | 0.0600 | 0.0705 / 0.0700 |');
+  });
+
+  it('says why a run was unmeasured', () => {
+    expect(checkpoint2Section(checkpoint2(records(12)), info)).toContain(
+      'Unmeasured: 12 touches in 12 seeds, fewer than 50, so the checkpoint fails.',
+    );
   });
 });

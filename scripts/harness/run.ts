@@ -1,12 +1,14 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 // npm run harness -- --sensitivity [--jobs N] [--trials N] [--seconds S]
 //
-// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, and checkpoint 1 (PLAN §7.2, §7.4), run on the
-// CPU reference in parallel worker processes, one per core by default, on the calibrated parameters, or the
-// provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and touched, each touch forking a sham
-// twin, and 30 worms in the chemotaxis assay for 60 min each. Each checkpoint's records and summary go to
-// harness-out/checkpoint-<n>.json, and its section of VALIDATION.md is regenerated. --trials and --seconds shorten a
-// run for a quick look, setting the trials' and the worms' numbers and lengths alike; such a run leaves VALIDATION.md
+// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, and checkpoints 2 and 3, the
+// touches (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one per core by default, on the
+// calibrated parameters, or the provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and
+// touched, each touch forking a sham twin, and 30 worms in the chemotaxis assay for 60 min each. Checkpoints 2 and 3
+// share one set of trials, up to 100 seeds each touched once during forward crawling, forking three ways
+// (src/validation/touch.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
+// section of VALIDATION.md is regenerated. --trials and --seconds shorten a run for a quick look, setting the trials'
+// and the worms' numbers and lengths alike, and the touch trials' seeds and length; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.
 //
 // --sensitivity runs the sensitivity settings (spec §2.4; PLAN §2.4, §3.2; src/validation/sensitivity.ts), of the
@@ -41,6 +43,17 @@ import {
 } from '../../src/validation/checkpoints.ts';
 import { MEASURE_FROM, VELOCITY_WINDOW } from '../../src/validation/motion.ts';
 import { SETTINGS, settingNetwork, settingParams } from '../../src/validation/sensitivity.ts';
+import {
+  checkpoint2,
+  checkpoint3,
+  COPY_SECONDS,
+  EARLIEST,
+  runTouchTrial,
+  TOUCH_SEEDS,
+  type Checkpoint2,
+  type Checkpoint3,
+  type TouchTrialRecord,
+} from '../../src/validation/touch.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
@@ -49,21 +62,25 @@ import { readPinned, readPostures } from './pinned.ts';
 import {
   checkpoint0Section,
   checkpoint1Section,
+  checkpoint2Section,
+  checkpoint3Section,
   replaceSection,
   sensitivitySection,
   type RunInfo,
   type SensitivityRow,
 } from './report.ts';
 
-const CHECKPOINTS = [0, 1] as const;
+const CHECKPOINTS = [0, 1, 2, 3] as const;
 type Checkpoint = (typeof CHECKPOINTS)[number];
 
-// A trial, the same trial touched (checkpoint 0 only), or a worm in the chemotaxis assay (checkpoint 0 only), and
-// the record each gives.
+// A trial, the same trial touched (checkpoint 0 only), a worm in the chemotaxis assay (checkpoint 0 only), or a trial
+// touched once during forward crawling, forking three ways (checkpoints 2 and 3, which share them), and the record
+// each gives.
 interface Records {
   trial: TrialRecord;
   touched: TrialRecord;
   assay: ChemotaxisRecord;
+  touch: TouchTrialRecord;
 }
 type Kind = keyof Records;
 
@@ -78,7 +95,7 @@ interface Job {
 
 interface Result {
   job: Job;
-  record?: TrialRecord | ChemotaxisRecord;
+  record?: TrialRecord | ChemotaxisRecord | TouchTrialRecord;
   error?: string;
 }
 
@@ -95,7 +112,7 @@ let brain: { setting: string; network: Network } | undefined;
 // The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
 let assay: OdourField | undefined;
 
-async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
+async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord | TouchTrialRecord> {
   cached ??= {
     data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))),
     postures: await readPostures(),
@@ -115,6 +132,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
     assay ??= steadyField('assay');
     return runChemotaxis(cached.data, { ...common, odour: assay });
   }
+  if (job.kind === 'touch') return runTouchTrial(cached.data, common);
   // Each touched trial's touches fork sham twins, as checkpoint 0's reruns grade them (PLAN §7.4).
   return runTrial(cached.data, {
     ...common,
@@ -136,7 +154,7 @@ function send(worker: ChildProcess, job: Job): Promise<Result> {
 }
 
 const USAGE =
-  'npm run harness -- --checkpoint <0|1> [--checkpoint <0|1>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
+  'npm run harness -- --checkpoint <0|1|2|3> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
 
 // A whole number of at least `least`, written in plain digits.
 function whole(flag: string, text: string | undefined, least: number): number {
@@ -165,7 +183,9 @@ export function parseArgs(given: readonly string[]): {
     if (flag === '--checkpoint') {
       const n = whole(flag, text, 0);
       if (!CHECKPOINTS.includes(n as Checkpoint))
-        throw new Error(`the harness runs checkpoints ${CHECKPOINTS.join(' and ')}`);
+        throw new Error(
+          `the harness runs checkpoints ${CHECKPOINTS.slice(0, -1).join(', ')} and ${CHECKPOINTS.at(-1)}`,
+        );
       checkpoints.push(n as Checkpoint);
     } else if (flag in least) numbers.set(flag, whole(flag, text, least[flag]));
     else throw new Error(`unknown option ${flag}; usage: ${USAGE}`);
@@ -176,6 +196,11 @@ export function parseArgs(given: readonly string[]): {
   // Checkpoint 0's touch clause needs trials long enough for its first touch's windows.
   const fits = Math.ceil(CHECKPOINT_0_TOUCH.first + TOUCH_NEEDS);
   if (checkpoints.includes(0) && seconds < fits) throw new Error(`checkpoint 0 needs --seconds ${fits} or more`);
+  // Checkpoints 2 and 3's touches come no earlier than 20 s, and need 3.5 s after them.
+  const touches = Math.ceil(EARLIEST[0] + COPY_SECONDS);
+  if (checkpoints.some((c) => c === 2 || c === 3) && seconds < touches) {
+    throw new Error(`checkpoints 2 and 3 need --seconds ${touches} or more`);
+  }
   return {
     checkpoints: [...new Set(checkpoints)].sort((x, y) => x - y),
     sensitivity,
@@ -214,18 +239,25 @@ if (process.argv.includes('--worker')) {
   const basis = await readPinned('eigenworms');
   const jobs = (checkpoint: Checkpoint, kind: Kind, count: number, seconds: number): Job[] =>
     Array.from({ length: count }, (_, i) => ({ checkpoint, kind, seed: i + 1, seconds }));
+  // Checkpoints 2 and 3 share their touch trials, run once whichever is asked for: up to 100 seeds in a full run, as
+  // many as a shortened run's trials otherwise (PLAN §7.4).
+  const touchSeeds = full ? TOUCH_SEEDS : options.trials;
+  const touching = options.checkpoints.some((c) => c === 2 || c === 3);
   // The longest first, so that no long run starts last.
-  const queue: Job[] = options.checkpoints
-    .flatMap((checkpoint) =>
+  const queue: Job[] = [
+    ...options.checkpoints.flatMap((checkpoint) =>
       checkpoint === 0
         ? [
             ...jobs(0, 'assay', worms, wormSeconds),
             ...jobs(0, 'trial', options.trials, options.seconds),
             ...jobs(0, 'touched', options.trials, options.seconds),
           ]
-        : jobs(checkpoint, 'trial', options.trials, options.seconds),
-    )
-    .sort((a, b) => b.seconds - a.seconds);
+        : checkpoint === 1
+          ? jobs(1, 'trial', options.trials, options.seconds)
+          : [],
+    ),
+    ...(touching ? jobs(2, 'touch', touchSeeds, options.seconds) : []),
+  ].sort((a, b) => b.seconds - a.seconds);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
   const settings = options.sensitivity ? SETTINGS : [];
   // A setting the fit can't run refuses here, before any trial, rather than in a worker after the settings before it.
@@ -303,11 +335,32 @@ if (process.argv.includes('--worker')) {
     if (full) page = replaceSection(page, 'sensitivity', section);
   }
   for (const checkpoint of options.checkpoints) {
+    // Checkpoints 2 and 3 read the touch trials, queued under checkpoint 2.
     const of = <K extends Kind>(kind: K): Records[K][] =>
       results
-        .filter((r) => r.job.checkpoint === checkpoint && r.job.kind === kind)
+        .filter((r) => r.job.checkpoint === (checkpoint === 3 ? 2 : checkpoint) && r.job.kind === kind)
         .map((r) => r.record as Records[K])
         .sort((a, b) => a.seed - b.seed);
+    if (checkpoint === 2 || checkpoint === 3) {
+      const records = of('touch');
+      const file = join(
+        out,
+        full ? `checkpoint-${checkpoint}.json` : `checkpoint-${checkpoint}-${options.trials}x${options.seconds}s.json`,
+      );
+      // The touch trials' run: its seeds, where the other checkpoints' give their trials.
+      const { date, commit: at, calibrated, model, seconds } = info;
+      const head = { checkpoint, date, commit: at, calibrated, model, seconds, seeds: touchSeeds };
+      writeFileSync(file, JSON.stringify({ ...head, records }) + '\n');
+      const summary = checkpoint === 2 ? checkpoint2(records) : checkpoint3(records);
+      const section =
+        checkpoint === 2
+          ? checkpoint2Section(summary as Checkpoint2, info)
+          : checkpoint3Section(summary as Checkpoint3, info);
+      writeFileSync(file, JSON.stringify({ ...head, summary, records }) + '\n');
+      process.stdout.write(`${section}\n\n`);
+      if (full) page = replaceSection(page, checkpoint, section);
+      continue;
+    }
     const trials = of('trial');
     const touched = of('touched');
     const assayed = of('assay');
