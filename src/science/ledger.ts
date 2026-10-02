@@ -149,9 +149,9 @@ export function statusText(values: string): string {
     'half the time step and grades partial on checkpoint 1 on its own trials: its frequency passes, and its wavelength ' +
     "and speed are partial, the speed about a third of a real worm's (DECISIONS.md, 2026-10-02). The rhythm is not the " +
     "network's own: the head switch, a layer the spec permits, paces it at its strongest gain, the B-type motor neurons " +
-    'have no oscillator, and the worm hardly reverses. Checkpoints 2 to 6, which need crawling, are now open and not ' +
-    'yet run, and checkpoints 0 and 1 are to run again on this fit (`VALIDATION.md`). Only checkpoints 0 and 1 and the ' +
-    'sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
+    "have no oscillator, and the worm hardly reverses. Checkpoint 0 passes on it, and half the sensitivity runs' " +
+    'settings stay partial (`VALIDATION.md`). Checkpoints 2 to 6, which need crawling, are now open and not yet run. ' +
+    'Only checkpoints 0 and 1 and the sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
     `The calibrated parameters are track S's fit's, ${values} (DECISIONS.md, 2026-10-02).`
   );
 }
