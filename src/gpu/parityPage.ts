@@ -20,6 +20,7 @@ import { runFieldParity, type FieldReport } from './fieldParity.ts';
 import { runBench, runParity, type BenchReport, type ParityReport, type StepResult } from './parity.ts';
 import { parseShard, shardText, type Shard } from './parityShards.ts';
 import { describeGpuSupport, probeWebGpu } from './support.ts';
+import type { Equivalence } from '../sim/stats.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -249,31 +250,54 @@ function showLoop(report: LoopReport | { error: string }): void {
 
 function showLong(report: LongReport): void {
   const mean = (x: number[]): number => x.reduce((a, b) => a + b, 0) / x.length;
+  // A side's values over its runs with a bout.
+  const crawled = (side: LongReport['cpu'], k: 'speed' | 'frequency'): number[] =>
+    side.flatMap((m) => (m[k] === null ? [] : [m[k]]));
+  const row = (name: string, a: number[], b: number[], e: Equivalence | null): string[] =>
+    e === null
+      ? [name, '—', '—', '—', '—', '—', verdict(false)]
+      : [
+          name,
+          fixed(mean(a), 4),
+          fixed(mean(b), 4),
+          fixed(e.difference, 4),
+          fixed(e.margin, 4),
+          fixed(e.p, 4),
+          verdict(e.equivalent),
+        ];
+  const waves = (side: LongReport['cpu'], k: 'sd' | 'frequency'): number[] => side.map((m) => m.wave[k]);
   root.append(
     el('h2', `Long runs: ${verdict(report.pass)}`, 'status-title'),
     el(
       'p',
-      `${report.seeds} seeds a side, ${report.seconds} s each; the mid-body curvature's SD and frequency, by Welch's ` +
-        "two one-sided tests at ±5% of the CPU's mean.",
+      `${report.seeds} seeds a side, ${report.seconds} s each; each run's crawling speed and frequency, as checkpoint 1 ` +
+        "measures them over the run's forward bouts of 10 s or more, by Welch's two one-sided tests at ±5% of the " +
+        `CPU's mean. Runs without such a bout, left out: ${report.boutless.cpu} on the CPU, ${report.boutless.gpu} on ` +
+        'the GPU.',
     ),
     table(
       ['Statistic', 'CPU mean', 'GPU mean', 'Difference', 'Margin', 'p', ''],
-      (['sd', 'frequency'] as const).map((k) => [
-        k === 'sd' ? 'SD of κL' : 'Frequency (Hz)',
-        fixed(mean(report.cpu.map((w) => w[k])), 4),
-        fixed(mean(report.gpu.map((w) => w[k])), 4),
-        fixed(report[k].difference, 4),
-        fixed(report[k].margin, 4),
-        fixed(report[k].p, 4),
-        verdict(report[k].equivalent),
-      ]),
+      [
+        row('Speed (body lengths/s)', crawled(report.cpu, 'speed'), crawled(report.gpu, 'speed'), report.speed),
+        row('Frequency (Hz)', crawled(report.cpu, 'frequency'), crawled(report.gpu, 'frequency'), report.frequency),
+      ],
     ),
     el(
       'p',
-      `Reported, not graded: the GPU's spread over the CPU's, as variances, ${fixed(report.spread.sd.ratio, 2)} for ` +
-        `the SD (F test p = ${fixed(report.spread.sd.p, 3)}) and ${fixed(report.spread.frequency.ratio, 2)} for the ` +
-        `frequency (p = ${fixed(report.spread.frequency.p, 3)}). Unconverged solves: ${report.unconverged.cpu} on the ` +
-        `CPU, ${report.unconverged.gpu} on the GPU.`,
+      'Reported, not graded: the body wave over every run, as the long runs compared it before checkpoint 1 was partial.',
+    ),
+    table(
+      ['Statistic', 'CPU mean', 'GPU mean', 'Difference', 'Margin', 'p', ''],
+      [
+        row('SD of κL', waves(report.cpu, 'sd'), waves(report.gpu, 'sd'), report.wave.sd),
+        row('Frequency (Hz)', waves(report.cpu, 'frequency'), waves(report.gpu, 'frequency'), report.wave.frequency),
+      ],
+    ),
+    el(
+      'p',
+      `Reported, not graded: the GPU's spread over the CPU's, as variances, ${report.spread.speed === null ? '—' : `${fixed(report.spread.speed.ratio, 2)} (F test p = ${fixed(report.spread.speed.p, 3)})`} for ` +
+        `the speed and ${report.spread.frequency === null ? '—' : `${fixed(report.spread.frequency.ratio, 2)} (p = ${fixed(report.spread.frequency.p, 3)})`} for the ` +
+        `frequency. Unconverged solves: ${report.unconverged.cpu} on the CPU, ${report.unconverged.gpu} on the GPU.`,
     ),
   );
 }

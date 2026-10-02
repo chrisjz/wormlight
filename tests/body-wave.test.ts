@@ -1,4 +1,5 @@
-// Long-run GPU parity's statistics are the go/no-go experiments' (PLAN §7.2).
+// The body wave that long-run GPU parity compared before checkpoint 1 was partial, and reports since, is measured as
+// the go/no-go experiments measure it (PLAN §7.2).
 
 import { describe, expect, it } from 'vitest';
 import { summarise } from '../scripts/experiments/go-no-go/loop.ts';

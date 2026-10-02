@@ -1,16 +1,14 @@
 // Checkpoints 0 and 1 graded as PLAN fixes them (§7.2's checkpoint 0 row, with §7.4's touch and chemotaxis
 // clauses for it; §7.4's checkpoint 1), from the trials' and the assay runs' records.
 
-import { PARAMS } from '../science/params.ts';
 import { binomialTwoSided, mcnemarGreater, signedRankGreater, type SignedRank } from '../sim/stats.ts';
 import { BACK, FRONT } from '../sim/touch.ts';
 import type { ChemotaxisRecord } from './chemotaxis.ts';
 import {
-  FRONT_ROD,
   MEASURE_FROM,
   MOTION_SAMPLE,
-  REAR_ROD,
   REVERSAL_MIN,
+  SEPARATION,
   VELOCITY_WINDOW,
   bouts,
   kinematics,
@@ -302,10 +300,9 @@ export function diagnostics(records: readonly TrialRecord[]): Diagnostics {
 
 export function checkpoint1(records: readonly TrialRecord[], basis: readonly (readonly number[])[]): Checkpoint1 {
   const trials = records.map(summariseTrial);
-  const separation = (REAR_ROD - FRONT_ROD) / PARAMS.bodyUnits.value;
   const k = kinematics(
     records.map((r) => ({ ...r, bouts: bouts(r.velocity) })),
-    separation,
+    SEPARATION,
   );
   const pooled = poolSums(records.map((r) => r.postures));
   const captured = pooled.count > 1 ? varianceCaptured(covariance(pooled), basis) : null;

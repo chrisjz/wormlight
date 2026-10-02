@@ -1,6 +1,9 @@
 // Forward and backward motion, bouts and reversals (PLAN §7.1), and checkpoint 1's kinematics over forward
 // bouts (PLAN §7.4), from a trial's samples every 0.1 s.
 
+import { PARAMS } from '../science/params.ts';
+import { curvatureOf } from '../sim/proprio.ts';
+
 // Samples are 0.1 s apart; velocity is taken over the centred 1 s window; motion counts as forward or
 // backward beyond ±0.01 body lengths per second; every measure starts after a trial's first 10 s.
 export const MOTION_SAMPLE = 0.1; // s
@@ -25,6 +28,8 @@ export const FREQUENCY_BAND = 0.31; // κL
 // The longest lag the wavelength's search reaches, half the shortest bout, so every lag pairs at least half of
 // each bout's samples.
 export const LAG_MAX = BOUT_MIN / 2; // s
+// The wavelength's two rods' separation, in body lengths.
+export const SEPARATION = (REAR_ROD - FRONT_ROD) / PARAMS.bodyUnits.value;
 
 // The centroid's velocity towards the head, in body lengths per second, at each sample from `from` whose
 // window lies within the samples: its displacement over the centred window, projected on the unit vector
@@ -47,6 +52,59 @@ export function forwardVelocity(
     out[k - first] = (dx * hx + dy * hy) / Math.hypot(hx, hy) / (2 * half * MOTION_SAMPLE) / length;
   }
   return out;
+}
+
+// A run's samples every MOTION_SAMPLE seconds from t = 0, as a trial takes them: the centroid and the head, as
+// [x0, y0, x1, y1, …], and κL at the mid-body, front and rear rods.
+export interface MotionSamples {
+  centroid: readonly number[];
+  head: readonly number[];
+  mid: readonly number[];
+  front: readonly number[];
+  rear: readonly number[];
+}
+
+// No samples yet, to take them into.
+export const noMotion = (): { [K in keyof MotionSamples]: number[] } => ({
+  centroid: [],
+  head: [],
+  mid: [],
+  front: [],
+  rear: [],
+});
+
+// Takes a sample from the rods' centres, a body `length` long, into `to`; `k` is scratch for each rod's curvature.
+export function takeMotion(
+  to: { [K in keyof MotionSamples]: number[] },
+  x: ArrayLike<number>,
+  y: ArrayLike<number>,
+  length: number,
+  k: Float64Array,
+): void {
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < x.length; i++) {
+    cx += x[i];
+    cy += y[i];
+  }
+  to.centroid.push(cx / x.length, cy / x.length);
+  to.head.push(x[0], y[0]);
+  curvatureOf(x, y, length, k);
+  to.mid.push(k[MID_ROD]);
+  to.front.push(k[FRONT_ROD]);
+  to.rear.push(k[REAR_ROD]);
+}
+
+// What the measures read of them: the velocity towards the head from the first MEASURE_FROM seconds on, and the
+// curvature samples that line up with it, as many as it has. A body `length` long.
+export function measuredRun(
+  s: MotionSamples,
+  length: number,
+): { velocity: Float64Array; mid: number[]; front: number[]; rear: number[] } {
+  const velocity = forwardVelocity(s.centroid, s.head, length);
+  const first = Math.round(MEASURE_FROM / MOTION_SAMPLE);
+  const aligned = (a: readonly number[]): number[] => a.slice(first, first + velocity.length);
+  return { velocity, mid: aligned(s.mid), front: aligned(s.front), rear: aligned(s.rear) };
 }
 
 export interface Run {
@@ -205,4 +263,15 @@ export function kinematics(trials: readonly BoutSamples[], separation: number): 
   const shift = curve < 0 ? Math.max(-0.5, Math.min(0.5, (a - d) / (2 * curve))) : 0;
   const lag = (best + shift) / PER_SECOND;
   return { ...measured, wavelength: separation / (frequency * lag), unmeasured: null, lag, correlation: b };
+}
+
+// One run's kinematics over its own forward bouts, as checkpoint 1 measures a trial's: GPU parity's long runs
+// compare each run's once checkpoint 1 is partial (PLAN §7.2).
+export function runKinematics(run: {
+  velocity: ArrayLike<number>;
+  mid: ArrayLike<number>;
+  front: ArrayLike<number>;
+  rear: ArrayLike<number>;
+}): Kinematics {
+  return kinematics([{ ...run, bouts: bouts(run.velocity) }], SEPARATION);
 }
