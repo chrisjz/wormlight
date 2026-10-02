@@ -276,7 +276,9 @@ describe("checkpoint 5's section", () => {
     expect(section).toMatch(/\| PVC +\| The posterior touch's speed-up \(checkpoint 3's response\) +\|/);
     expect(section).toContain("| Touch-evoked reversals (checkpoint 2's response) stay (fitted) |");
     expect(section).toMatch(/\| AVB \+ PVC +\| Forward speed/);
-    expect(section).toContain('0.0700 over the 30 trials with a bout intact and unmeasured, with no bout lesioned');
+    expect(section).toContain(
+      'in body lengths per second: 0.0700 intact, over the 30 trials with a bout, and unmeasured lesioned, with no bout.',
+    );
     expect(section).toContain("Every primary lesion's spontaneous measures, reported beside the rows");
     expect(section).toMatch(/\| AIZ +\| Spontaneous reversals a minute/);
     const planned = checkpoint5Section(checkpoint5(passing, touched), { ...info, model: 'track R' });

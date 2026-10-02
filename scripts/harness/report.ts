@@ -651,8 +651,10 @@ export function checkpoint5Section(r: Checkpoint5, info: RunInfo): string {
         ]),
       ),
     );
-  const bouts = (speed: number | null, trials: number): string =>
-    speed === null ? 'unmeasured, with no bout' : `${fixed(speed, 4)} over the ${count(trials, 'trial')} with a bout`;
+  const bouts = (speed: number | null, trials: number, arm: string): string =>
+    speed === null
+      ? `unmeasured ${arm}, with no bout`
+      : `${fixed(speed, 4)} ${arm}, over the ${trials === 1 ? 'trial' : `${trials} trials`} with a bout`;
   return [
     `### Checkpoint 5: lesions — ${GRADE[r.grade]}${fitted ? ', reported as fitted' : ''}`,
     [
@@ -666,7 +668,7 @@ export function checkpoint5Section(r: Checkpoint5, info: RunInfo): string {
         ? "Every clause would be predicted, since checkpoint 5 is held out of the calibration (spec §1.2), but those that read reversals, AVA + AVD's, AVA's, RIM's and PVC's on checkpoint 2, are reported as fitted, and so is the checkpoint's grade: track S, whose fit this is, was proposed after the previews below (PLAN §10; DECISIONS.md, 2026-10-01)."
         : 'Every clause is predicted, since checkpoint 5 is held out of the calibration (spec §1.2).',
       avb
-        ? `Reported beside AVB + PVC's row, not graded: checkpoint 1's speed over forward bouts of 10 s or more, pooled as checkpoint 1 pools it, ${bouts(r.boutSpeed.intact, r.boutSpeed.intactTrials)} intact and ${bouts(r.boutSpeed.lesioned, r.boutSpeed.lesionedTrials)} lesioned (body lengths/s); the row reads the mean velocity, set knowing the preview below (DECISIONS.md, 2026-10-02).`
+        ? `Reported beside AVB + PVC's row, not graded: checkpoint 1's speed over forward bouts of 10 s or more, pooled as checkpoint 1 pools it, in body lengths per second: ${bouts(r.boutSpeed.intact, r.boutSpeed.intactTrials, 'intact')}, and ${bouts(r.boutSpeed.lesioned, r.boutSpeed.lesionedTrials, 'lesioned')}. The row reads the mean velocity, set knowing the preview below (DECISIONS.md, 2026-10-02).`
         : '',
       "Previewed outside the protocol (PLAN §10): AVB + PVC's row by the chosen pick's diagnostics with AVBL and AVBR lesioned, its mean velocity falling 91% (DECISIONS.md, 2026-10-02), by round 3's pick 1's, and by the investigation of 2026-09-29 on the probe crawler's corner; and the checkpoint by that investigation, which pointed to checkpoint 5 passing at most one row, and by the refit's AVA lesion, which raised its reversals from 1.42 to 5.41 a minute (DECISIONS.md, 2026-09-28 and 2026-09-29).",
     ]
