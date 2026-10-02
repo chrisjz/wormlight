@@ -64,9 +64,9 @@ export function settingNetwork(data: WormlightData, id: string): Network {
 }
 
 // The loop's parameters a setting runs: the fit's own, but for the settings of track S's rest. With its offsets off
-// every neuron rests at its midpoint, the D-types too, as on R's model, the rectifier kept; with AVA's, AVAL and AVAR take theirs from
-// Liu, Chen & Wang 2020 beside the D-types'. Both need a fit that runs S's offsets, since on any other they would
-// either repeat it or add the D-types' offset it never had.
+// every neuron rests at its midpoint, the D-types too, as on R's model, the rectifier kept; with AVA's, AVAL and AVAR
+// take theirs from Liu, Chen & Wang 2020 beside the D-types'. Both need a fit that runs S's offsets, since on any
+// other they would either repeat it or add the D-types' offset it never had.
 export function settingParams(params: LoopParams, id: string): LoopParams {
   if (!REST_SETTINGS.has(id)) return params;
   if (params.restOffsets !== 'measured') {

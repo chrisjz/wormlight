@@ -2,7 +2,7 @@
 // them, and that the model's own setting is the model.
 
 import { describe, expect, it } from 'vitest';
-import { parseArgs } from '../scripts/harness/run.ts';
+import { jobParams, parseArgs } from '../scripts/harness/run.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { createHash } from 'node:crypto';
 import { PARAMS } from '../src/science/params.ts';
@@ -81,8 +81,10 @@ describe('the settings', () => {
     // On a fit without S's offsets they would repeat it, or add an offset it never had, so they refuse.
     const { restOffsets: none, ...without } = params;
     expect(none).toBe('measured');
-    expect(() => settingParams(without, 'offsets-off')).toThrow(/doesn't run|don't run/);
-    expect(() => settingParams({ ...params, restOffsets: 'measured with AVA' }, 'ava-offsets')).toThrow(/don't run/);
+    for (const id of ['offsets-off', 'ava-offsets']) {
+      expect(() => settingParams(without, id), id).toThrow(/which these parameters don't run/);
+      expect(() => settingParams({ ...params, restOffsets: 'measured with AVA' }, id), id).toThrow(/don't run/);
+    }
   });
 
   it('leave every sign with a basis of its own as it is, under every setting', () => {
@@ -211,6 +213,13 @@ describe('a setting in a world', () => {
 });
 
 describe("the harness's --sensitivity", () => {
+  it("runs each job on the registry's fit, or on its setting's parameters", () => {
+    expect(jobParams()).toEqual(currentParams());
+    expect(jobParams('random-3')).toEqual(currentParams());
+    expect(jobParams('offsets-off')).toEqual({ ...currentParams(), restOffsets: undefined });
+    expect(jobParams('ava-offsets').restOffsets).toBe('measured with AVA');
+  });
+
   it('runs by itself, with the trials and the seconds a run can shorten', () => {
     expect(parseArgs(['--sensitivity', '--jobs', '6'])).toMatchObject({ sensitivity: true, checkpoints: [], jobs: 6 });
     expect(parseArgs(['--checkpoint', '1']).sensitivity).toBe(false);

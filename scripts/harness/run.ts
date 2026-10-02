@@ -23,7 +23,7 @@ import { validateWormlightData, type WormlightData } from '../../src/data/schema
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
 import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
-import { currentParams, isCalibrated } from '../../src/sim/world.ts';
+import { currentParams, isCalibrated, type LoopParams } from '../../src/sim/world.ts';
 import { runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import type { Network } from '../../src/sim/brain/network.ts';
 import {
@@ -86,6 +86,10 @@ const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 const PAGE = join(ROOT, 'VALIDATION.md');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
+// The loop's parameters a job runs: the registry's fit, or a sensitivity setting's (src/validation/sensitivity.ts).
+export const jobParams = (setting?: string): LoopParams =>
+  setting === undefined ? currentParams() : settingParams(currentParams(), setting);
+
 // A worker's latest sensitivity setting and its brain, as the settings come one after another.
 let brain: { setting: string; network: Network } | undefined;
 // The assay's steady field, solved once in each worker that runs a worm; every worm reads the same copy.
@@ -102,7 +106,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord> {
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: job.setting === undefined ? currentParams() : settingParams(currentParams(), job.setting),
+    params: jobParams(job.setting),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
     ...(job.setting !== undefined && brain ? { network: brain.network } : {}),
@@ -224,6 +228,8 @@ if (process.argv.includes('--worker')) {
     .sort((a, b) => b.seconds - a.seconds);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
   const settings = options.sensitivity ? SETTINGS : [];
+  // A setting the fit can't run refuses here, before any trial, rather than in a worker after the settings before it.
+  for (const setting of settings) jobParams(setting.id);
   const perSetting = 2 * options.trials;
   const total = queue.length + settings.length * perSetting;
   const results: Result[] = [];
