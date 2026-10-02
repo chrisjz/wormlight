@@ -3,8 +3,11 @@ import {
   binomialTwoSided,
   equivalence,
   fisherGreater,
+  fisherTwoSided,
   incompleteBeta,
+  mannWhitneyTwoSided,
   mcnemarGreater,
+  normalUpper,
   signedRankGreater,
   spreadRatio,
   studentCdf,
@@ -145,5 +148,47 @@ describe('the exact binomial test at one half, two-sided', () => {
     expect(binomialTwoSided(9, 10)).toBeCloseTo(22 / 1024, 12);
     expect(binomialTwoSided(3, 6)).toBe(1);
     expect(() => binomialTwoSided(4, 3)).toThrow(/within its trials/);
+  });
+});
+
+describe("the normal tail, and Mann–Whitney's and Fisher's two-sided tests (checkpoint 5)", () => {
+  it('gives the standard normal upper tail to about 10⁻⁷', () => {
+    expect(normalUpper(0)).toBeCloseTo(0.5, 7);
+    expect(normalUpper(1.959963985)).toBeCloseTo(0.025, 7);
+    expect(normalUpper(-1)).toBeCloseTo(0.8413447461, 7);
+    expect(normalUpper(3)).toBeCloseTo(0.001349898, 8);
+  });
+
+  it("gives Mann–Whitney's U and its tie-corrected normal p, two-sided, without continuity correction", () => {
+    // Fully separated samples of five: U = 0, against a mean of 12.5 and a variance of 25 · 11 / 12, so z = −2.6112 and
+    // p = 0.009023.
+    const separate = mannWhitneyTwoSided([1, 2, 3, 4, 5], [6, 7, 8, 9, 10]);
+    expect(separate.u).toBe(0);
+    expect(separate.p).toBeCloseTo(0.0090234, 6);
+    expect(separate.z).toBeLessThan(0);
+    // Ties share their mean rank: [0, 0, 0, 1] against [0, 1, 1, 1], four zeros at rank 2.5 and four ones at 6.5, so
+    // U = 4 against a mean of 8; the two ties of four cut the variance to (16 / 12)(9 − 120 / 56) = 9.1429, so
+    // z = −1.3229 and p = 0.18588.
+    const tied = mannWhitneyTwoSided([0, 0, 0, 1], [0, 1, 1, 1]);
+    expect(tied.u).toBe(4);
+    expect(tied.z).toBeCloseTo(-4 / Math.sqrt((16 / 12) * (9 - 120 / 56)), 12);
+    expect(tied.p).toBeCloseTo(0.18588, 5);
+    // Every value tied: nothing to rank apart.
+    expect(mannWhitneyTwoSided([0, 0, 0], [0, 0])).toEqual({ u: 3, z: 0, p: 1 });
+    expect(() => mannWhitneyTwoSided([], [1])).toThrow(/values in both/);
+  });
+
+  it("gives Fisher's two-sided p, summing every table no more probable than the observed one", () => {
+    // 3 of 10 against 7 of 10: twice the one-sided tail, 0.178895, since the margins are symmetric.
+    expect(fisherTwoSided(3, 10, 7, 10)).toBeCloseTo(2 * fisherGreater(7, 10, 3, 10), 12);
+    expect(fisherTwoSided(3, 10, 7, 10)).toBeCloseTo(0.178895, 6);
+    expect(fisherTwoSided(7, 10, 3, 10)).toBeCloseTo(0.178895, 6);
+    // 0 of 50 against 10 of 50: the two extreme tables, each C(90, 50) / C(100, 50) = Π (50 − i) / (100 − i) over
+    // i < 10, 0.00059342, every other table more probable.
+    const extreme = Array.from({ length: 10 }, (_, i) => (50 - i) / (100 - i)).reduce((a, b) => a * b, 1);
+    expect(fisherTwoSided(0, 50, 10, 50)).toBeCloseTo(2 * extreme, 12);
+    expect(fisherTwoSided(5, 50, 5, 50)).toBeCloseTo(1, 12);
+    expect(fisherTwoSided(0, 50, 0, 50)).toBe(1);
+    expect(() => fisherTwoSided(6, 5, 0, 5)).toThrow(/whole counts/);
   });
 });

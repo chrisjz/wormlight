@@ -275,3 +275,17 @@ export function runKinematics(run: {
 }): Kinematics {
   return kinematics([{ ...run, bouts: bouts(run.velocity) }], SEPARATION);
 }
+
+// The head angle (PLAN §7.1): the body's tangent at 0.05 body lengths less its tangent at 0.2, each read from the
+// segment between the rods either side of it, wrapped to (−π, π]. Head swings are its crossings of zero.
+export const HEAD_POINTS = [0.05, 0.2] as const;
+export function headAngle(x: ArrayLike<number>, y: ArrayLike<number>, segments: number): number {
+  const tangent = (s: number): number => {
+    const k = Math.min(Math.max(Math.floor(s * segments), 0), segments - 1);
+    return Math.atan2(y[k + 1] - y[k], x[k + 1] - x[k]);
+  };
+  let a = (tangent(HEAD_POINTS[0]) - tangent(HEAD_POINTS[1])) % (2 * Math.PI);
+  if (a <= -Math.PI) a += 2 * Math.PI;
+  if (a > Math.PI) a -= 2 * Math.PI;
+  return a;
+}

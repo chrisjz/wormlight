@@ -10,7 +10,15 @@ import { hash, uniform } from '../sim/brain/rng.ts';
 import { NEURAL_STEP } from '../sim/numerics.ts';
 import type { Odour } from '../sim/sensing.ts';
 import { World, type LoopParams } from '../sim/world.ts';
-import { MEASURE_FROM, MOTION_SAMPLE, forwardVelocity, measuredRun, noMotion, takeMotion } from './motion.ts';
+import {
+  MEASURE_FROM,
+  MOTION_SAMPLE,
+  forwardVelocity,
+  headAngle,
+  measuredRun,
+  noMotion,
+  takeMotion,
+} from './motion.ts';
 import { addPosture, emptySums, resample, selfIntersects, tangentAngles, type PostureSums } from './posture.ts';
 
 // Postures are sampled at 4 Hz, as Stephens et al. sampled theirs.
@@ -59,6 +67,9 @@ export interface TrialOptions extends StartOptions {
   // 2026-09-27): at the touch the world is copied, the copy takes a sham touch in its place, and it runs SHAM_SECONDS
   // on while the touched line runs on.
   shams?: boolean;
+  // Whether to record the head angle at each sample, for head swings (PLAN §7.1), as checkpoint 5's rows count them
+  // within reversals.
+  headAngles?: boolean;
 }
 
 // How long a sham twin runs after its touch: as long as the touch's windows need, TOUCH_NEEDS in checkpoints.ts, which
@@ -79,6 +90,8 @@ export interface TrialRecord {
   mid: number[];
   front: number[];
   rear: number[];
+  // The head angle (rad) at the same samples, when the trial was asked to record it (PLAN §7.1).
+  headAngle?: number[];
   // Postures from the first 10 s on, at 4 Hz: the sums for their covariance, and how many self-intersected.
   postures: PostureSums;
   selfIntersecting: number;
@@ -211,12 +224,14 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     }
   };
   const motion = noMotion();
+  const angles: number[] = [];
   const k = new Float64Array(body.rods);
   const sums = emptySums();
   let selfIntersecting = 0;
   let finite = true;
   const sample = (): void => {
     takeMotion(motion, body.x, body.y, length, k);
+    if (options.headAngles) angles.push(headAngle(body.x, body.y, body.params.segments));
     avaSamples.push(avaIndex.reduce((a, i) => a + world.brain.activation[i], 0) / avaIndex.length);
     // A voltage that isn't a number counts as outside, in both counts.
     let outside = 0;
@@ -329,6 +344,7 @@ export function runTrial(data: WormlightData, options: TrialOptions): TrialRecor
     mid: run.mid,
     front: run.front,
     rear: run.rear,
+    ...(options.headAngles ? { headAngle: aligned(angles) } : {}),
     postures: sums,
     selfIntersecting,
     unconverged: world.brain.unconverged,

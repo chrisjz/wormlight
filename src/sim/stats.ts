@@ -193,3 +193,85 @@ function binomialUpper(k: number, n: number): number {
   for (let x = k; x <= n; x++) p += Math.exp(lf[n] - lf[x] - lf[n - x] - n * Math.LN2);
   return Math.min(1, p);
 }
+
+// The standard normal's upper tail, P(Z > z), from the complementary error function by Numerical Recipes' Chebyshev
+// fit (erfcc), whose fractional error is below 1.2 × 10⁻⁷ everywhere.
+export function normalUpper(z: number): number {
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1 / (1 + 0.5 * x);
+  const erfc =
+    t *
+    Math.exp(
+      -x * x -
+        1.26551223 +
+        t *
+          (1.00002368 +
+            t *
+              (0.37409196 +
+                t *
+                  (0.09678418 +
+                    t *
+                      (-0.18628806 +
+                        t *
+                          (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))),
+    );
+  return z >= 0 ? erfc / 2 : 1 - erfc / 2;
+}
+
+export interface MannWhitney {
+  // U for the first sample, its z-score under the tie-corrected normal approximation, positive when the first sample
+  // tends higher, and the two-sided p-value.
+  u: number;
+  z: number;
+  p: number;
+}
+
+// The Mann–Whitney U test, two-sided (PLAN §7.1; DECISIONS.md, 2026-10-02): do the two samples tend to differ? Tied
+// values share their mean rank, and the p-value comes from the normal approximation with the tie correction, with
+// no continuity correction. With every value tied there is nothing to rank apart, and p is 1.
+export function mannWhitneyTwoSided(a: readonly number[], b: readonly number[]): MannWhitney {
+  if (a.length === 0 || b.length === 0) throw new Error("Mann–Whitney's test needs values in both samples");
+  if (![...a, ...b].every(Number.isFinite)) throw new Error("Mann–Whitney's test needs finite values");
+  const all = [...a.map((v) => ({ v, first: true })), ...b.map((v) => ({ v, first: false }))].sort((x, y) => x.v - y.v);
+  const n = all.length;
+  let rankSum = 0;
+  let ties = 0;
+  for (let i = 0; i < n;) {
+    let j = i;
+    while (j + 1 < n && all[j + 1].v === all[i].v) j++;
+    const rank = (i + j + 2) / 2;
+    for (let k = i; k <= j; k++) if (all[k].first) rankSum += rank;
+    const t = j - i + 1;
+    ties += t ** 3 - t;
+    i = j + 1;
+  }
+  const [n1, n2] = [a.length, b.length];
+  const u = rankSum - (n1 * (n1 + 1)) / 2;
+  const mean = (n1 * n2) / 2;
+  const variance = ((n1 * n2) / 12) * (n + 1 - ties / (n * (n - 1)));
+  if (!(variance > 0)) return { u, z: 0, p: 1 };
+  const z = (u - mean) / Math.sqrt(variance);
+  return { u, z, p: Math.min(1, 2 * normalUpper(Math.abs(z))) };
+}
+
+// Fisher's exact test, two-sided (DECISIONS.md, 2026-10-02): are the shares of successes, a of n and b of m,
+// different? With the margins fixed, the p-value sums the probabilities of every table no more probable than the
+// observed one, within a relative tolerance of 10⁻⁷ for rounding.
+export function fisherTwoSided(a: number, n: number, b: number, m: number): number {
+  if (![a, n, b, m].every(Number.isInteger) || a < 0 || b < 0 || a > n || b > m) {
+    throw new Error(`Fisher's test needs whole counts within their samples, not ${a}/${n} and ${b}/${m}`);
+  }
+  const total = n + m;
+  const successes = a + b;
+  const lf = logFactorials(total);
+  const choose = (x: number, y: number): number => lf[x] - lf[y] - lf[x - y];
+  const chance = (x: number): number =>
+    Math.exp(choose(successes, x) + choose(total - successes, n - x) - choose(total, n));
+  const observed = chance(a);
+  let p = 0;
+  for (let x = Math.max(0, successes - m); x <= Math.min(successes, n); x++) {
+    const q = chance(x);
+    if (q <= observed * (1 + 1e-7)) p += q;
+  }
+  return Math.min(1, p);
+}
