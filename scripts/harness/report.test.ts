@@ -467,8 +467,9 @@ describe('the harness report', () => {
     expect(mayTake(2, (k) => ({ ...failed(k), values: values(k + 1) }), values)).toBe(false);
     expect(nameOf('round-3', 2)).toBe('round-3-pick-2');
     expect(nameOf('refit', 2)).toBe('refit');
-    // VALIDATION.md's section follows the runner's order, round 3's picks last.
-    const order = ['refit', 'round-2', 'planned', ...[1, 2, 3, 4].map((k) => `round-3-pick-${k}`)];
+    // VALIDATION.md's section follows the runner's order, round 3's picks then track S's last.
+    const picks = (fit: string): string[] => [1, 2, 3, 4].map((k) => `${fit}-pick-${k}`);
+    const order = ['refit', 'round-2', 'planned', ...picks('round-3'), ...picks('track-s')];
     expect(resultNames()).toEqual(order.filter((n) => existsSync(join(ROOT, 'data/equivalence', `${n}.json`))));
   });
 

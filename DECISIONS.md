@@ -3544,3 +3544,52 @@ The rectifier raises AVA's by about a fifth, to about a tenth of the measured va
 **Review.** A review of the code against the rules found nothing serious: a `--track-s` run is round 3's procedure on S's model, every trial path, phase 2's continuation, the extra candidate and the final checks among them, carries the model, resume replays bit for bit at an unchanged commit, and S's rest solved without failure over 8,001 values of κ_gap,B across its box. It found, and the pull request now has: the noise's amendment, still missing; nothing tying what the trials ran to what the record names, now checked in every trial; the resume guard's gap on an uncommitted tree; a comment that called the record's write resumable; the comparison's test of VALIDATION.md's order, which wouldn't have counted S's picks; a refusal that said every record was made under the plain count; the band named by every record that can still be written; "class offsets" where S has only the D-types'; and smaller points.
 
 **Status.** Built, before it runs. The next pull request runs it, commits its record, and takes its picks through §7.2's comparison to the choice (the entry of 2026-10-01).
+
+## 2026-10-02 — Track S's calibration, run: its first pick passes §7.2's comparison and grades partial, so S's fit replaces the refit
+
+**Why.** Track S's rules set its calibration, its comparison and the choice before any of S was built (the entry of 2026-10-01), and its runner landed in the entry above. This records the run and what the rules make of it.
+
+**The calibration.** `npm run calibrate -- --track-s` ran at `6263a8d`, main with the runner merged, on 14 workers in 3 hours 43 minutes, every search to its budget, every one of its 6,000 evaluations and its final checks converged and finite. Phase 1's sixteen searches ranked 23, 19, 11 and 18 lowest on their final checks (0.759, 0.937, 1.027 and 1.041), and phase 2 continued those four to 750 evaluations each. Two of them, 23 and 19, ended on phase 1's pick, which joins each continued search's final check. The picks, in the order they take the comparison (`data/calibration/s1.json`):
+
+| Pick | Search | From           | Objective | Frequency (Hz) | Wavelength (body lengths) | Speed (body lengths/s) |
+| ---- | ------ | -------------- | --------- | -------------- | ------------------------- | ---------------------- |
+| 1    | 18     | generation 67  | 0.438     | 0.211          | 0.49                      | 0.069                  |
+| 2    | 11     | generation 58  | 0.654     | 0.231          | 0.38                      | 0.052                  |
+| 3    | 23     | phase 1's pick | 0.759     | 0.193          | 0.47                      | 0.038                  |
+| 4    | 19     | phase 1's pick | 0.937     | 0.117          | 0.61                      | 0.038                  |
+
+Round 3's best pick on the real wiring scored 0.366 by the same objective, so S's model fits the crawl a little less closely.
+
+**The comparison.** Pick 1 passed §7.2's comparison with the noise on (`data/equivalence/track-s-pick-1.json`, run at `8188ae9`, which adds the record): over 200 trials at 2.5 and 1.25 ms, every clause's interval lies well inside its margin, the frequency's difference −0.0008 Hz with an interval of −0.0027 to +0.0010 against ±0.0065, the wavelength's +0.0008 against ±0.0146 and the speed's −0.0002 against ±0.0021. No solve failed to converge and every trial stayed finite. So picks 2 to 4 didn't run, as the rules have it. Every one of round 3's picks failed this comparison on the frequency and the wavelength; the refit passed it and failed checkpoint 1.
+
+**The choice.** Pick 1 is track S's fit, and by the rules it replaces the refit whatever the two grade (the entry of 2026-10-01).
+
+**Checkpoint 1 on its own trials,** the comparison's first 20 at dt (`data/calibration/s1-chosen.json`): **partial**, the first fit to grade at least partial and pass the comparison.
+
+| Clause                                  | Measured | Grade   |
+| --------------------------------------- | -------- | ------- |
+| Frequency (Hz)                          | 0.217    | Pass    |
+| Wavelength (body lengths)               | 0.48     | Partial |
+| Speed (body lengths/s)                  | 0.068    | Partial |
+| Posture variance the eigenworms capture | 97.5%    | Pass    |
+| Trials with a forward bout of 20 s      | 100%     | Pass    |
+
+Its pooled speed has a 95% interval of 0.0672 to 0.0693 body lengths a second, and 0.0686 at dt/2, so the partial is not at the speed floor of 0.06.
+
+**What the fit is, reported and not graded.**
+
+- **Three of its twelve values lie at their bounds:** the B-types' oscillator gain at 0, so the B-types have no oscillator; the head switch's gain at its top, 50 nS; and the neuromuscular gain at its top, 40 per unit of relative drive.
+- **The head switch paces the crawl, as the rules foresaw** ("S doesn't pace the crawl"). With the switch off, or at its lower bound, the worm doesn't move forward at all; the switch's gate was open on every measured step, its conductance about fifty times its targets' passive loads, and it cycled at 0.214 Hz beside the spectrum's peak at 0.210 Hz. With the B-types lesioned the worm moved forward 63% of the time at 0.013 body lengths a second, with the A-types lesioned 73% at 0.020, and with AVBL and AVBR lesioned 30% at 0.006, none of them in a bout of 20 s.
+- **It hardly reverses:** 0.005 reversals a minute over the comparison's 200 trials at dt, against the 1.8 a minute of the calibration's reversal target (PLAN §7.3), which the refit's procedure fitted. S tunes the noise on the kinematics alone, so the rate is a prediction (spec §4, amended for S), and it is a miss. Checkpoint 2, checkpoint 4's klinokinesis row and checkpoint 5's rows that read reversals will show it.
+- **The voltages stay within the model's range:** 0.2 neurons on average outside −48 to 0 mV at each sample, none more than 10 mV outside, where the refit's lay far outside it.
+
+**What follows, one pull request at a time.**
+
+1. The adoption, as the rules list it: the registry takes the twelve values and the conductance form; S's signs move from their side file into the main overrides file; the data's version and `MODEL_VERSION` rise, with entries in `tests/model-versions.json`; the app, the harness and GPU parity run it; the visual baselines come from CI; the app's Safari check runs; touch's currents and AWC's gains are the ones S's model already pins.
+2. Checkpoint 1's section of `VALIDATION.md` from the harness on the registry's fit, and checkpoint 0 again, its result reported without undoing the choice.
+3. Release 0.2.0 (PLAN §8).
+4. The crawl gate stands open: with a partial on checkpoint 1, checkpoints 2 to 6 run on S's fit by their protocols (PLAN §9), checkpoint 6's ten primary nulls each tuned by S's procedure, about 3.7 hours each on 14 workers, so some 37 hours in all, scheduled when the maintainer chooses.
+
+**Exploration, disclosed.** None beyond the run and the comparison: the calibration ran once, as its rules set, and the comparison of pick 1 once, with its chosen-pick runs.
+
+**Status.** Run and chosen. The adoption comes next, in a pull request of its own.
