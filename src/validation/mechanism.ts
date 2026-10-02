@@ -109,18 +109,12 @@ export class MechanismSampler {
       starts.push(FROM + r.start);
       for (let k = FROM + r.start; k < FROM + r.start + r.length; k++) inTurn[k] = 1;
     }
-    const crossings = swings(this.angle, FROM);
-    let omegaCount = 0;
-    for (let c = 1; c < crossings.length; c++) {
-      const [a, b] = [crossings[c - 1], crossings[c]];
-      let turned = 0;
-      for (let k = a + 1; k <= b; k++) turned += wrap(this.front[k] - this.front[k - 1]);
-      if (Math.abs(turned) > OMEGA) {
-        omegaCount++;
-        starts.push(a);
-        for (let k = a; k <= b; k++) inTurn[k] = 1;
-      }
+    const omegas = omegaTurns(this.angle, this.front, FROM);
+    for (const [a, b] of omegas) {
+      starts.push(a);
+      for (let k = a; k <= b; k++) inTurn[k] = 1;
     }
+    const omegaCount = omegas.length;
     // dC/dt's sign over the 3.3 s before sample k.
     const sign = (k: number): number => (k < BLOCK ? 0 : Math.sign(this.smell[k] - this.smell[k - BLOCK]));
     const reorientations = { down: 0, up: 0 };
@@ -193,13 +187,27 @@ export function swings(angle: readonly number[], from: number): number[] {
   return accepted;
 }
 
+// The omega turns among a worm's samples from `from`: each head swing, between two accepted crossings, over which the
+// front's orientation turned, net and unwrapped, by more than 135°, as [first crossing, second crossing].
+export function omegaTurns(angle: readonly number[], front: readonly number[], from: number): [number, number][] {
+  const crossings = swings(angle, from);
+  const turns: [number, number][] = [];
+  for (let c = 1; c < crossings.length; c++) {
+    const [a, b] = [crossings[c - 1], crossings[c]];
+    let turned = 0;
+    for (let k = a + 1; k <= b; k++) turned += wrap(front[k] - front[k - 1]);
+    if (Math.abs(turned) > OMEGA) turns.push([a, b]);
+  }
+  return turns;
+}
+
 // Klinokinesis over a set of worms: the ratio of reorientation rates heading down the gradient to heading up it,
-// null where either rate is undefined, with no time at risk, or the up rate is zero.
+// undefined (null) with no reorientation or no time at risk on either side (DECISIONS.md, 2026-10-02).
 export function klinokinesis(worms: readonly MechanismRecord[]): number | null {
   const sum = (f: (m: MechanismRecord) => number): number => worms.reduce((n, m) => n + f(m), 0);
   const [rd, ru] = [sum((m) => m.reorientations.down), sum((m) => m.reorientations.up)];
   const [td, tu] = [sum((m) => m.atRisk.down), sum((m) => m.atRisk.up)];
-  if (td === 0 || tu === 0 || ru === 0) return null;
+  if (td === 0 || tu === 0 || rd === 0 || ru === 0) return null;
   return rd / td / (ru / tu);
 }
 

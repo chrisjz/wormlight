@@ -1,13 +1,14 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 // npm run harness -- --sensitivity [--jobs N] [--trials N] [--seconds S]
 //
-// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, and checkpoints 2 and 3, the
-// touches (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one per core by default, on the
-// calibrated parameters, or the provisional ones before calibration. Checkpoint 0 runs its 20 trials untouched and
-// touched, each touch forking a sham twin, and 30 worms in the chemotaxis assay for 60 min each. Checkpoints 2 and 3
-// share one set of trials, up to 100 seeds each touched once during forward crawling, forking three ways
-// (src/validation/touch.ts). Checkpoint 4 runs 100 worms for up to 60 min each, sensing the assay's field and again
-// as their controls with AWC-ON's input off, with the mechanism's samples (src/validation/mechanism.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
+// The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, checkpoints 2 and 3, the
+// touches, and checkpoint 4, chemotaxis (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one
+// per core by default, on the calibrated parameters, or the provisional ones before calibration. Checkpoint 0 runs its
+// 20 trials untouched and touched, each touch forking a sham twin, and 30 worms in the chemotaxis assay for 60 min
+// each. Checkpoints 2 and 3 share one set of trials, up to 100 seeds each touched once during forward crawling,
+// forking three ways (src/validation/touch.ts). Checkpoint 4 runs 100 worms for up to 60 min each, sensing the assay's
+// field and again as their controls with AWC-ON's input off, with the mechanism's samples
+// (src/validation/mechanism.ts). Each checkpoint's records and summary go to harness-out/checkpoint-<n>.json, and its
 // section of VALIDATION.md is regenerated. --trials and --seconds shorten a run for a quick look, setting the trials'
 // and the worms' numbers and lengths alike, and the touch trials' seeds and length; such a run leaves VALIDATION.md
 // alone, since the checkpoints are fixed.

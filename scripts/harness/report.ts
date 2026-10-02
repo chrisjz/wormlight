@@ -518,6 +518,8 @@ export function checkpoint4Section(r: Checkpoint4, info: RunInfo): string {
   const sum = (f: (m: MechanismRecord) => number): number =>
     r.runs.reduce((n, w) => n + (w.intact.mechanism ? f(w.intact.mechanism) : 0), 0);
   const reorientations = sum((m) => m.reversals + m.omegas);
+  // Those klinokinesis attributes to a side: the rest began where dC/dt over the 3.3 s before was exactly zero.
+  const attributed = sum((m) => m.reorientations.down + m.reorientations.up);
   const value = (x: number | null, digits: number): string => (x === null ? 'undefined' : fixed(x, digits));
   const interval = (i: [number | null, number | null], digits: number): string =>
     `${i[0] === null ? 'unbounded' : fixed(i[0], digits)} to ${i[1] === null ? 'unbounded' : fixed(i[1], digits)}`;
@@ -562,7 +564,7 @@ export function checkpoint4Section(r: Checkpoint4, info: RunInfo): string {
       ],
     ),
     'Every clause is predicted, since checkpoint 4 is held out of the calibration (spec §1.2).',
-    `The mechanism, reported and never gating (PLAN §7.4; DECISIONS.md, 2026-10-02): each statistic over every worm with its 80% interval over 1,000 resamples of the worms, the control's, and the intact-minus-control difference over paired resamples. Klinokinesis is the ratio of reorientation rates heading down the gradient to up it, its null 1; weathervaning is the slope of the curving rate (rad/mm) against the bearing (rad), over transitions between 3.3 s blocks with no reorientation or backward sample, strides under a quarter of the median left out, its null 0. Each is reproduced when its interval clears its null above it and the difference's lies above 0, partial with one of those. Over the intact runs there ${reorientations === 1 ? 'was 1 reorientation' : `were ${grouped(reorientations)} reorientations`}, ${grouped(sum((m) => m.reversals))} reversals and ${grouped(sum((m) => m.omegas))} omega turns.`,
+    `The mechanism, reported and never gating (PLAN §7.4; DECISIONS.md, 2026-10-02): each statistic over every worm with its 80% interval over 1,000 resamples of the worms, the control's, and the intact-minus-control difference over paired resamples. Klinokinesis is the ratio of reorientation rates heading down the gradient to up it, its null 1; weathervaning is the slope of the curving rate (rad/mm) against the bearing (rad), over transitions between 3.3 s blocks with no reorientation or backward sample, strides under a quarter of the median left out, its null 0. Each is reproduced when its interval clears its null above it and the difference's lies above 0, partial with one of those. Over the intact runs there ${reorientations === 1 ? 'was 1 reorientation' : `were ${grouped(reorientations)} reorientations`}, ${grouped(sum((m) => m.reversals))} reversals and ${grouped(sum((m) => m.omegas))} omega turns, of which klinokinesis attributes ${grouped(attributed)} to a side: the others began where dC/dt over the 3.3 s before was exactly zero, as it reads where the field is flat, and count on neither.`,
     table(
       [
         'Mechanism',

@@ -7,9 +7,14 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { steadyField } from '../src/sim/env/dish.ts';
 import { currentParams } from '../src/sim/world.ts';
 import { checkpoint4, runChemotaxis, type ChemotaxisRecord } from '../src/validation/chemotaxis.ts';
+import { checkpoint4Section } from '../scripts/harness/report.ts';
+import { Body, boyleBody } from '../src/sim/body/body.ts';
 import {
   klinokinesis,
   mechanism,
+  MechanismSampler,
+  omegaTurns,
+  pairedDifference,
   swings,
   turningRatio,
   weathervaning,
@@ -39,6 +44,82 @@ describe('head swings (PLAN §7.1)', () => {
     const accepted = swings(flicker, 0);
     expect(accepted[0]).toBe(20);
     expect(accepted).not.toContain(22);
+  });
+});
+
+describe('omega turns (PLAN §7.4)', () => {
+  const deg = Math.PI / 180;
+  // A head swinging ±20° every 4 s, its crossings at samples 20, 40, …, and a front that turns by `turn` degrees over
+  // the swing from sample 40 to 60.
+  const worm = (turn: number): { angle: number[]; front: number[] } => {
+    const angle = Array.from({ length: 120 }, (_, k) => 20 * deg * Math.sin((2 * Math.PI * (k + 0.5)) / 40));
+    const front = angle.map((_, k) => (k <= 40 ? 0 : k >= 60 ? turn * deg : (turn * deg * (k - 40)) / 20));
+    return { angle, front };
+  };
+  it('count a swing over which the front turns by more than 135°, and not one that turns less', () => {
+    const big = worm(160);
+    expect(omegaTurns(big.angle, big.front, 0)).toEqual([[40, 60]]);
+    const small = worm(120);
+    expect(omegaTurns(small.angle, small.front, 0)).toEqual([]);
+    // Turning the other way counts the same.
+    const back = worm(-160);
+    expect(omegaTurns(back.angle, back.front, 0)).toEqual([[40, 60]]);
+  });
+});
+
+describe("the sampler's signs", () => {
+  // A straight body, its head first, whose centroid follows a path: heading, dC/dt and bearing from a field rising
+  // northwards, C = 10 y µM per m.
+  const north = { sample: (_x: number, y: number) => 10 * y };
+  const ride = (path: [number, number, number][]): MechanismRecord => {
+    const body = new Body(boyleBody());
+    const length = body.params.segmentLength * body.params.segments;
+    const sampler = new MechanismSampler(body, north, 0);
+    for (const [cx, cy, heading] of path) {
+      // Rod k lies (length / 2 − k · segment) along the heading from the centroid, the head first.
+      for (let k = 0; k < body.rods; k++) {
+        const along = length / 2 - k * body.params.segmentLength;
+        body.x[k] = cx + along * Math.cos(heading);
+        body.y[k] = cy + along * Math.sin(heading);
+      }
+      sampler.sample();
+    }
+    return sampler.reduce(length);
+  };
+  // A path at 0.1 mm a sample, turning by `turn(heading)` radians a millimetre.
+  const path = (start: number, turn: (heading: number) => number, n = 900): [number, number, number][] => {
+    const out: [number, number, number][] = [];
+    let [x, y, h] = [0, 0, start];
+    for (let k = 0; k < n; k++) {
+      out.push([x, y, h]);
+      x += 1e-4 * Math.cos(h);
+      y += 1e-4 * Math.sin(h);
+      h += 0.1 * turn(h);
+    }
+    return out;
+  };
+
+  it('read heading up the gradient as heading up it, at a bearing of 0', () => {
+    const m = ride(path(Math.PI / 2, () => 0));
+    expect(m.turning.ups).toBeGreaterThan(10);
+    expect(m.turning.downs).toBe(0);
+    expect(m.atRisk.down).toBe(0);
+    for (const b of m.transitions.bearing) expect(b).toBeCloseTo(0, 6);
+  });
+
+  it('give a worm that turns towards the gradient a positive slope, and one that turns away a negative one', () => {
+    // Curving at 0.05 rad a millimetre times the sine of the bearing, towards the gradient or away from it, from
+    // starting bearings b, so the heading is π/2 − b in a field rising northwards. A worm that turns away soon heads
+    // down the gradient, at bearings near ±π where a linear slope can't tell the two apart, so it starts near 0.
+    const worms = (starts: number[], sign: 1 | -1): MechanismRecord[] =>
+      starts.map((b) => ride(path(Math.PI / 2 - b, (h) => sign * 0.05 * Math.sin(Math.PI / 2 - h))));
+    expect(weathervaning(worms([-2.5, -1.5, -0.5, 0.5, 1.5, 2.5], 1), { clean: false, floor: true })).toBeGreaterThan(
+      0.02,
+    );
+    expect(weathervaning(worms([-0.4, -0.2, 0.2, 0.4], -1), { clean: false, floor: true })).toBeLessThan(-0.005);
+    // And worms that don't turn, at several bearings, none.
+    const straight = [-2, -1, 0.5, 1.5].map((b) => ride(path(Math.PI / 2 - b, () => 0)));
+    expect(Math.abs(weathervaning(straight, { clean: false, floor: true }) ?? 1)).toBeLessThan(1e-9);
   });
 });
 
@@ -108,6 +189,14 @@ describe("the mechanism's grade", () => {
   });
 });
 
+describe('the paired difference', () => {
+  it('resamples the same worms in both arms, so identical arms differ by nothing in every resample', () => {
+    const arm = Array.from({ length: 30 }, (_, k) => worm({ reorientations: { down: 3 + (k % 5), up: 1 + (k % 3) } }));
+    const r = pairedDifference(arm, arm, klinokinesis, 40);
+    expect([r.value, ...r.interval]).toEqual([0, 0, 0]);
+  });
+});
+
 describe("checkpoint 4's grade", () => {
   const run = (seed: number, reached: 'odour' | 'control' | null, control = false): ChemotaxisRecord => ({
     seed,
@@ -140,6 +229,24 @@ describe("checkpoint 4's grade", () => {
     expect(checkpoint4(arm(70, 5), arm(68, 5, true), 40).grade).toBe('fail');
   });
 
+  it('writes its section: the clauses, the mechanism and each worm', () => {
+    const r = checkpoint4(arm(70, 5), arm(10, 10, true), 40);
+    const section = checkpoint4Section(r, {
+      date: '2026-10-03',
+      commit: 'abc1234',
+      calibrated: true,
+      model: 'track S',
+      trials: 20,
+      seconds: 120,
+      worms: 100,
+      wormSeconds: 3600,
+    });
+    expect(section).toContain('### Checkpoint 4: chemotaxis — **Pass**');
+    expect(section).toContain('0.65: 70 at the odour, 5 at the control, 25 neither');
+    expect(section).toContain('reported as fitted');
+    expect(section).toContain('| 1 | AWCL | The odour at 10.0 min | The odour at 10.0 min |');
+  });
+
   it('pairs the arms seed by seed, and fails a run that left the finite numbers', () => {
     expect(() => checkpoint4(arm(70, 5), arm(10, 10, true).slice(1), 40)).toThrow(/pair seed by seed/);
     const broken = arm(70, 5);
@@ -169,6 +276,18 @@ describe('the assay runs', () => {
       // current does reach the body, and the control takes it away.
       expect(control.end).not.toEqual(plain.end);
       expect(control.mechanism).toBeUndefined();
+      // As the harness runs it, the control takes the mechanism's samples too, reading the field it doesn't sense.
+      const both = runChemotaxis(data, {
+        seed: 2,
+        seconds: 60,
+        params,
+        postures,
+        odour: field,
+        control: true,
+        mechanism: true,
+      });
+      expect(both.control).toBe(true);
+      expect((both.mechanism?.atRisk.down ?? 0) + (both.mechanism?.atRisk.up ?? 0)).toBeGreaterThan(0);
     },
   );
 });
