@@ -3,8 +3,17 @@
 
 import { describe, expect, it } from 'vitest';
 import { validateWormlightData } from '../src/data/schema.ts';
-import { activations } from '../src/render/glow.ts';
-import { GLOW_COLOUR, GLOW_FLOOR, glowBrightness, glowHalo, NEUTRAL } from '../src/render/palette.ts';
+import { activations, Glow, restingGlow } from '../src/render/glow.ts';
+import {
+  ACTIVE_RISE,
+  activeStrength,
+  GLOW_COLOUR,
+  GLOW_FLOOR,
+  glowBrightness,
+  glowHalo,
+  NEUTRAL,
+} from '../src/render/palette.ts';
+import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import { HALO_SHADER, NEURON_SHADER, wgslColour } from '../src/render/shaders.ts';
 import { midpointActivation, restActivation } from '../src/sim/brain/brain.ts';
 import { World } from '../src/sim/world.ts';
@@ -34,6 +43,14 @@ describe("the glow's source", () => {
     );
   });
 
+  it("gives each neuron's glow at rest from the brain's offsets, as the model rests", () => {
+    const world = appWorld(data, 1);
+    const { voltage, threshold, network, offset } = world.brain;
+    const atRest = activations(voltage, threshold, network.slope);
+    const rest = restingGlow(offset, network.slope);
+    Array.from(rest).forEach((x, i) => expect(x, network.names[i]).toBeCloseTo(atRest[i], 6));
+  });
+
   it('takes a lesioned world by its intact thresholds, as the model does', () => {
     const intact = new World(data, appWorld(data, 1).params, { seed: 1 });
     const cut = new World(data, intact.params, { seed: 1, lesions: ['AVAL'] });
@@ -57,11 +74,48 @@ describe("the glow's scale", () => {
   });
 });
 
+describe('the synapses lit while the neurons glow, with none selected (DECISIONS.md, 2026-10-02)', () => {
+  it("light as a neuron's glow rises past ACTIVE_RISE above its own rest, more as it rises, and fully at full glow", () => {
+    expect(ACTIVE_RISE).toBe(0.1);
+    expect(activeStrength(0.5, 0.5)).toBeNull();
+    expect(activeStrength(0.6, 0.5)).toBeNull();
+    expect(activeStrength(0.65, 0.5)).toBeCloseTo(0.125, 12);
+    expect(activeStrength(1, 0.5)).toBe(1);
+    // A D-type at its rest, about 0.72, lights nothing, though a fixed ¾ would sit only just above it.
+    expect(activeStrength(0.716, 0.716)).toBeNull();
+    expect(activeStrength(0.85, 0.716)).toBeCloseTo((0.85 - 0.716 - 0.1) / (1 - 0.716 - 0.1), 12);
+    for (let g = 0.61; g < 1; g += 0.01)
+      expect(activeStrength(g + 0.01, 0.5)).toBeGreaterThan(activeStrength(g, 0.5) ?? 0);
+  });
+
+  it("light some on the app's model as its worm crawls", () => {
+    // The app's world, its glow read as the plate reads it, about once a frame at 60 frames a second.
+    const world = appWorld(data, 1);
+    const { network, offset } = world.brain;
+    const rest = restingGlow(offset, network.slope);
+    const glow = new Glow(rest.length);
+    const a = new Float32Array(rest.length);
+    const frame = Math.round(1 / 60 / NEURAL_STEP);
+    let lit = 0;
+    let frames = 0;
+    for (let s = 1; s <= Math.round(20 / NEURAL_STEP); s++) {
+      world.step();
+      if (s % frame !== 0) continue;
+      glow.update(activations(world.brain.voltage, world.brain.threshold, network.slope, a), frame * NEURAL_STEP);
+      if (world.time < 10) continue;
+      frames++;
+      if (Array.from(glow.value).some((g, i) => activeStrength(g, rest[i]) !== null)) lit++;
+    }
+    expect(lit / frames).toBeGreaterThan(0.25);
+  });
+});
+
 describe('the activity channel', () => {
   it('tells its listeners of each reading, remembers that it has had one, and stops when asked', () => {
     const activity = new Activity(3);
     expect(activity.published).toBe(false);
     expect(Array.from(activity.glow.value)).toEqual([0.5, 0.5, 0.5]);
+    expect(Array.from(activity.rest)).toEqual([0.5, 0.5, 0.5]);
     let heard = 0;
     const stop = activity.subscribe(() => heard++);
     activity.publish();

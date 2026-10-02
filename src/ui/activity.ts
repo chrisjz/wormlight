@@ -5,6 +5,9 @@ import { Glow } from '../render/glow.ts';
 
 export class Activity {
   readonly glow: Glow;
+  // Each neuron's glow at rest in the brain that runs (restingGlow), ½ until a worm runs: the graph lights a
+  // neuron's synapses as it rises above it.
+  rest: Float64Array;
   // Whether the glow has had a reading, which a view that starts late would otherwise miss.
   published = false;
   // Asks for a worm to run where none runs yet, as with the graph alone on class colours; null where none can be
@@ -14,6 +17,7 @@ export class Activity {
 
   constructor(neurons: number) {
     this.glow = new Glow(neurons);
+    this.rest = new Float64Array(neurons).fill(0.5);
   }
 
   // Tell the listeners the glow has moved on.
