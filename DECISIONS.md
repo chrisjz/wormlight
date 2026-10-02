@@ -3678,7 +3678,7 @@ Its pooled speed has a 95% interval of 0.0672 to 0.0693 body lengths a second, a
 
 **Status.** Run, and revised after review; the sections are regenerated and the account rewritten in this pull request.
 
-## 2026-10-02 — GPU parity's long runs measure the crawl as checkpoint 1 does, and pass on track S's fit in Chrome (revised after review)
+## 2026-10-02 — GPU parity's long runs measure the crawl as checkpoint 1 does, and pass on track S's fit in Chrome and Safari (revised after review)
 
 **Why.** PLAN §7.2's long runs compare crawling frequency and speed. While checkpoint 1 was below partial they compared the body wave instead, the mid-body curvature's spread and its plain frequency (2026-09-26). On 2026-09-29, before any long run on a partial fit, the rule was set for one: each run's frequency and speed are measured as checkpoint 1 measures them, over that run's forward bouts of 10 s or more, and "a run without one is left out and counted. The code measuring them is built before any long run on the fit." On 2026-10-01 the frequency took checkpoint 1's band. S's fit grades partial, so this is that code, committed (`5203fa8`) before its long runs ran.
 
@@ -3699,10 +3699,17 @@ Its pooled speed has a 95% interval of 0.0672 to 0.0693 body lengths a second, a
 
 Reported, not graded: the body wave's spread, 1.8869 against 1.8889 κL, and its plain frequency, 0.2425 against 0.2406 Hz, both within ±5%; the GPU's variance over the CPU's, 0.905 for the speed (F test p = 0.42) and 0.935 for the frequency (p = 0.59).
 
-**In Safari, stalled.** Its short checks passed on S's fit, in 83 s. Its long runs ran about 49½ minutes with no result, where on the refit they took about 12½ (the entry of 2026-10-01), the machine having had no input since mid-afternoon and its screen found locked, and were stopped; the app's Safari check stalled the same way with the display idle (the adoption's entry above). They run again with the maintainer at the machine, the display awake.
+**In Safari: pass,** run by the maintainer at the machine at `aabd2ff`, Safari 26.6.2 on the same GPU, the long runs taking about 14 minutes after short checks that passed in 20 s. An earlier attempt had stalled: its long runs ran about 49½ minutes with no result, where on the refit they took about 12½ (the entry of 2026-10-01), the machine having had no input since mid-afternoon and its screen found locked, and were stopped, as the app's Safari check stalled with the display idle (the adoption's entry above). Again every run on each side made a bout and stayed finite, and no solve failed to converge.
+
+| Statistic              | CPU mean | GPU mean | Difference | Margin  | p           |
+| ---------------------- | -------- | -------- | ---------- | ------- | ----------- |
+| Speed (body lengths/s) | 0.0684   | 0.0686   | +0.00026   | ±0.0034 | 9.3 × 10⁻²⁹ |
+| Frequency (Hz)         | 0.2140   | 0.2141   | +0.00009   | ±0.0107 | 1.3 × 10⁻¹⁷ |
+
+Reported, not graded: the body wave's spread, 1.8869 against 1.8887 κL, and its plain frequency, 0.2425 against 0.2408 Hz; the GPU's variance over the CPU's, 0.904 for the speed (p = 0.41) and 0.922 for the frequency (p = 0.51). The CPU side, run in Safari's JavaScript engine, gives Chrome's bouts and frequencies in every run and its speeds within 7.4 × 10⁻¹² of them, the two engines' maths libraries differing in their last bits.
 
 **The stated run time** of the long runs, 11 to 18 minutes on an M5 Max, becomes about 8 minutes in Chrome on S's fit with the short checks, and 11 to 18 on earlier fits and in Safari, in CLAUDE.md, PLAN §8 and the runner's and page's comments.
 
 **Review.** A review of the code and the record found the rule followed: the sampling instants, the arithmetic of the centroid, the head and the curvature, the velocity's window and alignment, the bouts, the band and the kinematics are a trial's, the GPU's reading at the start has no side effect, and every figure here recomputed from the run's record, the CPU side reproducing in Node. It found, and this entry and the pull request now have: tests that held a copy of the long runs' loop, not the loop, now moved into `src/validation/longRuns.ts`; no check that a body stayed finite; Safari's stall absent from `VALIDATION.md` and PLAN; the stated run time; the rule's words misquoted; the commit and the stall each claimed on evidence the record doesn't carry; and smaller points, the wavelength's separation computed inline in two more places among them.
 
-**Status.** Built and run in Chrome, and revised after review; Safari's long runs to run with the maintainer at the machine.
+**Status.** Built, and run in Chrome and in Safari, both passing; revised after review.
