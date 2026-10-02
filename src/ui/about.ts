@@ -11,6 +11,7 @@ import { CITATIONS, type Citation, type CitationId } from '../science/citations.
 import { countFacts, type Facts } from '../science/facts.ts';
 import { COMPONENTS, OMITTED, PRESENTATION, render, SUBSYSTEMS, type SubsystemId } from '../science/fidelity.ts';
 import {
+  asRun,
   checkpoints,
   formatValue,
   ledgerStatus,
@@ -251,13 +252,15 @@ function parameters(): HTMLElement {
     const details = folded(`${PARAM_GROUPS[group]} (${ids.length})`);
     for (const id of ids) {
       const p: Param = PARAMS[id];
+      // As the chosen fit runs it: g_sw and g_p in the conductance form.
+      const shown = asRun(p);
       const entry = el('div', 'about-component');
       const name = el('h5');
       name.append(levelBadge(String(p.level)), ` ${p.name} `, el('code', undefined, p.symbol));
       entry.append(
         name,
         facts([
-          ['Value', `${formatValue(p)}${p.unit ? ` ${p.unit}` : ''}`],
+          ['Value', `${formatValue(shown)}${shown.unit ? ` ${shown.unit}` : ''}`],
           ['Notes', paramNote(p)],
           ['What would raise it', p.upgrade],
           ['Sources', sources(p.sources)],

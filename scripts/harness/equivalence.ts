@@ -20,10 +20,14 @@
 // lesioned (PLAN §7.4), writing data/calibration/r5-chosen.json; VALIDATION.md's checkpoint 1 section waits until
 // the harness runs the fit from the registry.
 //
-// Track S's picks (`--fit track-s`, from data/calibration/s1.json) take it the same way, on track S's model, its
-// measured signs, the D-types' offset and its rectifier, which each trial switches on in its tree; their records are
-// track-s-pick-<N>.json, and the first to pass writes data/calibration/s1-chosen.json (DECISIONS.md, 2026-10-01). Every
-// record a run writes names checkpoint 1's frequency band, on which it grades.
+// Track S's picks (`--fit track-s`, from data/calibration/s1.json) take it the same way, on track S's model, the
+// D-types' offset and its rectifier, which each trial switches on in its tree, and its measured signs; their records
+// are track-s-pick-<N>.json, and the first to pass writes data/calibration/s1-chosen.json (DECISIONS.md, 2026-10-01).
+// Every record a run writes names checkpoint 1's frequency band, on which it grades.
+//
+// Since S's signs moved into the runtime data (DECISIONS.md, 2026-10-02), every fit's trials read them: a look at R's
+// fits or the planned fit, which a full run refuses since their records exist, runs their values on signs they were
+// neither calibrated nor recorded on, so it doesn't reproduce their records; their own commits do.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';

@@ -37,6 +37,7 @@ import {
   ONE_SECOND,
   OTHER_SEED,
   rms,
+  steady,
   SAMPLES,
   SECOND,
   WELL_POSED,
@@ -174,6 +175,7 @@ function secondShares(
   start: [number, number],
   reference: WorldState,
   other: WorldState,
+  keep: readonly boolean[],
 ): LoopSecondResult['shares'] {
   const scale = world.body.params.segmentLength * world.body.params.segments;
   const kr = new Float64Array(reference.x.length);
@@ -194,7 +196,7 @@ function secondShares(
   const centroidError = Math.hypot(ox - rx, oy - ry) / Math.max(travelled, centroidFloor(world));
   const t = reference.awcThreshold;
   return {
-    voltage: rms(reference.brain.voltage, other.brain.voltage, FLOOR) / ONE_SECOND.rms,
+    voltage: rms(reference.brain.voltage, other.brain.voltage, FLOOR, keep) / ONE_SECOND.rms,
     activation: rms(reference.brain.activation, other.brain.activation, 1) / ONE_SECOND.rms,
     curvature: curvature / LOOP_SECOND.curvature,
     centroid: centroidError / LOOP_SECOND.centroid,
@@ -224,7 +226,10 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
   let unconverged = 0;
   for (let sample = 0; sample < SAMPLES; sample++) {
     const steps = SECOND / SAMPLES;
+    // The reference's voltages a step before the sample, which say which neurons are mid-jump there (steady).
+    let before = Float64Array.from(cpu.brain.voltage);
     for (let k = 0; k < steps; k++) {
+      before = Float64Array.from(cpu.brain.voltage);
       cpu.step();
       loose.step();
     }
@@ -232,8 +237,9 @@ async function checkLoopSecond(gpu: GpuWorld, data: WormlightData, c: LoopCase):
     const read = await gpu.read();
     unconverged = read.status.unconverged;
     const truth = cpu.snapshot();
-    shares = worse(shares, secondShares(cpu, start, truth, read.state));
-    reference = worse(reference, secondShares(cpu, start, truth, loose.snapshot()));
+    const keep = steady(truth.brain.voltage, before);
+    shares = worse(shares, secondShares(cpu, start, truth, read.state, keep));
+    reference = worse(reference, secondShares(cpu, start, truth, loose.snapshot(), keep));
     switchSame &&= sameSwitch(cpu, read.state);
     touchSame &&= sameTouch(cpu, read.state);
     referenceSwitchSame &&= cpu.headSwitch.h === loose.headSwitch.h && cpu.switchCurrent === loose.switchCurrent;

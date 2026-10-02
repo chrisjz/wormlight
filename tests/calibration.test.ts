@@ -6,7 +6,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PARAMS, type Param } from '../src/science/params.ts';
+import { CHOSEN_FORM, inForm, PARAMS } from '../src/science/params.ts';
+import { TRACK_S } from '../src/sim/trackS.ts';
 import { PLANNED } from '../src/science/planned.ts';
 import { CALIBRATED, currentParams, isCalibrated, loopParams, type RValues } from '../src/sim/world.ts';
 import { EQUIVALENCE } from '../src/validation/equivalence.ts';
@@ -19,6 +20,7 @@ import {
   TARGETS,
   THIRD_ROUND,
   TRACK_S_ROUND,
+  bounds,
   provisionalValues,
   ranked,
   surveyStart,
@@ -62,24 +64,36 @@ describe("track R's first fit, with white noise", () => {
   });
 });
 
-describe("track R's calibrated values", () => {
-  it("are its refit's final ones, unrounded, within the same bounds, once the refit has run", () => {
-    const committed = existsSync(join(ROOT, 'data/calibration/r2.json'));
-    expect(isCalibrated()).toBe(committed);
-    if (!committed) return;
+describe("the registry's calibrated values", () => {
+  // Track S's fit's, its first pick, which replaced the refit (DECISIONS.md, 2026-10-02): the twelve in the conductance
+  // form, within the bounds its calibration searched, and the current form's g_sw and g_p left without a value.
+  it("are track S's fit's, unrounded, in the conductance form, within the bounds it searched", () => {
+    expect(isCalibrated()).toBe(true);
+    expect(CHOSEN_FORM).toBe('conductance');
+    const fit = readJson<{ bounds: { [id: string]: [number, number] }; picks: { values: { [id: string]: number } }[] }>(
+      'data/calibration/s1.json',
+    );
+    const chosen = fit.picks[0].values;
+    expect(Object.keys(chosen).sort()).toEqual([...CALIBRATED].sort());
+    for (const id of CALIBRATED) {
+      const p = inForm(id, PARAMS[id], 'conductance');
+      expect(p.value, id).toBe(chosen[id]);
+      expect(bounds(id, 'conductance', 'track S'), id).toEqual(fit.bounds[id]);
+    }
+    expect([PARAMS.headSwitchGain.value, PARAMS.proprioceptiveGain.value]).toEqual([null, null]);
+    // The app and the harness run it on track S's model.
+    expect(currentParams()).toEqual({
+      ...loopParams(chosen as unknown as RValues, 'conductance'),
+      restOffsets: 'measured',
+      rectified: true,
+    });
+  });
+});
+
+describe("track R's refit, which track S's fit replaced", () => {
+  it('was a whole run from a clean commit, under the settings the code has now', () => {
     const fit = readJson<Record>('data/calibration/r2.json');
     expect(fit.model).toBe('track R, round 1, refit with coloured noise');
-    expect(Object.keys(fit.final.values).sort()).toEqual([...CALIBRATED].sort());
-    for (const id of CALIBRATED) {
-      const p: Param = PARAMS[id];
-      expect(p.value, id).toBe(fit.final.values[id]);
-      expect(p.bounds, id).toEqual(fit.bounds[id]);
-    }
-  });
-
-  it('was a whole run from a clean commit, under the settings the code has now', () => {
-    if (!isCalibrated()) return;
-    const fit = readJson<Record>('data/calibration/r2.json');
     expect(fit.complete).toBe(true);
     expect(fit.budget).toBe(CALIBRATION.budget);
     expect(fit.commit).not.toMatch(/uncommitted/);
@@ -129,7 +143,7 @@ describe("R's second round's record", () => {
     expect(round.final).toEqual(noise.final);
   });
 
-  it("isn't the registry's: the refit stays chosen", () => {
+  it("isn't the registry's", () => {
     expect(CALIBRATED.some((id) => PARAMS[id].value !== round.final.values[id])).toBe(true);
   });
 
@@ -251,7 +265,7 @@ describe("R's third round's record (PLAN §7.3, §9)", () => {
     }
   });
 
-  it("chose no fit: each pick failed §7.2's comparison in turn, at its recorded values, so the refit stays", () => {
+  it("chose no fit: each pick failed §7.2's comparison in turn, at its recorded values, so the refit stayed", () => {
     const sources = new Set<string>();
     round.picks.forEach((pick, k) => {
       const run = readJson<{
@@ -272,9 +286,6 @@ describe("R's third round's record (PLAN §7.3, §9)", () => {
     // Every pick ran at the same sources.
     expect(sources.size).toBe(1);
     expect(existsSync(join(ROOT, 'data/calibration/r5-chosen.json'))).toBe(false);
-    // The app and the harness run the refit, in the current form.
-    const refit = readJson<Record>('data/calibration/r2.json').final.values;
-    expect(currentParams()).toEqual(loopParams(refit as unknown as RValues, 'current'));
   });
 });
 
@@ -307,8 +318,11 @@ describe("track S's calibration (PLAN §7.3, §9; DECISIONS.md, 2026-10-01)", ()
     expect(round).toMatchObject({ model: 'track S', form: 'conductance', complete: true });
     expect(round.commit).not.toMatch(/uncommitted/);
     const recorded = round as unknown as { [key: string]: unknown };
+    // Its parts as it ran: the signs then a switch, `measuredSigns`, which their move into the runtime data retired
+    // when its fit was chosen (DECISIONS.md, 2026-10-02).
     for (const [key, value] of Object.entries(settings(CALIBRATION.budget, 'track S'))) {
-      expect(recorded[key], key).toEqual(JSON.parse(JSON.stringify(value)));
+      const expected = key === 'parts' ? { measuredSigns: true, ...TRACK_S } : value;
+      expect(recorded[key], key).toEqual(JSON.parse(JSON.stringify(expected)));
     }
     const order = ranked(round.phase1.map((p) => ({ seed: p.seed, value: p.final.value })));
     expect(round.ranking.map((r) => r.seed)).toEqual(order.map((r) => r.seed));

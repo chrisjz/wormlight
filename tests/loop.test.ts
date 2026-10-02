@@ -137,12 +137,14 @@ describe('proprioceptive fields', () => {
 });
 
 describe('the world', () => {
-  it("runs track R's model on its refit's values, coloured noise and all, its provisional values kept beside them (PLAN §9)", () => {
+  it("runs track S's model on its fit's values, coloured noise and all, its provisional values kept beside them (PLAN §9)", () => {
     expect(isCalibrated()).toBe(true);
-    expect(currentParams()).toEqual(calibratedParams('current'));
-    // A registry without the fit's values has none to give.
+    // Track S's fit, in the conductance form, on S's model (DECISIONS.md, 2026-10-02).
+    expect(currentParams()).toEqual({ ...calibratedParams('conductance'), restOffsets: 'measured', rectified: true });
+    // The current form, which the refit ran, has no fit now, and a registry without the fit's values has none to give.
+    expect(() => calibratedParams('current')).toThrow(/not calibrated/);
     const uncalibrated = { ...PARAMS, noiseCorrelation: { ...PARAMS.noiseCorrelation, value: null } };
-    expect(() => calibratedParams('current', uncalibrated)).toThrow(/not calibrated/);
+    expect(() => calibratedParams('conductance', uncalibrated)).toThrow(/not calibrated/);
     expect(currentParams()).toMatchObject({
       relativeDrive: true,
       oscillatorGain: (PARAMS.oscillatorExcitability.value as number) / 1000,

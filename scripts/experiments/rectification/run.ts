@@ -11,9 +11,9 @@
 // AVA's rise, the A-types' mean rise in voltage and in activation, VA5's and DA4's, and how many gates are open at the
 // step's end. Then the other way round: each A-type takes the step, and AVA's rise is printed beside theirs.
 //
-// The input resistances: each neuron's with every activation held at rest and each gate as the rest sets it, in the
-// runtime model, in S's model without its rectifier, and in S's whole model, beside Liu et al.'s 2.50 GΩ for AVA and
-// 3.47 GΩ for VA5. It takes a few seconds and writes nothing.
+// The input resistances: each neuron's with every activation held at rest and each gate as the rest sets it, with no
+// offset or rectifier, as the refit's model had them, in S's model without its rectifier, and in S's whole model,
+// beside Liu et al.'s 2.50 GΩ for AVA and 3.47 GΩ for VA5. It takes under a second and writes nothing.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,12 +21,12 @@ import { validateWormlightData } from '../../../src/data/schema.ts';
 import { Brain, inputConductance, restOf } from '../../../src/sim/brain/brain.ts';
 import { connections, cookNetwork, gapRows, openRectified, type Network } from '../../../src/sim/brain/network.ts';
 import { NEURAL_STEP } from '../../../src/sim/numerics.ts';
-import { rectify, restOffsets, withMeasuredSigns } from '../../../src/sim/trackS.ts';
+import { rectify, restOffsets } from '../../../src/sim/trackS.ts';
 import { ROOT } from '../../data/sources.ts';
 
 const data = validateWormlightData(JSON.parse(readFileSync(join(ROOT, 'public/data/wormlight.v1.json'), 'utf8')));
-const signed = withMeasuredSigns(data);
-const both = cookNetwork(signed);
+// S's measured signs, the runtime data's since its fit was chosen.
+const both = cookNetwork(data);
 const rectified = rectify(both);
 const at = (name: string): number => both.names.indexOf(name);
 const pairs = new Set((rectified.rectified ?? []).flatMap(([a, b]) => [`${a} ${b}`, `${b} ${a}`]));
@@ -39,7 +39,7 @@ const removed: Network = {
 };
 const aTypes = both.names.flatMap((name, i) => (/^(DA|VA)\d+$/.test(name) ? [i] : []));
 const ava = [at('AVAL'), at('AVAR')];
-const offset = restOffsets(signed, 'measured');
+const offset = restOffsets(data, 'measured');
 const fixed = (x: number, digits = 2): string => (x >= 0 ? '+' : '') + x.toFixed(digits);
 
 console.log("The amplifier: a current step into each AVA for 1 s, from rest, in S's model.\n");
@@ -92,17 +92,18 @@ for (const [label, network] of variants) {
 }
 
 console.log('\nInput resistances (GΩ), every activation held at rest and each gate as the rest sets it.\n');
-const runtime = restOf(cookNetwork(data), new Float64Array(both.names.length));
+// With every activation held, a flipped sign keeps its synapse's conductance, so this column is the refit's model's too.
+const plain = restOf(cookNetwork(data), new Float64Array(both.names.length));
 const unrectified = restOf(both, offset);
 const whole = restOf(rectified, offset);
 const resistance = (rest: ReturnType<typeof restOf>, name: string): string =>
   (1 / inputConductance(rest.network, rest.activation, at(name))).toFixed(2);
 const measured: Record<string, string> = { AVAL: '2.50 (AVA)', AVAR: '2.50 (AVA)', VA5: '3.47' };
-console.log("| Neuron | Runtime model | S's, unrectified | S's whole | Liu et al. 2017 |");
+console.log("| Neuron | No offset or rectifier | S's, unrectified | S's whole | Liu et al. 2017 |");
 console.log('| ------ | ------------- | ---------------- | --------- | --------------- |');
 for (const name of ['AVAL', 'AVAR', 'VA5', 'VA8', 'DA4']) {
   console.log(
-    `| ${name} | ${resistance(runtime, name)} | ${resistance(unrectified, name)} | ${resistance(whole, name)} | ${measured[name] ?? ''} |`,
+    `| ${name} | ${resistance(plain, name)} | ${resistance(unrectified, name)} | ${resistance(whole, name)} | ${measured[name] ?? ''} |`,
   );
 }
 console.log(`\nGates open at S's rest: ${openRectified(rectified, whole.voltage).open} of 37.`);

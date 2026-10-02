@@ -107,7 +107,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     name: 'Synaptic strengths',
     solid: 'Relative sizes from EM',
     notSolid:
-      "Strength assumed proportional to section count, with one conductance per unit, and every gap junction conducting both ways; track S's model, which no fit uses yet, rectifies AVA's junctions with the A-types",
+      "Strength assumed proportional to section count, with one conductance per unit; every gap junction conducts both ways but AVA's with the A-types, which track S's model, the app's since its fit was chosen, rectifies",
     upgrade: 'Per-connection physiology (paired recordings, voltage imaging)',
     sources: [],
   },
@@ -115,7 +115,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     name: 'Neuron dynamics',
     solid: "Kunert et al.'s published whole-network model and parameters",
     notSolid:
-      "Every neuron is the same passive cell, with no spikes, plateaus or channel diversity, resting at its threshold; track S's model, which no fit uses yet, rests the D-types above theirs",
+      "Every neuron is the same passive cell, with no spikes, plateaus or channel diversity, resting at its threshold but the D-types, which track S's model, the app's since its fit was chosen, rests above theirs",
     upgrade: 'Cell-type-specific membrane models',
     sources: ['kunert2014'],
   },
@@ -124,7 +124,7 @@ export const SUBSYSTEMS: Record<SubsystemId, Subsystem> = {
     solid:
       'Documented rhythm generators (Ji 2021; Fouad 2018; Gao 2018) and measured front-to-back coupling (Wen 2012)',
     notSolid:
-      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling does not yet emerge: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison. A third, R's last, was paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, and the model has no backward mode. A conductance form of the two is built beside them, and a survey of it found partial crawlers in two of sixteen searches, slow and paced by the head switch, so that round ran on it. None of its picks passed the time-step comparison, so R ended below partial, its crawl still paced by the head switch (DECISIONS.md)",
+      "Which cells generate the rhythm is still debated; the oscillator form is ours and its gains are tuned. Crawling emerges only at checkpoint 1's partial grade, and paced by the head switch: at the milestone 0c go/no-go, none of the parameter draws tried made the planned model crawl, and nor did its calibration. Track R's first fit crawled in bouts, but its result depended on the time step. Its refit, with a coloured noise, doesn't depend on the step and fails checkpoint 1: its forward motion comes from the head switch alone, its B-types held below threshold, so R's first round ended. A second, changing the calibration, found a partial crawler in one probe search of four but not in its full run, whose fit fails §7.2's comparison. A third, R's last, was paused: that crawl rests on the head switch's and proprioception's currents, which have no reversal potential, and the model has no backward mode. A conductance form of the two is built beside them, and a survey of it found partial crawlers in two of sixteen searches, slow and paced by the head switch, so that round ran on it. None of its picks passed the time-step comparison, so R ended below partial, its crawl still paced by the head switch. Track S's fit, with measured signs, the D-types' offset and AVA's rectified junctions, holds at half the step and grades partial, paced by the head switch at its strongest gain with the B-types' oscillator at 0 (DECISIONS.md)",
     upgrade: 'A settled rhythm-generation mechanism with cell-level parameters',
     sources: ['ji2021', 'fouad2018', 'gao2018', 'wen2012'],
   },
@@ -209,7 +209,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "Cook et al. 2019, with the lab's July 2020 corrections and 2023 BDU–ALM and BDU–PLM junctions (Emmons 2024)",
     caveats:
-      "As above; no innexin identity, and no rectification in the model the app runs, though current crosses the AVA–A-type junctions only from the motor neurons into AVA (Liu et al. 2017), which track S's model builds; the 14 junctions between a neuron and itself are omitted",
+      "As above; no innexin identity. Current crosses the AVA–A-type junctions only from the motor neurons into AVA (Liu et al. 2017), which the model the app runs, track S's, rectifies; every other junction conducts both ways. The 14 junctions between a neuron and itself are omitted",
     upgrade: 'Innexin expression and rectification data',
     sources: ['cook2019', 'emmons2024', 'liu2017'],
     testedBy: [],
@@ -295,10 +295,15 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "The chemical signs for which the sign audit's sources (docs/sign-audit.md) record a response in the postsynaptic cell to a manipulation targeted at the presynaptic cell: 27 connections flipped to inhibitory, AVA⇄AVB, ASH→AVB, PVP→AVA, AIB→RIM, AIB→RIB and SAA→RIM, and 17 confirmed",
     caveats:
-      "Built for track S's model, which no fit uses yet; the app runs the signs above. Several rest on calcium imaging, at level 5 here though weaker than patch clamp, some in freely moving worms; some drivers reached other cells too. AVA⇄AVB's and ASH→AVB's currents may be polysynaptic, and AVB→AVA is contested (Meng et al. 2024). The model's synapses have one timescale, so AVA→AVB takes its fast, inhibitory sign (DECISIONS.md, 2026-10-01)",
+      "In the runtime data since track S's fit was chosen, moved there from a side file only S's model read (DECISIONS.md, 2026-10-02). Several rest on calcium imaging, at level 5 here though weaker than patch clamp, some in freely moving worms; some drivers reached other cells too. AVA⇄AVB's and ASH→AVB's currents may be polysynaptic, and AVB→AVA is contested (Meng et al. 2024). The model's synapses have one timescale, so AVA→AVB takes its fast, inhibitory sign (DECISIONS.md, 2026-10-01)",
     upgrade: 'Recordings of each command-circuit synapse with cell-specific drivers, and of their timescales',
     sources: ['roberts2016', 'zhang2025', 'piggott2011', 'wang2020', 'huo2024', 'li2014', 'lin2024', 'meng2024'],
-    testedBy: [{ check: 'unit', detail: "the side file's rows reach track S's brain, and no other" }],
+    testedBy: [
+      {
+        check: 'unit',
+        detail: "each row signs its connection in the runtime data, and AVA's synapse onto AVB inhibits",
+      },
+    ],
   },
   {
     name: 'Neuromuscular signs',
@@ -362,7 +367,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "AVA's 37 gap junctions with the A-types pass current only from the A-type into AVA, g·max(V_A − V_AVA, 0), at each junction's own conductance: Liu et al. 2017 measured the direction with VA5, VA8 and DA4 (5 for those pairs) and read it as holding for every A-type (2). Each gate is set from the voltages at a step's start and both voltages are then implicit, so the solve stays symmetric; the rest is a fixed point of the gates",
     caveats:
-      "Built for track S's model, which no fit uses yet; the app's junctions conduct both ways. The form is ours (0), with no value to set. The rectifier reads the model's voltages, where AVA and the A-types rest within a few millivolts, so 10 of the 37 gates are open at rest and the noise turns them, where in the animal they are shut. The model reproduces little of the amplification Liu et al. found, and not by their mechanism: removing the junctions lowers the A-types' AVA-evoked depolarisation by about a third at small signals and less at larger ones, as AVA's rise shuts the gates, and AVA's input resistance is a tenth of the measured value (DECISIONS.md, 2026-10-02)",
+      "The app runs it since track S's fit was chosen (DECISIONS.md, 2026-10-02). The form is ours (0), with no value to set. The rectifier reads the model's voltages, where AVA and the A-types rest within a few millivolts, so 10 of the 37 gates are open at rest and the noise turns them, where in the animal they are shut. The model reproduces little of the amplification Liu et al. found, and not by their mechanism: removing the junctions lowers the A-types' AVA-evoked depolarisation by about a third at small signals and less at larger ones, as AVA's rise shuts the gates, and AVA's input resistance is a tenth of the measured value (DECISIONS.md, 2026-10-02)",
     upgrade: 'Recordings of AVA with each A-type, and a frame in which each class keeps its own rest',
     sources: ['liu2017'],
     testedBy: [
@@ -404,7 +409,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2],
     basis: "Our adaptation of Kunert's equilibrium threshold (DECISIONS.md)",
     caveats: (f) =>
-      `Every neuron rests at half activation, though measured resting potentials differ by class: −71.7 mV in VA5 against −53.2 mV in VB6 (Liu, Chen & Wang 2014). In Cook's data the A-types' excitatory junctions onto muscle have ${f.motorMuscle.A.ventral} EM sections ventrally and ${f.motorMuscle.A.dorsal} dorsally, against the B-types' ${f.motorMuscle.B.ventral} and ${f.motorMuscle.B.dorsal}, so half-on A-types drive the muscles at least as much as the B-types do`,
+      `Every neuron rests at half activation but the D-types, which track S's model rests 7.4 mV above theirs, though measured resting potentials differ by class: −71.7 mV in VA5 against −53.2 mV in VB6 (Liu, Chen & Wang 2014). In Cook's data the A-types' excitatory junctions onto muscle have ${f.motorMuscle.A.ventral} EM sections ventrally and ${f.motorMuscle.A.dorsal} dorsally, against the B-types' ${f.motorMuscle.B.ventral} and ${f.motorMuscle.B.dorsal}, so half-on A-types drive the muscles at least as much as the B-types do`,
     upgrade: 'Measured resting states',
     sources: ['kunert2014', 'liu2014', 'cook2019'],
     testedBy: [{ check: 'checkpoint5' }],
@@ -416,7 +421,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "The D-types rest 7.4 mV above their thresholds, VD5's rest less VB6's at zero current (Liu, Chen & Wang 2014), every class's sigmoid taken to have its midpoint where the B-types rest; each class's activation at rest follows, the rest is one solve with every activation held at its value, the oscillators keep their places relative to rest, and relative drive's baseline, AWC's gain and touch's currents are set at that rest",
     caveats:
-      "Built for track S's model, which no fit uses yet; the app runs every neuron at its threshold. The shared midpoint is ours (0), and so is giving the dorsal D-types VD5's value. The A-types keep their midpoint: VA5's rest is a down state, and the model's neurons rest near −10 mV, so its difference would put their thresholds above the excitatory reversal potential. AVA and AVB, which hold several stable states, keep theirs; a sensitivity setting gives AVA its offsets from Liu, Chen & Wang 2020. The model's D-types rest near E_exc with or without the offset, so with it they release at 75% of a synapse's ceiling and can rise little further (DECISIONS.md, 2026-10-02)",
+      "The app runs them since track S's fit was chosen (DECISIONS.md, 2026-10-02). The shared midpoint is ours (0), and so is giving the dorsal D-types VD5's value. The A-types keep their midpoint: VA5's rest is a down state, and the model's neurons rest near −10 mV, so its difference would put their thresholds above the excitatory reversal potential. AVA and AVB, which hold several stable states, keep theirs; a sensitivity setting gives AVA its offsets from Liu, Chen & Wang 2020. The model's D-types rest near E_exc with or without the offset, so with it they release at 75% of a synapse's ceiling and can rise little further (DECISIONS.md, 2026-10-02)",
     upgrade: 'Recordings of every motor class, dorsal and ventral, in one preparation, and of where each releases',
     sources: ['liu2014', 'liu2020'],
     testedBy: [
@@ -432,9 +437,10 @@ export const COMPONENTS: readonly Component[] = [
     name: 'Neural noise',
     subsystem: 'neurons',
     levels: [1],
-    basis: 'Calibrated with the other calibrated values against crawling and the spontaneous reversal rate (PLAN §7.3)',
+    basis:
+      "Calibrated with the other calibrated values against the crawl's frequency, wavelength and speed, by track S's procedure, so the spontaneous reversal rate is a prediction (PLAN §7.3; spec §4)",
     caveats:
-      "A coloured current, an Ornstein–Uhlenbeck process in each neuron; its intensity and correlation time are tuned. White noise before track R's refit (DECISIONS.md)",
+      "A coloured current, an Ornstein–Uhlenbeck process in each neuron; its intensity and correlation time are tuned. White noise before track R's refit, whose calibration fitted the reversal rate; track S's fit, without that target, hardly reverses (DECISIONS.md)",
     upgrade: 'Measured noise statistics',
     sources: ['gray2005'],
     testedBy: [
@@ -468,7 +474,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       'Ji et al. 2021 (threshold 2.33 and derivative weight 46 ms, on curvature averaged over the 0.1–0.3 head region; level 2 on agar); Yeon et al. 2018 (SMDD proprioceptive)',
     caveats:
-      "The gain is calibrated (1); gating by network drive is ours (0). Its injected current has no reversal potential, where published switches keep their units bounded: R's refit holds the SMDs near ±210 mV, far outside the model's reversal range; a conductance form is built beside it, which no fit uses yet (DECISIONS.md)",
+      "The gain is calibrated (1); gating by network drive is ours (0). Its injected current has no reversal potential, where published switches keep their units bounded: R's refit held the SMDs near ±210 mV, far outside the model's reversal range. Track S's fit runs the conductance form, at its strongest gain, about fifty times its targets' passive loads, so its gate stays open and it clamps the SMDs (DECISIONS.md)",
     upgrade: 'Recordings of the head rhythm generator',
     sources: ['ji2021', 'yeon2018'],
     testedBy: [
@@ -482,7 +488,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1, 0],
     basis: 'Fouad et al. 2018; Xu et al. 2018 (abstract only); AVB needed for forward movement (Chalfie et al. 1985)',
     caveats:
-      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's first fit set it to 0, and the B-types still carried the crawl without one; its refit set it to 3.9 nS, which, with θ_osc at its floor, clamps them below threshold (DECISIONS.md)",
+      "Applying the FitzHugh–Nagumo form, with its standard constants 0.7 and 0.8, to these cells is ours (0); its parameters are calibrated (1), the excitability apart from the A-types' in track R's model, where at 0 the B-types have no oscillator. R's first fit set it to 0, and the B-types still carried the crawl without one; its refit set it to 3.9 nS, which, with θ_osc at its floor, clamps them below threshold, and track S's fit sets it to 0 again (DECISIONS.md)",
     upgrade: 'A parameterised model of the B-type rhythm',
     sources: ['fouad2018', 'xu2018', 'chalfie1985', 'fitzhugh1961', 'nagumo1962'],
     testedBy: [
@@ -509,7 +515,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [3, 1],
     basis: "Wen et al. 2012: driven by bending of the ~200 µm in front of each neuron's muscles",
     caveats:
-      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; a conductance form is built beside it, which no fit uses yet (DECISIONS.md). No delay is added beyond the muscles' and body's own lags (PLAN §4.3): at the go/no-go, on the planned model, delays of 80, 300 and 550 ms in this loop changed nothing, and Kim et al. 2025's delayed feedback of the network's own state, rebuilt as their code has it in place of curvature sensing, gave no crawl (PLAN §10; DECISIONS.md, 2026-09-26)",
+      "The gain is calibrated (1). Its injected current has no reversal potential, so weakly coupled B-types can be driven far outside the reversal range, to about ±210 mV at probe 14's corner; track S's fit runs the conductance form instead (DECISIONS.md). No delay is added beyond the muscles' and body's own lags (PLAN §4.3): at the go/no-go, on the planned model, delays of 80, 300 and 550 ms in this loop changed nothing, and Kim et al. 2025's delayed feedback of the network's own state, rebuilt as their code has it in place of curvature sensing, gave no crawl (PLAN §10; DECISIONS.md, 2026-09-26)",
     upgrade: 'Identified stretch receptors and their gain',
     sources: ['wen2012', 'kim2025'],
     testedBy: [
@@ -523,7 +529,7 @@ export const COMPONENTS: readonly Component[] = [
     levels: [2, 1],
     basis: "Mirror of Wen's coupling; Gao et al. 2018 infer motor neurons are likely proprioceptive",
     caveats:
-      'No direct evidence; shares the B-type gain, and its injected current likewise has no reversal potential; a conductance form is built beside it, which no fit uses yet (DECISIONS.md)',
+      "No direct evidence; shares the B-type gain, and its injected current likewise has no reversal potential; track S's fit runs the conductance form instead (DECISIONS.md)",
     upgrade: 'Direct evidence on A-type sensing',
     sources: ['wen2012', 'gao2018'],
     testedBy: [{ check: 'checkpoint2' }],
@@ -536,7 +542,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "Push-pull conductances towards the synapses' reversal potentials (Wicks et al. 1996) in place of the injected currents (PLAN §4.3); the SMDs' stretch-sensing TRPC channels (Yeon et al. 2018) suit the excitatory half",
     caveats:
-      "Built beside the current form, which the refit runs; no fit uses it yet. The form is ours (0) and its gains are calibrated (1), within bounds set by a 1 mV rule; using the synapses' reversal potentials for these channels is ours (0), and nothing is cited for the inhibitory halves. Since the targets' thresholds sit 4–15 mV below E_exc and 33–44 mV above E_inh, push-pull inhibits on average (DECISIONS.md)",
+      "Track S's fit runs it, since its fit replaced the refit, which ran the current form (DECISIONS.md, 2026-10-02). The form is ours (0) and its gains are calibrated (1), within bounds set by a 1 mV rule; using the synapses' reversal potentials for these channels is ours (0), and nothing is cited for the inhibitory halves. Since the targets' thresholds sit 4–15 mV below E_exc and 33–44 mV above E_inh, push-pull inhibits on average (DECISIONS.md)",
     upgrade: 'Measured reversal potentials of the stretch-sensitive channels in SMD and the motor neurons',
     sources: ['wicks1996', 'yeon2018'],
     testedBy: [
@@ -828,7 +834,7 @@ export const OMITTED: readonly { text: string; sources: readonly CitationId[] }[
     sources: [],
   },
   {
-    text: "Glia, gap-junction rectification but for track S's AVA–A-type junctions, in a model no fit uses yet, individual variation, development and learning.",
+    text: "Glia, gap-junction rectification but for AVA's junctions with the A-types, individual variation, development and learning.",
     sources: [],
   },
 ];

@@ -37,18 +37,10 @@ export const USES: Record<Job, Uses> = {
     reads: [...BUILD, 'public/', 'tests/visual/'],
   },
   gpu: { entries: ['parity.html', 'scripts/gpu/parity.ts'], reads: [...BUILD, 'public/data/'] },
-  // The data build's pinned inputs and its outputs, which it formats with Prettier; track S's module among them, which
-  // the other jobs import as code.
+  // The data build's pinned inputs and its outputs, which it formats with Prettier.
   data: {
     entries: ['scripts/data/build.ts'],
-    reads: [
-      'data/',
-      'public/data/',
-      'DATA_SOURCES.md',
-      'src/data/trackSSigns.ts',
-      '.prettierrc.json',
-      '.prettierignore',
-    ],
+    reads: ['data/', 'public/data/', 'DATA_SOURCES.md', '.prettierrc.json', '.prettierignore'],
     not: ['data/calibration/', 'data/equivalence/'],
   },
 };

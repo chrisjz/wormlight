@@ -5,6 +5,7 @@ import { CITATIONS, reference, type CitationId } from '../../src/science/citatio
 import type { Facts } from '../../src/science/facts.ts';
 import { COMPONENTS, OMITTED, PRESENTATION, SUBSYSTEMS, render, type SubsystemId } from '../../src/science/fidelity.ts';
 import {
+  asRun,
   calibratedText,
   checkpoints,
   formatNumber,
@@ -38,8 +39,19 @@ const cite = (ids: readonly CitationId[]): string => ids.map((id) => CITATIONS[i
 function paramRows(ids: ParamId[]): string[][] {
   return ids.map((id) => {
     const p: Param = PARAMS[id];
+    // As the chosen fit runs it: g_sw and g_p in the conductance form, their current form's entry in the note.
+    const shown = asRun(p);
     const note = paramNote(p);
-    return [p.name, `\`${p.symbol}\``, formatValue(p), p.unit, String(p.level), cite(p.sources), note, p.upgrade];
+    return [
+      p.name,
+      `\`${p.symbol}\``,
+      formatValue(shown),
+      shown.unit,
+      String(p.level),
+      cite(p.sources),
+      note,
+      p.upgrade,
+    ];
   });
 }
 

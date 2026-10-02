@@ -26,20 +26,22 @@ describe('the committed runtime file', () => {
 
   it('signs chemical synapses with the coverage of PLAN §2.4', () => {
     const sections = (source: SignSource) => bySource(source).reduce((sum, c) => sum + c.sections, 0);
-    // Fenyves signs 1,763 connections. The seven physiology overrides take seven of them, and 40 are set
-    // aside because their presynaptic transmitter is not one of the cell's Wang identities.
+    // Fenyves signs 1,763 connections. The 51 physiology overrides, AWC's seven and track S's 44 since its fit was
+    // chosen (DECISIONS.md, 2026-10-02), take 24 of them and 27 the transmitter rule signed, and 40 are set aside
+    // because their presynaptic transmitter is not one of the cell's Wang identities.
     const counts = (['physiology', 'expression', 'rule', 'none'] as const).map((source) => bySource(source).length);
-    expect(counts).toEqual([7, 1716, 1453, 533]);
+    expect(counts).toEqual([51, 1699, 1426, 533]);
     expect([sections('physiology'), sections('expression'), sections('rule'), sections('none')]).toEqual([
-      91, 11427, 7392, 2055,
+      850, 11048, 7012, 2055,
     ]);
   });
 
   it('signs AWC to AIY inhibitory and AWC to AIB excitatory, from Chalasani et al. 2007', () => {
-    for (const c of bySource('physiology')) {
+    for (const c of bySource('physiology').filter((x) => x.pre.startsWith('AWC'))) {
       expect(c.citation).toBe('chalasani2007');
       expect(c.sign).toBe(c.post.startsWith('AIY') ? -1 : 1);
     }
+    expect(bySource('physiology').filter((c) => c.citation === 'chalasani2007')).toHaveLength(7);
     expect(data.chemical.find((c) => c.pre === 'AWCL' && c.post === 'AIYL')).toMatchObject({ sign: -1, sections: 22 });
   });
 

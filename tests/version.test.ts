@@ -26,14 +26,16 @@ const PINNED = readJson<Pinned[]>(HISTORY);
 const BLOCK = 64;
 
 // A sum rounded as PLAN §1 sets: to nine significant figures, or nine decimal places below 1, so that engines that
-// differ in their last bits agree.
-const rounded = (x: number): string => String(Number(Math.abs(x) >= 1 ? x.toPrecision(9) : x.toFixed(9)));
+// differ in their last bits agree; the rods' velocities to seven, since a wall's stiff contact makes them the part
+// those last bits move most (DECISIONS.md, 2026-10-02).
+const rounded = (x: number, digits = 9): string =>
+  String(Number(Math.abs(x) >= 1 ? x.toPrecision(digits) : x.toFixed(digits)));
 
 // The state a run is judged by, each part named here rather than read from the state's fields, so that renaming or
 // adding one changes nothing: every neuron's voltage, activation, recovery and noise current; each rod's place,
 // angle and velocity; each muscle's activation; the head switch's state and current; AWC-ON's threshold and current;
 // and each touch receptor's current.
-const judged = (s: WorldState): [string, number | ArrayLike<number>][] => [
+const judged = (s: WorldState): [string, number | ArrayLike<number>, number?][] => [
   ['voltage', s.brain.voltage],
   ['activation', s.brain.activation],
   ['recovery', s.brain.recovery],
@@ -41,7 +43,7 @@ const judged = (s: WorldState): [string, number | ArrayLike<number>][] => [
   ['x', s.x],
   ['y', s.y],
   ['theta', s.theta],
-  ['velocity', s.velocity],
+  ['velocity', s.velocity, 7],
   ['muscles', s.muscles],
   ['switch', s.h],
   ['switch current', s.switchCurrent],
@@ -53,15 +55,15 @@ const judged = (s: WorldState): [string, number | ArrayLike<number>][] => [
 // Each part summed, arrays both as they stand and weighted by place, so that values trading places show too, and
 // hashed.
 function print(state: WorldState): string {
-  const parts = judged(state).map(([name, value]) => {
-    if (typeof value === 'number') return `${name} ${rounded(value)}`;
+  const parts = judged(state).map(([name, value, digits]) => {
+    if (typeof value === 'number') return `${name} ${rounded(value, digits)}`;
     let sum = 0;
     let placed = 0;
     for (let i = 0; i < value.length; i++) {
       sum += value[i];
       placed += ((i + 1) * value[i]) / value.length;
     }
-    return `${name} ${rounded(sum)} ${rounded(placed)}`;
+    return `${name} ${rounded(sum, digits)} ${rounded(placed, digits)}`;
   });
   return createHash('sha256').update(parts.join('\n')).digest('hex').slice(0, 16);
 }

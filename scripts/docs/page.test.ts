@@ -54,8 +54,8 @@ describe('countFacts on the committed runtime file', () => {
     expect([facts.neurons, facts.muscles, facts.chemical, facts.autapses, facts.gapPairs]).toEqual([
       302, 95, 3709, 38, 1095,
     ]);
-    expect(facts.signs.expression).toMatchObject({ count: 1716, percent: '46.3%' });
-    expect(facts.signs.rule).toMatchObject({ count: 1453, percentWhole: '39%' });
+    expect(facts.signs.expression).toMatchObject({ count: 1699, percent: '45.8%' });
+    expect(facts.signs.rule).toMatchObject({ count: 1426, percentWhole: '38%' });
     expect(facts.signs.none).toMatchObject({ count: 533, percentWhole: '14%' });
     expect(facts.silentMuscleInputs).toBe(32);
     expect(facts.largestGap).toEqual({ name: 'ALA', sections: 1314 });
@@ -67,7 +67,7 @@ describe('fidelityPage', () => {
   const page = fidelityPage(facts);
 
   it('quotes the counted figures, not typed ones', () => {
-    expect(page).toContain('expression-based signs for 46.3% of chemical edges');
+    expect(page).toContain('expression-based signs for 45.8% of chemical edges');
     expect(page).toContain("ALA's 1,314 gap-junction sections");
     const moved = fidelityPage({ ...facts, largestGap: { name: 'AVAL', sections: 999 } });
     expect(moved).toContain("AVAL's 999 gap-junction sections");

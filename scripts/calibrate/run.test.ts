@@ -126,14 +126,15 @@ describe("each mode's procedure (PLAN §7.3, §9)", () => {
     const r = jobParams({ values, form: 'conductance', seed: 1 });
     const s = jobParams({ values, form: 'conductance', seed: 1, model: 'track S' });
     expect(s).toEqual({ ...r, ...TRACK_S });
-    expect(r).not.toHaveProperty('measuredSigns');
+    expect(r).not.toHaveProperty('restOffsets');
     expect(r).not.toHaveProperty('rectified');
-    expect(TRACK_S).toEqual({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    // Its signs are the runtime data's since its fit was chosen, so its parts are the offsets and the rectifier.
+    expect(TRACK_S).toEqual({ restOffsets: 'measured', rectified: true });
     // Each trial reports the model it ran, and a run stops at one that ran another.
-    expect(() => checkRan([{ ran: 'signs, measured, rectified' }], 'track S')).not.toThrow();
+    expect(() => checkRan([{ ran: 'measured, rectified' }], 'track S')).not.toThrow();
     expect(() => checkRan([{ ran: '' }, { ran: '' }])).not.toThrow();
-    expect(() => checkRan([{ ran: 'signs, measured, rectified' }, { ran: '' }], 'track S')).toThrow(/ran the model ""/);
-    expect(() => checkRan([{ ran: 'signs, measured, rectified' }])).toThrow(/not the ""/);
+    expect(() => checkRan([{ ran: 'measured, rectified' }, { ran: '' }], 'track S')).toThrow(/ran the model ""/);
+    expect(() => checkRan([{ ran: 'measured, rectified' }])).toThrow(/not the ""/);
     expect(() => partsOf('track T' as never)).toThrow(/no model/);
   });
 

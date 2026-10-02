@@ -15,21 +15,22 @@ export interface Odour {
 }
 
 // g_AWC (pA) for each AWC as AWC-ON, by the rule fixed in advance (PLAN §4.1, DECISIONS.md 2026-09-27): the
-// current that raises that AWC 16 mV on the connectome alone. awcGain finds them, and a test holds these to it.
-export const AWC_GAIN = { AWCL: 3.73338, AWCR: 5.51839 } as const;
+// current that raises that AWC 16 mV on the connectome alone, the runtime data's, with every neuron at its threshold
+// and every junction conducting both ways. awcGain finds them, and a test holds these to it. Track S's signs moved into
+// the runtime data when its fit was chosen, which moved them from 3.73338 and 5.51839 (DECISIONS.md, 2026-10-02).
+export const AWC_GAIN = { AWCL: 3.73539, AWCR: 5.51805 } as const;
 export type AwcSide = keyof typeof AWC_GAIN;
 // AWC-ON's gain by the rule below for each model a World runs, keyed by trackSKey (DECISIONS.md, 2026-10-02): the
-// runtime data's, and track S's with its signs, with its D-types' offset as well, and with AVA's offsets too, the
-// last for a sensitivity setting; then each of those with its rectifier, the second of them track S's whole model and
-// the first its setting with the offsets off. A test recomputes each.
+// runtime data's alone, then with the D-types' offset, and with AVA's offsets too, the last for a sensitivity setting;
+// then each of those with track S's rectifier, the second of them track S's whole model, which the app runs, and the
+// first its setting with the offsets off. A test recomputes each.
 export const AWC_GAINS: Readonly<Record<string, Readonly<Record<AwcSide, number>>>> = {
   '': AWC_GAIN,
-  signs: { AWCL: 3.73539, AWCR: 5.51805 },
-  'signs, measured': { AWCL: 3.73541, AWCR: 5.51798 },
-  'signs, measured with AVA': { AWCL: 3.73541, AWCR: 5.518 },
-  'signs, rectified': { AWCL: 3.73539, AWCR: 5.51805 },
-  'signs, measured, rectified': { AWCL: 3.7354, AWCR: 5.51799 },
-  'signs, measured with AVA, rectified': { AWCL: 3.7354, AWCR: 5.518 },
+  measured: { AWCL: 3.73541, AWCR: 5.51798 },
+  'measured with AVA': { AWCL: 3.73541, AWCR: 5.518 },
+  rectified: { AWCL: 3.73539, AWCR: 5.51805 },
+  'measured, rectified': { AWCL: 3.7354, AWCR: 5.51799 },
+  'measured with AVA, rectified': { AWCL: 3.7354, AWCR: 5.518 },
 };
 
 // The rise that sets the gain: 2/β, the working width of the sigmoid (mV).

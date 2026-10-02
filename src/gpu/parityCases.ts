@@ -214,11 +214,28 @@ export const worst = (
   return { share, error };
 };
 
-export const rms = (a: Float64Array, b: Float64Array, floor: number): number => {
+// The RMS relative error of b against a, each entry's relative to max(|a|, floor), over every entry or those `keep`
+// marks.
+export const rms = (a: Float64Array, b: Float64Array, floor: number, keep?: readonly boolean[]): number => {
   let sum = 0;
-  for (let i = 0; i < a.length; i++) sum += ((a[i] - b[i]) / Math.max(Math.abs(a[i]), floor)) ** 2;
-  return Math.sqrt(sum / a.length);
+  let n = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (keep && !keep[i]) continue;
+    sum += ((a[i] - b[i]) / Math.max(Math.abs(a[i]), floor)) ** 2;
+    n++;
+  }
+  return n > 0 ? Math.sqrt(sum / n) : 0;
 };
+
+// A one-second sample's voltage comparison leaves out every neuron the CPU reference moved more than JUMP mV over the
+// step before the sample (changed after results, DECISIONS.md, 2026-10-02, the maintainer's choice). Mid-jump, an
+// oscillator's fast jump, its unstable middle branch taken explicitly, amplifies a difference of hundredths of a
+// millivolt into millivolts for a few steps, after which the two sides agree again, so its voltage there measures the
+// jump's conditioning rather than the implementation. Activations and the body are compared whole. Over the states the
+// loop's parity took when it was set, it leaves out 0.76% of the neuron-samples, 0.09% in the trial setup's.
+export const JUMP = 1; // mV over a step
+export const steady = (now: ArrayLike<number>, before: ArrayLike<number>): boolean[] =>
+  Array.from(now, (v, i) => Math.abs(v - before[i]) <= JUMP);
 
 // The loop's parity (PLAN §7.2, the body's row, set 2026-09-26 before any loop results): the same states, now
 // whole worlds, the body, muscles and head switch included, and both sides run the whole loop. The velocities'
@@ -263,7 +280,7 @@ export function assayField(): OdourField {
 // solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
 // where the gate turns on or off on about half the steps. The last runs the registry's values on the contrast
 // brain (PLAN §3.5), lesioned as a viewer may lesion it (spec §6): its first rewiring, less a command interneuron,
-// a B-type oscillator, a touch receptor and a dorsal SMD. For one run after a review it lesioned AWCL too, AWC-ON
+// a B-type oscillator, a touch receptor and a dorsal SMD, and from 2026-10-02 an A-type too, since the chosen fit gives the B-types no oscillator and the A-type's keeps a lesioned oscillator to pack. For one run after a review it lesioned AWCL too, AWC-ON
 // at its seed; one state then fell on a knife edge, where 0.01 mV decides whether a B-type fires, and failed its
 // one-second check, so AWCL was dropped (DECISIONS.md, 2026-09-30). The loop's API checks a lesioned AWC-ON: its
 // odour reaches no neuron.
@@ -347,12 +364,13 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     name: 'contrast brain, lesioned',
     params: currentParams(),
     rewiring: 1,
-    lesions: ['AVBL', 'VB6', 'ALML', 'SMDDL'],
+    lesions: ['AVBL', 'VB6', 'DA5', 'ALML', 'SMDDL'],
     states: 10,
   },
-  // Track S's model (DECISIONS.md, 2026-10-02): its measured signs, class offsets and rectifier, in the conductance
+  // Track S's model (DECISIONS.md, 2026-10-02) on the trial values: its class offsets and rectifier, in the conductance
   // form it is calibrated in, so that both sides rest its D-types above their thresholds, set its touch's currents and
-  // its muscles' baseline at that rest, run its signs, and gate its AVA–A-type junctions each step.
+  // its muscles' baseline at that rest, and gate its AVA–A-type junctions each step. Its signs are the runtime data's,
+  // as every setup's are; the registry's setup runs its fit.
   {
     name: 'track S',
     params: {
@@ -362,7 +380,6 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
       proprioceptiveGain: 0.05,
       driveThreshold: -3,
       neuromuscularThreshold: -0.2,
-      measuredSigns: true,
       restOffsets: 'measured',
       rectified: true,
     },

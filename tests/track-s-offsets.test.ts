@@ -17,14 +17,16 @@ import {
 import { cookNetwork } from '../src/sim/brain/network.ts';
 import { AWC_GAINS, awcGain } from '../src/sim/sensing.ts';
 import { touchData } from '../src/sim/touch.ts';
-import { AVA_REST_OFFSET, REST_OFFSET, restOffsets, trackSKey, withMeasuredSigns } from '../src/sim/trackS.ts';
+import { AVA_REST_OFFSET, REST_OFFSET, restOffsets, trackSKey } from '../src/sim/trackS.ts';
 import { currentParams, loopParams, World, type LoopParams } from '../src/sim/world.ts';
 import { provisionalValues } from '../src/validation/calibration.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
-const signed = withMeasuredSigns(data);
-const trackS: Partial<LoopParams> = { measuredSigns: true, restOffsets: 'measured' };
+// The chosen fit's values without track S's parts, the model the offsets are added to, on the runtime data, whose
+// signs are S's since its fit was chosen.
+const base: LoopParams = { ...currentParams(), restOffsets: undefined, rectified: undefined };
+const trackS: Partial<LoopParams> = { restOffsets: 'measured' };
 const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
 
 describe("track S's class offsets", () => {
@@ -45,8 +47,8 @@ describe("track S's class offsets", () => {
   });
 
   it('set each threshold its offset above a rest the network holds still', () => {
-    const network = cookNetwork(signed);
-    const offset = restOffsets(signed, 'measured');
+    const network = cookNetwork(data);
+    const offset = restOffsets(data, 'measured');
     const rest = restOf(network, offset);
     rest.threshold.forEach((v, i) => expect(v - rest.voltage[i]).toBeCloseTo(offset[i], 9));
     const brain = new Brain(network, rest.threshold, {}, offset);
@@ -58,23 +60,24 @@ describe("track S's class offsets", () => {
 });
 
 describe("track S's world", () => {
-  const world = new World(data, { ...currentParams(), ...trackS });
-  const refit = new World(data, currentParams());
+  const world = new World(data, { ...base, ...trackS });
+  const plain = new World(data, base);
 
-  it('rests each neuron its offset below its threshold, and the refit at its threshold', () => {
+  it('rests each neuron its offset below its threshold, and a model without offsets at its threshold', () => {
     const { voltage, threshold } = world.brain;
     expect(threshold[at('VD5')] - voltage[at('VD5')]).toBeCloseTo(-7.4, 9);
     expect(threshold[at('VA5')] - voltage[at('VA5')]).toBeCloseTo(0, 9);
     expect(threshold[at('VB6')] - voltage[at('VB6')]).toBeCloseTo(0, 9);
-    expect(refit.brain.voltage).toEqual(refit.brain.threshold);
+    expect(plain.brain.voltage).toEqual(plain.brain.threshold);
   });
 
   it("keeps each oscillator in its place relative to its neuron's rest, θ − Δ, which leaves the A- and B-types at θ", () => {
-    const osc = world.brain.oscillators;
+    // The chosen fit gives the B-types no oscillator, so one is given them here.
+    const osc = new World(data, { ...base, ...trackS, oscillatorGainB: 1 }).brain.oscillators;
     if (!osc) throw new Error('no oscillators');
     const shift = (name: string): number => osc.shift[osc.neurons.indexOf(at(name))];
     expect(shift('VA5')).toBe(0);
-    expect(shift('VB6')).toBe(currentParams().driveThreshold);
+    expect(shift('VB6')).toBe(base.driveThreshold);
   });
 
   it("keeps every threshold within the reversal potentials, where the A-types' measured offset would not", () => {
@@ -85,24 +88,24 @@ describe("track S's world", () => {
     }
   });
 
-  it("starts every muscle at relative drive's baseline, so that at rest it is driven as the refit's are", () => {
-    for (const w of [world, refit]) {
+  it("starts every muscle at relative drive's baseline, so that at rest it is driven as a model's without offsets are", () => {
+    for (const w of [world, plain]) {
       for (let m = 0; m < w.muscles.drive.length; m++) {
         expect(w.muscles.drive[m] - w.muscles.offset[m], w.muscles.names[m]).toBeCloseTo(0, 12);
       }
     }
   });
 
-  it("sizes touch's currents at its own rest, and keeps the refit's", () => {
-    expect(world.touchSets).toBe(touchData(signed, { offset: world.brain.offset }));
-    expect(refit.touchSets).toBe(touchData(data));
-    expect(world.touchSets).not.toBe(touchData(signed));
+  it("sizes touch's currents at its own rest, and keeps those of a model without offsets", () => {
+    expect(world.touchSets).toBe(touchData(data, { offset: world.brain.offset }));
+    expect(plain.touchSets).toBe(touchData(data));
+    expect(world.touchSets).not.toBe(touchData(data));
     const tapped = (t: typeof world.touchSets): number[] => Array.from(t.sets.values()).flatMap((c) => Array.from(c));
-    expect(tapped(world.touchSets)).not.toEqual(tapped(touchData(signed)));
+    expect(tapped(world.touchSets)).not.toEqual(tapped(touchData(data)));
   });
 
   it('refuses a model whose AWC gain is not set', () => {
-    expect(() => new World(data, { ...currentParams(), restOffsets: 'measured' })).toThrow(/no AWC gain/);
+    expect(() => new World(data, { ...base, restOffsets: 'unmeasured' as never })).toThrow(/no AWC gain/);
   });
 });
 
@@ -112,19 +115,19 @@ describe("the rules set at rest, on track S's model", () => {
   it.each(
     (
       [
-        { measuredSigns: true },
+        {},
         trackS,
-        { measuredSigns: true, restOffsets: 'measured with AVA' },
-        { measuredSigns: true, rectified: true },
+        { restOffsets: 'measured with AVA' },
+        { rectified: true },
         whole,
-        { measuredSigns: true, restOffsets: 'measured with AVA', rectified: true },
+        { restOffsets: 'measured with AVA', rectified: true },
       ] as Partial<LoopParams>[]
     ).map((v) => [trackSKey(v), v] as const),
   )("give AWC-ON the gains the table holds for track S's model with %s", { timeout: 60000 }, (_, v) => {
-    const offset = v.restOffsets ? restOffsets(signed, v.restOffsets) : undefined;
+    const offset = v.restOffsets ? restOffsets(data, v.restOffsets) : undefined;
     const gains = AWC_GAINS[trackSKey(v)];
     for (const side of ['AWCL', 'AWCR'] as const) {
-      const gain = awcGain(signed, side, { offset, rectified: v.rectified });
+      const gain = awcGain(data, side, { offset, rectified: v.rectified });
       expect(gain / gains[side], `${trackSKey(v)} ${side}`).toBeCloseTo(1, 5);
     }
   });
@@ -203,7 +206,7 @@ describe('an offset on an oscillating neuron, and the AVA setting', () => {
   });
 
   it("rests AVA above its threshold, every threshold within the reversal potentials, and the head's drive at 0", () => {
-    const ava = new World(data, { ...currentParams(), measuredSigns: true, restOffsets: 'measured with AVA' });
+    const ava = new World(data, { ...base, restOffsets: 'measured with AVA' });
     const { voltage, threshold } = ava.brain;
     expect(threshold[at('AVAL')] - voltage[at('AVAL')]).toBeCloseTo(-29, 9);
     expect(threshold[at('AVAR')] - voltage[at('AVAR')]).toBeCloseTo(-16, 9);

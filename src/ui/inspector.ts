@@ -112,8 +112,8 @@ export class Inspector {
     if (this.activity !== null) {
       this.activityValue = el('dd', 'inspector-activity');
       this.activityValue.title =
-        "Simulated: the model's activation, ½ at rest, filtered as the GCaMP6s indicator would smooth it, on one " +
-        'fixed scale.';
+        "Simulated: the model's activation, ½ at rest but about 0.72 in the D-types, filtered as the GCaMP6s indicator " +
+        'would smooth it, on one fixed scale.';
       facts.append(el('dt', undefined, 'Activity'), this.activityValue);
       this.setActivity(this.activity);
     }

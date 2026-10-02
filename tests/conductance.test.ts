@@ -13,11 +13,11 @@ import { NEURAL_STEP } from '../src/sim/numerics.ts';
 import {
   CALIBRATED,
   calibratedParams,
-  currentParams,
   loopParams,
   provisionalParams,
   World,
   type LoopParams,
+  type RValues,
   type WorldOptions,
 } from '../src/sim/world.ts';
 import {
@@ -37,31 +37,35 @@ import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
 const at = (name: string): number => data.neurons.findIndex((n) => n.name === name);
+// R's refit, in the current form, from its record: the registry held it until track S's fit replaced it.
+const REFIT = loopParams(readJson<{ final: { values: RValues } }>('data/calibration/r2.json').final.values, 'current');
 const [E_EXC, E_INH] = [PARAMS.reversalExcitatory.value, PARAMS.reversalInhibitory.value];
 
-// Sums of a world's state after 400 steps in the current form, made on main at 6c9a857, before the conductance form
-// was built: the voltages and their squares, the activations, the rods' x, y and θ, the muscles, h and the switch's
-// current. Every figure agreed bit for bit with this branch's when the fixture was made.
+// Sums of a world's state after 400 steps in the current form: the voltages and their squares, the activations, the
+// rods' x, y and θ, the muscles, h and the switch's current. First made on main at 6c9a857, before the conductance form
+// was built, every figure agreeing bit for bit with that branch's; taken again when track S's signs moved into the
+// runtime data (DECISIONS.md, 2026-10-02), the refit's recorded values standing in for the registry's, which became S's
+// fit's in the conductance form. They guard the current form's path, which no chosen fit now runs.
 const BEFORE = {
   registry: [
-    -3973.4718537983567, 198488.94244794626, 21.191677687190385, 0.023731433262365223, -2.9412227835891116e-5,
-    79.29069069220823, 53.558260348837244, 0, -155.87220112175532,
+    -4146.495245456935, 205359.45360806258, 21.119692541757406, 0.023724308370214223, -2.9783901388158354e-5,
+    79.30405689251575, 53.57031596845261, 0, -155.87220112175532,
   ],
   provisional: [
-    -3485.047844098273, 241075.87241431867, 23.590092216429802, 0.024430617170406305, 8.07234306025568e-7,
-    76.43168041308142, 8.74056982093242, 1, 185.5,
+    -3630.6410251733923, 242868.62482203104, 23.64340649318537, 0.024430381746192213, 8.066307441535408e-7,
+    76.4315000764936, 8.789197648899632, 1, 185.5,
   ],
   trial: [
-    -3499.959656684626, 69104.59027305848, 23.06199570056559, 0.02452191489086309, -1.650019148138271e-7,
-    77.17884689789315, 14.409445686647967, 1, 50,
+    -3647.9846044109354, 73398.3125608048, 23.097400435550522, 0.024520962020401337, -1.5252632638457982e-7,
+    77.18433490476912, 14.497305168104994, 1, 50,
   ],
   lesioned: [
-    -3788.0930807836125, 173401.6714019755, 21.577831090823796, 0.023722653518002186, -2.8667187146736217e-5,
-    79.27395686563833, 56.605425730367024, 0, -155.87220112175532,
+    -3962.131180144935, 180923.02843635756, 21.48539966571137, 0.023711607095071897, -2.9299212499947897e-5,
+    79.29509238116975, 56.581944892230275, 0, -155.87220112175532,
   ],
   silenced: [
-    -10313.737182534032, 378107.89424820256, 4.49564315799689, 0.024515861714778237, -3.517527072866853e-8,
-    76.67730734756074, 25.880112265207458, 0, 0,
+    -10349.12032384238, 380175.27068850136, 4.667406508113458, 0.024515272618996022, 2.9675474662526386e-8,
+    76.6767316503822, 26.034462365159047, 0, 0,
   ],
 };
 
@@ -223,11 +227,11 @@ describe('the world in the conductance form', () => {
     };
     delete trial.form;
     const setups: [keyof typeof BEFORE, LoopParams, WorldOptions][] = [
-      ['registry', currentParams(), { seed: 1 }],
+      ['registry', REFIT, { seed: 1 }],
       ['provisional', provisionalParams('current'), { seed: 2 }],
       ['trial', trial, { seed: 3, switchThreshold: 0.5 }],
-      ['lesioned', currentParams(), { seed: 4, lesions: ['AVAL', 'AVAR', 'SMDDL'] }],
-      ['silenced', currentParams(), { seed: 5, silenced: true }],
+      ['lesioned', REFIT, { seed: 4, lesions: ['AVAL', 'AVAR', 'SMDDL'] }],
+      ['silenced', REFIT, { seed: 5, silenced: true }],
     ];
     const sum = (a: ArrayLike<number>, f = (x: number): number => x): number =>
       Array.from(a).reduce((t, x) => t + f(x), 0);
@@ -321,7 +325,9 @@ describe("the registry and the calibration's search in the conductance form", ()
     for (const id of ['headSwitchGain', 'proprioceptiveGain'] as const) {
       const conductance = (PARAMS[id] as Param).conductance;
       if (!conductance) throw new Error(`${id} has no conductance form`);
-      expect(conductance.value).toBeNull();
+      // Track S's fit's, which runs in this form, and the current form's left without a value (DECISIONS.md, 2026-10-02).
+      expect(conductance.value).not.toBeNull();
+      expect((PARAMS[id] as Param).value).toBeNull();
       const [lo, hi] = conductance.bounds;
       expect(lo).toBeGreaterThan(0);
       // Its start is the bounds' log midpoint, to the figures the rules give.
@@ -446,13 +452,15 @@ describe("the conductance form's bounds, by PLAN §7.3's 1 mV rule", () => {
     return [lo, hi];
   }
 
+  // On the runtime data with track S's signs, which moved into it when S's fit was chosen (DECISIONS.md, 2026-10-02):
+  // the rule gave 0.0215–47.9 nS and 0.000168–7.83 on the data before, and every bound rounds as it did.
   it('gives the bounds the registry holds, from the runtime data', () => {
     const [swLo, swHi] = rule((w) => [...w.dorsalSwitch, ...w.ventralSwitch]);
-    expect(swLo).toBeCloseTo(0.0215, 4);
-    expect(swHi).toBeCloseTo(47.9, 1);
+    expect(swLo).toBeCloseTo(0.0217, 4);
+    expect(swHi).toBeCloseTo(47.5, 1);
     const [pLo, pHi] = rule((w) => w.fields.map((f) => f.neuron)).map((g) => g / BOUND_RULE_CURVATURE);
-    expect(pLo).toBeCloseTo(0.000168, 6);
-    expect(pHi).toBeCloseTo(7.83, 2);
+    expect(pLo).toBeCloseTo(0.000171, 6);
+    expect(pHi).toBeCloseTo(7.7, 2);
     const registered = (id: 'headSwitchGain' | 'proprioceptiveGain'): readonly number[] =>
       (PARAMS[id] as Param).conductance?.bounds ?? [];
     expect([down(swLo), up(swHi)].map((x) => +x.toPrecision(6))).toEqual(registered('headSwitchGain'));

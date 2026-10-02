@@ -118,8 +118,8 @@ export function csvFields(line: string): string[] {
 
 const OVERRIDE_HEADER = ['pre', 'post', 'sign', 'citation', 'evidence'];
 
-// Parse an overrides file, data/sign-overrides.csv or track S's data/sign-overrides-s.csv, named in its errors: a
-// header, then one row of exactly five fields per overridden edge.
+// Parse an overrides file, data/sign-overrides.csv unless named, named in its errors: a header, then one row of
+// exactly five fields per overridden edge.
 export function parseOverrides(csv: string, file = 'data/sign-overrides.csv'): Override[] {
   const [header, ...lines] = csv.replaceAll('\r\n', '\n').trim().split('\n');
   if (csvFields(header).join(',') !== OVERRIDE_HEADER.join(',')) {

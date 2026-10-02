@@ -3,11 +3,11 @@
 //
 // A parameter is free when we set it ourselves (level 1 or 0), and the free ones count against the
 // budget in PLAN.md §6.2. Calibrated parameters (level 1) are tuned by one CMA-ES procedure, within
-// bounds set here before it runs (PLAN.md §7.3). They are track R's model's (PLAN.md §9), and their values are
-// its refit's final ones, with the coloured noise, unrounded, which data/calibration/r2.json records and a test
-// holds them to; R's first fit, with white noise, is in data/calibration/r1.json. Their provisional values,
-// where the refit started, stay beside them; the planned model's own are in src/science/planned.ts (PLAN.md
-// §6.2). A parameter fixed in advance (level 0)
+// bounds set here before it runs (PLAN.md §7.3). They are track R's model's twelve (PLAN.md §9), and their values are
+// track S's fit's, its first pick, in the conductance form, unrounded, which data/calibration/s1.json records and a
+// test holds them to (DECISIONS.md, 2026-10-02). R's refit, which S's fit replaced, is in data/calibration/r2.json,
+// and its first fit, with white noise, in r1.json. Their provisional values, where R's refit started, stay beside them;
+// the planned model's own are in src/science/planned.ts (PLAN.md §6.2). A parameter fixed in advance (level 0)
 // either has a value or is set by a stated rule. Every parameter says what new data or research
 // would raise it (spec §1.3).
 
@@ -38,13 +38,18 @@ export interface Param {
   // the coloured noise's set for it (DECISIONS.md 2026-09-28).
   provisional?: number;
   // The head switch's and proprioception's gains in the conductance form (PLAN.md §4.3, set 2026-09-29): the same
-  // parameter, counted once, since a fit uses one form. The entry above is the current form's, which the refit runs.
+  // parameter, counted once, since a fit uses one form. The entry above is the current form's, which the refit ran.
   conductance?: ConductanceForm;
 }
 
-// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as every fit so far takes them,
-// or push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
+// The form of the head switch's and proprioception's inputs (PLAN §4.3): currents, as the refit took them, or
+// push-pull conductances towards the model's reversal potentials (set 2026-09-29, DECISIONS.md).
 export type Form = 'current' | 'conductance';
+
+// The form the chosen fit runs, and so the app and the harness: the conductance form, since track S's fit, calibrated
+// in it, replaced the refit (DECISIONS.md, 2026-10-02). g_sw's and g_p's values are their conductance entries'; their
+// current form's, which the refit ran, are null, the refit's own in data/calibration/r2.json.
+export const CHOSEN_FORM: Form = 'conductance';
 
 // The parameters whose entries depend on the form: g_sw and g_p.
 export const FORM_DEPENDENT: readonly string[] = ['headSwitchGain', 'proprioceptiveGain'];
@@ -78,7 +83,7 @@ export const BOUND_RULE_CURVATURE = 8.3;
 
 export const FREE_PARAMETER_BUDGET = 18;
 const CALIBRATION_TARGETS =
-  'undulation frequency, wavelength, speed and the spontaneous reversal rate, by one CMA-ES procedure (PLAN §7.3)';
+  "undulation frequency, wavelength and speed, by track S's procedure, R's third round's, its speed's target 0.15 body lengths per second; R's refit was calibrated against the spontaneous reversal rate as well (PLAN §7.3)";
 
 export const PARAMS = {
   // Neurons and synapses (PLAN §3.2).
@@ -206,7 +211,7 @@ export const PARAMS = {
   noiseIntensity: {
     name: 'Neural noise intensity',
     symbol: 'σ_n',
-    value: 0.05943608161917489,
+    value: 0.056463815037003345,
     unit: 'pA·√s',
     level: 1,
     subsystem: 'neural',
@@ -225,7 +230,7 @@ export const PARAMS = {
     level: 2,
     subsystem: 'neural',
     sources: ['liu2014'],
-    note: "How far the D-types rest below their thresholds in track S's model, Δ = V_th − V_rest: VD5's rest less VB6's, both recorded at zero current (−45.8 and −53.2 mV), with every class's sigmoid taken to have its midpoint where the B-types rest, so they rest 7.4 mV above theirs. The dorsal D-types take VD5's value. The difference is 7.4 ± 3.1 mV in wild type, and ranges from 0.1 to 8.8 mV across the strains whose rests the authors found unchanged. The A-types keep their midpoint: VA5's −71.7 mV is a down state, and in the model's frame it would put their thresholds above the excitatory reversal potential (DECISIONS.md, 2026-10-02). No fit uses it yet.",
+    note: "How far the D-types rest below their thresholds in track S's model, Δ = V_th − V_rest: VD5's rest less VB6's, both recorded at zero current (−45.8 and −53.2 mV), with every class's sigmoid taken to have its midpoint where the B-types rest, so they rest 7.4 mV above theirs. The dorsal D-types take VD5's value. The difference is 7.4 ± 3.1 mV in wild type, and ranges from 0.1 to 8.8 mV across the strains whose rests the authors found unchanged. The A-types keep their midpoint: VA5's −71.7 mV is a down state, and in the model's frame it would put their thresholds above the excitatory reversal potential (DECISIONS.md, 2026-10-02). The app runs it since track S's fit was chosen (DECISIONS.md, 2026-10-02).",
     upgrade:
       'Recordings of the D-types, dorsal and ventral, against the B-types in one preparation, and of where each class releases',
   },
@@ -254,7 +259,7 @@ export const PARAMS = {
   noiseCorrelation: {
     name: 'Neural noise correlation time',
     symbol: 'τ_n',
-    value: 0.2,
+    value: 0.055082096937701844,
     unit: 's',
     level: 1,
     subsystem: 'neural',
@@ -268,7 +273,7 @@ export const PARAMS = {
   gapGainB: {
     name: 'B-type gap junction gain',
     symbol: 'κ_gap,B',
-    value: 1,
+    value: 0.1560110360067542,
     unit: '',
     level: 1,
     subsystem: 'neural',
@@ -386,7 +391,7 @@ export const PARAMS = {
   headSwitchGain: {
     name: 'Head switch gain',
     symbol: 'g_sw',
-    value: 311.74440224351065,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -397,7 +402,7 @@ export const PARAMS = {
     bounds: [20, 400],
     provisional: 371,
     conductance: {
-      value: null,
+      value: 50,
       unit: 'nS',
       bounds: [0.02, 50],
       provisional: 1,
@@ -407,7 +412,7 @@ export const PARAMS = {
   oscillatorExcitability: {
     name: 'A-type oscillator excitability',
     symbol: 'g_osc',
-    value: 5000,
+    value: 837.8361632810063,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -421,7 +426,7 @@ export const PARAMS = {
   oscillatorExcitabilityB: {
     name: 'B-type oscillator excitability',
     symbol: 'g_osc,B',
-    value: 3900.2952142736585,
+    value: 0,
     unit: 'pS',
     level: 1,
     subsystem: 'rhythm',
@@ -435,7 +440,7 @@ export const PARAMS = {
   oscillatorRecoveryTime: {
     name: 'Oscillator recovery time',
     symbol: 'τ_w',
-    value: 2.6416265755471136,
+    value: 1.2252495155772312,
     unit: 's',
     level: 1,
     subsystem: 'rhythm',
@@ -449,7 +454,7 @@ export const PARAMS = {
   oscillatorDriveThreshold: {
     name: 'B-type oscillator drive threshold',
     symbol: 'θ_osc',
-    value: -28,
+    value: -14.868026123781796,
     unit: 'mV',
     level: 1,
     subsystem: 'rhythm',
@@ -474,7 +479,7 @@ export const PARAMS = {
   proprioceptiveGain: {
     name: 'Proprioceptive gain',
     symbol: 'g_p',
-    value: 0.18970755200111186,
+    value: null,
     unit: 'pA',
     level: 1,
     subsystem: 'rhythm',
@@ -485,14 +490,14 @@ export const PARAMS = {
     bounds: [0.1, 30],
     provisional: 0.308,
     conductance: {
-      value: null,
+      value: 0.01574019766708515,
       unit: 'nS per unit of κL',
       bounds: [0.0001, 8],
       provisional: 0.028,
-      rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gives 0.00017–7.8, rounded outward to one significant figure; it starts at the bounds' log midpoint, 0.028 as the rules give it",
+      rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gave 0.00017–7.8, rounded outward to one significant figure, and gives 0.00017–7.7 since track S's signs moved into the runtime data; it starts at the bounds' log midpoint, 0.028 as the rules give it",
       trackS: {
         bounds: [0.0001, 7],
-        rule: "the same rule, which gives 0.00014–6.4 there, since its rectifier shuts most of the AVA–A-type junctions at rest and so lightens the A-types' loads, DA8's the largest",
+        rule: "the same rule, which gives 0.00014–6.4 there, since its rectifier shuts most of the AVA–A-type junctions at rest and so lightens the A-types' loads, DA8's the largest; S's searches start from the survey's Latin hypercube, not the log midpoint",
       },
     },
   },
@@ -501,7 +506,7 @@ export const PARAMS = {
   neuromuscularGain: {
     name: 'Neuromuscular gain',
     symbol: 'g_nmj',
-    value: 7.5460056354475835,
+    value: 40,
     unit: 'per unit of relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -515,7 +520,7 @@ export const PARAMS = {
   neuromuscularThreshold: {
     name: 'Neuromuscular threshold',
     symbol: 'θ_nmj',
-    value: -0.3,
+    value: -0.09942238936802689,
     unit: 'relative drive',
     level: 1,
     subsystem: 'muscle',
@@ -529,7 +534,7 @@ export const PARAMS = {
   smdGain: {
     name: 'SMD junction gain past the head',
     symbol: 'κ_SMD',
-    value: 0.7180212740176531,
+    value: 0.1687180594753887,
     unit: '',
     level: 1,
     subsystem: 'muscle',

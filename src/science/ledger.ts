@@ -4,7 +4,8 @@
 
 import { CHECKS, SUBSYSTEMS, subsystemLevels, type Component, type SubsystemId, type Test } from './fidelity.ts';
 import { levelRange, type Tag } from './levels.ts';
-import { freeParams, PARAMS, type Param, type Subsystem } from './params.ts';
+import { CHOSEN_MODEL } from '../sim/trackS.ts';
+import { CHOSEN_FORM, freeParams, PARAMS, type Param, type Subsystem } from './params.ts';
 
 export const TAG_SYMBOL: Record<Tag, string> = { omitted: '—', presentation: '◇' };
 // The parameter registry's groups, by the subsystem each parameter belongs to.
@@ -93,29 +94,43 @@ export function calibratedText(calibrated: readonly Param[]): string {
 // A parameter's notes as the ledger gives them: its note and rule, what it is calibrated against, its bounds, and
 // its conductance form's entry beside the current form's (PLAN §4.3).
 export function paramNote(p: Param): string {
+  const shown = asRun(p);
   const bounds =
-    p.bounds === undefined
+    shown.bounds === undefined
       ? ''
-      : p.bounds === null
+      : shown.bounds === null
         ? 'Its bounds are set before calibration runs.'
-        : `Bounds ${formatNumber(p.bounds[0])} to ${formatNumber(p.bounds[1])}.`;
+        : `Bounds ${formatNumber(shown.bounds[0])} to ${formatNumber(shown.bounds[1])}.`;
   const c = p.conductance;
-  const conductance = c
-    ? `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${formatNumber(c.bounds[0])} to ${formatNumber(c.bounds[1])}, by ${c.rule}.`
-    : '';
-  const trackS = c?.trackS
-    ? `On track S's model, bounds ${formatNumber(c.trackS.bounds[0])} to ${formatNumber(c.trackS.bounds[1])}, by ${c.trackS.rule}.`
-    : '';
-  return [
-    p.note,
-    p.rule,
-    p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '',
-    bounds,
-    conductance,
-    trackS,
-  ]
+  const range = (b: readonly [number, number]): string => `${formatNumber(b[0])} to ${formatNumber(b[1])}`;
+  let forms = '';
+  if (c && CHOSEN_FORM === 'conductance') {
+    // The chosen fit's form is the conductance form: its bounds' rule, and the current form's entry, which the refit ran.
+    const own = CHOSEN_MODEL === 'track S' && c.trackS;
+    forms = [
+      own
+        ? `In the conductance form, which the chosen fit runs, its bounds are ${range(c.bounds)} by ${c.rule}; on track S's model, whose fit is chosen, ${range(c.trackS?.bounds ?? c.bounds)}, by ${c.trackS?.rule}.`
+        : `In the conductance form, which the chosen fit runs, by ${c.rule}.`,
+      `In the current form, which the refit ran, in ${p.unit}: bounds ${p.bounds ? range(p.bounds) : 'none'}${p.provisional === undefined ? '' : `, provisionally ${formatNumber(p.provisional)}`}.`,
+    ].join(' ');
+  } else if (c) {
+    forms = [
+      `In the conductance form, in ${c.unit}: ${c.value === null ? `not yet calibrated; provisionally ${formatNumber(c.provisional)}` : formatNumber(c.value)}, bounds ${range(c.bounds)}, by ${c.rule}.`,
+      c.trackS ? `On track S's model, bounds ${range(c.trackS.bounds)}, by ${c.trackS.rule}.` : '',
+    ].join(' ');
+  }
+  return [p.note, p.rule, p.calibratedAgainst ? `Calibrated against ${p.calibratedAgainst}.` : '', bounds, forms]
     .filter(Boolean)
     .join(' ');
+}
+
+// A parameter as the chosen fit runs it: in the conductance form, g_sw's and g_p's conductance entries, their value,
+// unit, provisional value and bounds, track S's own where its model is chosen; every other parameter as it stands.
+export function asRun(p: Param): Param {
+  const c = p.conductance;
+  if (CHOSEN_FORM !== 'conductance' || !c) return p;
+  const bounds = (CHOSEN_MODEL === 'track S' ? c.trackS?.bounds : undefined) ?? c.bounds;
+  return { ...p, value: c.value, unit: c.unit, provisional: c.provisional, bounds };
 }
 
 // Where the project stands, heading both FIDELITY.md and the app's "About the science" view, so the two can't drift.
@@ -127,27 +142,24 @@ export function statusText(values: string): string {
     "the layers outside it, among them touch and AWC-ON's sense of odour, and the body. The app shows the worm on " +
     'its dish, with food lawns a viewer can drop, move and remove, whose odour the worm smells, and a way to touch ' +
     'it; a viewer can lesion any neuron and restore it, swap the real wiring for the contrast brain, a rewiring of ' +
-    'its chemical synapses, and watch the neurons glow with their simulated activity. **Crawling as checkpoint 1 ' +
-    'asks for it does not yet emerge.** Research track R fitted its model in three rounds, and no fit its rules ' +
-    'could choose reaches partial: the chosen fit, the refit, gives the same result at half the time step but fails ' +
-    "checkpoint 1, and the third round's crawlers changed at half the step. One probe search in the second round " +
-    'found a partial crawler that holds at half the step, which the rules, set before it ran, did not let R choose, ' +
-    'so it is recorded as exploratory (DECISIONS.md, 2026-09-28 and 2026-09-29). R has ended below partial, and ' +
-    'checkpoints 2 to 6, which need crawling, are not reached. The negative result is the headline: with its ' +
-    "anatomical weights, class-level gains and the layers the spec permits, the connectome doesn't crawl at the " +
-    'level set in advance, and its best crawl is paced by the head switch, relayed by proprioception, and largely ' +
-    'indifferent to the chemical wiring (DECISIONS.md, 2026-09-30). Checkpoint 0 passes, which says little, since ' +
-    "its crawling clause passes by a bound on the head switch's threshold, not by the wiring; checkpoint 1 fails " +
-    '(`VALIDATION.md`). Only checkpoints 0 and 1 and the sensitivity runs have run, so "Tested by" lists the ' +
-    'checks planned for each part. ' +
-    `The calibrated parameters are the refit's, ${values} (DECISIONS.md, 2026-09-28).`
+    'its chemical synapses, and watch the neurons glow with their simulated activity. **The worm crawls at checkpoint ' +
+    "1's partial grade, paced by its head switch.** Research track R fitted its model in three rounds and no fit its " +
+    'rules could choose reached partial. Track S then gave the model measured synapse signs, a resting offset for the ' +
+    "D-type motor neurons and AVA's rectified gap junctions, and its fit, chosen by rules set before it ran, holds at " +
+    'half the time step and grades partial on checkpoint 1 on its own trials: its frequency passes, and its wavelength ' +
+    "and speed are partial, the speed about a third of a real worm's (DECISIONS.md, 2026-10-02). The rhythm is not the " +
+    "network's own: the head switch, a layer the spec permits, paces it at its strongest gain, the B-type motor neurons " +
+    'have no oscillator, and the worm hardly reverses. Checkpoints 2 to 6, which need crawling, are now open and not ' +
+    'yet run, and checkpoints 0 and 1 are to run again on this fit (`VALIDATION.md`). Only checkpoints 0 and 1 and the ' +
+    'sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
+    `The calibrated parameters are track S's fit's, ${values} (DECISIONS.md, 2026-10-02).`
   );
 }
 
 // The status as the registry gives it now.
 export function ledgerStatus(): string {
   const calibrated = freeParams().filter((id) => PARAMS[id].level === 1);
-  return statusText(calibratedText(calibrated.map((id): Param => PARAMS[id])));
+  return statusText(calibratedText(calibrated.map((id): Param => asRun(PARAMS[id]))));
 }
 
 // The registry's text in its marks: plain text, **strong**, _emphasis_ and `code`. Emphasis opens and closes only

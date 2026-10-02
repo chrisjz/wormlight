@@ -68,9 +68,7 @@ describe("CI's jobs", () => {
       data: [
         'data/sources.json',
         'data/sign-overrides.csv',
-        'data/sign-overrides-s.csv',
         'data/vendor/nematode/connectome.v1.json',
-        'src/data/trackSSigns.ts',
         'DATA_SOURCES.md',
       ],
     };

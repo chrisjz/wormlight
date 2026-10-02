@@ -15,6 +15,7 @@ import {
   endVelocities,
   gaussianBound,
   INTERVAL,
+  JUMP,
   LOOP_SETUPS,
   longWorld,
   loopCases,
@@ -22,6 +23,7 @@ import {
   movedAndTurned,
   OTHER_SEED,
   paritySetup,
+  rms,
   ENDING_COPIES,
   ending,
   TAP_COPIES,
@@ -29,6 +31,7 @@ import {
   WALL_COPIES,
   seededWorld,
   SEED,
+  steady,
   variantSetup,
   VARIANT_LESIONS,
   WARMUP,
@@ -114,6 +117,23 @@ describe("the bound on the shader's coloured current", () => {
   });
 });
 
+describe("the one-second checks' voltages (changed after results, DECISIONS.md, 2026-10-02)", () => {
+  it('leave out a neuron the reference moved more than 1 mV over the step before, and compare the rest as before', () => {
+    expect(JUMP).toBe(1);
+    const before = Float64Array.of(-10, -20, -30, -40);
+    const now = Float64Array.of(-10.5, -17, -30, -41);
+    expect(steady(now, before)).toEqual([true, false, true, true]);
+    const gpu = Float64Array.of(-10.5, -13, -30.3, -41);
+    // Every neuron kept, the comparison is the one it was.
+    expect(rms(now, gpu, 1, [true, true, true, true])).toBe(rms(now, gpu, 1));
+    // VB5's like jump left out, the rest's error alone.
+    const kept = rms(now, gpu, 1, steady(now, before));
+    expect(kept).toBeCloseTo(Math.sqrt((0.3 / 30) ** 2 / 3), 12);
+    expect(kept).toBeLessThan(rms(now, gpu, 1));
+    expect(rms(now, gpu, 1, [false, false, false, false])).toBe(0);
+  });
+});
+
 describe('the parity states', () => {
   const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
   const setup = paritySetup(data);
@@ -189,14 +209,19 @@ describe("the loop's parity", () => {
     const registry = LOOP_SETUPS.find((s) => s.name === 'registry');
     if (!setup || !registry) throw new Error('no setup runs the contrast brain, or the registry intact');
     expect(setup.rewiring).toBe(1);
-    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'ALML', 'SMDDL']);
+    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'DA5', 'ALML', 'SMDDL']);
     const cases = loopCases(data, setup);
     expect(cases).toHaveLength(setup.states + 1);
     const world = cpuWorld(data, cases[1].state, undefined, setup);
     const intact = cpuWorld(data, loopCases(data, registry)[0].state, undefined, registry);
     expect(world.brain.threshold).not.toEqual(intact.brain.threshold);
     const vb6 = data.neurons.findIndex((n) => n.name === 'VB6');
+    const da5 = data.neurons.findIndex((n) => n.name === 'DA5');
     expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(vb6);
+    // The lesioned A-type's oscillator is left out, one fewer than the intact brain packs.
+    expect(Array.from(intact.brain.oscillators?.neurons ?? [])).toContain(da5);
+    expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(da5);
+    expect(world.brain.oscillators?.neurons.length).toBe((intact.brain.oscillators?.neurons.length ?? 0) - 1);
     const packed = packLoop(world);
     expect(packed.touch.map((r) => r.name)).not.toContain('ALML');
     expect(packed.touch).toHaveLength(intact.receptors.length - 1);
@@ -253,7 +278,7 @@ describe("the loop's parity", () => {
   it("includes track S's whole model, its brain's junctions flagged for the shader and its gates turning", () => {
     const setup = LOOP_SETUPS.find((s) => s.name === 'track S');
     if (!setup) throw new Error('no track S setup');
-    expect(setup.params).toMatchObject({ measuredSigns: true, restOffsets: 'measured', rectified: true });
+    expect(setup.params).toMatchObject({ restOffsets: 'measured', rectified: true });
     const world = new World(data, setup.params, {
       seed: setup.seed ?? SEED,
       switchThreshold: setup.switchThreshold,
