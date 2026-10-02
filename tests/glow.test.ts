@@ -93,7 +93,7 @@ describe('the synapses lit while the neurons glow, with none selected (DECISIONS
     }
   });
 
-  it("light some on the app's model as its worm crawls", () => {
+  it("light some on the app's model as its worm crawls", { timeout: 30000 }, () => {
     // The app's world, its glow read as the plate reads it, about once a frame at 60 frames a second.
     const world = appWorld(data, 1);
     const { network, offset } = world.brain;

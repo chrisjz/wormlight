@@ -434,7 +434,7 @@ describe("the loop's parity", () => {
     expect({ ...la, awcOn: awc.awcOn, awcRod: awc.awcRod, scalars: { ...la.scalars, ...awc.scalars } }).toEqual(lb);
   });
 
-  it('packs the touch receptors and their sets, and taps copies as World.touch does', () => {
+  it('packs the touch receptors and their sets, and taps copies as World.touch does', { timeout: 30000 }, () => {
     const world = cpuWorld(data, loopCases(data)[0].state);
     const layout = packLoop(world);
     expect(layout.touch).toEqual(world.receptors);

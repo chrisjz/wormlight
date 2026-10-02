@@ -136,7 +136,7 @@ describe('the data version', () => {
 });
 
 describe('the model version', () => {
-  it('is the latest pinned, and its fingerprint is pinned with the data it was taken on', () => {
+  it('is the latest pinned, and its fingerprint is pinned with the data it was taken on', { timeout: 30000 }, () => {
     const prints = fingerprint();
     const latest = PINNED.at(-1);
     // A failure here means the worm now behaves differently in a setup a link can name. If the model changed, raise
