@@ -225,7 +225,7 @@ On the GPU the whole step runs in one workgroup of 256 invocations, each holding
   - autapses, gap junctions, the neuromuscular map, and sensory and motor identities are left unchanged;
   - rewired connections carry the provenance "rewired (sign from …)", never a physiology badge.
 
-  A secondary null also rewires gap junctions. It is reported without verdicts, because nematode's undirected swap moves strength with the edges: ALA's 1,314 gap-junction sections leave ALA, and half the neurons' totals change by more than 50%. Each null has 10 seeded rewirings. **Built (2026-09-30, DECISIONS.md):** the primary null's ten, in `src/sim/brain/rewire.ts`, with nematode's defaults and the 38 autapses held, drawn from this project's hash, so none is one of nematode's. The app runs each on the real wiring's fitted values, untuned, as a viewer's contrast; checkpoint 6 would tune them.
+  A secondary null also rewires gap junctions (**deferred, 2026-10-03, DECISIONS.md:** not run unless the primary null's verdict finds that the wiring matters). It is reported without verdicts, because nematode's undirected swap moves strength with the edges: ALA's 1,314 gap-junction sections leave ALA, and half the neurons' totals change by more than 50%. Each null has 10 seeded rewirings. **Built (2026-09-30, DECISIONS.md):** the primary null's ten, in `src/sim/brain/rewire.ts`, with nematode's defaults and the 38 autapses held, drawn from this project's hash, so none is one of nematode's. The app runs each on the real wiring's fitted values, untuned, as a viewer's contrast; checkpoint 6 would tune them.
 
 ## 4. The layers outside the connectome (spec §1.1)
 
@@ -556,13 +556,15 @@ AIB, AIY and AIZ lesions are reported as secondary results, not graded, because 
 
 The secondary nulls are reported without verdicts. The report gives every null's results, whichever way they fall.
 
+**Defined (2026-10-03, before any of it is built, the maintainer's choices, DECISIONS.md).** Each primary null is tuned by track S's procedure, from the same starts, on the same seeds and budget, and its four picks take §7.2's comparison in order: a null none of whose picks passes has no fit, and doesn't crawl. A null with a fit crawls if checkpoint 1 grades it at least partial on the comparison's first 20 trials at dt. A crawling null "passes" one of checkpoints 2 to 5 if it grades pass. **Changed after results (2026-10-03, DECISIONS.md):** where the real wiring fails one of checkpoints 2 to 5, as it fails all four, the verdict there is "no evidence that the wiring matters", with the crawling nulls' passes reported, where the map as written reads "inconclusive" unless half the crawling nulls pass. Each null rests and takes its thresholds at its own rest; its search, comparison and grading run on one machine, which every record names. The secondary null is deferred, logged as not run, to be tuned only if the primary verdict finds that the wiring matters.
+
 ### 7.5 Harness cost
 
 Trials are independent, so the harness runs them in parallel, one worker per core, against the shared precomputed odour field. The review's single-thread benchmarks put a worm-hour at about 2–11 CPU-minutes, depending on the step.
 
 - **Checkpoint 4 dominates.** Intact plus AWC-off is at most 200 worm-hours per wiring.
 - **Tuning** is about 270 worm-hours per wiring: 2,000 evaluations of 4 trials of 120 s, and the final re-evaluation (§7.3). With the calibrated noise on, a worm-hour takes about 2.7 CPU-minutes, and the planned model's fit took 59 minutes on 18 cores (2026-09-27, DECISIONS.md). Round 3's procedure is about 920 worm-hours per wiring, some 27,500 trials: about 3.3 hours on 14 workers, 36 hours for the real wiring and the ten primary nulls (2026-09-29, DECISIONS.md). It ran on the real wiring in 3.2 hours, and wasn't adopted. **Adopted for track S (2026-10-02, DECISIONS.md):** S's calibration took 3 hours 43 minutes on 14 workers, and every null now gets its procedure, so tuning the ten primary nulls takes about 37 hours.
-- **A full pass** of checkpoints 1–6 over the real wiring and 10 nulls is on the order of a day on a 16-core machine; round 3's tuning, which would have made it two, wasn't adopted. **Changed (2026-10-02, DECISIONS.md):** track S's fit, whose procedure is round 3's, was, so a full pass takes about two days.
+- **A full pass** of checkpoints 1–6 over the real wiring and 10 nulls is on the order of a day on a 16-core machine; round 3's tuning, which would have made it two, wasn't adopted. **Changed (2026-10-02, DECISIONS.md):** track S's fit, whose procedure is round 3's, was, so a full pass takes about two days. **Estimated (2026-10-03, DECISIONS.md):** checkpoint 6 alone, the ten nulls' tuning, their picks' comparisons and the crawling nulls' checkpoints 1 to 5, takes about 40 to 50 hours on the M5 Max, and about 5 to 7 days on a machine with a third of its throughput.
 
 Measured at milestone 3, checkpoint 1's trials take about 1.4 CPU-minutes per worm-hour on an M5 Max, below the review's figures, without the odour field that checkpoint 4 adds (2026-09-26, DECISIONS.md).
 
