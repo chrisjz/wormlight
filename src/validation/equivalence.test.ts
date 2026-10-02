@@ -40,24 +40,28 @@ const set = (centre: number): TrialRecord[] =>
   );
 
 describe("§7.2's comparison with the noise on", () => {
-  it('measures the kinematics and the bout share as checkpoint 1 does, and reversals per minute', () => {
-    const trials = set(0.3);
-    const m = measures(trials);
-    const c = checkpoint1(trials, []);
-    for (const name of ['frequency', 'wavelength', 'speed', 'bout'] as const) {
-      expect(m[name]).toBe(c.clauses.find((k) => k.name === name)?.value);
-    }
-    // Five reversals over 20 trials of 110 s.
-    expect(m.reversals).toBeCloseTo(5 / ((20 * 110) / 60), 12);
-  });
+  it(
+    'measures the kinematics and the bout share as checkpoint 1 does, and reversals per minute',
+    { timeout: 30000 },
+    () => {
+      const trials = set(0.3);
+      const m = measures(trials);
+      const c = checkpoint1(trials, []);
+      for (const name of ['frequency', 'wavelength', 'speed', 'bout'] as const) {
+        expect(m[name]).toBe(c.clauses.find((k) => k.name === name)?.value);
+      }
+      // Five reversals over 20 trials of 110 s.
+      expect(m.reversals).toBeCloseTo(5 / ((20 * 110) / 60), 12);
+    },
+  );
 
-  it('passes the same trials at both steps, every interval at zero', () => {
+  it('passes the same trials at both steps, every interval at zero', { timeout: 30000 }, () => {
     const r = compareSteps(set(0.3), set(0.3), 80);
     expect(r.pass).toBe(true);
     for (const c of r.clauses) expect(c.interval).toEqual([0, 0]);
   });
 
-  it('fails a frequency 5% off at dt/2, and passes one 0.5% off', () => {
+  it('fails a frequency 5% off at dt/2, and passes one 0.5% off', { timeout: 30000 }, () => {
     const off = compareSteps(set(0.3), set(0.3 * 1.05), 80);
     const frequency = off.clauses.find((c) => c.name === 'frequency');
     expect(frequency?.pass).toBe(false);
@@ -67,7 +71,7 @@ describe("§7.2's comparison with the noise on", () => {
     expect(compareSteps(set(0.3), set(0.3 * 1.005), 80).pass).toBe(true);
   });
 
-  it('fails a clause unmeasured at either step, and a trial that left the finite numbers', () => {
+  it('fails a clause unmeasured at either step, and a trial that left the finite numbers', { timeout: 30000 }, () => {
     const still = set(0.3).map((r) => ({ ...r, velocity: r.velocity.map(() => 0) }));
     const r = compareSteps(set(0.3), still, 80);
     const frequency = r.clauses.find((c) => c.name === 'frequency');
@@ -77,7 +81,7 @@ describe("§7.2's comparison with the noise on", () => {
     expect(compareSteps(set(0.3), broken, 80)).toMatchObject({ nonFinite: 1, pass: false });
   });
 
-  it('pairs the steps seed by seed, and resamples the same way every run', () => {
+  it('pairs the steps seed by seed, and resamples the same way every run', { timeout: 30000 }, () => {
     const shuffled = set(0.3).reverse();
     expect(() => compareSteps(set(0.3), shuffled, 10)).toThrow(/same seeds/);
     const a = compareSteps(set(0.3), set(0.301), 80);

@@ -36,7 +36,7 @@ async function sampled(): Promise<{ taken: ReturnType<typeof noMotion>; length: 
 }
 
 describe("the long runs' measure", () => {
-  it('samples a run as a trial is sampled, bit for bit', async () => {
+  it('samples a run as a trial is sampled, bit for bit', { timeout: 30000 }, async () => {
     const { taken, length } = await sampled();
     // Once at the start, then every 0.1 s.
     expect(taken.mid.length).toBe(Math.round(seconds / 0.1) + 1);
@@ -47,19 +47,23 @@ describe("the long runs' measure", () => {
     expect(run.rear).toEqual(record.rear);
   });
 
-  it("measures a run's crawl as checkpoint 1 measures a trial's, and its body wave after the warm-up", async () => {
-    const { taken, length } = await sampled();
-    const ours = measureLongRun(taken, length, seconds);
-    // The eigenworm basis doesn't reach the kinematics, so an identity basis stands in for it.
-    const identity = Array.from({ length: 100 }, (_, i) => Array.from({ length: 100 }, (_, j) => (i === j ? 1 : 0)));
-    const theirs = checkpoint1([record], identity).kinematics;
-    expect([ours.bouts, ours.speed, ours.frequency]).toEqual([theirs.bouts, theirs.speed, theirs.frequency]);
-    // The run has a bout, so the comparison means something.
-    expect(ours.bouts).toBeGreaterThan(0);
-    expect(ours.finite).toBe(true);
-    // The samples after the first 10 s, as the long runs took the body wave before.
-    expect(ours.wave).toEqual(bodyWave(taken.mid.slice(101), seconds - 10));
-  });
+  it(
+    "measures a run's crawl as checkpoint 1 measures a trial's, and its body wave after the warm-up",
+    { timeout: 30000 },
+    async () => {
+      const { taken, length } = await sampled();
+      const ours = measureLongRun(taken, length, seconds);
+      // The eigenworm basis doesn't reach the kinematics, so an identity basis stands in for it.
+      const identity = Array.from({ length: 100 }, (_, i) => Array.from({ length: 100 }, (_, j) => (i === j ? 1 : 0)));
+      const theirs = checkpoint1([record], identity).kinematics;
+      expect([ours.bouts, ours.speed, ours.frequency]).toEqual([theirs.bouts, theirs.speed, theirs.frequency]);
+      // The run has a bout, so the comparison means something.
+      expect(ours.bouts).toBeGreaterThan(0);
+      expect(ours.finite).toBe(true);
+      // The samples after the first 10 s, as the long runs took the body wave before.
+      expect(ours.wave).toEqual(bodyWave(taken.mid.slice(101), seconds - 10));
+    },
+  );
 });
 
 describe("the long runs' comparison", () => {

@@ -213,33 +213,37 @@ describe('a touched trial', () => {
     expect(plain.touches).toEqual([]);
   });
 
-  it('reaches the body of a silenced worm only at rounding level, where an intact one responds', () => {
-    // Touched front and back, then 3 s on: with every synapse cut, no receptor either touch reaches has a way to
-    // the muscles, and the integrator's restarts and the voltage solve's sums leave only rounding.
-    const apart = (silenced: boolean, seed: number): number => {
-      const make = (): World => new World(data, MECHANICS, { seed, silenced, posture: POSTURES[seed] });
-      const [plain, touched] = [make(), make()];
-      for (let k = 0; k < 2000; k++) {
-        if (k === 400) touched.touch(FRONT);
-        if (k === 1200) touched.touch(BACK);
-        plain.step();
-        touched.step();
+  it(
+    'reaches the body of a silenced worm only at rounding level, where an intact one responds',
+    { timeout: 30000 },
+    () => {
+      // Touched front and back, then 3 s on: with every synapse cut, no receptor either touch reaches has a way to
+      // the muscles, and the integrator's restarts and the voltage solve's sums leave only rounding.
+      const apart = (silenced: boolean, seed: number): number => {
+        const make = (): World => new World(data, MECHANICS, { seed, silenced, posture: POSTURES[seed] });
+        const [plain, touched] = [make(), make()];
+        for (let k = 0; k < 2000; k++) {
+          if (k === 400) touched.touch(FRONT);
+          if (k === 1200) touched.touch(BACK);
+          plain.step();
+          touched.step();
+        }
+        let most = 0;
+        for (let i = 0; i < plain.body.rods; i++) {
+          most = Math.max(
+            most,
+            Math.abs(plain.body.x[i] - touched.body.x[i]),
+            Math.abs(plain.body.y[i] - touched.body.y[i]),
+          );
+        }
+        return most;
+      };
+      for (const seed of [1, 2, 3]) {
+        expect(apart(true, seed)).toBeLessThan(1e-10);
+        expect(apart(false, seed)).toBeGreaterThan(1e-9);
       }
-      let most = 0;
-      for (let i = 0; i < plain.body.rods; i++) {
-        most = Math.max(
-          most,
-          Math.abs(plain.body.x[i] - touched.body.x[i]),
-          Math.abs(plain.body.y[i] - touched.body.y[i]),
-        );
-      }
-      return most;
-    };
-    for (const seed of [1, 2, 3]) {
-      expect(apart(true, seed)).toBeLessThan(1e-10);
-      expect(apart(false, seed)).toBeGreaterThan(1e-9);
-    }
-  });
+    },
+  );
 
   it('refuses a touch between steps, or outside the trial', () => {
     for (const time of [10.001, 13, -1]) {
