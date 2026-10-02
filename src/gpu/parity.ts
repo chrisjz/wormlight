@@ -29,6 +29,7 @@ import {
   ONE_STEP,
   paritySetup,
   rms,
+  steady,
   SAMPLES,
   SECOND,
   SEED,
@@ -287,18 +288,22 @@ async function checkOneSecond(
       gpu.restart();
     }
     const steps = SECOND / SAMPLES;
+    // The reference's voltages a step before the sample, which say which neurons are mid-jump there (steady).
+    let before = Float64Array.from(cpu.voltage);
     for (let k = 0; k < steps; k++) {
+      before = Float64Array.from(cpu.voltage);
       cpu.step(NEURAL_STEP);
       loose.step(NEURAL_STEP);
     }
     gpu.run(NEURAL_STEP, steps);
     const read = await gpu.read();
     status = read.status;
-    voltageRms = Math.max(voltageRms, rms(cpu.voltage, read.state.voltage, FLOOR));
+    const keep = steady(cpu.voltage, before);
+    voltageRms = Math.max(voltageRms, rms(cpu.voltage, read.state.voltage, FLOOR, keep));
     activationRms = Math.max(activationRms, rms(cpu.activation, read.state.activation, 1));
     referenceRms = Math.max(
       referenceRms,
-      rms(cpu.voltage, loose.voltage, FLOOR),
+      rms(cpu.voltage, loose.voltage, FLOOR, keep),
       rms(cpu.activation, loose.activation, 1),
     );
   }

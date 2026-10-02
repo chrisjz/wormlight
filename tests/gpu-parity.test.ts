@@ -15,6 +15,7 @@ import {
   endVelocities,
   gaussianBound,
   INTERVAL,
+  JUMP,
   LOOP_SETUPS,
   longWorld,
   loopCases,
@@ -22,6 +23,7 @@ import {
   movedAndTurned,
   OTHER_SEED,
   paritySetup,
+  rms,
   ENDING_COPIES,
   ending,
   TAP_COPIES,
@@ -29,6 +31,7 @@ import {
   WALL_COPIES,
   seededWorld,
   SEED,
+  steady,
   variantSetup,
   VARIANT_LESIONS,
   WARMUP,
@@ -111,6 +114,23 @@ describe("the bound on the shader's coloured current", () => {
     expect(coloured).toBeGreaterThan(0);
     expect(coloured).toBeLessThan(noiseAllowance(white, before.steps, before.noise) / 10);
     expect(colouredBounds(white, before.steps, before.noise).every((b) => b === 0)).toBe(true);
+  });
+});
+
+describe("the one-second checks' voltages (changed after results, DECISIONS.md, 2026-10-02)", () => {
+  it('leave out a neuron the reference moved more than 1 mV over the step before, and compare the rest as before', () => {
+    expect(JUMP).toBe(1);
+    const before = Float64Array.of(-10, -20, -30, -40);
+    const now = Float64Array.of(-10.5, -17, -30, -41);
+    expect(steady(now, before)).toEqual([true, false, true, true]);
+    const gpu = Float64Array.of(-10.5, -13, -30.3, -41);
+    // Every neuron kept, the comparison is the one it was.
+    expect(rms(now, gpu, 1, [true, true, true, true])).toBe(rms(now, gpu, 1));
+    // VB5's like jump left out, the rest's error alone.
+    const kept = rms(now, gpu, 1, steady(now, before));
+    expect(kept).toBeCloseTo(Math.sqrt((0.3 / 30) ** 2 / 3), 12);
+    expect(kept).toBeLessThan(rms(now, gpu, 1));
+    expect(rms(now, gpu, 1, [false, false, false, false])).toBe(0);
   });
 });
 

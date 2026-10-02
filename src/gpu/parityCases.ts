@@ -214,11 +214,28 @@ export const worst = (
   return { share, error };
 };
 
-export const rms = (a: Float64Array, b: Float64Array, floor: number): number => {
+// The RMS relative error of b against a, each entry's relative to max(|a|, floor), over every entry or those `keep`
+// marks.
+export const rms = (a: Float64Array, b: Float64Array, floor: number, keep?: readonly boolean[]): number => {
   let sum = 0;
-  for (let i = 0; i < a.length; i++) sum += ((a[i] - b[i]) / Math.max(Math.abs(a[i]), floor)) ** 2;
-  return Math.sqrt(sum / a.length);
+  let n = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (keep && !keep[i]) continue;
+    sum += ((a[i] - b[i]) / Math.max(Math.abs(a[i]), floor)) ** 2;
+    n++;
+  }
+  return n > 0 ? Math.sqrt(sum / n) : 0;
 };
+
+// A one-second sample's voltage comparison leaves out every neuron the CPU reference moved more than JUMP mV over the
+// step before the sample (changed after results, DECISIONS.md, 2026-10-02, the maintainer's choice). Mid-jump, an
+// oscillator's fast jump, its unstable middle branch taken explicitly, amplifies a difference of hundredths of a
+// millivolt into millivolts for a few steps, after which the two sides agree again, so its voltage there measures the
+// jump's conditioning rather than the implementation. Activations and the body are compared whole. Over the states the
+// loop's parity took when it was set, it leaves out 0.76% of the neuron-samples, 0.09% in the trial setup's.
+export const JUMP = 1; // mV over a step
+export const steady = (now: ArrayLike<number>, before: ArrayLike<number>): boolean[] =>
+  Array.from(now, (v, i) => Math.abs(v - before[i]) <= JUMP);
 
 // The loop's parity (PLAN §7.2, the body's row, set 2026-09-26 before any loop results): the same states, now
 // whole worlds, the body, muscles and head switch included, and both sides run the whole loop. The velocities'

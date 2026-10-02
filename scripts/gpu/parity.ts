@@ -16,6 +16,7 @@
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { JUMP } from '../../src/gpu/parityCases.ts';
 import { mergeShards, type Shard } from '../../src/gpu/parityShards.ts';
 import {
   ADAPTER,
@@ -291,7 +292,8 @@ try {
   );
   for (const r of report.oneStep) console.log(stepLine(r));
   console.log(
-    `\none second: worst RMS relative error over the samples (tolerance ${thresholds.oneSecond.rms}), and the CPU ` +
+    `\none second: worst RMS relative error over the samples (tolerance ${thresholds.oneSecond.rms}), the voltages' ` +
+      `without the neurons the reference moved more than ${JUMP} mV over the step before, and the CPU ` +
       `reference against itself at the GPU's solver tolerance; a state where that exceeds ${g(thresholds.wellPosed)} ` +
       `of the tolerance is not graded, and more than ${100 * thresholds.mostIllPosed}% not graded fails`,
   );
@@ -319,7 +321,8 @@ try {
       );
     }
     console.log(
-      '\none second: shares of the thresholds, the switch and the touch pulses throughout, and the reference against ' +
+      "\none second: shares of the thresholds, the voltages' without the neurons mid-jump, the switch and the touch " +
+        'pulses throughout, and the reference against ' +
         `itself; a state where that exceeds ${g(thresholds.wellPosed)} or its switch differs is not graded`,
     );
     for (const r of loop.oneSecond) {
