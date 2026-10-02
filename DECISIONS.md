@@ -3734,4 +3734,4 @@ Reported, not graded: the body wave's spread, 1.8869 against 1.8887 κL, and its
 
 **After it merges,** on the maintainer's go-ahead, since both are public: its merge commit is tagged `v0.2.0`, an annotated tag pushed by name, once `main`'s CI has passed on it, and a draft GitHub Release made from the tag with `--verify-tag`, its notes giving the model and data versions, the checkpoints' status and what changed since 0.1.0, which the maintainer sees before it is published.
 
-**Status.** Set in this pull request; tagged and released after it merges, on the maintainer's go-ahead.
+**Status.** Set in this pull request. Released on 2026-10-02: on the maintainer's go-ahead, the merge commit `e94b778` was tagged `v0.2.0`, an annotated tag pushed by name, after `main`'s CI and deploy had passed on it, and the Release "Wormlight 0.2.0" was made from the tag as a draft, which the maintainer approved and which was then published (noted 2026-10-02).
