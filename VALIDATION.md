@@ -15,7 +15,8 @@ Three terms recur. A _fit_ is a set of values for the twelve calibrated paramete
 - **Checkpoint 0 passes, and still says little.** The silenced worm pauses throughout. Its head switch, which carries the crawl, stays shut once the network is silenced; the noise still sets the A-types' oscillators off and bends the silenced body, but doesn't move it.
 - **Set at random, the uncertain signs keep the crawl, and half keep its grade; checkpoint 0 holds across them.** With the 1,959 connections whose signs are uncertain set all excitatory, all silent or at random ten times over, the connections rescaled, or track S's rest offsets off or AVA's added, on S's fit with nothing tuned again, eight of the sixteen settings would grade partial, five of the ten random draws among them. Under every draw the worm still moves forward at least 86% of the time, and all but one of the failing settings miss on speed alone or with the wavelength. With the uncertain signs silent the crawl goes, and the worm rocks with the head switch. Silenced, the switch stays shut under every setting ("The sensitivity runs", below).
 - **The touch reflexes fail.** Checkpoint 2: none of 50 anterior touches during forward crawling was followed by a reversal, nor any of their sham twins; it is reported as fitted. Checkpoint 3: a posterior touch left the worm's speed where its twin's was, 0.3% slower. A touch moves its receptors about 10 mV but AVA by about 1 mV; it shifts the head switch's timing, but the crawl the switch paces carries on ("Checkpoints 2 to 6", below).
-- **Checkpoints 4 to 6 are open, and unrun.** Chemotaxis, the lesion effects and the wiring test run on S's fit by rules set before any of them was built (DECISIONS.md, 2026-10-02), checkpoint 4's klinokinesis row and checkpoint 5's rows that read reversals reported as fitted.
+- **Chemotaxis fails.** Of 100 worms in Bargmann et al.'s layout, 18 reached the odour and 14 the control, an index of 0.04, against 0.03 for the same worms with AWC-ON's input off. Their reversals are collisions with the dish's wall, and their weathervaning, reproduced by its rule, is faint and draws no worm to the odour ("Checkpoints 2 to 6", below).
+- **Checkpoints 5 and 6 are open, and unrun.** The lesion effects and the wiring test run on S's fit by rules set before any of them was built (DECISIONS.md, 2026-10-02), checkpoint 5's rows that read reversals reported as fitted.
 
 ## Where it stands
 
@@ -25,9 +26,9 @@ Three terms recur. A _fit_ is a set of values for the twelve calibrated paramete
 | 1: crawling         | **Partial** | On track S's fit, chosen by rules set before it ran: frequency, postures and 20 s bouts pass, wavelength and speed partial, not at the speed floor; within its margins at half the step (PLAN §7.2), so final; its measures and calibration changed after results as listed below. Track R ended below partial before it (PLAN §9) |
 | 2: anterior touch   | **Fail**    | On track S's fit: no reversal after any of 50 touches, nor after their sham twins; reported as fitted (PLAN §10); its protocol changed after results                                                                                                                                                                               |
 | 3: posterior touch  | **Fail**    | On track S's fit: the touched copies 0.3% slower than their twins, where a pass needs 10% faster; its protocol changed after results                                                                                                                                                                                               |
-| 4: chemotaxis       | Not run     | Open since checkpoint 1 reached partial on a fit the rules could choose (PLAN §9); its control and mechanism to be built, by rules set before them; its klinokinesis row reported as fitted                                                                                                                                        |
-| 5: lesions          | Not run     | Open, as checkpoint 4; its rows that read reversals reported as fitted                                                                                                                                                                                                                                                             |
-| 6: wiring test      | Not run     | Open, as checkpoint 4; each null is tuned by track S's procedure first, about 37 hours on 14 workers; its tuning procedure changed after results                                                                                                                                                                                   |
+| 4: chemotaxis       | **Fail**    | On track S's fit: an index of 0.04, against 0.03 with AWC-ON's input off (Fisher's p = 0.50); its mechanism reported, klinokinesis absent and fitted, weathervaning faintly reproduced                                                                                                                                             |
+| 5: lesions          | Not run     | Open since checkpoint 1 reached partial on a fit the rules could choose (PLAN §9); its rows to be built, by rules set before them; its rows that read reversals reported as fitted                                                                                                                                                 |
+| 6: wiring test      | Not run     | Open, as checkpoint 5; each null is tuned by track S's procedure first, about 37 hours on 14 workers; its tuning procedure changed after results                                                                                                                                                                                   |
 
 ## How the trials run
 
@@ -36,10 +37,10 @@ Three terms recur. A _fit_ is a set of values for the twelve calibrated paramete
 - **Checkpoint 1's measures** (PLAN §7.4). The kinematics over forward bouts of 10 s or more, pooled over trials, the wavelength only from a wave running from head to tail; the variance the first four eigenworms capture in postures sampled at 4 Hz, pooled over trials, self-intersecting ones left out; and the share of trials with a forward bout of 20 s or more.
 - **Touched trials** (checkpoint 0, PLAN §7.4). The same 20 trials again, each touched 5 times, 20 s apart from t = 20 s, alternating front (s = 0.2) and back (s = 0.8), odd seeds starting at the front: 50 anterior touches and 50 posterior. A touch starts with the step after its time. At each touch the world forks a sham twin, which takes a sham touch in its place and runs 3.5 s on while the touched line runs on (changed after the first run, 2026-09-27). A reversal follows a touch if its first backward sample lies within the 2 s after it, in the touched line and its twin alike; McNemar's exact test weighs the pairs in which only one reversed. The speed after a touch is the mean of the velocity samples whose windows lie within the 2 s after it, and the paired signed-rank test compares each touched copy with its twin, a difference under 0.0012 body lengths per second on average failing to count however significant. Both tests are one-sided, in the reflex's direction, at α = 0.05. The chemotaxis clause fails only if the exact binomial test, two-sided, finds one spot reached significantly more often.
 - **Touch trials** (checkpoints 2 and 3, PLAN §7.4; DECISIONS.md, 2026-10-02). From seed 1 upwards, each worm crawls from its real posture until the first 0.1 s sample from an earliest time its seed draws between 20 and 100 s at which the 2 s before were all forward, and is touched there once: the world forks into a copy touched at the front (s = 0.2), one at the back (s = 0.8) and a sham twin, each run 3.5 s on. The first 50 touches are graded, checkpoint 2's reversals within 2 s against the twins' by McNemar's exact test, checkpoint 3's mean speed over the 2 s after against the twins' by the signed-rank test, both one-sided.
-- **The chemotaxis assay** (checkpoint 0 now, checkpoint 4 once reached). Each worm runs alone for up to 60 min on the butanone spot's steady field, starting with its centroid at the dish's centre from the posture its seed draws, and stops when any part of its body comes within 0.5 cm of either spot's centre. CI = (at odour − at control) / every worm run.
+- **The chemotaxis assay** (checkpoints 0 and 4). Each worm runs alone for up to 60 min on the butanone spot's steady field, starting with its centroid at the dish's centre from the posture its seed draws, and stops when any part of its body comes within 0.5 cm of either spot's centre. CI = (at odour − at control) / every worm run. Checkpoint 4 runs 100 worms, each again as its control with AWC-ON's input off, the world sensing no odour, and reports its mechanism, klinokinesis and weathervaning, from samples every 0.1 s (DECISIONS.md, 2026-10-02).
 - **The step** (PLAN §7.2). The comparison of checkpoint 1's measures at dt and dt/2 was deferred until checkpoint 1 reached partial, then run when R's first fit reached partial only at half the step: neither that fit nor the planned model's converged at any step down to 0.3125 ms, with white noise. The model now runs a coloured noise current, and the comparison is an equivalence test on 200 trials a step, each clause's 95% interval for the difference within a margin. R's refit passes it; the planned fit fails it, and so do R's second round's fit and round 3's four picks; track S's first pick passes it, counting the frequency's crossings past the band, where the earlier comparisons counted them plainly (under "The step", in the results below; DECISIONS.md, 2026-09-28, 2026-09-29 and 2026-10-02).
 - **The sensitivity runs** (spec §2.4; PLAN §2.4, §3.2; DECISIONS.md, 2026-09-30 and 2026-10-02). Checkpoint 1's trials, and the same trials of the silenced network, under sixteen settings, on track S's fit with nothing tuned again. Thirteen set the 1,959 chemical connections whose signs come from the transmitter rule or from nothing: by the rule, as the model has them; all excitatory; all silent; and ten random draws. The fourteenth keeps the model's signs and scales Cook's section counts by what the connections Cook's and Varshney's data share ask for, 0.33 for gap junctions and 0.50 for chemical synapses, in place of the scales that match the datasets' totals, 0.2055 and 0.3444 (PLAN §3.2). The last two, which track S's rules added (DECISIONS.md, 2026-10-01), keep the model's wiring and change its rest: its offsets off, every neuron at its midpoint, and AVA's added, AVAL and AVAR resting 29.0 and 16.0 mV above their midpoints, from Liu, Chen & Wang 2020's recordings against VB6. The first fourteen are each a brain of its own, and every setting has its thresholds at its own rest. They are reported, not graded.
-- **Calibrated or predicted** (spec §1.2). Checkpoint 1's clauses carry their kind in its table, and checkpoints 0, 2 and 3's are all predicted, as each section says, checkpoint 2 reported as fitted on S's fit. Of the rest: the step comparison's frequency, wavelength and speed are calibration targets, and so is its reversal rate, at 1.8 a minute, for every fit but R's third round's picks and track S's, whose procedure fitted no reversal rate and aimed the speed at 0.15 body lengths per second, so theirs is predicted (PLAN §7.3); its share of trials with a 20 s bout is predicted. Each trial's columns, the diagnostics and the sensitivity runs describe a run: nothing is tuned to them and nothing is graded by them.
+- **Calibrated or predicted** (spec §1.2). Checkpoint 1's clauses carry their kind in its table, and checkpoints 0, 2, 3 and 4's are all predicted, as each section says, checkpoint 2 and checkpoint 4's klinokinesis reported as fitted on S's fit. Of the rest: the step comparison's frequency, wavelength and speed are calibration targets, and so is its reversal rate, at 1.8 a minute, for every fit but R's third round's picks and track S's, whose procedure fitted no reversal rate and aimed the speed at 0.15 body lengths per second, so theirs is predicted (PLAN §7.3); its share of trials with a 20 s bout is predicted. Each trial's columns, the diagnostics and the sensitivity runs describe a run: nothing is tuned to them and nothing is graded by them.
 
 ## What changed after results
 
@@ -393,6 +394,129 @@ The response, the touched copies' mean speed over the twins' less one, is −0.3
 
 <!-- harness:checkpoint-4 -->
 
+### Checkpoint 4: chemotaxis — **Fail**
+
+Run on 2026-10-02 at `c920773`: 100 worms, seeds 1 to 100, each alone for up to 60 min in the butanone spot's steady field, its centroid starting at the dish's centre, 45 mm from each spot, and stopped when any part of its body came within 5 mm of a spot's centre; and each again as its control, with AWC-ON's input off, the world sensing no odour; on track S's model, its measured signs, the D-types' offset and its rectifier, in the conductance form, with the calibrated parameters (PLAN §7.3), here to three significant figures: g_osc = 838 pS, g_osc,B = 0 pS, τ_w = 1.23 s, θ_osc = −14.9 mV, g_sw = 50 nS, g_p = 0.0157 nS per unit of κL, κ_gap,B = 0.156, g_nmj = 40 per unit of relative drive, θ_nmj = −0.0994 relative drive, κ_SMD = 0.169, σ_n = 0.0565 pA·√s, τ_n = 0.0551 s. Every run stayed finite, and no brain solve failed to converge.
+
+| Clause                                                                              | Measured                                                                                                                                    | Pass        | Partial     |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------- |
+| Chemotaxis index, (at odour − at control) / every worm                              | 0.04: 18 at the odour, 14 at the control, 68 neither                                                                                        | ≥ 0.6       | 0.2 to 0.6  |
+| Above the control (Fisher's exact test, one-sided, on the worms reaching the odour) | 18 intact worms reached the odour, against 17 controls (the controls' index 0.03: 17 at the odour, 14 at the control, 69 neither); p = 0.50 | Significant | Significant |
+
+Every clause is predicted, since checkpoint 4 is held out of the calibration (spec §1.2).
+
+The mechanism, reported and never gating (PLAN §7.4; DECISIONS.md, 2026-10-02): each statistic over every worm with its 80% interval over 1,000 resamples of the worms, the control's, and the intact-minus-control difference over paired resamples. Klinokinesis is the ratio of reorientation rates heading down the gradient to up it, its null 1; weathervaning is the slope of the curving rate (rad/mm) against the bearing (rad), over transitions between 3.3 s blocks with no reorientation or backward sample, strides under a quarter of the median left out, its null 0. Each is reproduced when its interval clears its null above it and the difference's lies above 0, partial with one of those. Over the intact runs there were 2,123 reorientations, 2,123 reversals and 0 omega turns.
+
+| Mechanism     | Intact (80% interval)     | Control | Intact − control (80% interval) | Clears its null | Above the control | Grade          |
+| ------------- | ------------------------- | ------- | ------------------------------- | --------------- | ----------------- | -------------- |
+| Klinokinesis  | 0.87 (0.60 to 1.31)       | 1.09    | −0.22 (−0.95 to 0.41)           | No              | No                | **Absent**     |
+| Weathervaning | 0.0038 (0.0016 to 0.0061) | 0.0004  | 0.0033 (0.0002 to 0.0067)       | Yes             | Yes               | **Reproduced** |
+
+Reported beside them: klinokinesis's companion, the ratio of the mean absolute change in heading from one block to the next, down the gradient over up it, 1.00 (0.97 to 1.03) intact and 0.99 in the controls; weathervaning's slope over every transition, reorientations included, the floor kept, 0.0341 (0.0205 to 0.0461) intact and 0.0262 in the controls; its slope over the clean transitions with no floor, 0.0147 (−0.0151 to 0.0429) intact and −0.0127 in the controls. The klinokinesis row counts reversals as reorientations, so on track S's fit it is reported as fitted (PLAN §10; DECISIONS.md, 2026-10-01); weathervaning reads reversals only to leave their blocks out, and isn't marked. Previewed outside the protocol (PLAN §10): an investigation on 2026-09-29, on another fit, the second round's probe crawler, pointed to checkpoint 4 failing, the worm circling and AWC-ON's drive changing its speed by at most 0.6% (DECISIONS.md, 2026-09-29).
+
+| Seed | AWC-ON | Intact: reached         | Control: reached        | Nearest the odour spot, intact / control (mm) |
+| ---- | ------ | ----------------------- | ----------------------- | --------------------------------------------- |
+| 1    | AWCL   | The control at 42.1 min | Neither                 | 44.80 / 29.24                                 |
+| 2    | AWCL   | The odour at 36.3 min   | The control at 15.1 min | 5.00 / 44.57                                  |
+| 3    | AWCR   | Neither                 | Neither                 | 44.29 / 17.41                                 |
+| 4    | AWCR   | The odour at 53.9 min   | The odour at 50.1 min   | 5.00 / 5.00                                   |
+| 5    | AWCR   | The odour at 16.3 min   | Neither                 | 5.00 / 9.99                                   |
+| 6    | AWCR   | Neither                 | Neither                 | 27.81 / 34.66                                 |
+| 7    | AWCL   | Neither                 | Neither                 | 34.25 / 7.20                                  |
+| 8    | AWCL   | Neither                 | The control at 22.6 min | 34.78 / 44.60                                 |
+| 9    | AWCR   | Neither                 | The control at 24.1 min | 21.24 / 36.74                                 |
+| 10   | AWCL   | Neither                 | The control at 50.5 min | 44.61 / 26.61                                 |
+| 11   | AWCL   | Neither                 | Neither                 | 14.58 / 23.76                                 |
+| 12   | AWCL   | Neither                 | Neither                 | 28.54 / 17.28                                 |
+| 13   | AWCL   | The control at 18.2 min | The control at 25.3 min | 44.75 / 44.75                                 |
+| 14   | AWCR   | Neither                 | The control at 27.8 min | 15.46 / 44.70                                 |
+| 15   | AWCL   | The control at 31.6 min | Neither                 | 44.70 / 44.70                                 |
+| 16   | AWCR   | Neither                 | The control at 38.4 min | 5.09 / 44.78                                  |
+| 17   | AWCL   | Neither                 | Neither                 | 13.58 / 13.95                                 |
+| 18   | AWCL   | Neither                 | Neither                 | 27.77 / 9.14                                  |
+| 19   | AWCL   | Neither                 | The control at 38.1 min | 23.11 / 36.06                                 |
+| 20   | AWCR   | Neither                 | The control at 20.5 min | 33.99 / 44.63                                 |
+| 21   | AWCL   | The odour at 38.9 min   | Neither                 | 5.00 / 19.90                                  |
+| 22   | AWCL   | Neither                 | Neither                 | 25.51 / 30.27                                 |
+| 23   | AWCR   | The odour at 18.3 min   | The odour at 10.7 min   | 5.00 / 5.00                                   |
+| 24   | AWCL   | Neither                 | Neither                 | 44.90 / 5.04                                  |
+| 25   | AWCR   | Neither                 | Neither                 | 44.38 / 44.57                                 |
+| 26   | AWCR   | The odour at 25.0 min   | Neither                 | 5.00 / 27.40                                  |
+| 27   | AWCR   | The control at 20.6 min | Neither                 | 44.88 / 32.62                                 |
+| 28   | AWCR   | The control at 28.9 min | Neither                 | 44.84 / 44.84                                 |
+| 29   | AWCL   | Neither                 | Neither                 | 10.45 / 15.20                                 |
+| 30   | AWCL   | Neither                 | Neither                 | 17.63 / 23.03                                 |
+| 31   | AWCL   | The odour at 56.1 min   | Neither                 | 5.00 / 36.63                                  |
+| 32   | AWCR   | Neither                 | Neither                 | 21.86 / 42.44                                 |
+| 33   | AWCL   | The odour at 18.7 min   | Neither                 | 5.00 / 7.38                                   |
+| 34   | AWCR   | Neither                 | Neither                 | 29.29 / 44.57                                 |
+| 35   | AWCL   | The control at 31.8 min | Neither                 | 44.57 / 25.70                                 |
+| 36   | AWCL   | Neither                 | Neither                 | 10.45 / 17.86                                 |
+| 37   | AWCL   | The odour at 53.0 min   | Neither                 | 5.00 / 43.94                                  |
+| 38   | AWCR   | Neither                 | The odour at 13.3 min   | 5.67 / 5.00                                   |
+| 39   | AWCL   | The odour at 47.4 min   | Neither                 | 5.00 / 14.75                                  |
+| 40   | AWCL   | Neither                 | Neither                 | 22.62 / 12.36                                 |
+| 41   | AWCR   | The odour at 33.8 min   | Neither                 | 5.00 / 34.53                                  |
+| 42   | AWCL   | Neither                 | Neither                 | 21.18 / 28.44                                 |
+| 43   | AWCR   | Neither                 | Neither                 | 44.88 / 44.88                                 |
+| 44   | AWCR   | Neither                 | Neither                 | 14.75 / 12.16                                 |
+| 45   | AWCR   | The control at 50.5 min | Neither                 | 44.54 / 23.78                                 |
+| 46   | AWCL   | Neither                 | The odour at 56.9 min   | 35.10 / 5.00                                  |
+| 47   | AWCR   | The control at 33.9 min | The odour at 54.7 min   | 44.83 / 5.00                                  |
+| 48   | AWCR   | The odour at 41.8 min   | Neither                 | 5.00 / 19.90                                  |
+| 49   | AWCR   | Neither                 | Neither                 | 11.06 / 43.24                                 |
+| 50   | AWCL   | Neither                 | The odour at 46.7 min   | 43.17 / 5.00                                  |
+| 51   | AWCL   | The control at 25.1 min | Neither                 | 25.89 / 15.48                                 |
+| 52   | AWCR   | Neither                 | Neither                 | 12.79 / 14.27                                 |
+| 53   | AWCR   | Neither                 | Neither                 | 6.79 / 26.16                                  |
+| 54   | AWCL   | Neither                 | Neither                 | 22.09 / 27.49                                 |
+| 55   | AWCL   | Neither                 | Neither                 | 18.76 / 28.41                                 |
+| 56   | AWCL   | Neither                 | Neither                 | 27.68 / 23.34                                 |
+| 57   | AWCL   | The control at 43.9 min | Neither                 | 44.69 / 44.69                                 |
+| 58   | AWCL   | Neither                 | Neither                 | 18.45 / 37.65                                 |
+| 59   | AWCR   | Neither                 | Neither                 | 30.93 / 23.96                                 |
+| 60   | AWCR   | Neither                 | Neither                 | 41.88 / 15.43                                 |
+| 61   | AWCR   | Neither                 | Neither                 | 11.38 / 13.16                                 |
+| 62   | AWCR   | The control at 13.6 min | Neither                 | 44.88 / 20.93                                 |
+| 63   | AWCL   | Neither                 | The odour at 27.7 min   | 44.55 / 5.00                                  |
+| 64   | AWCL   | Neither                 | The odour at 32.7 min   | 13.57 / 5.00                                  |
+| 65   | AWCL   | The control at 21.9 min | The odour at 21.9 min   | 44.50 / 5.00                                  |
+| 66   | AWCL   | Neither                 | Neither                 | 17.55 / 32.26                                 |
+| 67   | AWCL   | Neither                 | The odour at 19.8 min   | 44.51 / 5.00                                  |
+| 68   | AWCR   | The odour at 21.0 min   | Neither                 | 5.00 / 24.12                                  |
+| 69   | AWCR   | Neither                 | Neither                 | 36.84 / 29.37                                 |
+| 70   | AWCL   | Neither                 | The control at 34.3 min | 40.55 / 44.73                                 |
+| 71   | AWCL   | Neither                 | Neither                 | 19.94 / 14.18                                 |
+| 72   | AWCL   | Neither                 | The odour at 30.3 min   | 38.03 / 5.00                                  |
+| 73   | AWCR   | Neither                 | Neither                 | 28.24 / 36.44                                 |
+| 74   | AWCL   | Neither                 | Neither                 | 33.92 / 41.96                                 |
+| 75   | AWCL   | Neither                 | Neither                 | 13.05 / 16.92                                 |
+| 76   | AWCR   | The control at 52.9 min | The control at 34.4 min | 44.75 / 44.75                                 |
+| 77   | AWCR   | The odour at 42.7 min   | Neither                 | 5.00 / 19.33                                  |
+| 78   | AWCR   | The odour at 54.4 min   | Neither                 | 5.00 / 29.37                                  |
+| 79   | AWCR   | Neither                 | Neither                 | 11.05 / 27.90                                 |
+| 80   | AWCR   | Neither                 | Neither                 | 44.55 / 44.55                                 |
+| 81   | AWCL   | Neither                 | The control at 25.3 min | 21.36 / 37.54                                 |
+| 82   | AWCL   | Neither                 | Neither                 | 44.67 / 44.67                                 |
+| 83   | AWCR   | Neither                 | The control at 53.7 min | 28.23 / 28.83                                 |
+| 84   | AWCR   | Neither                 | The odour at 54.5 min   | 36.63 / 5.00                                  |
+| 85   | AWCR   | Neither                 | Neither                 | 16.57 / 31.67                                 |
+| 86   | AWCL   | Neither                 | The odour at 17.2 min   | 35.38 / 5.00                                  |
+| 87   | AWCL   | The odour at 26.3 min   | Neither                 | 5.00 / 27.97                                  |
+| 88   | AWCR   | Neither                 | Neither                 | 16.34 / 13.66                                 |
+| 89   | AWCL   | Neither                 | Neither                 | 11.50 / 8.53                                  |
+| 90   | AWCR   | Neither                 | Neither                 | 41.63 / 44.88                                 |
+| 91   | AWCR   | Neither                 | Neither                 | 17.01 / 30.72                                 |
+| 92   | AWCR   | Neither                 | The odour at 49.2 min   | 7.96 / 5.00                                   |
+| 93   | AWCL   | Neither                 | Neither                 | 27.64 / 26.06                                 |
+| 94   | AWCL   | The control at 40.2 min | The odour at 20.3 min   | 44.59 / 5.00                                  |
+| 95   | AWCL   | Neither                 | Neither                 | 21.52 / 16.04                                 |
+| 96   | AWCR   | Neither                 | The odour at 25.9 min   | 30.18 / 5.00                                  |
+| 97   | AWCR   | The odour at 56.2 min   | Neither                 | 5.00 / 21.83                                  |
+| 98   | AWCL   | The odour at 41.3 min   | The control at 26.5 min | 5.00 / 44.62                                  |
+| 99   | AWCR   | Neither                 | Neither                 | 22.03 / 5.63                                  |
+| 100  | AWCL   | Neither                 | The odour at 16.0 min   | 34.71 / 5.00                                  |
+
 <!-- /harness:checkpoint-4 -->
 
 <!-- harness:equivalence -->
@@ -563,13 +687,15 @@ Then the same trials of the silenced network, which keeps each setting's intact 
 
 <!-- /harness:sensitivity -->
 
-## Checkpoints 2 to 6: 2 and 3 run, 4 to 6 open
+## Checkpoints 2 to 6: 2 to 4 run, 5 and 6 open
 
-They waited, by a decision made at the go/no-go and kept since (PLAN §9; DECISIONS.md, 2026-09-26 and 2026-09-30), until checkpoint 1 reached at least partial on a fit the rules could choose. Track R ended below partial on 2026-09-29, so none ran on its fits. Track S's fit grades partial (2026-10-02), so they now run on it by their protocols, checkpoint 6's ten nulls each tuned by S's procedure first (PLAN §9), by rules for what PLAN left open set before any of them was built (DECISIONS.md, 2026-10-02). Checkpoints 2 and 3 have run, and fail (their sections, above); checkpoints 4 to 6 have not, and none of them is reported as a pass, a partial or a fail. S as a whole was proposed after the previews below, so on its fit checkpoint 2, checkpoint 4's klinokinesis row, which counts reversals as reorientations, and checkpoint 5's rows that read reversals will be reported as fitted (PLAN §10); checkpoint 3 reads forward speed and is not marked. The reason they waited is what each measures: checkpoints 2 and 3 touch a worm "during forward crawling", checkpoint 4 needs it to travel centimetres to a spot, checkpoint 5 measures lesions against those behaviours, and checkpoint 6 asks whether rewired brains crawl as the real one does (PLAN §7.4).
+They waited, by a decision made at the go/no-go and kept since (PLAN §9; DECISIONS.md, 2026-09-26 and 2026-09-30), until checkpoint 1 reached at least partial on a fit the rules could choose. Track R ended below partial on 2026-09-29, so none ran on its fits. Track S's fit grades partial (2026-10-02), so they now run on it by their protocols, checkpoint 6's ten nulls each tuned by S's procedure first (PLAN §9), by rules for what PLAN left open set before any of them was built (DECISIONS.md, 2026-10-02). Checkpoints 2 to 4 have run, and fail (their sections, above); checkpoints 5 and 6 have not, and neither is reported as a pass, a partial or a fail. S as a whole was proposed after the previews below, so on its fit checkpoint 2, checkpoint 4's klinokinesis row, which counts reversals as reorientations, and checkpoint 5's rows that read reversals will be reported as fitted (PLAN §10); checkpoint 3 reads forward speed and is not marked. The reason they waited is what each measures: checkpoints 2 and 3 touch a worm "during forward crawling", checkpoint 4 needs it to travel centimetres to a spot, checkpoint 5 measures lesions against those behaviours, and checkpoint 6 asks whether rewired brains crawl as the real one does (PLAN §7.4).
 
 Checkpoints 2 and 3 failed as their rules expected of a fit that hardly reverses. A touch moves its receptors about 10 mV, as their currents are sized to, but on three seeds it moved AVA by at most 1.2 mV, AVD by 1.4, PVC by 2.3 and AVB by 0.5 against its sham twin, so it reaches the command circuit only faintly. It does reach the head switch, whose flips it moves by up to about 1 s either way, shifting each touch's speed by −17% to +25% against its twin; but on average the speed doesn't move, no touch makes the worm reverse, and the crawl, which the switch paces, carries on (DECISIONS.md, 2026-10-02).
 
-The rest of the graders come next, one checkpoint at a time. The assay exists, since checkpoint 0 uses it; checkpoint 4's control with AWC's input off, its klinokinesis and weathervaning measures, the lesion rows and the nulls' tuning are not built.
+Checkpoint 4 failed as its rules expected. Of 100 worms, each run for up to an hour from the dish's centre, 18 reached the odour and 14 the control, and with AWC-ON's input off 17 and 14. The worms' reversals, 0.41 a minute over the hour where checkpoint 1's two-minute trials made none, are the dish's wall's: in three worms looked at, every reversal began with the body within 0.5 mm of the wall, where they spent 37% to 49% of their time, so klinokinesis, which counts them as reorientations, reads the wall. Weathervaning, the slope of the curving rate against the bearing, clears its null and the control at the 80% level the rules set, so it is reproduced; but it is faint, a worm heading across the gradient curving towards it by about 0.34° a millimetre, its difference from the control clearing zero by 0.0002, and it draws no worm to the odour (DECISIONS.md, 2026-10-02).
+
+The rest of the graders come next, one checkpoint at a time. Checkpoint 5's lesion rows, and the nulls' tuning for checkpoint 6, are not built.
 
 What each measures, by thresholds PLAN §7.4 fixes, every quantity predicted, since checkpoints 2 to 5 are held out of the calibration (spec §1.2):
 
@@ -586,7 +712,7 @@ Checkpoint 4 would also report its mechanism, klinokinesis and weathervaning, ea
 What is known short of them, none of it a checkpoint's result:
 
 - **They were previewed, outside their protocols** (PLAN §10, which asks every report of them to say so). An investigation on 2026-09-29 stimulated and lesioned the real wiring at the probe crawler's values, on exploration seeds. It pointed to checkpoint 2 failing, with no reversal; checkpoint 3 likely failing, since stimulating PLM slowed the worm; checkpoint 4 failing, the worm circling and AWC-ON's drive changing its speed by at most 0.6%; and checkpoint 5 passing at most one row. On the refit, lesioning AVA raised the reversals from 1.42 to 5.41 a minute, where checkpoint 5's AVA rows ask for a fall (2026-09-28). The sign audit's probes re-signed up to 102 connections and found no backward mode (2026-09-29). No change to track R's model followed a preview of checkpoints 2 to 5; track S's did, which is why its rows above are reported as fitted. On S's fit itself, its chosen pick's runs preview checkpoint 5's AVB + PVC row: with AVBL and AVBR lesioned it moves forward 30% of the time (above).
-- **Odour has been measured only where it must do nothing.** Checkpoint 0 ran the silenced worm in the assay's field, on the refit and on S's fit, and its clause passes, as it would for any worm that barely moves; it touched the silenced worm too, before checkpoints 2 and 3 touched a crawling one.
+- **Touch and odour were first measured where they must do nothing.** Checkpoint 0 touched the silenced worm and ran it in the assay's field, on the refit and on S's fit, and both clauses pass, as they would for any worm that barely moves; checkpoints 2 to 4 have since touched and assayed a crawling one.
 - **The wiring test's question has an exploratory answer, not a result.** An assessment found R's third round's crawl largely indifferent to the chemical wiring: it still moved forward 93% of the time with every chemical synapse cut. Ten rewirings built in a scratch copy, untuned, were run at that round's values: 2 of the 10 graded partial on checkpoint 1's seeds at its first pick's values, 6 of the 10 after one nudge of one parameter, the best of six by a fixed rule on seeds 4001 to 4010, and none of five at its fourth pick's. PLAN's verdict map reads five or more crawling nulls as no evidence that the wiring matters, and an untuned run understates how many a tuned search would make crawl (DECISIONS.md, 2026-09-30). No null was tuned by checkpoint 6's procedure, so the test itself has no result. The contrast brain in the app is a rewiring on S's fit's values, untuned, and nothing about it is measured.
 - **The app runs what the checkpoints would test.** A viewer can touch the worm, place food, lesion neurons and swap in the contrast brain, on S's fit's slow crawl. What they then see is the model's behaviour, not a validated reflex.
 
