@@ -109,7 +109,7 @@ export function paramNote(p: Param): string {
     const own = CHOSEN_MODEL === 'track S' && c.trackS;
     forms = [
       own
-        ? `In the conductance form, which the chosen fit runs, on track S's model, by ${c.trackS?.rule}; the conductance form's own bounds, ${range(c.bounds)}, are by ${c.rule}.`
+        ? `In the conductance form, which the chosen fit runs, its bounds are ${range(c.bounds)} by ${c.rule}; on track S's model, whose fit is chosen, ${range(c.trackS?.bounds ?? c.bounds)}, by ${c.trackS?.rule}.`
         : `In the conductance form, which the chosen fit runs, by ${c.rule}.`,
       `In the current form, which the refit ran, in ${p.unit}: bounds ${p.bounds ? range(p.bounds) : 'none'}${p.provisional === undefined ? '' : `, provisionally ${formatNumber(p.provisional)}`}.`,
     ].join(' ');
@@ -150,7 +150,7 @@ export function statusText(values: string): string {
     "and speed are partial, the speed about a third of a real worm's (DECISIONS.md, 2026-10-02). The rhythm is not the " +
     "network's own: the head switch, a layer the spec permits, paces it at its strongest gain, the B-type motor neurons " +
     'have no oscillator, and the worm hardly reverses. Checkpoints 2 to 6, which need crawling, are now open and not ' +
-    'yet run, and checkpoints 0 and 1 run again on this fit (`VALIDATION.md`). Only checkpoints 0 and 1 and the ' +
+    'yet run, and checkpoints 0 and 1 are to run again on this fit (`VALIDATION.md`). Only checkpoints 0 and 1 and the ' +
     'sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
     `The calibrated parameters are track S's fit's, ${values} (DECISIONS.md, 2026-10-02).`
   );

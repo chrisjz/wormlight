@@ -263,7 +263,7 @@ export function assayField(): OdourField {
 // solve's tolerance, once with the gate open, so BDF2 runs at them, and once with θ_osc at −1 mV, within the band
 // where the gate turns on or off on about half the steps. The last runs the registry's values on the contrast
 // brain (PLAN §3.5), lesioned as a viewer may lesion it (spec §6): its first rewiring, less a command interneuron,
-// a B-type oscillator, a touch receptor and a dorsal SMD. For one run after a review it lesioned AWCL too, AWC-ON
+// a B-type oscillator, a touch receptor and a dorsal SMD, and from 2026-10-02 an A-type too, since the chosen fit gives the B-types no oscillator and the A-type's keeps a lesioned oscillator to pack. For one run after a review it lesioned AWCL too, AWC-ON
 // at its seed; one state then fell on a knife edge, where 0.01 mV decides whether a B-type fires, and failed its
 // one-second check, so AWCL was dropped (DECISIONS.md, 2026-09-30). The loop's API checks a lesioned AWC-ON: its
 // odour reaches no neuron.
@@ -347,7 +347,7 @@ export const LOOP_SETUPS: readonly LoopSetup[] = [
     name: 'contrast brain, lesioned',
     params: currentParams(),
     rewiring: 1,
-    lesions: ['AVBL', 'VB6', 'ALML', 'SMDDL'],
+    lesions: ['AVBL', 'VB6', 'DA5', 'ALML', 'SMDDL'],
     states: 10,
   },
   // Track S's model (DECISIONS.md, 2026-10-02) on the trial values: its class offsets and rectifier, in the conductance

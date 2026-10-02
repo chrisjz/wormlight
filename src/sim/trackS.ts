@@ -90,6 +90,7 @@ export function partsOf(model: Model): Readonly<TrackSParts> {
   throw new Error(`there is no model ${String(model)}`);
 }
 
-// Which of track S's parts a World's model takes, as a key: '' for the runtime data's model, which the refit runs.
+// Which of track S's parts a World's model takes, as a key: '' for the runtime data's model without them, which the
+// planned model and track R's fits run, on S's signs since they moved into the data (DECISIONS.md, 2026-10-02).
 export const trackSKey = (choice: TrackSParts): string =>
   [choice.restOffsets ?? '', choice.rectified ? 'rectified' : ''].filter(Boolean).join(', ');

@@ -83,7 +83,7 @@ export const BOUND_RULE_CURVATURE = 8.3;
 
 export const FREE_PARAMETER_BUDGET = 18;
 const CALIBRATION_TARGETS =
-  'undulation frequency, wavelength, speed and the spontaneous reversal rate, by one CMA-ES procedure (PLAN §7.3)';
+  "undulation frequency, wavelength and speed, by track S's procedure, R's third round's, its speed's target 0.15 body lengths per second; R's refit was calibrated against the spontaneous reversal rate as well (PLAN §7.3)";
 
 export const PARAMS = {
   // Neurons and synapses (PLAN §3.2).
@@ -230,7 +230,7 @@ export const PARAMS = {
     level: 2,
     subsystem: 'neural',
     sources: ['liu2014'],
-    note: "How far the D-types rest below their thresholds in track S's model, Δ = V_th − V_rest: VD5's rest less VB6's, both recorded at zero current (−45.8 and −53.2 mV), with every class's sigmoid taken to have its midpoint where the B-types rest, so they rest 7.4 mV above theirs. The dorsal D-types take VD5's value. The difference is 7.4 ± 3.1 mV in wild type, and ranges from 0.1 to 8.8 mV across the strains whose rests the authors found unchanged. The A-types keep their midpoint: VA5's −71.7 mV is a down state, and in the model's frame it would put their thresholds above the excitatory reversal potential (DECISIONS.md, 2026-10-02). No fit uses it yet.",
+    note: "How far the D-types rest below their thresholds in track S's model, Δ = V_th − V_rest: VD5's rest less VB6's, both recorded at zero current (−45.8 and −53.2 mV), with every class's sigmoid taken to have its midpoint where the B-types rest, so they rest 7.4 mV above theirs. The dorsal D-types take VD5's value. The difference is 7.4 ± 3.1 mV in wild type, and ranges from 0.1 to 8.8 mV across the strains whose rests the authors found unchanged. The A-types keep their midpoint: VA5's −71.7 mV is a down state, and in the model's frame it would put their thresholds above the excitatory reversal potential (DECISIONS.md, 2026-10-02). The app runs it since track S's fit was chosen (DECISIONS.md, 2026-10-02).",
     upgrade:
       'Recordings of the D-types, dorsal and ventral, against the B-types in one preparation, and of where each class releases',
   },
@@ -494,10 +494,10 @@ export const PARAMS = {
       unit: 'nS per unit of κL',
       bounds: [0.0001, 8],
       provisional: 0.028,
-      rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gives 0.00017–7.8, rounded outward to one significant figure; it starts at the bounds' log midpoint, 0.028 as the rules give it",
+      rule: "PLAN §7.3's 1 mV rule over the A- and B-types with fields, at |κL| = 8.3, which gave 0.00017–7.8, rounded outward to one significant figure, and gives 0.00017–7.7 since track S's signs moved into the runtime data; it starts at the bounds' log midpoint, 0.028 as the rules give it",
       trackS: {
         bounds: [0.0001, 7],
-        rule: "the same rule, which gives 0.00014–6.4 there, since its rectifier shuts most of the AVA–A-type junctions at rest and so lightens the A-types' loads, DA8's the largest",
+        rule: "the same rule, which gives 0.00014–6.4 there, since its rectifier shuts most of the AVA–A-type junctions at rest and so lightens the A-types' loads, DA8's the largest; S's searches start from the survey's Latin hypercube, not the log midpoint",
       },
     },
   },

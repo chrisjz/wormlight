@@ -189,14 +189,19 @@ describe("the loop's parity", () => {
     const registry = LOOP_SETUPS.find((s) => s.name === 'registry');
     if (!setup || !registry) throw new Error('no setup runs the contrast brain, or the registry intact');
     expect(setup.rewiring).toBe(1);
-    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'ALML', 'SMDDL']);
+    expect(setup.lesions).toEqual(['AVBL', 'VB6', 'DA5', 'ALML', 'SMDDL']);
     const cases = loopCases(data, setup);
     expect(cases).toHaveLength(setup.states + 1);
     const world = cpuWorld(data, cases[1].state, undefined, setup);
     const intact = cpuWorld(data, loopCases(data, registry)[0].state, undefined, registry);
     expect(world.brain.threshold).not.toEqual(intact.brain.threshold);
     const vb6 = data.neurons.findIndex((n) => n.name === 'VB6');
+    const da5 = data.neurons.findIndex((n) => n.name === 'DA5');
     expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(vb6);
+    // The lesioned A-type's oscillator is left out, one fewer than the intact brain packs.
+    expect(Array.from(intact.brain.oscillators?.neurons ?? [])).toContain(da5);
+    expect(Array.from(world.brain.oscillators?.neurons ?? [])).not.toContain(da5);
+    expect(world.brain.oscillators?.neurons.length).toBe((intact.brain.oscillators?.neurons.length ?? 0) - 1);
     const packed = packLoop(world);
     expect(packed.touch.map((r) => r.name)).not.toContain('ALML');
     expect(packed.touch).toHaveLength(intact.receptors.length - 1);
