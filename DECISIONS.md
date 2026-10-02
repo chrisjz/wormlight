@@ -3850,23 +3850,70 @@ Reported, not graded: the body wave's spread, 1.8869 against 1.8887 κL, and its
 
 **Status.** Built and run, and revised after review.
 
-## 2026-10-02 — Checkpoint 5 on track S's fit: no row passes, its reversal rows unmeasured and AVB + PVC's fall 72% of the 80% it asks
+## 2026-10-02 — Checkpoint 5 on track S's fit: no row passes; the intact worm never reverses, and every primary lesion slows its crawl, AVB + PVC's by 72% where the row asks 80% (revised after review)
 
 **Why.** The order the rules of 2026-10-02 set: checkpoint 5 after checkpoint 4, built and run on S's fit.
 
-**What is built.** `src/validation/lesions.ts` takes each lesion's 30 trials and the intact worm's, and the touch runs of checkpoints 2 and 3, and grades the five primary rows as the rules set them, the three secondary lesions reported beside them. A trial can record its head angle at each 0.1 s sample, PLAN §7.1's angle between the body's tangents at 0.05 and 0.2 body lengths, which moves to `motion.ts` from checkpoint 4's mechanism with the same arithmetic; a test holds that recording it changes nothing else in a trial. A reversal is long if three or more of the head swings checkpoint 4's mechanism counts have their peaks within its backward samples, and short otherwise. `src/sim/stats.ts` gains the two tests the rules name, which the order had put in checkpoint 4's pull request: Mann–Whitney's U test, two-sided, ranks tied at their mean, its p from the normal approximation with the tie correction and without a continuity correction, which the rules didn't name and which decides no row below, all-tied samples giving p = 1; and Fisher's exact test, two-sided, summing the tables no more probable than the observed one, within a relative 10⁻⁷. Tests hold both against values worked by hand. A clause's direction is undefined where its test's z is 0, and a pass needs it the reported way. The harness's `--checkpoint 5` runs the nine arms' 270 trials and, for the intact worm, AVA + AVD and PVC, checkpoints 2 and 3's touch trials on 100 seeds each, then writes its section. Tests hold the long and short reversals, each row's effect, test and direction, the zero rule, RIM's rise from zero, the touch rows and their unmeasured cases, a trial that leaves the finite numbers, arms that don't pair by seed, the lesions' neurons and the levels.
+**What is built.** `src/validation/lesions.ts` takes each lesion's 30 trials and the intact worm's, and the touch runs of checkpoints 2 and 3, and grades the five primary rows as the rules set them. Every lesion's spontaneous measures, the primary ones' too, are reported beside the rows. A trial can record its head angle at each 0.1 s sample, PLAN §7.1's angle between the body's tangents at 0.05 and 0.2 body lengths, which moves to `motion.ts` from checkpoint 4's mechanism with the same arithmetic; a test holds that recording it changes nothing else in a trial. A reversal is long if three or more of the head swings checkpoint 4's mechanism counts have their peaks within its backward samples, and short otherwise. `src/sim/stats.ts` gains the two tests the rules name, which the order had put in checkpoint 4's pull request:
 
-**The run,** at `7d6e86c`: 570 runs, the 270 spontaneous trials and 300 touch trials, in 151 s on 14 workers; and again at `7cc6100`, after a fix to the section's minus sign, in 156 s, every record the same. Every trial, copy and twin stayed finite, every solve converged, and each touched worm, lesioned or not, found its 50 touches.
+- Mann–Whitney's U test, two-sided: ranks tied at their mean; its p from the normal approximation with the tie correction and without a continuity correction, which the rules didn't name and which decides no row below; all-tied samples giving p = 1.
+- Fisher's exact test, two-sided: the tables no more probable than the observed one summed, within a relative 10⁻⁷.
+
+Tests hold both against values worked by hand.
+
+A clause's direction is undefined where its test's z is 0, or where Fisher's two shares are equal, and a pass needs it the reported way. The fitted marks follow the rules' clauses: PVC's row is marked on its clause on checkpoint 2 alone.
+
+Three choices the rules leave open:
+
+- A non-finite intact trial fails every spontaneous row, since each compares against the intact worm.
+- The reported arms take the graded ones' checks, pairing by seed and staying finite.
+- Checkpoint 1's speed beside AVB + PVC's row pools its bouts' samples over each arm's trials, as checkpoint 1 does.
+
+The harness's `--checkpoint 5` runs the nine arms' 270 trials and, for the intact worm, AVA + AVD and PVC, checkpoints 2 and 3's touch trials on 100 seeds each, then writes its section.
+
+Tests hold:
+
+- the long and short reversals;
+- each row's effect, test and direction, the wrong way and a tie included;
+- the zero rule, and RIM's rise from zero;
+- the touch rows and their unmeasured cases;
+- a trial that leaves the finite numbers, and arms that don't pair by seed;
+- the fitted marks, the reported arms, the pooled bout speed and the section;
+- the lesions' neurons and the levels.
+
+**The run.** It ran at `7d6e86c`: 570 runs, the 270 spontaneous trials and 300 touch trials, in 151 s on 14 workers. It ran again at `7cc6100`, after a fix to the section's minus sign, then at `b01b623` and `aba1617`, after the review's fixes, each in about 2.5 minutes. Every record was the same each time. Every trial, copy and twin stayed finite, every solve converged, and each touched worm, lesioned or not, found its 50 touches.
 
 - **Checkpoint 5: fail, reported as fitted.** None of the five primary rows passes.
-- **The reversal rows are unmeasured.** The intact worm made no reversal in its 30 trials, 54.8 minutes measured, and none after its touches, as checkpoints 1 and 2 found on S's fit. So AVA + AVD's two falls, AVA's two and PVC's "checkpoint 2's response stays" have no intact measure, and fail by the zero rule. The lesioned worms made a few where the intact made none: with AVA and AVD cut, 5 short reversals in 4 of the 30 trials, 0.09 a minute; with AVA alone, 1, 0.02 a minute; none was long. On the refit, a preview found AVA's lesion raising the reversals the same way (2026-09-28).
-- **AVB + PVC: fail.** The mean velocity towards the head fell from 0.0683 to 0.0193 body lengths per second, 72%, where the row asks for 80%; Mann–Whitney's p is 2.9 × 10⁻¹¹. The rules expected it to pass by the preview's 91%, but that preview cut AVB alone. Reported beside it, checkpoint 1's speed over forward bouts: 0.0685 intact, 0.0355 lesioned. The lesioned worms made 15 short reversals in 8 trials.
+- **The reversal rows fail, unmeasured but for RIM's.** The intact worm made no reversal in its 30 trials, 54.8 minutes measured, and none after its touches, as checkpoints 1 and 2 found on S's fit. So AVA + AVD's two falls, AVA's two and PVC's "checkpoint 2's response stays" have no intact measure, and fail by the zero rule. The lesioned worms made a few where the intact made none:
+  - With AVA and AVD cut: 5 short reversals in 4 of the 30 trials, 0.09 a minute, a rise significant the wrong way by Mann–Whitney's test, p = 0.040, which the zero rule leaves out of the grading.
+  - With AVA alone: 1, 0.02 a minute, p = 0.32.
+  - None was long.
+
+  On the refit, a preview found AVA's lesion raising the reversals the same way (2026-09-28). RIM's row, the only reversal row measured from zero, fails: neither the intact nor the lesioned worm made a short reversal, p = 1.
+
+- **AVB + PVC: fail.** The mean velocity towards the head fell from 0.0683 to 0.0193 body lengths per second, 72%, where the row asks for 80%; Mann–Whitney's p is 2.9 × 10⁻¹¹. The rules expected it to pass by the preview's 91%, but that preview cut AVB alone. Reported beside it, checkpoint 1's speed over forward bouts: 0.0685 intact, over all 30 trials, and 0.0357 lesioned, over the 18 trials with a bout. The lesioned worms made 15 short reversals in 8 trials, 0.27 a minute, p = 0.0027.
+- **Every primary lesion slows the crawl, the backward command interneurons' as much as AVB + PVC's.** Each is significant by Mann–Whitney's test, p < 0.001. With AVA and AVD cut, the mean velocity falls to 0.0177, 74% down. With AVA alone, it falls to 0.0244, 64%. With PVC, it falls to 0.0585, 14%; with RIM, to 0.0625, 8%. The worms without AVA, or without AVA and AVD, move forward in 54% and 53% of the samples, backward in almost none, and pause in the rest. So a fall of about 72% in the mean velocity isn't specific to cutting the forward command interneurons: the crawl the head switch paces slows when any of them is cut. Among the secondary lesions, AIZ's slows the worm to 0.0452, AIY's speeds it up to 0.0742, both p < 0.001, and AIB's leaves it at 0.0677, p = 0.22; none reversed.
 - **PVC: fail.** Checkpoint 3's response, the posterior touch's speed-up, was −0.3% in the intact worm, under checkpoint 3's 1% floor, so its fall is unmeasured; the lesioned worm's was −2.1%. Its clause on checkpoint 2 is unmeasured, as above.
-- **RIM: fail.** Neither the intact nor the lesioned worm made a short reversal, p = 1.
-- **The secondary lesions,** reported, not graded: none reversed. Cutting AIY sped the worm up, to 0.0742 body lengths per second against the intact 0.0683, p < 0.001; cutting AIZ slowed it, to 0.0452, p < 0.001; cutting AIB left it at 0.0677, p = 0.22.
-- **AVB alone, and what PVC does without it,** looked into (exploration, disclosed: scratch scripts in one process ran AVB's lesion alone on the 30 seeds, then the intact worm, AVB alone, AVB + PVC and PVC alone on seeds 1 to 10, with the mean voltages of the command interneurons and the motor classes over each trial's measured time). With AVBL and AVBR alone cut, the mean velocity is 0.0060 over the 30 seeds, 91% down, as the preview found; with PVCL and PVCR alone, 0.0585, 14% down. On the 10 seeds, AVB's lesion leaves the worm moving forward in 30% of the samples and backward in 18%, and with PVC cut as well, 62% and 4%. So with AVB gone, PVC holds the worm back, sending it backward more often; with AVB there, it speeds it up. The mean voltages of AVA, AVD, AVE and the A- and B-types differ by 0.7 mV at most between the two lesions, so the means don't show how, and it wasn't looked into further. The row lesions AVB and PVC together, as PLAN §7.4 sets it, and is graded as it stands.
+- **AVB alone, and what PVC does without it,** looked into. This was exploration, disclosed:
+  - Scratch scripts in one process ran AVB's lesion alone on the 30 seeds.
+  - They then ran the intact worm, AVB alone, AVB + PVC and PVC alone on seeds 1 to 10, with the mean voltages of the command interneurons and the motor classes over each trial's measured time.
+  - The review reran AVB alone on the 30 seeds.
+
+  With AVBL and AVBR alone cut, the mean velocity is 0.0060 over the 30 seeds, 91% down, as the preview found. The worm moves forward in 30% of the samples and backward in 17%, 5.5 reversals a minute, its forward and backward motion nearly cancelling. With PVC cut as well, it moves forward in 66% and backward in 3%, 0.27 reversals a minute. So with AVB gone, PVC sends the worm backward far more often; with AVB there, cutting PVC slows it 14%. The mean voltages of AVA, AVD, AVE and the A- and B-types differ by 0.7 mV at most between the two lesions on the 10 seeds, so the means don't show how, and it wasn't looked into further. The row lesions AVB and PVC together, as PLAN §7.4 sets it, and is graded as it stands.
+
 - **As foreshadowed, but for AVB + PVC.** The rules expected the rows that read reversals to be unmeasured or to fail on a fit that hardly reverses, and the investigation of 2026-09-29, on another fit, pointed to at most one row passing. They expected AVB + PVC's row to pass, and it doesn't.
 
-**The record.** `VALIDATION.md`'s section, where each checkpoint stands, its account of checkpoints 2 to 6, the README, PLAN §9, the ledger's status and CLAUDE.md's harness command say so.
+**Review.** A review of the code and the record found no verdict wrong. It found the rules followed clause by clause and the statistics right, checked in Python against exact sums and an independent U on 25 cases. It rebuilt the summary and the section from the records byte for byte, reproduced every figure and the exploration, found the intact touch records identical to checkpoint 2's and the intact trials to checkpoint 1's, and found checkpoint 4's mechanism byte-identical on two seeds. It found, and the entry, the section and the code now have:
 
-**Status.** Built and run.
+- the backward command interneurons' lesions slowing the worm as much as AVB + PVC's, so the 72% isn't specific to cutting the forward command interneurons, and the primary lesions' speeds unreported;
+- AVA + AVD's rise in reversals significant the wrong way, unsaid;
+- the bout speed beside AVB + PVC's row averaged by trial, not pooled as checkpoint 1 pools it, 0.0355 against 0.0357, and not saying that 18 of the 30 lesioned trials had a bout;
+- PVC's whole row marked fitted, where the rules mark its clause on checkpoint 2;
+- the touch runs' solves unreported, and the reported arms unchecked;
+- a fall's threshold an ulp off the touch clauses', and a tie in Fisher's test given a direction;
+- the section untested, with untested wrong-way paths;
+- PLAN's milestone 0c note still calling checkpoint 5 open, and the title, the README's "almost stops" and smaller wording in `VALIDATION.md`.
+
+**The record.** `VALIDATION.md`'s section, where each checkpoint stands, its account of checkpoints 2 to 6, the README, PLAN §9 and milestone 0c's note, the ledger's status and CLAUDE.md's harness command say so.
+
+**Status.** Built and run, and revised after review.
