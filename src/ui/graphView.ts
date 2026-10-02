@@ -1,8 +1,8 @@
 // The 3D graph of all 302 neurons (spec §7), with the selected neuron's connections lit. While the worm runs its
 // neurons glow with their simulated activity (PLAN §1), or show their classes, and with none selected the synapses of
-// the most active are faintly lit. It shows the brain the experiment runs, the real wiring or a rewiring of it, and
-// draws lesioned neurons hollow, their links faint; the inspector ablates and restores the selected neuron (spec §6)
-// and reads its activity.
+// those most active above their rest are faintly lit. It shows the brain the experiment runs, the real wiring or a
+// rewiring of it, and draws lesioned neurons hollow, their links faint; the inspector ablates and restores the
+// selected neuron (spec §6) and reads its activity.
 // - Mouse: drag to turn, scroll to zoom, shift- or right-drag to pan, click a neuron to select it, double-click
 //   a neuron to fly to it or empty space to reset.
 // - Touch: drag to turn, pinch to zoom, drag two fingers to pan, tap to select, double-tap to fly or reset.
@@ -24,7 +24,7 @@ import {
 import { GraphRenderer, LINK_FLOATS, NEURON_FLOATS, type FrameState } from '../render/graph.ts';
 import { graphLayout } from '../render/layout.ts';
 import {
-  ACTIVE_GLOW,
+  activeStrength,
   CLASS_COLOURS,
   GLOW_COLOUR,
   glowBrightness,
@@ -55,7 +55,7 @@ const DIMMED = 0.28;
 // How much of its opacity a link a lesion cuts keeps.
 const CUT = 0.3;
 // How opaque an active synapse's link is at the most, drawn while the neurons glow and none is selected.
-const ACTIVE_LINK = 0.3;
+const ACTIVE_LINK = 0.45;
 // While the neurons glow, how strongly each is rimmed in the palette's neutral grey.
 const RIM = 0.45;
 const HOME_YAW = (-50 * Math.PI) / 180;
@@ -160,7 +160,8 @@ function legend(data: WormlightData, pane: HTMLElement, lesionKey: HTMLElement, 
       'Somata from one reconstruction, unbent along the ventral cord, with the body axis stretched where neurons ' +
         `crowd and the cross-section enlarged. ${signNote(data)} Coloured by activity, each neuron glows with its ` +
         "simulated activity, the model's activation filtered as the GCaMP6s indicator would smooth it (Chen et al. " +
-        '2013), on one fixed scale: a simulation, not imaging data.',
+        '2013), on one fixed scale: a simulation, not imaging data. With no neuron selected, the chemical synapses of ' +
+        'those whose glow rises well above their own rest are drawn faintly.',
     ),
   );
   body.append(colouring, neurons, links, about);
@@ -537,7 +538,8 @@ export async function startGraph(
     }
     renderer.setNeurons(neurons);
     // The selected neuron's connections; or, while the neurons glow and none is selected, the chemical synapses of
-    // those glowing above ACTIVE_GLOW, faintly, fainter the nearer that they glow to it.
+    // those whose glow has risen more than ACTIVE_RISE above their own rest, faintly, fainter the nearer they are to
+    // it.
     const drawn: { from: number; c: Connection; alpha: number; width: number }[] = [];
     if (selected !== null) {
       const s = selected;
@@ -549,8 +551,8 @@ export async function startGraph(
       }
     } else if (glow) {
       for (let i = 0; i < n; i++) {
-        if (glow[i] <= ACTIVE_GLOW || lesioned.has(wiring.names[i])) continue;
-        const strength = (glow[i] - ACTIVE_GLOW) / (1 - ACTIVE_GLOW);
+        const strength = activeStrength(glow[i], activity.rest[i]);
+        if (strength === null || lesioned.has(wiring.names[i])) continue;
         for (const c of wiring.of(i)) {
           if (c.kind !== 'out' || lesioned.has(wiring.names[c.partner])) continue;
           drawn.push({ from: i, c, alpha: ACTIVE_LINK * strength, width: 1 });

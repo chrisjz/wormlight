@@ -10,13 +10,27 @@ export const CLASS_COLOURS: Record<CellClass, string> = {
   pharyngeal: '#7a8781',
 };
 
-// The glow's GCaMP green, style.css's --glow; the brightness of a neuron at no activity, as a share of it; and the
-// glow above which a neuron's chemical synapses are drawn, faintly, while none is selected.
+// The glow's GCaMP green, style.css's --glow; the brightness of a neuron at no activity, as a share of it; and how far
+// a neuron's glow must rise above its own rest for its chemical synapses to be drawn, faintly, while none is selected
+// (DECISIONS.md, 2026-10-02: a fixed ¾, which the refit's head switch reached by driving neurons far outside the
+// model's range, and which track S's fit almost never does).
 export const GLOW_COLOUR = '#5dfc8f';
 // style.css's --muted: while the neurons glow, each one's faint rim and a lesioned one's hollow outline.
 export const NEUTRAL = '#8c9a92';
 export const GLOW_FLOOR = 0.06;
-export const ACTIVE_GLOW = 0.75;
+export const ACTIVE_RISE = 0.1;
+// Lit synapses start at ACTIVE_FLOOR of their full opacity, so that a lit one shows, and reach it ACTIVE_SPAN further
+// up, a rise that track S's most active neurons, the SMDs and the B-types, reach (DECISIONS.md, 2026-10-02).
+export const ACTIVE_FLOOR = 0.35;
+export const ACTIVE_SPAN = 0.15;
+
+// How strongly a neuron's synapses are lit while it glows at g, resting at r: from ACTIVE_FLOOR as it rises past
+// ACTIVE_RISE above its rest to 1 at ACTIVE_SPAN beyond, and null, not lit, below that.
+export function activeStrength(g: number, r: number): number | null {
+  const rise = g - r;
+  if (!(rise > ACTIVE_RISE)) return null;
+  return ACTIVE_FLOOR + (1 - ACTIVE_FLOOR) * Math.min(1, (rise - ACTIVE_RISE) / ACTIVE_SPAN);
+}
 
 // A neuron's brightness and halo at a glow g, on the one fixed scale (PLAN §1): brightness rises as g², so rest,
 // at ½, reads dim; the halo grows over the half above rest.

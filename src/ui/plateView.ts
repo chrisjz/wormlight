@@ -31,7 +31,7 @@ import { ROD_CONSTANTS, ROD_WORDS, STATE_WORDS } from '../gpu/brainShader.ts';
 import { GpuField } from '../gpu/field.ts';
 import { packOdour } from '../gpu/loopLayout.ts';
 import { GpuWorld } from '../gpu/world.ts';
-import { activations } from '../render/glow.ts';
+import { activations, restingGlow } from '../render/glow.ts';
 import { PlateRenderer, type PlateFrame } from '../render/plate.ts';
 import {
   halfExtent,
@@ -1154,8 +1154,10 @@ export async function startPlate(
           const stale = glowAt !== null && glowAt.run === from && at <= glowAt.steps;
           if (from === run && !stale && voltages.every(Number.isFinite)) {
             activations(voltages, source.brain.threshold, source.brain.network.slope, activation);
-            if (glowAt === null || glowAt.run !== from) activity.glow.reset(activation);
-            else activity.glow.update(activation, (at - glowAt.steps) * NEURAL_STEP);
+            if (glowAt === null || glowAt.run !== from) {
+              activity.glow.reset(activation);
+              activity.rest = restingGlow(source.brain.offset, source.brain.network.slope);
+            } else activity.glow.update(activation, (at - glowAt.steps) * NEURAL_STEP);
             glowAt = { run: from, steps: at };
             activity.publish();
           }

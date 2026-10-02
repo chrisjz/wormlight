@@ -17,6 +17,13 @@ export function activations(
   return out;
 }
 
+// Each neuron's glow at rest: the activation φ(−Δ) of a neuron held at its rest, Δ how far it rests below its
+// threshold, as the brain's offsets give it. It is ½ for every neuron but the D-types in track S's model, about 0.72
+// (DECISIONS.md, 2026-10-02).
+export function restingGlow(offset: ArrayLike<number>, slope: number): Float64Array {
+  return Float64Array.from(offset, (o) => 1 / (1 + Math.exp(slope * o)));
+}
+
 // The two stages for every neuron, stepped in the worm's time from activations read now and then, as the app reads
 // them once a frame. Between two readings the input is held at their mean, and both stages are advanced exactly
 // for that input, so the only error is the sampling's: activity between readings is known only through them. At
