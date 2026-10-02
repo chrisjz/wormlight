@@ -2,10 +2,9 @@
 // checkpoint 1's measures over 200 trials at dt and at dt/2, the same seeds at both, and each clause's percentile
 // interval for the difference, over 1,000 resamples of the seeds, within its margin.
 
-import { PARAMS } from '../science/params.ts';
 import { hash, uniform } from '../sim/brain/rng.ts';
 import { CHECKPOINT_1 } from './checkpoints.ts';
-import { FRONT_ROD, MOTION_SAMPLE, REAR_ROD, bouts, kinematics, reversals, type Run } from './motion.ts';
+import { MOTION_SAMPLE, SEPARATION, bouts, kinematics, reversals, type Run } from './motion.ts';
 import type { TrialRecord } from './trial.ts';
 
 export const EQUIVALENCE = {
@@ -30,7 +29,7 @@ const bouted = (records: readonly TrialRecord[]): Bouted[] => records.map((r) =>
 // The measures over a set of trials, each null where unmeasured: the kinematics and the bout share as checkpoint 1
 // takes them, and reversals per minute over the recorded samples, as the calibration takes them.
 function measuresOf(records: readonly Bouted[]): Record<Measure, number | null> {
-  const k = kinematics(records, (REAR_ROD - FRONT_ROD) / PARAMS.bodyUnits.value);
+  const k = kinematics(records, SEPARATION);
   const minutes = (records.reduce((n, r) => n + r.velocity.length, 0) * MOTION_SAMPLE) / 60;
   const long = records.filter((r) => r.finite && bouts(r.velocity, CHECKPOINT_1.bout.seconds).length > 0).length;
   return {

@@ -273,7 +273,8 @@ function showLong(report: LongReport): void {
       `${report.seeds} seeds a side, ${report.seconds} s each; each run's crawling speed and frequency, as checkpoint 1 ` +
         "measures them over the run's forward bouts of 10 s or more, by Welch's two one-sided tests at ±5% of the " +
         `CPU's mean. Runs without such a bout, left out: ${report.boutless.cpu} on the CPU, ${report.boutless.gpu} on ` +
-        'the GPU.',
+        `the GPU. Runs whose body left the finite numbers, which fail: ${report.broken.cpu} on the CPU, ` +
+        `${report.broken.gpu} on the GPU.`,
     ),
     table(
       ['Statistic', 'CPU mean', 'GPU mean', 'Difference', 'Margin', 'p', ''],

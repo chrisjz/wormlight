@@ -77,6 +77,7 @@ interface Equivalent {
   equivalent: boolean;
 }
 interface Measures {
+  finite: boolean;
   bouts: number;
   speed: number | null;
   frequency: number | null;
@@ -90,6 +91,7 @@ interface Long {
   speed: Equivalent | null;
   frequency: Equivalent | null;
   boutless: { cpu: number; gpu: number };
+  broken: { cpu: number; gpu: number };
   wave: { sd: Equivalent; frequency: Equivalent };
   spread: { speed: { ratio: number; p: number } | null; frequency: { ratio: number; p: number } | null };
   unconverged: { cpu: number; gpu: number };
@@ -405,7 +407,8 @@ try {
     console.log(
       `\nlong runs: ${result.seeds} seeds a side, ${result.seconds} s each; each run's crawl over its forward bouts ` +
         `of 10 s or more, as checkpoint 1 measures it; runs without one, left out: ${result.boutless.cpu} on the ` +
-        `CPU, ${result.boutless.gpu} on the GPU`,
+        `CPU, ${result.boutless.gpu} on the GPU; runs whose body left the finite numbers, which fail: ` +
+        `${result.broken.cpu} on the CPU, ${result.broken.gpu} on the GPU`,
     );
     for (const k of ['speed', 'frequency'] as const) {
       const e = result[k];

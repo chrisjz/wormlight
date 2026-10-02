@@ -13,21 +13,18 @@
 
 import type { WormlightData } from '../data/schema.ts';
 import { boyleBody } from '../sim/body/body.ts';
-import { WAVE_ROD, WAVE_SAMPLE, WAVE_WARM_UP, bodyWave, type BodyWave } from '../sim/bodyWave.ts';
 import { CG_TOLERANCE_GPU, NEURAL_STEP } from '../sim/numerics.ts';
 import { curvatureOf } from '../sim/proprio.ts';
-import { equivalence, spreadRatio, type Equivalence, type SpreadRatio } from '../sim/stats.ts';
 import { covers, FRONT, TOUCH_STEPS, type Touch, type TouchReceptor } from '../sim/touch.ts';
 import type { World, WorldState } from '../sim/world.ts';
 import {
-  MID_ROD,
-  MOTION_SAMPLE,
-  measuredRun,
-  noMotion,
-  runKinematics,
-  takeMotion,
-  type MotionSamples,
-} from '../validation/motion.ts';
+  compareLongRuns,
+  measureLongRun,
+  sampleRun,
+  type LongComparison,
+  type LongMeasures,
+} from '../validation/longRuns.ts';
+import { noMotion, takeMotion } from '../validation/motion.ts';
 import { compareStep, type ApiResult, type StepResult } from './parity.ts';
 import {
   AWC_FLOOR,
@@ -594,34 +591,11 @@ export async function runLoopParity(device: GPUDevice, data: WormlightData, shar
   };
 }
 
-// One long run's measures on one side: its crawl, as checkpoint 1 measures a trial's, over the run's own forward bouts
-// of 10 s or more, the speed and frequency null with none; and its body wave, which the long runs compared until
-// checkpoint 1 was partial.
-export interface LongMeasures {
-  bouts: number;
-  speed: number | null;
-  frequency: number | null;
-  wave: BodyWave;
-}
-
-export interface LongReport {
+export interface LongReport extends LongComparison {
   seeds: number;
   seconds: number;
   cpu: LongMeasures[];
   gpu: LongMeasures[];
-  // The crawl's speed and frequency over each side's runs with a bout, by Welch's two one-sided tests at ±5% of the
-  // CPU's mean; null if either side has fewer than two such runs, which fails.
-  speed: Equivalence | null;
-  frequency: Equivalence | null;
-  // The runs without a forward bout of 10 s on each side, left out and counted (PLAN §7.2).
-  boutless: { cpu: number; gpu: number };
-  // Reported, not graded: the body wave's SD and frequency compared the same way, and how the two sides' spreads of
-  // the crawl's measures compare.
-  wave: { sd: Equivalence; frequency: Equivalence };
-  spread: { speed: SpreadRatio | null; frequency: SpreadRatio | null };
-  // Solves that didn't converge, over every seed, on each side.
-  unconverged: { cpu: number; gpu: number };
-  pass: boolean;
 }
 
 // Long-run parity's seeds a side. The plan's 20 couldn't show the frequency equivalent whatever the means:
@@ -635,38 +609,20 @@ export interface LongReport {
 export const LONG_SEEDS = 265;
 
 // Long-run parity: each seed's world run for `seconds` on each side from its start in the assay's field, sampled
-// every 0.1 s from the rods' places after each sample's last step, as a trial is. Each run's crawling speed and
-// frequency are measured as checkpoint 1 measures a trial's, over that run's forward bouts of 10 s or more (PLAN
-// §7.2, defined 2026-09-29 before any long run on a partial fit, the frequency's band added 2026-10-01); a run
-// without one is left out and counted. The two sides' are compared by Welch's two one-sided tests at ±5% of the
-// CPU's mean, α = 0.05, and every solve must converge.
+// as a trial is, from the rods' places after each sample's last step (src/validation/longRuns.ts). Each run's
+// crawling speed and frequency are measured as checkpoint 1 measures a trial's, over that run's forward bouts of
+// 10 s or more (PLAN §7.2, defined 2026-09-29 before any long run on a partial fit, the frequency's band added
+// 2026-10-01); a run without one is left out and counted. The two sides' are compared by Welch's two one-sided
+// tests at ±5% of the CPU's mean, α = 0.05; every body must stay finite and every solve converge.
 export async function runLongParity(
   device: GPUDevice,
   data: WormlightData,
   seeds = LONG_SEEDS,
   seconds = 60,
 ): Promise<LongReport> {
-  if (Math.abs(WAVE_SAMPLE - MOTION_SAMPLE) > 1e-12 || WAVE_ROD !== MID_ROD) {
-    throw new Error('the body wave is sampled as the motion is, at the same rod');
-  }
-  const every = Math.round(MOTION_SAMPLE / NEURAL_STEP);
-  const samples = Math.round(seconds / MOTION_SAMPLE);
-  const warm = Math.round(WAVE_WARM_UP / WAVE_SAMPLE);
   const first = longWorld(data, 1);
   const length = first.body.params.segmentLength * first.body.params.segments;
   const k = new Float64Array(first.body.rods);
-  const take = (to: MotionSamples & ReturnType<typeof noMotion>, x: ArrayLike<number>, y: ArrayLike<number>): void =>
-    takeMotion(to, x, y, length, k);
-  const measure = (taken: MotionSamples): LongMeasures => {
-    const crawl = runKinematics(measuredRun(taken, length));
-    return {
-      bouts: crawl.bouts,
-      speed: crawl.speed,
-      frequency: crawl.frequency,
-      // The body wave over the samples after the warm-up, as the long runs took it before.
-      wave: bodyWave(taken.mid.slice(warm + 1), seconds - WAVE_WARM_UP),
-    };
-  };
   const gpu = await GpuWorld.create(device, first);
   const cpu: LongMeasures[] = [];
   const gpuMeasures: LongMeasures[] = [];
@@ -677,61 +633,28 @@ export async function runLongParity(
       // The seed draws which AWC is ON, so the GPU takes the whole world, not only its state.
       gpu.load(world);
       const [onCpu, onGpu] = [noMotion(), noMotion()];
-      take(onCpu, world.body.x, world.body.y);
-      const start = await gpu.read();
-      take(onGpu, start.state.x, start.state.y);
-      let gpuUnconverged = 0;
-      for (let sample = 1; sample <= samples; sample++) {
-        gpu.run(every);
-        for (let step = 0; step < every; step++) world.step();
-        const { state, status } = await gpu.read();
-        gpuUnconverged = status.unconverged;
-        take(onCpu, world.body.x, world.body.y);
-        take(onGpu, state.x, state.y);
-      }
+      let { state, status } = await gpu.read();
+      await sampleRun(
+        seconds,
+        async (steps) => {
+          gpu.run(steps);
+          for (let step = 0; step < steps; step++) world.step();
+          ({ state, status } = await gpu.read());
+        },
+        () => {
+          takeMotion(onCpu, world.body.x, world.body.y, length, k);
+          takeMotion(onGpu, state.x, state.y, length, k);
+        },
+      );
       unconverged.cpu += world.brain.unconverged;
-      unconverged.gpu += gpuUnconverged;
-      cpu.push(measure(onCpu));
-      gpuMeasures.push(measure(onGpu));
+      unconverged.gpu += status.unconverged;
+      cpu.push(measureLongRun(onCpu, length, seconds));
+      gpuMeasures.push(measureLongRun(onGpu, length, seconds));
     }
   } finally {
     gpu.destroy();
   }
-  // Each side's values over its runs with a bout.
-  const crawled = (side: LongMeasures[], key: 'speed' | 'frequency'): number[] =>
-    side.flatMap((m) => (m[key] === null ? [] : [m[key]]));
-  const compared = <T>(key: 'speed' | 'frequency', test: (a: number[], b: number[]) => T): T | null => {
-    const [a, b] = [crawled(cpu, key), crawled(gpuMeasures, key)];
-    return a.length >= 2 && b.length >= 2 ? test(a, b) : null;
-  };
-  const speed = compared('speed', (a, b) => equivalence(a, b, 0.05));
-  const frequency = compared('frequency', (a, b) => equivalence(a, b, 0.05));
-  const waves = (side: LongMeasures[], key: keyof BodyWave): number[] => side.map((m) => m.wave[key]);
-  return {
-    seeds,
-    seconds,
-    cpu,
-    gpu: gpuMeasures,
-    speed,
-    frequency,
-    boutless: {
-      cpu: cpu.filter((m) => m.bouts === 0).length,
-      gpu: gpuMeasures.filter((m) => m.bouts === 0).length,
-    },
-    wave: {
-      sd: equivalence(waves(cpu, 'sd'), waves(gpuMeasures, 'sd'), 0.05),
-      frequency: equivalence(waves(cpu, 'frequency'), waves(gpuMeasures, 'frequency'), 0.05),
-    },
-    spread: { speed: compared('speed', spreadRatio), frequency: compared('frequency', spreadRatio) },
-    unconverged,
-    pass:
-      speed !== null &&
-      speed.equivalent &&
-      frequency !== null &&
-      frequency.equivalent &&
-      unconverged.cpu === 0 &&
-      unconverged.gpu === 0,
-  };
+  return { seeds, seconds, cpu, gpu: gpuMeasures, ...compareLongRuns(cpu, gpuMeasures, unconverged) };
 }
 
 export interface LoopSpeed {
