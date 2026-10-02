@@ -257,7 +257,7 @@ export function checkpoint5(
       (l.unmeasured ? `the lesioned touches: ${l.unmeasured}` : null) ??
       (i.response !== null && i.response >= CHECKPOINT_3.partial
         ? null
-        : `the intact response, ${i.response === null ? 'unmeasured' : `${(100 * i.response).toFixed(1)}%`}, is under checkpoint 3's 1% floor`);
+        : `the intact response, ${i.response === null ? 'unmeasured' : `${i.response < 0 ? '−' : ''}${(100 * Math.abs(i.response)).toFixed(1)}%`}, is under checkpoint 3's 1% floor`);
     if (unmeasured || i.response === null || l.response === null) {
       return {
         name,

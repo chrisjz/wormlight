@@ -158,6 +158,11 @@ describe("the rows' effect and test", () => {
     const avaAvd = flat.rows.find((row) => row.id === 'ava-avd');
     expect(avaAvd?.clauses[0].unmeasured).toBe('the intact response is zero');
     expect(flat.rows.find((row) => row.id === 'pvc')?.clauses[1].unmeasured).toBe('the intact response is zero');
+    // An intact speed-up under checkpoint 3's floor, here a slowing, leaves PVC's fall unmeasured, with a true minus.
+    const slow = checkpoint5(passing, { ...touched, [INTACT]: touches(40, 2, 0.069, 0.07) });
+    expect(slow.rows.find((row) => row.id === 'pvc')?.clauses[0].unmeasured).toBe(
+      "the intact response, −1.1%, is under checkpoint 3's 1% floor",
+    );
     // And with fewer than 50 touches.
     const few = checkpoint5(passing, { ...touched, pvc: touches(40, 2, 0.0701, 0.07).slice(0, 30) });
     expect(few.rows.find((row) => row.id === 'pvc')?.clauses[0].unmeasured).toMatch(/fewer than 50/);
