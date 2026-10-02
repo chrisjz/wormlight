@@ -347,7 +347,9 @@ if (process.argv.includes('--worker')) {
         out,
         full ? `checkpoint-${checkpoint}.json` : `checkpoint-${checkpoint}-${options.trials}x${options.seconds}s.json`,
       );
-      const head = { checkpoint, ...info, seeds: touchSeeds };
+      // The touch trials' run: its seeds, where the other checkpoints' give their trials.
+      const { date, commit: at, calibrated, model, seconds } = info;
+      const head = { checkpoint, date, commit: at, calibrated, model, seconds, seeds: touchSeeds };
       writeFileSync(file, JSON.stringify({ ...head, records }) + '\n');
       const summary = checkpoint === 2 ? checkpoint2(records) : checkpoint3(records);
       const section =

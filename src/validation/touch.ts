@@ -69,6 +69,8 @@ export interface TouchTrialRecord {
   // worm's do, and one each otherwise, a touch that reaches no receptor being paired with a sham that doesn't restart.
   frontSham: CopyOutcome | null;
   backSham: CopyOutcome | null;
+  // Whether the two touched copies share one sham twin; records lose that identity on their way between processes.
+  sharedSham: boolean;
 }
 
 export interface TouchTrialOptions extends StartOptions {
@@ -116,6 +118,7 @@ export function runTouchTrial(data: WormlightData, options: TouchTrialOptions): 
     back: null,
     frontSham: null,
     backSham: null,
+    sharedSham: false,
   };
   const finite = (w: World): boolean => w.body.x.every(Number.isFinite) && w.body.y.every(Number.isFinite);
   const steps = Math.round(latest / NEURAL_STEP);
@@ -183,7 +186,8 @@ export function runTouchTrial(data: WormlightData, options: TouchTrialOptions): 
     // doesn't, and is paired with a sham that doesn't either.
     const [frontRestarts, backRestarts] = [world.touchRestarts(FRONT), world.touchRestarts(BACK)];
     record.frontSham = sham(FRONT);
-    record.backSham = frontRestarts === backRestarts ? record.frontSham : sham(BACK);
+    record.sharedSham = frontRestarts === backRestarts;
+    record.backSham = record.sharedSham ? record.frontSham : sham(BACK);
     break;
   }
   record.unconverged = world.brain.unconverged;
@@ -274,8 +278,9 @@ export interface Checkpoint3 extends TouchRun {
   pairs: TouchPair[];
 }
 
-// The touches the protocol takes: from seed 1 upwards, the first 50, from up to 100 seeds. A trial or copy that left
-// the finite numbers among them fails both checkpoints.
+// The touches the protocol takes: from seed 1 upwards, the first 50, from up to 100 seeds. A trial, a touched copy or
+// a sham twin among them that left the finite numbers fails both checkpoints, whichever copy it was (DECISIONS.md,
+// 2026-10-02); and the solves that didn't converge are counted over all of them, each sham once.
 function taken(
   records: readonly TouchTrialRecord[],
   copy: 'front' | 'back',
@@ -294,14 +299,18 @@ function taken(
       continue;
     }
     if (r.time === null) continue;
-    const touched = r[copy];
-    const sham = copy === 'front' ? r.frontSham : r.backSham;
-    if (!touched || !sham || r.before === null) throw new Error(`seed ${r.seed}'s touch has no copies`);
-    unconverged += touched.unconverged + sham.unconverged;
-    if (!touched.finite || !sham.finite || touched.after === null || sham.after === null) {
+    const { front, back, frontSham, backSham } = r;
+    if (!front || !back || !frontSham || !backSham || r.before === null) {
+      throw new Error(`seed ${r.seed}'s touch has no copies`);
+    }
+    const copies = r.sharedSham ? [front, back, frontSham] : [front, back, frontSham, backSham];
+    unconverged += copies.reduce((n, c) => n + c.unconverged, 0);
+    if (copies.some((c) => !c.finite || c.after === null)) {
       unmeasured ??= `a copy of seed ${r.seed}'s touch left the finite numbers`;
       continue;
     }
+    const touched = copy === 'front' ? front : back;
+    const sham = copy === 'front' ? frontSham : backSham;
     pairs.push({
       seed: r.seed,
       time: r.time,
@@ -310,8 +319,8 @@ function taken(
       touched: touched.reversal,
       sham: sham.reversal,
       latency: touched.latency,
-      after: touched.after,
-      shamAfter: sham.after,
+      after: touched.after as number,
+      shamAfter: sham.after as number,
       before: r.before,
     });
   }

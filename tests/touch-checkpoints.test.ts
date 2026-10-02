@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import { parseArgs } from '../scripts/harness/run.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { hash, uniform } from '../src/sim/brain/rng.ts';
-import { currentParams } from '../src/sim/world.ts';
+import { BACK, FRONT } from '../src/sim/touch.ts';
+import { currentParams, World } from '../src/sim/world.ts';
 import { meanVelocity } from '../src/validation/checkpoints.ts';
 import {
   checkpoint2,
@@ -71,6 +72,30 @@ describe("the touch's moment", () => {
   );
 });
 
+describe('a trial with no moment, and one that waits', () => {
+  it(
+    'touches nothing where the worm never crawls forward for 2 s, as a silenced one never does',
+    { timeout: 30000 },
+    () => {
+      const r = runTouchTrial(data, { seed: 1, seconds: 120, params, postures, silenced: true });
+      expect(r).toMatchObject({ time: null, before: null, front: null, back: null, frontSham: null, backSham: null });
+    },
+  );
+
+  it('waits past its earliest until the 2 s before were forward', { timeout: 30000 }, () => {
+    // With AVB lesioned, seed 3's worm isn't crawling forward at its earliest time, and waits 4.7 s.
+    const lesions = ['AVBL', 'AVBR'];
+    const r = runTouchTrial(data, { seed: 3, seconds: 120, params, postures, lesions });
+    const t = r.time as number;
+    expect(t - r.earliest).toBeGreaterThan(1);
+    const { velocity } = runTrial(data, { seed: 3, seconds: 120, params, postures, lesions });
+    expect(forwardBefore(velocity, t)).toBe(true);
+    for (let s = Math.ceil(r.earliest * 10 - 1e-9) / 10; s < t - 1e-9; s += 0.1) {
+      expect(forwardBefore(velocity, Number(s.toFixed(1))), `${s.toFixed(1)} s`).toBe(false);
+    }
+  });
+});
+
 describe('the fork', () => {
   it(
     'touches the front and the back, and gives both one sham twin when both restart the integrator',
@@ -80,6 +105,7 @@ describe('the fork', () => {
       expect(r.front?.reached).toEqual(['ALML', 'ALMR', 'AVM']);
       expect(r.back?.reached).toEqual(['PLML', 'PLMR']);
       expect(r.frontSham?.reached).toEqual([]);
+      expect(r.sharedSham).toBe(true);
       expect(r.backSham).toBe(r.frontSham);
       for (const c of [r.front, r.back, r.frontSham]) {
         expect(c?.finite).toBe(true);
@@ -89,12 +115,28 @@ describe('the fork', () => {
   );
 
   it('pairs a touch that reaches no receptor with a sham of its own that does nothing', { timeout: 30000 }, () => {
-    const r = runTouchTrial(data, { seed: 1, seconds: 120, params, postures, lesions: ['PLML', 'PLMR'] });
+    const lesions = ['PLML', 'PLMR'];
+    const r = runTouchTrial(data, { seed: 1, seconds: 120, params, postures, lesions });
     expect(r.back?.reached).toEqual([]);
     expect(r.front?.reached).toEqual(['ALML', 'ALMR', 'AVM']);
+    expect(r.sharedSham).toBe(false);
     expect(r.backSham).not.toBe(r.frontSham);
-    // With no current and no restart, the back copy and its twin are the same worm.
-    expect(r.back?.after).toBe(r.backSham?.after);
+    // With no current and no restart, the back copy and its twin are the worm untouched, bit for bit: the copies' samples
+    // line up with the trial's, and they draw its noise.
+    const t = r.time as number;
+    const { velocity } = runTrial(data, { seed: 1, seconds: 120, params, postures, lesions });
+    expect(r.back?.after).toBe(meanVelocity(velocity, t, t + 2));
+    expect(r.backSham?.after).toBe(r.back?.after);
+    expect(r.before).toBe(meanVelocity(velocity, t - 2, t));
+  });
+
+  it('asks the world whether a touch restarts the integrator, which changes nothing', () => {
+    const intact = new World(data, params, { seed: 1 });
+    const before = intact.snapshot();
+    expect([intact.touchRestarts(FRONT), intact.touchRestarts(BACK)]).toEqual([true, true]);
+    expect(intact.snapshot()).toEqual(before);
+    const cut = new World(data, params, { seed: 1, lesions: ['PLML', 'PLMR'] });
+    expect([cut.touchRestarts(FRONT), cut.touchRestarts(BACK)]).toEqual([true, false]);
   });
 });
 
@@ -129,6 +171,7 @@ describe("checkpoints 2 and 3's grading", () => {
     back: touched ? copy(false, after) : null,
     frontSham: touched ? copy(sham, shamAfter) : null,
     backSham: touched ? copy(sham, shamAfter) : null,
+    sharedSham: true,
   });
   const seeds = (n: number, f: (seed: number) => TouchTrialRecord): TouchTrialRecord[] =>
     Array.from({ length: n }, (_, k) => f(k + 1));
@@ -159,14 +202,44 @@ describe("checkpoints 2 and 3's grading", () => {
     expect(checkpoint3(few).grade).toBe('fail');
   });
 
-  it('fails both on a trial or copy that left the finite numbers', () => {
-    const broken = seeds(60, (s) => trial(s, true, false));
-    broken[3] = { ...broken[3], back: { ...copy(false, 0.07), finite: false, after: null } };
-    expect(checkpoint3(broken).unmeasured).toMatch(/left the finite numbers/);
-    expect(checkpoint3(broken).grade).toBe('fail');
+  it('fails both on a trial, a touched copy or a twin that left the finite numbers, whichever it was', () => {
+    const broken = (field: 'front' | 'back' | 'frontSham'): TouchTrialRecord[] => {
+      const records = seeds(60, (s) => trial(s, true, false));
+      records[3] = { ...records[3], [field]: { ...copy(false, 0.07), finite: false, after: null } };
+      return records;
+    };
+    for (const field of ['front', 'back', 'frontSham'] as const) {
+      for (const grade of [checkpoint2, checkpoint3]) {
+        const r = grade(broken(field));
+        expect(r.grade, `${field}, checkpoint ${grade === checkpoint2 ? 2 : 3}`).toBe('fail');
+        expect(r.unmeasured).toMatch(/seed 4's touch left the finite numbers/);
+      }
+    }
     const gone = seeds(60, (s) => trial(s, true, false));
     gone[0] = { ...gone[0], finite: false };
     expect(checkpoint2(gone).grade).toBe('fail');
+    expect(checkpoint3(gone).grade).toBe('fail');
+  });
+
+  it("counts every copy's unconverged solves in both, a shared sham once", () => {
+    const records = seeds(50, (s) => trial(s, true, false));
+    records[0] = {
+      ...records[0],
+      front: { ...copy(true, 0.07), unconverged: 1 },
+      back: { ...copy(false, 0.07), unconverged: 2 },
+      frontSham: { ...copy(false, 0.07), unconverged: 4 },
+    };
+    records[0].backSham = records[0].frontSham;
+    expect(checkpoint2(records).unconverged).toBe(7);
+    expect(checkpoint3(records).unconverged).toBe(7);
+    records[1] = { ...records[1], sharedSham: false, backSham: { ...copy(false, 0.07), unconverged: 8 } };
+    expect(checkpoint3(records).unconverged).toBe(15);
+  });
+
+  it('takes no seed past 100', () => {
+    // Touches only from seed 61, so 40 within the cap and the rest past it.
+    const late = seeds(120, (s) => trial(s, true, false, 0.07, 0.07, s > 60));
+    expect(checkpoint2(late)).toMatchObject({ touches: 40, seeds: 100, grade: 'fail' });
   });
 
   it('passes checkpoint 3 at 10% above the twins, partial from 1%, and leaves it unmeasured where the twins stall', () => {

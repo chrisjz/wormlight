@@ -449,8 +449,8 @@ export function checkpoint2Section(r: Checkpoint2, info: RunInfo): string {
         ? 'No touch was followed by a reversal, so there is no latency to report.'
         : `Reported, not graded: from the touch to the first backward sample, ${r.latency.mean.toFixed(1)} s on average, ${r.latency.median.toFixed(1)} s the median.`,
       fitted
-        ? 'Reported as fitted: track S, whose fit this is, was proposed after the previews below, and its measured signs came from an audit the missing backward mode prompted (PLAN §10; DECISIONS.md, 2026-10-01).'
-        : '',
+        ? 'Every clause would be predicted, since checkpoint 2 is held out of the calibration (spec §1.2), but it is reported as fitted: track S, whose fit this is, was proposed after the previews below, and its measured signs came from an audit the missing backward mode prompted (PLAN §10; DECISIONS.md, 2026-10-01).'
+        : 'Every clause is predicted, since checkpoint 2 is held out of the calibration (spec §1.2).',
       PREVIEWS,
     ]
       .filter(Boolean)
@@ -477,7 +477,7 @@ export function checkpoint3Section(r: Checkpoint3, info: RunInfo): string {
       ],
     ),
     [
-      `The response, the touched copies' mean speed over the twins' less one, is ${response}: what checkpoint 5's touch rows read.`,
+      `The response, the touched copies' mean speed over the twins' less one, is ${response}: what checkpoint 5's touch rows read. The clause is predicted, since checkpoint 3 is held out of the calibration (spec §1.2).`,
       `Reported, not graded: the forward velocity over the 2 s before the touches, ${fixed(r.before, 4)} body lengths per second, against ${fixed(r.after, 4)} after, by the before-and-after test the cited papers use, a rank sum of ${r.rise.positive} over ${plural(r.rise.n, 'pair', 'pairs')}, ${pValue(r.rise.p)}.`,
       PREVIEWS,
     ].join(' '),

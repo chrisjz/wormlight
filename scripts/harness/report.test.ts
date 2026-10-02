@@ -767,6 +767,7 @@ describe("checkpoints 2 and 3's sections", () => {
       back: copy(false, 0.0705),
       frontSham: copy(false, 0.07),
       backSham: copy(false, 0.07),
+      sharedSham: true,
     }));
   const info: RunInfo = {
     date: '2026-10-02',
