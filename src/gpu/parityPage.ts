@@ -1,10 +1,11 @@
 // The GPU parity page (PLAN §8), served by the dev server only: `npm run dev`, then /parity.html. It runs the
 // parity checks, the brain's, the whole loop's and the odour field's, and the speed benchmark on this browser's
 // GPU and shows the results, which is how the Safari check is made by hand (npm run gpu:parity:safari makes it
-// from a script); /parity.html?long adds long-run parity, which takes 11 to 18 minutes on an M5 Max. Headless
-// Chrome reads the same results through window.__parity(), window.__bench() and window.__long()
-// (scripts/gpu/parity.ts). /parity.html?shard=k/n runs only that shard's share of the one-second checks, as CI's
-// runner does across n pages and then merges (src/gpu/parityShards.ts); its verdicts are the shard's alone.
+// from a script); /parity.html?long adds long-run parity, which takes about 7 minutes in Chrome on an M5 Max on
+// track S's fit, and 11 to 18 on earlier fits and in Safari. Headless Chrome reads the same results through
+// window.__parity(), window.__bench() and window.__long() (scripts/gpu/parity.ts). /parity.html?shard=k/n runs
+// only that shard's share of the one-second checks, as CI's runner does across n pages and then merges
+// (src/gpu/parityShards.ts); its verdicts are the shard's alone.
 
 import '../style.css';
 import { validateWormlightData, type WormlightData } from '../data/schema.ts';
@@ -266,6 +267,8 @@ function showLong(report: LongReport): void {
           verdict(e.equivalent),
         ];
   const waves = (side: LongReport['cpu'], k: 'sd' | 'frequency'): number[] => side.map((m) => m.wave[k]);
+  const ratio = (r: LongReport['spread']['speed'], test = ''): string =>
+    r === null ? '—' : `${fixed(r.ratio, 2)} (${test}p = ${fixed(r.p, 3)})`;
   root.append(
     el('h2', `Long runs: ${verdict(report.pass)}`, 'status-title'),
     el(
@@ -296,9 +299,9 @@ function showLong(report: LongReport): void {
     ),
     el(
       'p',
-      `Reported, not graded: the GPU's spread over the CPU's, as variances, ${report.spread.speed === null ? '—' : `${fixed(report.spread.speed.ratio, 2)} (F test p = ${fixed(report.spread.speed.p, 3)})`} for ` +
-        `the speed and ${report.spread.frequency === null ? '—' : `${fixed(report.spread.frequency.ratio, 2)} (p = ${fixed(report.spread.frequency.p, 3)})`} for the ` +
-        `frequency. Unconverged solves: ${report.unconverged.cpu} on the CPU, ${report.unconverged.gpu} on the GPU.`,
+      `Reported, not graded: the GPU's spread over the CPU's, as variances, ${ratio(report.spread.speed, 'F test ')} ` +
+        `for the speed and ${ratio(report.spread.frequency)} for the frequency. Unconverged solves: ` +
+        `${report.unconverged.cpu} on the CPU, ${report.unconverged.gpu} on the GPU.`,
     ),
   );
 }

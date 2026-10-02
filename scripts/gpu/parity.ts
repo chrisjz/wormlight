@@ -8,8 +8,9 @@
 //
 //   npm run gpu:parity [-- outDir] [--long] [--safari] [--shards=N]      (default gpu-out, or gpu-out/safari)
 //   --shards=N        N pages, each with its share of the one-second checks; 4 on CI (WEBGPU_CI), else 1
-//   --long            adds long-run parity: 265 seeds a side for 60 s, 11 to 18 minutes on an M5 Max and
-//                     far too long for CI's software GPU
+//   --long            adds long-run parity: 265 seeds a side for 60 s, about 8 minutes in Chrome on an M5 Max
+//                     on track S's fit, 11 to 18 on earlier fits and in Safari, and far too long for CI's
+//                     software GPU
 //   --safari          runs the page in Safari, on this Mac's GPU, through safaridriver (scripts/safari.ts),
 //                     which needs Safari's "Allow remote automation" setting; npm run gpu:parity:safari
 //   CHROME_PATH, WEBGPU_CI as in scripts/browser.ts
