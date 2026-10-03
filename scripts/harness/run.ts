@@ -1,5 +1,13 @@
 // npm run harness -- --checkpoint <n> [--checkpoint <m>] [--jobs N] [--trials N] [--seconds S]
 // npm run harness -- --sensitivity [--jobs N] [--trials N] [--seconds S]
+// npm run harness -- --wiring <real|N> [--jobs N]
+// npm run harness -- --checkpoint 6
+//
+// Checkpoint 6, the wiring test (DECISIONS.md, 2026-10-03): --wiring grades a brain at its fit, the real wiring at the
+// registry's values or the primary null's rewiring N at its record's first pick, on the machine its search ran on:
+// checkpoint 1 on seeds 1 to 20 with the runs that show what paces it, and, if it crawls, checkpoints 0 and 2 to 5 by
+// their own protocols, writing its summary to data/checkpoint-6/ (scripts/harness/wiring.ts). --checkpoint 6 reads
+// the eleven summaries and writes the verdict's section.
 //
 // The behavioural harness (PLAN §8): checkpoint 0, the silenced network, checkpoint 1, checkpoints 2 and 3, the
 // touches, and checkpoint 4, chemotaxis (PLAN §7.2, §7.4), run on the CPU reference in parallel worker processes, one
@@ -23,13 +31,16 @@
 import { fork, type ChildProcess } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
 import { steadyField } from '../../src/sim/env/dish.ts';
 import type { OdourField } from '../../src/sim/env/odour.ts';
-import { CHOSEN_MODEL } from '../../src/sim/trackS.ts';
-import { currentParams, isCalibrated, type LoopParams } from '../../src/sim/world.ts';
+import { CHOSEN_MODEL, partsOf } from '../../src/sim/trackS.ts';
+import { CHOSEN_FORM } from '../../src/science/params.ts';
+import { currentParams, isCalibrated, loopParams, type LoopParams } from '../../src/sim/world.ts';
+import type { Values } from '../../src/validation/calibration.ts';
+import { nullNetwork, NULLS } from '../../src/validation/wiringTest.ts';
 import { CHECKPOINT_4, checkpoint4, runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import {
   checkpoint5,
@@ -72,6 +83,7 @@ import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatMarkdown } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
 import { commit } from './commit.ts';
+import { gradeWiring, readSummaries, summaryPath, type Wiring } from './wiring.ts';
 import { readPinned, readPostures } from './pinned.ts';
 import {
   checkpoint0Section,
@@ -80,6 +92,7 @@ import {
   checkpoint3Section,
   checkpoint4Section,
   checkpoint5Section,
+  checkpoint6Section,
   replaceSection,
   sensitivitySection,
   type RunInfo,
@@ -116,6 +129,13 @@ interface Job {
   setting?: string;
   // Checkpoint 5's arm: a lesion's id, or 'intact' (src/validation/lesions.ts).
   lesion?: string;
+  // Checkpoint 6's brain (DECISIONS.md, 2026-10-03): the primary null's rewiring, the real wiring without it; its fit's
+  // values, the registry's without them; and neurons lesioned for a run that shows what paces it.
+  rewiring?: number;
+  values?: Values;
+  lesions?: string[];
+  // Which of the runs that show what paces the crawl a checkpoint 1 trial is, in `variants`' order.
+  variant?: number;
 }
 
 interface Result {
@@ -128,9 +148,14 @@ const DATA = join(ROOT, 'public/data/wormlight.v1.json');
 const PAGE = join(ROOT, 'VALIDATION.md');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
-// The loop's parameters a job runs: the registry's fit, or a sensitivity setting's (src/validation/sensitivity.ts).
-export const jobParams = (setting?: string): LoopParams =>
-  setting === undefined ? currentParams() : settingParams(currentParams(), setting);
+// The loop's parameters a job runs: the registry's fit, a sensitivity setting's (src/validation/sensitivity.ts), or a
+// checkpoint 6 brain's fit, on the chosen model.
+export const jobParams = (setting?: string, values?: Values): LoopParams =>
+  values
+    ? { ...loopParams(values, CHOSEN_FORM), ...partsOf(CHOSEN_MODEL) }
+    : setting === undefined
+      ? currentParams()
+      : settingParams(currentParams(), setting);
 
 // A worker's latest sensitivity setting and its brain, as the settings come one after another.
 let brain: { setting: string; network: Network } | undefined;
@@ -145,13 +170,17 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord | TouchT
   if (job.setting !== undefined && brain?.setting !== job.setting) {
     brain = { setting: job.setting, network: settingNetwork(cached.data, job.setting) };
   }
+  const key = job.rewiring === undefined ? undefined : `null ${job.rewiring}`;
+  if (key && job.rewiring !== undefined && brain?.setting !== key) {
+    brain = { setting: key, network: nullNetwork(cached.data, job.rewiring) };
+  }
   const common = {
     seed: job.seed,
     seconds: job.seconds,
-    params: jobParams(job.setting),
+    params: jobParams(job.setting, job.values),
     silenced: job.checkpoint === 0,
     postures: cached.postures,
-    ...(job.setting !== undefined && brain ? { network: brain.network } : {}),
+    ...((job.setting !== undefined || key) && brain ? { network: brain.network } : {}),
   };
   if (job.kind === 'assay') {
     assay ??= steadyField('assay');
@@ -172,6 +201,7 @@ async function runJob(job: Job): Promise<TrialRecord | ChemotaxisRecord | TouchT
   return runTrial(cached.data, {
     ...common,
     ...(job.kind === 'touched' ? { touches: touchSchedule(job.seed, job.seconds), shams: true } : {}),
+    ...(job.lesions ? { lesions: job.lesions } : {}),
   });
 }
 
@@ -189,7 +219,7 @@ function send(worker: ChildProcess, job: Job): Promise<Result> {
 }
 
 const USAGE =
-  'npm run harness -- --checkpoint <0|1|2|3|4|5> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S]';
+  'npm run harness -- --checkpoint <0|1|2|3|4|5> [--checkpoint <n>] [--jobs N] [--trials N] [--seconds S], or -- --sensitivity [--jobs N] [--trials N] [--seconds S], or -- --wiring <real|1-10> [--jobs N], or -- --checkpoint 6';
 
 // A whole number of at least `least`, written in plain digits.
 function whole(flag: string, text: string | undefined, least: number): number {
@@ -205,28 +235,43 @@ export function parseArgs(given: readonly string[]): {
   jobs: number;
   trials: number;
   seconds: number;
+  // Checkpoint 6 (DECISIONS.md, 2026-10-03): a wiring to grade, or the verdict to write.
+  wiring?: Wiring;
+  verdict: boolean;
 } {
   // --sensitivity takes no value; the other options each take one.
   const sensitivity = given.includes('--sensitivity');
   const args = given.filter((a) => a !== '--sensitivity');
   const checkpoints: Checkpoint[] = [];
   const numbers = new Map<string, number>();
+  let wiring: Wiring | undefined;
+  let verdict = false;
   // A trial needs a velocity sample after its first 10 s, whose window ends half a second later.
   const least: Record<string, number> = { '--jobs': 1, '--trials': 1, '--seconds': MEASURE_FROM + VELOCITY_WINDOW };
   for (let a = 0; a < args.length; a += 2) {
     const [flag, text] = [args[a], args[a + 1]];
-    if (flag === '--checkpoint') {
+    if (flag === '--checkpoint' && text === '6') verdict = true;
+    else if (flag === '--checkpoint') {
       const n = whole(flag, text, 0);
-      if (!CHECKPOINTS.includes(n as Checkpoint))
-        throw new Error(
-          `the harness runs checkpoints ${CHECKPOINTS.slice(0, -1).join(', ')} and ${CHECKPOINTS.at(-1)}`,
-        );
+      if (!CHECKPOINTS.includes(n as Checkpoint)) {
+        throw new Error(`the harness runs checkpoints ${CHECKPOINTS.join(', ')} and 6`);
+      }
       checkpoints.push(n as Checkpoint);
+    } else if (flag === '--wiring') {
+      if (text !== 'real' && !NULLS.map(String).includes(text ?? '')) {
+        throw new Error(`--wiring takes real or a rewiring from 1 to ${NULLS.length}; usage: ${USAGE}`);
+      }
+      wiring = text === 'real' ? 'real' : Number(text);
     } else if (flag in least) numbers.set(flag, whole(flag, text, least[flag]));
     else throw new Error(`unknown option ${flag}; usage: ${USAGE}`);
   }
-  if (sensitivity && checkpoints.length > 0) throw new Error(`--sensitivity runs by itself; usage: ${USAGE}`);
-  if (!sensitivity && checkpoints.length === 0) throw new Error(`say which checkpoint; usage: ${USAGE}`);
+  const modes = [sensitivity, checkpoints.length > 0, wiring !== undefined, verdict].filter(Boolean).length;
+  if (modes > 1) throw new Error(`--sensitivity, --wiring and checkpoint 6 each run by itself; usage: ${USAGE}`);
+  if (modes === 0) throw new Error(`say which checkpoint; usage: ${USAGE}`);
+  // A wiring is graded by the checkpoints' own protocols, whole.
+  if ((wiring !== undefined || verdict) && (numbers.has('--trials') || numbers.has('--seconds'))) {
+    throw new Error(`checkpoint 6 runs the checkpoints whole, without --trials or --seconds; usage: ${USAGE}`);
+  }
   const seconds = numbers.get('--seconds') ?? TRIAL_SECONDS;
   // Checkpoint 0's touch clause needs trials long enough for its first touch's windows.
   const fits = Math.ceil(CHECKPOINT_0_TOUCH.first + TOUCH_NEEDS);
@@ -242,6 +287,8 @@ export function parseArgs(given: readonly string[]): {
     jobs: numbers.get('--jobs') ?? availableParallelism(),
     trials: numbers.get('--trials') ?? TRIALS,
     seconds,
+    ...(wiring !== undefined ? { wiring } : {}),
+    verdict,
   };
 }
 
@@ -254,8 +301,19 @@ if (process.argv.includes('--worker')) {
       (e: unknown) => process.send?.({ job, error: String(e) } satisfies Result),
     );
   });
+} else if (process.argv[1] === fileURLToPath(import.meta.url) && parseArgs(process.argv.slice(2)).verdict) {
+  // Checkpoint 6's verdict, from the eleven summaries, which the grading's pull request merges before any is read.
+  const { real, nulls, verdicts } = readSummaries();
+  const section = checkpoint6Section(verdicts, real, nulls);
+  process.stdout.write(`${section}\n\n`);
+  writeFileSync(PAGE, await formatMarkdown(replaceSection(readFileSync(PAGE, 'utf8'), 6, section), PAGE));
+  process.stderr.write('Updated VALIDATION.md.\n');
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const options = parseArgs(process.argv.slice(2));
+  // A wiring's grading records the commit it ran at, so it runs only at one (DECISIONS.md, 2026-10-03).
+  if (options.wiring !== undefined && /uncommitted/.test(commit())) {
+    throw new Error("commit first: a wiring's grading records the commit it runs at");
+  }
   const full = options.trials === TRIALS && options.seconds === TRIAL_SECONDS;
   // A full run's worms are the assay's; a shortened run's are as many and as long as its trials.
   const worms = full ? CHECKPOINT_0_CHEMOTAXIS.worms : options.trials;
@@ -283,41 +341,46 @@ if (process.argv.includes('--worker')) {
   // Checkpoint 5's 30 trials of 120 s for each arm in a full run, as many and as long as a shortened run's otherwise.
   const lesionTrials = full ? LESION_TRIALS : options.trials;
   const lesionSeconds = full ? LESION_SECONDS : options.seconds;
-  const touching = options.checkpoints.some((c) => c === 2 || c === 3);
   // The longest first, so that no long run starts last.
-  const queue: Job[] = [
-    ...options.checkpoints.flatMap((checkpoint) =>
-      checkpoint === 0
+  const queueFor = (checkpoints: readonly Checkpoint[]): Job[] => {
+    const touching = checkpoints.some((c) => c === 2 || c === 3);
+    return [
+      ...checkpoints.flatMap((checkpoint) =>
+        checkpoint === 0
+          ? [
+              ...jobs(0, 'assay', worms, wormSeconds),
+              ...jobs(0, 'trial', options.trials, options.seconds),
+              ...jobs(0, 'touched', options.trials, options.seconds),
+            ]
+          : checkpoint === 1
+            ? jobs(1, 'trial', options.trials, options.seconds)
+            : [],
+      ),
+      ...(touching ? jobs(2, 'touch', touchSeeds, options.seconds) : []),
+      ...(checkpoints.includes(4)
+        ? [...jobs(4, 'chemotaxis', assayWorms, assaySeconds), ...jobs(4, 'control', assayWorms, assaySeconds)]
+        : []),
+      ...(checkpoints.includes(5)
         ? [
-            ...jobs(0, 'assay', worms, wormSeconds),
-            ...jobs(0, 'trial', options.trials, options.seconds),
-            ...jobs(0, 'touched', options.trials, options.seconds),
+            ...[INTACT, ...PRIMARY.map((l) => l.id), ...SECONDARY.map((l) => l.id)].flatMap((lesion) =>
+              jobs(5, 'lesion', lesionTrials, lesionSeconds).map((job) => ({ ...job, lesion })),
+            ),
+            ...[INTACT, ...TOUCHED].flatMap((lesion) =>
+              jobs(5, 'lesionTouch', touchSeeds, options.seconds).map((job) => ({ ...job, lesion })),
+            ),
           ]
-        : checkpoint === 1
-          ? jobs(1, 'trial', options.trials, options.seconds)
-          : [],
-    ),
-    ...(touching ? jobs(2, 'touch', touchSeeds, options.seconds) : []),
-    ...(options.checkpoints.includes(4)
-      ? [...jobs(4, 'chemotaxis', assayWorms, assaySeconds), ...jobs(4, 'control', assayWorms, assaySeconds)]
-      : []),
-    ...(options.checkpoints.includes(5)
-      ? [
-          ...[INTACT, ...PRIMARY.map((l) => l.id), ...SECONDARY.map((l) => l.id)].flatMap((lesion) =>
-            jobs(5, 'lesion', lesionTrials, lesionSeconds).map((job) => ({ ...job, lesion })),
-          ),
-          ...[INTACT, ...TOUCHED].flatMap((lesion) =>
-            jobs(5, 'lesionTouch', touchSeeds, options.seconds).map((job) => ({ ...job, lesion })),
-          ),
-        ]
-      : []),
-  ].sort((a, b) => b.seconds - a.seconds);
+        : []),
+    ].sort((a, b) => b.seconds - a.seconds);
+  };
+  const queue = queueFor(options.checkpoints);
   // The sensitivity runs' settings, each with checkpoint 1's trials and the silenced network's.
   const settings = options.sensitivity ? SETTINGS : [];
   // A setting the fit can't run refuses here, before any trial, rather than in a worker after the settings before it.
   for (const setting of settings) jobParams(setting.id);
   const perSetting = 2 * options.trials;
-  const total = queue.length + settings.length * perSetting;
+  // A wiring's grading: checkpoint 1's trials and its five variants, then, if it crawls, checkpoints 0 and 2 to 5.
+  const graded = options.wiring === undefined ? 0 : 6 * options.trials + queueFor([0, 2, 4, 5]).length;
+  const total = queue.length + settings.length * perSetting + graded;
   const results: Result[] = [];
   let done = 0;
   const started = Date.now();
@@ -354,6 +417,13 @@ if (process.argv.includes('--worker')) {
   const rows: SensitivityRow[] = [];
   try {
     results.push(...(await runAll(queue)));
+    if (options.wiring !== undefined) {
+      const data = validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8')));
+      const summary = await gradeWiring(options.wiring, data, { queueFor, runAll, basis, commit: info.commit });
+      process.stdout.write(
+        `${summary.wiring}: ${summary.fit ? `checkpoint 1 ${summary.checkpoint1?.grade ?? '—'}, ${summary.crawls ? 'crawls' : "doesn't crawl"}` : 'no fit'}; wrote ${relative(ROOT, summaryPath(options.wiring))}\n`,
+      );
+    }
     // One setting at a time, graded as its trials come back, so that no more than a setting's records are held.
     for (const setting of settings) {
       const back = await runAll([
@@ -490,7 +560,7 @@ if (process.argv.includes('--worker')) {
     process.stdout.write(`${section}\n\n`);
     if (full) page = replaceSection(page, checkpoint, section);
   }
-  if (full) {
+  if (full && options.wiring === undefined) {
     writeFileSync(PAGE, await formatMarkdown(page, PAGE));
     process.stderr.write('Updated VALIDATION.md.\n');
   } else process.stderr.write('A shortened run: VALIDATION.md is left as it was.\n');

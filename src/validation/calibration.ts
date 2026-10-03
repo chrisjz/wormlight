@@ -522,3 +522,25 @@ export async function calibrate(
   const final = checked.reduce((a, b) => (b.value < a.value ? b : a));
   return { generations, evaluated, checked, final };
 }
+
+// The runs that show what paces a crawl (PLAN §7.4): checkpoint 1's trials again with the head switch off and at its
+// lower bound, the model's or a null's own box's (checkpoint 6), and with classes lesioned, by name in the runtime data.
+export function variants(
+  neurons: readonly { name: string; oscillator?: string | null }[],
+  values: Values,
+  form: Form,
+  model: Model = 'track R',
+  box: Box = boxOf(form, model),
+): { name: string; values: Values; lesions?: string[] }[] {
+  const of = (c: string): string[] => neurons.filter((n) => n.oscillator === c).map((n) => n.name);
+  return [
+    { name: 'The head switch off, g_sw at 0', values: { ...values, headSwitchGain: 0 } },
+    {
+      name: 'g_sw at its lower bound',
+      values: { ...values, headSwitchGain: box.headSwitchGain[0] },
+    },
+    { name: `The ${of('B').length} B-types lesioned`, values, lesions: of('B') },
+    { name: `The ${of('A').length} A-types lesioned`, values, lesions: of('A') },
+    { name: 'AVBL and AVBR lesioned', values, lesions: ['AVBL', 'AVBR'] },
+  ];
+}

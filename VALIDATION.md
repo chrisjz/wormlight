@@ -586,6 +586,10 @@ The secondary lesions, reported and not graded, since Gray et al. describe their
 
 <!-- /harness:checkpoint-5 -->
 
+<!-- harness:checkpoint-6 -->
+
+<!-- /harness:checkpoint-6 -->
+
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on

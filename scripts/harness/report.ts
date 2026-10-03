@@ -30,6 +30,8 @@ import { BACK, FRONT } from '../../src/sim/touch.ts';
 import { CHECKPOINT_4, type ChemotaxisRecord, type Checkpoint4 } from '../../src/validation/chemotaxis.ts';
 import type { MechanismRecord, MechanismResult } from '../../src/validation/mechanism.ts';
 import type { Checkpoint5, LesionClause } from '../../src/validation/lesions.ts';
+import { LATER, type Verdicts } from '../../src/validation/wiringTest.ts';
+import type { WiringSummary } from './wiring.ts';
 import {
   CHECKPOINT_2,
   CHECKPOINT_3,
@@ -678,6 +680,90 @@ export function checkpoint5Section(r: Checkpoint5, info: RunInfo): string {
     measures(r.primaryMeasures),
     'The secondary lesions, reported and not graded, since Gray et al. describe their effects through time off food, which depends on neuromodulation the model lacks (PLAN §7.4), in the same way.',
     measures(r.secondary),
+  ].join('\n\n');
+}
+
+// Checkpoint 6's section (spec §8; PLAN §7.4; DECISIONS.md, 2026-10-03): the verdicts, then every wiring's results,
+// whichever way they fall, and what the real wiring got that the nulls don't.
+export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: readonly WiringSummary[]): string {
+  const g = (grade: string | null | undefined): string =>
+    grade === 'pass' || grade === 'partial' || grade === 'fail' ? GRADE[grade] : '—';
+  const sentence = (x: string): string => x[0].toUpperCase() + x.slice(1);
+  const where = (w: WiringSummary): string => `${String(w.machine.cpu)}, Node ${String(w.machine.node)}`;
+  const machines = [...new Set(nulls.map(where))];
+  const commits = [...new Set(nulls.map((n) => `\`${n.commit}\``))];
+  const verdictRows = [
+    [
+      'Crawling: checkpoint 1 at least partial',
+      sentence(v.crawling.verdict),
+      `${v.crawling.crawl} of ${v.crawling.of} nulls crawl; the real wiring is ${real.checkpoint1?.grade ?? 'ungraded'}`,
+    ],
+    ...LATER.map((k) => {
+      const l = v.later[k];
+      return [
+        `Checkpoint ${k}, among the crawling nulls`,
+        sentence(l.verdict),
+        `the real wiring: ${l.real ?? '—'}; ${l.pass} of ${l.of} crawling nulls pass, ${l.partial} partial`,
+      ];
+    }),
+  ];
+  const wiringLabel = (w: WiringSummary): string =>
+    w.rewiring === undefined ? 'The real wiring' : `Rewiring ${w.rewiring}`;
+  const box = (w: WiringSummary): string =>
+    w.box
+      ? `${w.box.headSwitchGain[1]} · ${w.box.proprioceptiveGain[1]} · ${fixed(w.box.oscillatorDriveThreshold[0], 0)}`
+      : '—';
+  const speed = (w: WiringSummary): string =>
+    w.speed?.value === null || w.speed === undefined
+      ? '—'
+      : `${fixed(w.speed.value, 3)} (${w.speed.interval.map((e) => (e === null ? '—' : fixed(e, 3))).join('–')})`;
+  const all = [real, ...nulls];
+  const wiringRows = all.map((w) => [
+    wiringLabel(w),
+    box(w),
+    w.fit?.value === undefined ? '—' : fixed(w.fit.value, 3),
+    `${w.failures}`,
+    w.fit ? g(w.checkpoint1?.grade) : 'No fit',
+    speed(w),
+    w.pacing ? percent(w.pacing.open) : '—',
+    w.spread ? `${w.spread.neuron}, ${fixed(w.spread.spread, 2)} mV` : '—',
+    w.later ? g(w.later[0]) : '—',
+    ...LATER.map((k) => (w.later ? g(k === 4 || k === 5 ? w.later[k].grade : w.later[k]) : '—')),
+  ]);
+  const names = real.variants?.map((x) => x.name) ?? [];
+  const variantRows = all
+    .filter((w) => w.variants)
+    .map((w) => [
+      wiringLabel(w),
+      ...(w.variants ?? []).map((x) => `${g(x.grade)}, ${percent(x.forward)} forward, ${fixed(x.meanVelocity, 3)}`),
+    ]);
+  return [
+    '### Checkpoint 6: the wiring test',
+    `Each of the primary null's ten rewirings was tuned by track S's procedure in the box its own rest gives by the rules that set S's, its fit its first pick, and graded on the machine its search ran on (${machines.join('; ')}), at ${commits.join(', ')}; the real wiring, at the registry's values, on ${where(real)} at \`${real.commit}\` (DECISIONS.md, 2026-10-03). A wiring crawls if checkpoint 1 grades it at least partial on seeds 1 to 20; a crawling wiring runs checkpoints 0, reported and graded by nothing, and 2 to 5 by their own protocols.`,
+    table(['Question', 'Verdict', 'Counts'], verdictRows),
+    `PLAN §7.4's verdict map, with the maintainer's change where the real wiring doesn't pass, made knowing that it fails checkpoints 2 to 5 (DECISIONS.md, 2026-10-03): with fewer than 5 crawling nulls, checkpoints 2 to 5 read "insufficient nulls"; where the real wiring doesn't pass, "no evidence that the wiring matters (the real wiring doesn't pass)"; otherwise the wiring matters if at most 20% of the crawling nulls pass, and there is no evidence that it does if 50% or more do.`,
+    "Every wiring's results, whichever way they fall: its box's tops for g_sw (nS) and g_p (nS per unit of κL) and θ_osc's floor (mV); its fit's objective on the search's final check; the candidates its search couldn't run; checkpoint 1's grade and its speed with the 95% interval (body lengths per second); the share of measured steps with the head switch's gate open; the widest neuron's voltage spread at its fitted noise, by §7.3's linear analysis at its own rest; and, if it crawls, its grades on checkpoints 0 and 2 to 5.",
+    table(
+      [
+        'Wiring',
+        'Box: g_sw · g_p · θ_osc',
+        'Objective',
+        'Failed',
+        'Checkpoint 1',
+        'Speed',
+        'Gate open',
+        'Widest spread',
+        '0',
+        '2',
+        '3',
+        '4',
+        '5',
+      ],
+      wiringRows,
+    ),
+    "What paces each crawl (PLAN §7.4): checkpoint 1's trials again with the head switch off and at its box's lower bound, and with classes lesioned, each graded by checkpoint 1's grading, with its share of samples forward and its mean velocity.",
+    table(['Wiring', ...names], variantRows),
+    "What the real wiring got and the nulls don't (PLAN §9): track R's parameterisation, and track S's measured signs, the D-types' offset and the rectifier, were designed on the real wiring; round 3's procedure, which S's is, was designed after the survey on it and reuses the survey's starts and final-check seeds; it was explored as no null is, about 9,000 trials in the investigation of 2026-09-29, the survey's sixteen searches, round 3's searches and comparisons, and the assessment after them; and it could have gone down four picks by §7.2's comparison, where each null's fit is its first, though the real wiring's was its first too. The rows that read reversals carry the same fitted marks on the nulls as on the real wiring. Previewed (PLAN §10): scratch nulls on round 3's first and fourth picks' values (DECISIONS.md, 2026-09-30); the ten rewirings untuned on S's values, none partial (data/checkpoint-6/preview.json); and, once, the progress of rewiring 1's first search on the M5 Max, read in a smoke run before the grading was built (DECISIONS.md, 2026-10-03).",
   ].join('\n\n');
 }
 

@@ -312,8 +312,8 @@ describe('the lesions', () => {
 });
 
 describe("the harness's checkpoint 5", () => {
-  it('takes it, and no checkpoint beyond it', () => {
+  it('takes it, and no checkpoint beyond 6', () => {
     expect(parseArgs(['--checkpoint', '5']).checkpoints).toEqual([5]);
-    expect(() => parseArgs(['--checkpoint', '6'])).toThrow(/runs checkpoints 0, 1, 2, 3, 4 and 5/);
+    expect(() => parseArgs(['--checkpoint', '7'])).toThrow(/runs checkpoints 0, 1, 2, 3, 4, 5 and 6/);
   });
 });

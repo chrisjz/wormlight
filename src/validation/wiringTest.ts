@@ -104,3 +104,70 @@ export function ruleBox(reading: RuleReading, model: Model): Box {
     oscillatorDriveThreshold: [Math.floor(reading.silencedDrive) + 1, box.oscillatorDriveThreshold[1]],
   };
 }
+
+// A wiring's grades for the verdict map: the real wiring's or a null's, with whether it has a fit, its checkpoint 1
+// grade (null without a fit), whether it crawls, and, if it does, its grades on checkpoints 2 to 5.
+export type Grade = 'pass' | 'partial' | 'fail';
+export const LATER = [2, 3, 4, 5] as const;
+export type Later = (typeof LATER)[number];
+export interface WiringGrades {
+  fit: boolean;
+  checkpoint1: Grade | null;
+  crawls: boolean;
+  later: Partial<Record<Later, Grade>>;
+}
+
+// A wiring crawls if checkpoint 1 grades it at least partial (PLAN §7.4's crawl gate).
+export const crawls = (grade: Grade | null): boolean => grade === 'pass' || grade === 'partial';
+
+// PLAN §7.4's verdict map, with the maintainer's change where the real wiring doesn't pass (DECISIONS.md,
+// 2026-10-03): crawling, the wiring matters if the real wiring crawls and at most 2 of the 10 nulls do, there is no
+// evidence it does if 5 or more crawl, and it is inconclusive otherwise. Each of checkpoints 2 to 5, among the crawling
+// nulls only: with fewer than 5, "insufficient nulls"; where the real wiring doesn't pass, "no evidence that the
+// wiring matters (the real wiring doesn't pass)"; otherwise the wiring matters if at most 20% of them pass, there is
+// no evidence it does if 50% or more pass, and it is inconclusive between. A null passes a checkpoint if it grades
+// pass; partials are counted beside it.
+export const VERDICT_MAP = {
+  crawling: { matters: 2, noEvidence: 5 },
+  later: { least: 5, matters: 0.2, noEvidence: 0.5 },
+} as const;
+export type Verdict =
+  | 'the wiring matters'
+  | 'no evidence that the wiring matters'
+  | "no evidence that the wiring matters (the real wiring doesn't pass)"
+  | 'inconclusive'
+  | 'insufficient nulls';
+export interface Verdicts {
+  crawling: { verdict: Verdict; crawl: number; of: number };
+  later: Record<Later, { verdict: Verdict; real: Grade | null; pass: number; partial: number; of: number }>;
+}
+export function verdicts(real: WiringGrades, nulls: readonly WiringGrades[]): Verdicts {
+  const crawling = nulls.filter((n) => n.crawls);
+  const c = crawling.length;
+  const { crawling: cm, later: lm } = VERDICT_MAP;
+  const crawlVerdict: Verdict =
+    real.crawls && c <= cm.matters
+      ? 'the wiring matters'
+      : c >= cm.noEvidence
+        ? 'no evidence that the wiring matters'
+        : 'inconclusive';
+  const later = Object.fromEntries(
+    LATER.map((k) => {
+      const pass = crawling.filter((n) => n.later[k] === 'pass').length;
+      const partial = crawling.filter((n) => n.later[k] === 'partial').length;
+      const share = c > 0 ? pass / c : 0;
+      const verdict: Verdict =
+        c < lm.least
+          ? 'insufficient nulls'
+          : real.later[k] !== 'pass'
+            ? "no evidence that the wiring matters (the real wiring doesn't pass)"
+            : share <= lm.matters
+              ? 'the wiring matters'
+              : share >= lm.noEvidence
+                ? 'no evidence that the wiring matters'
+                : 'inconclusive';
+      return [k, { verdict, real: real.later[k] ?? null, pass, partial, of: c }];
+    }),
+  ) as Verdicts['later'];
+  return { crawling: { verdict: crawlVerdict, crawl: c, of: nulls.length }, later };
+}
