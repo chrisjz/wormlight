@@ -707,25 +707,33 @@ export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: read
       ];
     }),
   ];
-  const wiringLabel = (w: WiringSummary): string =>
-    w.rewiring === undefined ? 'The real wiring' : `Rewiring ${w.rewiring}`;
-  const box = (w: WiringSummary): string =>
+  const label = (w: WiringSummary): string => (w.rewiring === undefined ? 'The real wiring' : `Rewiring ${w.rewiring}`);
+  const all = [real, ...nulls];
+  const value = (x: number | null): string => (x === null || !Number.isFinite(x) ? '∞' : fixed(x, 3));
+  const searchRows = all.map((w) => [
+    label(w),
     w.box
       ? `${w.box.headSwitchGain[1]} · ${w.box.proprioceptiveGain[1]} · ${fixed(w.box.oscillatorDriveThreshold[0], 0)}`
-      : '—';
+      : '—',
+    w.picks.length > 0 ? w.picks.map((p) => value(p.value)).join(', ') : '—',
+    `${w.failures}`,
+    w.fit ? w.onBound.join(', ') || 'none' : '—',
+  ]);
+  const checkpoint1 = (w: WiringSummary): string =>
+    !w.fit ? 'No fit' : `${g(w.checkpoint1?.grade)}${w.speed?.atFloor ? ', at the speed floor' : ''}`;
   const speed = (w: WiringSummary): string =>
-    w.speed?.value === null || w.speed === undefined
+    w.speed === undefined || w.speed.value === null
       ? '—'
       : `${fixed(w.speed.value, 3)} (${w.speed.interval.map((e) => (e === null ? '—' : fixed(e, 3))).join('–')})`;
-  const all = [real, ...nulls];
-  const wiringRows = all.map((w) => [
-    wiringLabel(w),
-    box(w),
-    w.fit?.value === undefined ? '—' : fixed(w.fit.value, 3),
-    `${w.failures}`,
-    w.fit ? g(w.checkpoint1?.grade) : 'No fit',
+  const pacing = (w: WiringSummary): string =>
+    w.pacing
+      ? `${percent(w.pacing.open)} · ${fixed(w.pacing.margin.mean, 1)} mV · ${fixed(w.pacing.cycleRate, 3)} Hz`
+      : '—';
+  const gradeRows = all.map((w) => [
+    label(w),
+    checkpoint1(w),
     speed(w),
-    w.pacing ? percent(w.pacing.open) : '—',
+    pacing(w),
     w.spread ? `${w.spread.neuron}, ${fixed(w.spread.spread, 2)} mV` : '—',
     w.later ? g(w.later[0]) : '—',
     ...LATER.map((k) => (w.later ? g(k === 4 || k === 5 ? w.later[k].grade : w.later[k]) : '—')),
@@ -734,37 +742,42 @@ export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: read
   const variantRows = all
     .filter((w) => w.variants)
     .map((w) => [
-      wiringLabel(w),
+      label(w),
       ...(w.variants ?? []).map((x) => `${g(x.grade)}, ${percent(x.forward)} forward, ${fixed(x.meanVelocity, 3)}`),
     ]);
+  const detailRows = all
+    .filter((w) => w.later)
+    .map((w) => {
+      const later = w.later as NonNullable<WiringSummary['later']>;
+      const passing = later[5].rows.filter((r) => r.pass).map((r) => r.id);
+      return [
+        label(w),
+        later[4].klinokinesis ?? '—',
+        later[4].weathervaning ?? '—',
+        passing.length > 0 ? passing.join(', ') : 'none',
+      ];
+    });
   return [
-    '### Checkpoint 6: the wiring test',
-    `Each of the primary null's ten rewirings was tuned by track S's procedure in the box its own rest gives by the rules that set S's, its fit its first pick, and graded on the machine its search ran on (${machines.join('; ')}), at ${commits.join(', ')}; the real wiring, at the registry's values, on ${where(real)} at \`${real.commit}\` (DECISIONS.md, 2026-10-03). A wiring crawls if checkpoint 1 grades it at least partial on seeds 1 to 20; a crawling wiring runs checkpoints 0, reported and graded by nothing, and 2 to 5 by their own protocols.`,
+    "### Checkpoint 6: the wiring test — its verdict where the real wiring doesn't pass changed after results",
+    `Each of the primary null's ten rewirings was tuned by track S's procedure in the box its own rest gives by the rules that set S's, its fit its first pick, and graded on the machine its search ran on (${machines.join('; ')}), at ${commits.join(', ')}; the real wiring, at the registry's values, track S's first pick, on ${where(real)} at \`${real.commit}\` (DECISIONS.md, 2026-10-03). A wiring crawls if checkpoint 1 grades it at least partial on seeds 1 to 20; a crawling wiring runs checkpoint 0, reported and not counted, and checkpoints 2 to 5 by their own protocols.`,
     table(['Question', 'Verdict', 'Counts'], verdictRows),
-    `PLAN §7.4's verdict map, with the maintainer's change where the real wiring doesn't pass, made knowing that it fails checkpoints 2 to 5 (DECISIONS.md, 2026-10-03): with fewer than 5 crawling nulls, checkpoints 2 to 5 read "insufficient nulls"; where the real wiring doesn't pass, "no evidence that the wiring matters (the real wiring doesn't pass)"; otherwise the wiring matters if at most 20% of the crawling nulls pass, and there is no evidence that it does if 50% or more do.`,
-    "Every wiring's results, whichever way they fall: its box's tops for g_sw (nS) and g_p (nS per unit of κL) and θ_osc's floor (mV); its fit's objective on the search's final check; the candidates its search couldn't run; checkpoint 1's grade and its speed with the 95% interval (body lengths per second); the share of measured steps with the head switch's gate open; the widest neuron's voltage spread at its fitted noise, by §7.3's linear analysis at its own rest; and, if it crawls, its grades on checkpoints 0 and 2 to 5.",
+    `PLAN §7.4's verdict map. Crawling: the wiring matters if the real wiring crawls and at most 2 of the 10 nulls do, there is no evidence that it does if 5 or more crawl, and it is inconclusive otherwise. Each of checkpoints 2 to 5, among the crawling nulls: with fewer than 5 of them, "insufficient nulls"; otherwise the wiring matters if the real wiring passes and at most 20% of them pass, there is no evidence that it does if 50% or more pass, and it is inconclusive between. **Changed after results** (DECISIONS.md, 2026-10-03): where the real wiring doesn't pass, a partial included, the verdict is "no evidence that the wiring matters (the real wiring doesn't pass)", where the map as written reads "inconclusive" unless half the crawling nulls pass, set by the maintainer knowing that the real wiring fails checkpoints 2 to 5. A null passes a checkpoint if it grades pass; partials are counted beside it.`,
+    "Each wiring's search: its box's tops for g_sw (nS) and g_p (nS per unit of κL) and θ_osc's floor (mV); its picks' objectives on their final checks, the first its fit; the candidates its search couldn't run; and its fit's parameters at a bound of its box.",
+    table(['Wiring', 'Box: g_sw · g_p · θ_osc', 'Picks', 'Failed', 'On a bound'], searchRows),
+    "Each wiring's grades: checkpoint 1, a partial whose speed's interval reaches below 0.06 labelled at the speed floor, its speed with its 95% interval (body lengths per second), and its head switch's gate open on what share of the measured steps, its drive less θ_osc and its cycle rate; the widest neuron's voltage spread at its fitted noise, by §7.3's linear analysis at its own rest, every synapse's activation and rectified gate held there and the oscillators left out; and, if it crawls, checkpoint 0, reported and not counted, and checkpoints 2 to 5.",
     table(
-      [
-        'Wiring',
-        'Box: g_sw · g_p · θ_osc',
-        'Objective',
-        'Failed',
-        'Checkpoint 1',
-        'Speed',
-        'Gate open',
-        'Widest spread',
-        '0',
-        '2',
-        '3',
-        '4',
-        '5',
-      ],
-      wiringRows,
+      ['Wiring', 'Checkpoint 1', 'Speed', 'Gate · drive · cycle', 'Widest spread', '0', '2', '3', '4', '5'],
+      gradeRows,
     ),
     "What paces each crawl (PLAN §7.4): checkpoint 1's trials again with the head switch off and at its box's lower bound, and with classes lesioned, each graded by checkpoint 1's grading, with its share of samples forward and its mean velocity.",
     table(['Wiring', ...names], variantRows),
-    "What the real wiring got and the nulls don't (PLAN §9): track R's parameterisation, and track S's measured signs, the D-types' offset and the rectifier, were designed on the real wiring; round 3's procedure, which S's is, was designed after the survey on it and reuses the survey's starts and final-check seeds; it was explored as no null is, about 9,000 trials in the investigation of 2026-09-29, the survey's sixteen searches, round 3's searches and comparisons, and the assessment after them; and it could have gone down four picks by §7.2's comparison, where each null's fit is its first, though the real wiring's was its first too. The rows that read reversals carry the same fitted marks on the nulls as on the real wiring. Previewed (PLAN §10): scratch nulls on round 3's first and fourth picks' values (DECISIONS.md, 2026-09-30); the ten rewirings untuned on S's values, none partial (data/checkpoint-6/preview.json); and, once, the progress of rewiring 1's first search on the M5 Max, read in a smoke run before the grading was built (DECISIONS.md, 2026-10-03).",
-  ].join('\n\n');
+    detailRows.length > 0
+      ? `The crawling wirings' mechanism of chemotaxis, reported and never gating, and the rows of checkpoint 5 that pass. Checkpoint 2, checkpoint 4's klinokinesis and checkpoint 5's rows that read reversals are reported as fitted on every wiring, as on the real wiring (PLAN §10).\n\n${table(['Wiring', 'Klinokinesis', 'Weathervaning', "Checkpoint 5's rows passing"], detailRows)}`
+      : '',
+    "What the real wiring got and the nulls don't (PLAN §9): track R's parameterisation, and track S's measured signs, the D-types' offset and the rectifier, were designed on the real wiring; round 3's procedure, which S's is, was designed after the survey on it and reuses the survey's starts and final-check seeds; it was explored as no null is, about 9,000 trials in the investigation of 2026-09-29, the survey's sixteen searches, round 3's searches and comparisons, and the assessment after them; and it could have gone down four picks by §7.2's comparison, where each null's fit is its first, though the real wiring's was its first too. Previewed (PLAN §10): scratch nulls on round 3's first and fourth picks' values (DECISIONS.md, 2026-09-30); the ten rewirings untuned on S's values, none partial (data/checkpoint-6/preview.json); and, once, the progress of rewiring 1's first search on the M5 Max, read in a smoke run before the grading was built (DECISIONS.md, 2026-10-03). The secondary null, which rewires the gap junctions too, is deferred, a change after results, to be tuned only if the primary null's verdict finds that the wiring matters (DECISIONS.md, 2026-10-03).",
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 // A sensitivity setting's runs (spec §2.4; PLAN §2.4, §3.2): checkpoint 1 on the setting's brain, and checkpoint 0's

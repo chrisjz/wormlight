@@ -4,13 +4,19 @@
 import { describe, expect, it } from 'vitest';
 import { checkpoint6Section } from '../scripts/harness/report.ts';
 import { parseArgs } from '../scripts/harness/run.ts';
+import { machineDiffers } from '../scripts/calibrate/machine.ts';
+import { IGNORED } from '../scripts/harness/commit.ts';
 import {
+  atBounds,
+  countFailures,
   gradesOf,
   gradingRefused,
+  readSummaries,
   registryValues,
   type NullRecord,
   type WiringSummary,
 } from '../scripts/harness/wiring.ts';
+import { nullNetwork } from '../src/validation/wiringTest.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { inputConductance } from '../src/sim/brain/brain.ts';
 import { cookNetwork, type Network } from '../src/sim/brain/network.ts';
@@ -174,12 +180,25 @@ const summary = (name: string, rewiring: number | undefined, grade: Grade | null
   fit: grade === null ? null : { values: registryValues(), value: 0.5 },
   box: boxOf('conductance', 'track S'),
   failures: rewiring === 4 ? 3 : 0,
+  picks:
+    grade === null
+      ? []
+      : [
+          { seed: 11, value: 0.5 },
+          { seed: 12, value: null },
+        ],
+  onBound: grade === null ? [] : ['headSwitchGain'],
   checkpoint1: grade === null ? null : { grade, clauses: [] },
   crawls: grade === 'pass' || grade === 'partial',
   ...(grade === null
     ? {}
     : {
-        speed: { value: 0.068, interval: [0.067, 0.069] as [number, number], unmeasured: 0 },
+        speed: {
+          value: 0.068,
+          interval: [rewiring === 3 ? 0.055 : 0.067, 0.069] as [number, number],
+          unmeasured: 0,
+          atFloor: grade === 'partial' ? rewiring === 3 : null,
+        },
         pacing: { open: 1, margin: { mean: 13, sd: 2 }, cycleRate: 0.21 },
         variants: [{ name: 'The head switch off, g_sw at 0', grade: 'fail', forward: 0.1, meanVelocity: 0.001 }],
         spread: { neuron: 'IL2DL', spread: 3.94, sigma: 0.056, tau: 0.055 },
@@ -216,8 +235,14 @@ describe("checkpoint 6's section", () => {
     expect(section).toContain(
       "| Checkpoint 2, among the crawling nulls | No evidence that the wiring matters (the real wiring doesn't pass) | the real wiring: fail; 0 of 5 crawling nulls pass, 0 partial |",
     );
-    expect(section).toMatch(/\| Rewiring 2 +\| 50 · 7 · −28 +\| — +\| 0 +\| No fit /);
-    expect(section).toMatch(/\| Rewiring 4 +\| [^|]+\| 0\.500 +\| 3 +\| \*\*Partial\*\* /);
+    expect(section).toContain('changed after results');
+    expect(section).toMatch(/\| Rewiring 2 +\| 50 · 7 · −28 +\| — +\| 0 +\| — +\|/);
+    expect(section).toMatch(/\| Rewiring 4 +\| [^|]+\| 0\.500, ∞ +\| 3 +\| headSwitchGain +\|/);
+    expect(section).toMatch(/\| Rewiring 2 +\| No fit /);
+    expect(section).toMatch(/\| Rewiring 3 +\| \*\*Partial\*\*, at the speed floor +\| 0\.068 \(0\.055–0\.069\)/);
+    expect(section).toContain('100% · 13.0 mV · 0.210 Hz');
+    expect(section).toMatch(/\| Rewiring 1 +\| absent +\| reproduced +\| none +\|/);
+    expect(section).toContain('The secondary null, which rewires the gap junctions too, is deferred');
     expect(section).toContain('IL2DL, 3.94 mV');
     expect(section).toContain('Intel i9-9900X, Node v26.7.0');
     expect(section).toContain("What the real wiring got and the nulls don't");
@@ -233,5 +258,63 @@ describe("the harness's checkpoint 6", () => {
     expect(() => parseArgs(['--wiring', '0'])).toThrow(/real or a rewiring from 1 to 10/);
     expect(() => parseArgs(['--wiring', '1', '--checkpoint', '1'])).toThrow(/each run by itself/);
     expect(() => parseArgs(['--checkpoint', '6', '--seconds', '30'])).toThrow(/whole/);
+  });
+});
+
+describe("checkpoint 6's records", () => {
+  it('count a failed candidate once, where it was run, though phase 2 replays phase 1', () => {
+    const f = (generation: number, candidate: number) => ({ restart: 0, generation, candidate, failed: 'x' });
+    expect(
+      countFailures({
+        'phase 1 11': { failures: [f(1, 2), f(5, 0)] },
+        'phase 1 12': { failures: [f(3, 3)] },
+        // Phase 2 of 11 replays its phase 1, failures and all, then fails once more.
+        'phase 2 11': { failures: [f(1, 2), f(5, 0), f(30, 4)] },
+        'phase 2 13': { failures: [f(31, 1)] },
+      }),
+    ).toBe(5);
+  });
+
+  it('name the parameters a fit holds at a bound of its box', () => {
+    const box = boxOf('conductance', 'track S');
+    expect(atBounds(registryValues(), box).sort()).toEqual([
+      'headSwitchGain',
+      'neuromuscularGain',
+      'oscillatorExcitabilityB',
+    ]);
+  });
+
+  it('take a machine as the same through a kernel update, and name what differs', () => {
+    const m = {
+      platform: 'linux',
+      release: '5.15.1',
+      os: '#1',
+      arch: 'x64',
+      cpu: 'Intel i9-9900X',
+      cores: 20,
+      memoryGB: 16,
+    };
+    expect(machineDiffers(m, { ...m, release: '5.15.2', os: '#2', memoryGB: 26 })).toBeNull();
+    expect(machineDiffers(m, { ...m, cores: 10 })).toBe('its cores was 20, not 10');
+  });
+
+  it("leave the nulls' records and summaries out of the clean-commit guard, and refuse a verdict without all eleven", () => {
+    expect(IGNORED).toEqual([':!*.md', ':!data/calibration/null-*.json', ':!data/checkpoint-6/null-*.json']);
+    expect(() => readSummaries()).toThrow(/missing: null-1, null-2/);
+  });
+
+  it('give a null its own spread, at its own rest', { timeout: 60000 }, () => {
+    const params = currentParams();
+    const at = (w: World) =>
+      widest(
+        w.brain.restNetwork(),
+        voltageSpread(w.brain.restNetwork(), w.brain.restActivations(), params.noise, params.noiseCorrelation ?? 0),
+      );
+    const real = at(new World(data, params));
+    const rewired = at(new World(data, params, { network: nullNetwork(data, 1) }));
+    expect(real.neuron).toBe('IL2DL');
+    expect(real.spread).toBeCloseTo(3.94, 2);
+    expect(rewired.spread).toBeGreaterThan(0);
+    expect(rewired.spread).not.toBe(real.spread);
   });
 });

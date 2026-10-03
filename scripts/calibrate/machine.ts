@@ -17,3 +17,12 @@ export function machine(): Record<string, string | number> {
     node: process.version,
   };
 }
+
+// What makes two records' machines the same: the platform, architecture, processor and its count of cores. The kernel
+// and the operating system's version may be updated during a run of days, and WSL may be given more or less memory,
+// without making it another machine (DECISIONS.md, 2026-10-03). Null if the same, or what differs.
+export const IDENTITY = ['platform', 'arch', 'cpu', 'cores'] as const;
+export function machineDiffers(was: Record<string, unknown>, now: Record<string, unknown>): string | null {
+  const key = IDENTITY.find((k) => was[k] !== now[k]);
+  return key === undefined ? null : `its ${key} was ${String(was[key])}, not ${String(now[key])}`;
+}

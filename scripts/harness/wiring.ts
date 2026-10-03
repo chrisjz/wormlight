@@ -5,6 +5,7 @@
 // to data/checkpoint-6/, is what the verdict reads. The full records go to harness-out/checkpoint-6/, a stage at a
 // time, and a stage recorded at the same commit on the same machine is read back rather than run again.
 
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { WormlightData } from '../../src/data/schema.ts';
@@ -20,7 +21,7 @@ import {
   type Checkpoint1,
   type Diagnostics,
 } from '../../src/validation/checkpoints.ts';
-import { speedInterval } from '../../src/validation/equivalence.ts';
+import { atSpeedFloor, speedInterval } from '../../src/validation/equivalence.ts';
 import { checkpoint5, INTACT } from '../../src/validation/lesions.ts';
 import { voltageSpread, widest } from '../../src/validation/noiseSpread.ts';
 import { checkpoint2, checkpoint3, type TouchTrialRecord } from '../../src/validation/touch.ts';
@@ -34,8 +35,9 @@ import {
   type Verdicts,
   type WiringGrades,
 } from '../../src/validation/wiringTest.ts';
-import { machine } from '../calibrate/machine.ts';
+import { machine, machineDiffers } from '../calibrate/machine.ts';
 import { formatJson } from '../data/render.ts';
+import { writeWhole } from '../experiments/trees.ts';
 import { ROOT } from '../data/sources.ts';
 
 export type Wiring = 'real' | number;
@@ -43,6 +45,8 @@ export const wiringName = (w: Wiring): string => (w === 'real' ? 'real' : `null-
 export const SUMMARIES = join(ROOT, 'data/checkpoint-6');
 export const summaryPath = (w: Wiring): string => join(SUMMARIES, `${wiringName(w)}.json`);
 const STAGES = join(ROOT, 'harness-out/checkpoint-6');
+// Track S's calibration record, whose first pick is the real wiring's fit.
+const TRACK_S_RECORD = join(ROOT, 'data/calibration/s1.json');
 // A null's tuning record, as `npm run calibrate -- --null N` writes it (scripts/calibrate/run.ts).
 export const nullRecordPath = (k: number): string => join(ROOT, `data/calibration/null-${k}.json`);
 
@@ -57,15 +61,10 @@ export interface NullRecord {
   bounds: Box | null;
   built?: boolean;
   fit: { seed: number; from: string; values: Values; value: number } | null;
-  stages?: Record<string, { failures?: unknown[] }>;
+  picks?: { seed: number; value: number | null }[];
+  rule?: unknown;
+  stages?: Record<string, { failures?: Failure[] }>;
 }
-
-// The machine as the rules compare it: everything machine() names but its memory.
-const sameMachine = (a: Record<string, unknown>, b: Record<string, unknown>): boolean => {
-  const key = (m: Record<string, unknown>): string =>
-    JSON.stringify(Object.entries(m).filter(([k]) => k !== 'memoryGB'));
-  return key(a) === key(b);
-};
 
 // Why a null's record can't be graded here, if it can't: its search must be finished, on this data, and graded on the
 // machine and Node it ran on (DECISIONS.md, 2026-10-03).
@@ -76,10 +75,8 @@ export function gradingRefused(
   if (record.complete !== true) return 'its search has not finished';
   if (record.data !== here.data) return `it was tuned on the data ${record.data}, not ${here.data}`;
   if (record.node !== here.node) return `it was tuned on Node ${record.node}, not ${here.node}`;
-  if (!sameMachine(record.machine, here.machine)) {
-    const cpu = record.machine.cpu;
-    return `it was tuned on ${typeof cpu === 'string' ? cpu : 'another machine'}, not this one`;
-  }
+  const differs = machineDiffers(record.machine, here.machine);
+  if (differs) return `it was tuned on another machine: ${differs}`;
   return null;
 }
 
@@ -106,10 +103,22 @@ export interface WiringSummary {
   fit: { values: Values; value?: number; seed?: number; from?: string } | null;
   box: Box | null;
   failures: number;
+  // Its search's picks, each its seed and objective, the first its fit; the parameters at a bound of its box; and,
+  // for a null, its tuning record's commit and hash, and what the box's rules read, the values of κ_gap,B where its
+  // rest couldn't be solved among them.
+  picks: { seed: number; value: number | null }[];
+  onBound: string[];
+  tuning?: { commit: string; sha256: string; rule: unknown };
   checkpoint1: { grade: Grade; clauses: { name: string; value: number | null; grade: string }[] } | null;
   crawls: boolean;
   // Reported for every wiring with a fit (PLAN §7.4, §9).
-  speed?: { value: number | null; interval: [number | null, number | null]; unmeasured: number };
+  // Its speed with its 95% interval; a partial is labelled at the speed floor when the interval reaches below it.
+  speed?: {
+    value: number | null;
+    interval: [number | null, number | null];
+    unmeasured: number;
+    atFloor: boolean | null;
+  };
   pacing?: Diagnostics['pacing'];
   variants?: { name: string; grade: Grade; forward: number; meanVelocity: number }[];
   spread?: { neuron: string; spread: number; sigma: number; tau: number };
@@ -121,6 +130,32 @@ export interface WiringSummary {
     4: { grade: Grade; klinokinesis: string | null; weathervaning: string | null };
     5: { grade: Grade; rows: { id: string; pass: boolean }[] };
   };
+}
+
+// Where the replayed evaluations of a continued search lie: phase 2's first 250 are phase 1's (THIRD_ROUND), so a
+// failed candidate is counted once, where it was run (DECISIONS.md, 2026-10-03).
+type Failure = { restart: number; generation: number; candidate: number };
+export function countFailures(stages: Readonly<Record<string, { failures?: readonly Failure[] }>>): number {
+  let n = 0;
+  for (const [name, stage] of Object.entries(stages)) {
+    const failures = stage.failures ?? [];
+    const continued = /^phase 2 (\d+)$/.exec(name);
+    if (!continued) {
+      n += failures.length;
+      continue;
+    }
+    const before = new Set(
+      (stages[`phase 1 ${continued[1]}`]?.failures ?? []).map((f) => `${f.restart} ${f.generation} ${f.candidate}`),
+    );
+    n += failures.filter((f) => !before.has(`${f.restart} ${f.generation} ${f.candidate}`)).length;
+  }
+  return n;
+}
+
+// The calibrated parameters a fit holds at a bound of its box, within a relative 10⁻⁹.
+export function atBounds(values: Values, box: Box): string[] {
+  const near = (a: number, b: number): boolean => Math.abs(a - b) <= 1e-9 * Math.max(Math.abs(a), Math.abs(b), 1e-12);
+  return CALIBRATED.filter((id) => near(values[id], box[id][0]) || near(values[id], box[id][1]));
 }
 
 // What the verdict map reads of a summary.
@@ -143,21 +178,41 @@ type Kinded = {
   record?: unknown;
 };
 
-// A stage's results, read back if it was recorded at the same commit on the same machine, or run and recorded.
-async function stage<J, R extends Kinded>(name: string, harness: Harness<J, R>, jobs: () => J[]): Promise<R[]> {
+// A stage's results, read back if it was recorded at the same commit, on the same machine, for the same brain, or run
+// and recorded, whole or not at all; a file that can't be read is run again.
+async function stage<J, R extends Kinded>(
+  name: string,
+  harness: Harness<J, R>,
+  brain: object,
+  jobs: () => J[],
+): Promise<R[]> {
   const file = join(STAGES, `${name}.json`);
   const here = machine();
   if (existsSync(file)) {
-    const kept = JSON.parse(readFileSync(file, 'utf8')) as {
-      commit: string;
-      machine: Record<string, unknown>;
-      results: R[];
-    };
-    if (kept.commit === harness.commit && sameMachine(kept.machine, here)) return kept.results;
+    try {
+      const kept = JSON.parse(readFileSync(file, 'utf8')) as {
+        commit: string;
+        machine: Record<string, unknown>;
+        brain: string;
+        results: R[];
+      };
+      if (
+        kept.commit === harness.commit &&
+        machineDiffers(kept.machine, here) === null &&
+        kept.brain === JSON.stringify(brain)
+      ) {
+        return kept.results;
+      }
+    } catch {
+      // A file cut short, as a stop mid-write can leave it on a filesystem without atomic renames: run it again.
+    }
   }
   const results = await harness.runAll(jobs());
   mkdirSync(STAGES, { recursive: true });
-  writeFileSync(file, JSON.stringify({ commit: harness.commit, machine: here, results }) + '\n');
+  writeWhole(
+    file,
+    JSON.stringify({ commit: harness.commit, machine: here, brain: JSON.stringify(brain), results }) + '\n',
+  );
   return results;
 }
 
@@ -180,18 +235,36 @@ export async function gradeWiring<J extends object, R extends Kinded>(
   let box: Box;
   let fit: WiringSummary['fit'];
   let failures = 0;
+  let picks: WiringSummary['picks'];
+  let tuning: WiringSummary['tuning'];
   const rewiring = wiring === 'real' ? undefined : wiring;
   if (rewiring === undefined) {
+    // The real wiring's fit is track S's first pick, which the registry holds (DECISIONS.md, 2026-10-02).
     values = registryValues();
     box = boxOf(CHOSEN_FORM, CHOSEN_MODEL);
-    fit = { values };
+    const s1 = JSON.parse(readFileSync(TRACK_S_RECORD, 'utf8')) as {
+      picks: { seed: number; from: string; value: number; values: Values }[];
+    };
+    const first = s1.picks[0];
+    if (CALIBRATED.some((id) => first.values[id] !== values[id])) {
+      throw new Error("the registry's values aren't track S's first pick");
+    }
+    picks = s1.picks.map((p) => ({ seed: p.seed, value: p.value }));
+    fit = { values, value: first.value, seed: first.seed, from: first.from };
   } else {
     const path = nullRecordPath(rewiring);
     if (!existsSync(path)) throw new Error(`there is no record of the rewiring ${rewiring}'s tuning at ${path}`);
-    const record = JSON.parse(readFileSync(path, 'utf8')) as NullRecord;
+    const text = readFileSync(path, 'utf8');
+    const record = JSON.parse(text) as NullRecord;
     const refused = gradingRefused(record, { data: data.meta.version, node: process.version, machine: here });
     if (refused) throw new Error(`the rewiring ${rewiring} can't be graded here: ${refused}`);
-    failures = Object.values(record.stages ?? {}).reduce((n, st) => n + (st.failures?.length ?? 0), 0);
+    failures = countFailures(record.stages ?? {});
+    picks = (record.picks ?? []).map((p) => ({ seed: p.seed, value: p.value }));
+    tuning = {
+      commit: record.commit,
+      sha256: createHash('sha256').update(text).digest('hex'),
+      rule: record.rule ?? null,
+    };
     if (!record.fit || !record.bounds) {
       const summary: WiringSummary = {
         wiring: name,
@@ -203,6 +276,9 @@ export async function gradeWiring<J extends object, R extends Kinded>(
         fit: null,
         box: record.bounds,
         failures,
+        picks,
+        onBound: [],
+        tuning,
         checkpoint1: null,
         crawls: false,
       };
@@ -216,7 +292,7 @@ export async function gradeWiring<J extends object, R extends Kinded>(
   const brain = { values, ...(rewiring === undefined ? {} : { rewiring }) };
   const runs = variants(data.neurons, values, CHOSEN_FORM, CHOSEN_MODEL, box);
   // Checkpoint 1 and the runs that show what paces it: the gate.
-  const first = await stage(`${name}-checkpoint-1`, harness, () => [
+  const first = await stage(`${name}-checkpoint-1`, harness, brain, () => [
     ...harness.queueFor([1]).map((j) => ({ ...j, ...brain })),
     ...runs.flatMap((v, variant) =>
       harness.queueFor([1]).map((j) => ({
@@ -262,18 +338,27 @@ export async function gradeWiring<J extends object, R extends Kinded>(
     fit,
     box,
     failures,
+    picks,
+    onBound: atBounds(values, box),
+    ...(tuning ? { tuning } : {}),
     checkpoint1: {
       grade: graded.grade,
       clauses: graded.clauses.map((c) => ({ name: c.name, value: c.value, grade: c.grade })),
     },
     crawls: crawls(graded.grade),
-    speed: { value: speed.speed, interval: speed.interval, unmeasured: speed.unmeasured },
+    speed: {
+      value: speed.speed,
+      interval: speed.interval,
+      unmeasured: speed.unmeasured,
+      // The label reads a partial alone (PLAN §7.4); a null took no comparison, so its interval alone sets it.
+      atFloor: graded.grade === 'partial' ? atSpeedFloor(speed.interval, null) : null,
+    },
     pacing: graded.diagnostics.pacing,
     variants: shown,
     spread,
   };
   if (summary.crawls) {
-    const later = await stage(`${name}-checkpoints-0-to-5`, harness, () =>
+    const later = await stage(`${name}-checkpoints-0-to-5`, harness, brain, () =>
       harness.queueFor([0, 2, 4, 5]).map((j) => ({ ...j, ...brain })),
     );
     const touches = records<TouchTrialRecord>(later, 2, 'touch');

@@ -18,10 +18,11 @@ export function symmetricEigen(matrix: Float64Array, n: number): { values: Float
   const v = new Float64Array(n * n);
   for (let i = 0; i < n; i++) v[i * n + i] = 1;
   const norm = Math.sqrt(a.reduce((s, x) => s + x * x, 0));
-  for (let sweep = 0; sweep < 100; sweep++) {
+  for (let sweep = 0; ; sweep++) {
     let off = 0;
     for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p * n + q] ** 2;
     if (Math.sqrt(off) <= 1e-14 * norm) break;
+    if (sweep === 100) throw new Error('the Jacobi rotations did not converge in 100 sweeps');
     for (let p = 0; p < n; p++) {
       for (let q = p + 1; q < n; q++) {
         const apq = a[p * n + q];
