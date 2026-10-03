@@ -4258,25 +4258,25 @@ The first run was stopped after 3,585 samples, before its search, and set aside.
 
 **Status.** Built and run, and revised after review.
 
-## 2026-10-03 — The finish line: Wormlight's research closes at its documented conclusion, with the reflex diagnosis; tracks D and M closed (the maintainer's decisions after an evaluation of the remaining plan; set before the diagnosis script ran)
+## 2026-10-03 — The finish line: Wormlight's research closes at its documented conclusion, with the reflex diagnosis; tracks D and M closed (the maintainer's decisions after an evaluation of the remaining plan, which scratch runs previewed; revised after review)
 
 **Why.** With track S's crawl the head switch's, checkpoints 2 to 5 failing on it and D0's readings negative, the maintainer asked for an evaluation of the remaining plan. The project is part-time, its multi-day runs slow it, and track S had already changed track D's prospects. A third party's brief assessment of the public repository at 0.2.0 was given as a reference, not as the maintainer's view. The evaluation ran three short explorations on S's fit, disclosed below, and proposed a finish line. The maintainer adopted it.
 
 **The outside assessment, and what the evaluation made of it.**
 
-1. **Set a finish line:** either a touch reversal that emerges under the rules, or a documented conclusion that it can't in this model class. _Agreed_, and the evidence now picks the second.
+1. **Set a finish line:** either a touch reversal that emerges under the rules, or a documented conclusion that it can't in this model class. _Agreed_, and the evidence now points to the second.
 2. **Diagnose the touch-to-command pathway before refitting.** _Agreed_, and done below. Of its three hypotheses:
-   - the gap junctions as a sink is partly right, since gap junctions are 71% of AVA's input conductance;
-   - an unrealistic stimulus is refuted, since the receptors' synapses are about 70% saturated at the touch's 10 mV;
-   - size-proportional weights aren't the main cause. The synapse model's efficacy is.
-3. **If the model class is the limit, consider functional connectivity.** _Agreed_ that the class is the limit, though for the synapse model, not for missing neuromodulation. The functional connectivity it alludes to is real: Randi, Sharma, Dvali & Leifer 2023, "Neural signal propagation atlas of _Caenorhabditis elegans_", _Nature_, doi:10.1038/s41586-023-06683-4, checked against Crossref. But weights taken from measured function would end the rule that behaviour emerges from the anatomical wiring, so it belongs in another project or a contrast, not this one's finish.
+   - The gap junctions as a sink is partly right: they are 62% of AVA's conductance at rest, 3.07 of 4.98 nS.
+   - The stimulus's size isn't the limit. A touch's 10 mV already takes a receptor's synaptic activation 58% of the way from its rest to its ceiling, and what reaches the command interneurons comes mostly through gap junctions, where three times the stimulus would bring AVA's response to about 1 mV, still far short.
+   - Size-proportional weights aren't the main cause. The synapse model's efficacy is, with the motor layer below AVA.
+3. **If the model class is the limit, consider functional connectivity.** _Agreed_ that the limit lies in the model, for its synapse model and its motor layer; the diagnosis didn't test neuromodulation. The functional connectivity it alludes to is real: Randi, Sharma, Dvali & Leifer 2023, "Neural signal propagation atlas of _Caenorhabditis elegans_", _Nature_ 623, 406–414, doi:10.1038/s41586-023-06683-4, checked against Crossref. But weights taken from measured function would end the rule that behaviour emerges from the anatomical wiring, so it belongs in another project or a contrast, not this one's finish.
 4. **Favour durable outputs.** _Agreed_ for a write-up and the simulator. The suite as a standalone benchmark was proposed, and the maintainer set it aside for now. Pausing checkpoint 6 was _not agreed_: its nulls were already tuning on otherwise idle hardware, its grading was built, its question doesn't depend on reversals, and stopping would leave the suite incomplete.
 5. **A plain-language paragraph in the README.** _Agreed._
 6. **A soft launch now, a broad one when the reflex works.** _Agreed in part:_ a soft launch after the write-up and the release, so that it carries the whole suite; a broad launch can't promise the reflex.
 
 **The maintainer's decisions.**
 
-- **The finish line:** Wormlight's research closes at a documented conclusion, that a touch reversal can't emerge in this model under its rules, with the diagnosis below.
+- **The finish line:** Wormlight's research closes at a documented conclusion, that a touch reversal doesn't emerge in this model under its rules, with the diagnosis below.
 - **Track D closes at D0,** and D1, D2 and the nulls' D runs aren't run.
 - **Track M closes unbuilt.**
 - **No backward-mode track is opened.**
@@ -4292,51 +4292,88 @@ The first run was stopped after 3,585 samples, before its search, and set aside.
 - a recalibration with reversals;
 - every checkpoint again, checkpoint 6's retuning among them.
 
-That is about six weeks if each works first time, two to three months part-time in practice. The evaluation put checkpoint 2's pass at about 3% to 7%, some touch-evoked reversals at about 15%, and a realistic reversal rate at 20% to 30%, discounting the programme's earlier odds, which proved optimistic. Each change would be made knowing the reflex fails, so a reflex at the end would be fitted, not emergent, which answers a weaker question than the one the project exists to test.
+That is about six weeks if each works first time, two to three months part-time in practice. The evaluation put checkpoint 2's pass at about 3% to 7%, the chance of some touch-evoked reversals at about 15%, and the chance of a realistic reversal rate at 20% to 30%, discounting the programme's earlier odds, which proved optimistic. Each change would be made knowing the reflex fails, so a reflex at the end would be fitted, not emergent, which answers a weaker question than the one the project exists to test.
 
-**The diagnosis** (`scripts/experiments/reflex/run.ts`, `data/reflex/diagnosis.json`), run at `6db71a6` in 80 s on 6 workers on the M5 Max. It is exploratory, never shipped, and grades nothing. Three scratch runs earlier the same day, disclosed here, previewed it: the AVA drive on 6 seeds, the motor drive on 6 seeds, and the efficacy on 3 seeds. The script repeats them on 10, and its figures agree with theirs.
+**The diagnosis** (`scripts/experiments/reflex/run.ts`, `data/reflex/diagnosis.json`): exploratory, never shipped, grading nothing.
 
-- **The synapse model's ceiling.** In the graded network Wormlight ports (Kunert-Graf et al. 2017's constants, a_r = 1 s⁻¹, a_d = 5 s⁻¹ and a sigmoid width of 0.125 per mV, level 3 in the registry), a synapse's activation rests at 0.091 and can never exceed a_r/(a_r + a_d) = 0.167. So no presynaptic voltage can raise a synapse's conductance by more than 83% over its rest. An excitatory synapse pushes with only about 3 to 11 mV, since E_exc is 0 mV and the neurons rest at about −3 to −11 mV.
-- **The chain at rest:** the most each stage's synapses could move their target if every presynaptic activation rose to its ceiling, against the target's input conductance.
+- **Its runs.** It ran at `6db71a6`, then again at `5d4c5ee` after the review added measures, every earlier figure the same, in 81 s on 6 workers on the M5 Max.
+- **What previewed it.** Three scratch runs earlier the same day, disclosed here: the AVA drive on 6 seeds, the motor drive on 6, and the efficacy on 3. The script repeats them on 10, and its figures agree with theirs.
+- **The review's own computations, disclosed:** steady-state linear solves that separate the efficacy's causes and the gap junctions' share of a touch's reach; the A-types' oscillator conductance; and further motor drives. They are named as the review's below.
 
-  | Synapses                        | Onto        | Could move it by at most                            |
-  | ------------------------------- | ----------- | --------------------------------------------------- |
-  | The front receptors' (ALM, AVM) | AVD         | 0.006–0.025 mV                                      |
-  |                                 | PVC         | 0.12–0.14 mV                                        |
-  |                                 | AVB         | 0.10 mV                                             |
-  |                                 | AVA         | none: Cook's wiring has no such synapse             |
-  | The back receptors' (PLM, PVM)  | AVA         | 0.03–0.04 mV                                        |
-  |                                 | AVD         | 0.05 mV                                             |
-  | AVD's                           | AVA         | 0.32 mV                                             |
-  | AVA's                           | the A-types | about 1 mV, 5.4 for VA8, which has no gap junctions |
+**The synapse model's limits,** constants of the model class that no calibrated parameter changes:
 
-  What a touch does reach comes through gap junctions: D0 found a front touch moving AVD by 1.3 mV and AVA by 0.37 mV.
+- Wormlight's graded network takes a_r = 1 s⁻¹ and a_d = 5 s⁻¹ from Kunert-Graf et al. 2017, and a sigmoid width of 0.125 per mV from Wicks et al. 1996, all level 3.
+- A synapse's activation rests at 0.091 and can never rise above a_r/(a_r + a_d) = 0.167, so no presynaptic voltage raises a synapse's conductance more than 83% over its rest. For the D-types, whose offset rests them higher, the figures are 0.125 and 33%.
+- An excitatory synapse pushes with little driving force: E_exc is 0 mV, 230 of the 302 neurons rest between −3 and −11 mV, and the median excitatory synapse's driving force at rest is 7 mV.
+- For a small signal, a millivolt at the presynaptic neuron changes an excitatory synapse's current by about 0.057 × (E − V) times its resting conductance. So a chemical relay stays below unit gain unless its driving force exceeds about 17.6 mV, which about 95% of the excitatory synapses' don't at rest. Inhibitory synapses, about 40 mV from their reversal, can.
 
-- **The drive:** current into chosen neurons from 10 s, on seeds 1 to 10, 60 s each.
+**The chain at rest.** The most each stage's synapses could move their target if every presynaptic activation rose to its ceiling, against the target's input conductance, with every activation and gate held as the rest sets them and the oscillators off:
 
-  | Drive                                            | Reversals           | Motion                                                |
-  | ------------------------------------------------ | ------------------- | ----------------------------------------------------- |
-  | AVA, +10 to +44 mV                               | 0 in 30 runs        | 96% to 100% forward                                   |
-  | AVA, AVD and AVE, +20 mV                         | 0 in 10             | 88% forward                                           |
-  | AVA up about 44 mV, AVB down about 43 mV         | 0 in 10             | 3% backward                                           |
-  | The same, head switch off                        | 0 in 10             | 1% backward                                           |
-  | The A-types driven, the B-types down about 45 mV | 4 over the 10 runs  | nearly still                                          |
-  | The same, head switch off                        | 10 over the 10 runs | 25% backward, at a net −0.005 body lengths per second |
+| Synapses                        | Onto             | Could move it by at most                                                               |
+| ------------------------------- | ---------------- | -------------------------------------------------------------------------------------- |
+| The front receptors' (ALM, AVM) | AVD              | 0.006–0.025 mV                                                                         |
+|                                 | PVC              | 0.11–0.14 mV                                                                           |
+|                                 | AVB              | 0.10 mV                                                                                |
+|                                 | AVA              | none: Cook's wiring has no such synapse                                                |
+| The back receptors' (PLM, PVM)  | AVA              | 0.03–0.04 mV                                                                           |
+|                                 | AVD              | 0.05 mV                                                                                |
+| AVD's                           | AVA              | 0.32 mV                                                                                |
+| AVA's                           | VA5, DA4 and VA8 | 1.0, 1.5 and 5.4 mV, DA4's with its junctions with AVA shut, as driving AVA shuts them |
 
-  However AVA was driven, the A-types moved by at most about 1 mV. The backward mode is missing downstream of AVA, and even pushed directly, the motor circuit and body only drift backward.
+What a touch does reach comes mostly through gap junctions. With every activation held, they alone carry 87% of AVD's linear response to a front touch and 61% of AVA's (the review's solve). D0 found a front touch moving AVD by 1.3 mV and AVA by 0.37 mV.
 
-- **The efficacy:** every chemical synapse's weight multiplied by k, signs kept, each brain at its own rest.
-  - Stronger synapses don't produce reversals. Spontaneously there are none at any k, and the crawl slows from 0.068 to 0.012 body lengths per second at ×30. Driving AVA gives none, with at most 7% backward.
-  - A front touch was followed by backward motion within 2 s in 0, 2, 0 and 1 of 10 trials at ×1, ×3, ×10 and ×30. These counts have no sham twins, so they can't be told from chance.
-  - By D0's linear analysis, a front touch's response in AVA _falls_ as the synapses strengthen: 0.37 mV at ×1, 0.10 at ×3, 0.016 at ×10, and nothing at ×100. A synapse's resting conductance exceeds the most it can ever change, so in this model every synapse is more shunt than signal, and strengthening them loads their targets faster than it adds signal.
+**AVA's route to the A-types.** S's rectifier passes current through AVA's 37 gap junctions with the A-types only from an A-type into AVA. 27 of them are shut at rest, and every one shuts whenever AVA is driven above an A-type. So, by S's design, from Liu et al. 2017's recordings, AVA reaches the A-types only through its chemical synapses.
 
-**The conclusion.** On Cook's connectome, in the graded network Wormlight ports with its published constants and the layers its rules allow, a touch reversal can't emerge.
+**The A-types' load** is mostly their oscillators. At S's fit they sit just past the FitzHugh–Nagumo oscillator's left knee, 4.2 to 4.6 mV below their rest. There each oscillator adds a steady conductance of 1.15 to 1.30 nS, 5 to 19 times their passive loads, so their steady responses are that much smaller than the chain's ceilings (the review's computation).
 
-- The chemical synapses can't carry a small signal far: each is bounded by an activation that can rise only 83% above its rest, and by a small excitatory driving force.
-- Scaling them up makes it worse.
-- The model has no backward motor mode for AVA to switch on.
+**The drive:** current into chosen neurons from 10 s, on seeds 1 to 10, 60 s each. Each current is sized from its neuron's passive input conductance to a nominal depolarisation; the measured ones are given where they differ.
 
-Its scope: S's fit and its model class. The drive and efficacy probes are short simulations on 10 seeds. D0 is linear at rest without the body. A different synapse model, a backward-wave layer or functional weights could change it; each would be a model change made knowing this result.
+| Drive                                            | Reversals           | Motion                                                |
+| ------------------------------------------------ | ------------------- | ----------------------------------------------------- |
+| AVA, nominal +10 to +40 mV, measured +12 to +44  | 0 in 30 runs        | 96% to 100% forward                                   |
+| AVA, AVD and AVE, nominal +20 mV                 | 0 in 10             | 88% forward                                           |
+| AVA up about 44 mV, AVB down about 43 mV         | 0 in 10             | 3% backward                                           |
+| The same, head switch off                        | 0 in 10             | 0.5% backward                                         |
+| The A-types driven, the B-types down about 45 mV | 4 over the 10 runs  | nearly still                                          |
+| The same, head switch off                        | 10 over the 10 runs | 25% backward, at a net −0.005 body lengths per second |
+
+- **AVA's drives barely reach the A-types.** Under every AVA drive, the two A-types the record watches, VA5 and DA4, stayed 2.5 to 3.6 mV below their rest. DA4 rose 1.35 mV over the undriven worm with AVB held down, and 2.6 mV with the head switch off as well.
+- **The review drove the A-types at four levels,** nominal +5 to +40 mV, with the B-types down and the head switch off. The backward share rose from 0% to 18% and the reversals from 0 to 38 over the levels, at a net velocity of at most −0.005 body lengths per second. At +5 to +20 mV the A-types oscillated, yet the body didn't back up.
+- **So** the motor circuit and body only drift backward, however the A-types are driven, in this model.
+
+**The efficacy:** every chemical synapse's weight multiplied by k, signs kept, each brain's rest and thresholds re-solved as a rewired brain's are, on the same seeds.
+
+- **Stronger synapses don't produce reversals.**
+  - Spontaneously there are none at any k, and the crawl slows from 0.068 to 0.012 body lengths per second at ×30.
+  - Driving AVA gives none, with at most 7% backward.
+  - Of the 40 touched runs, at ×1, ×3, ×10 and ×30, one at ×3 went backward within 2 s of the touch where its untouched twin didn't, and only marginally: −0.011 against the twin's −0.0096 body lengths per second (the review's comparison). Each touched run is its twin until the touch, and the window's first samples, centred over a second, reach 0.5 s before it.
+- **A touch's reach falls as the synapses strengthen.** By D0's linear analysis, AVA's response per millivolt at AVM is 0.036 at ×1, 0.011 at ×3, 0.0023 at ×10 and 0.0002 at ×30, and nothing at ×100.
+- **The receptors themselves also move less,** AVM from 10.4 to 3.1 mV. The touch currents are sized for the unscaled brain, as the model sizes them on the real wiring for every brain, and stronger synapses load the receptors more.
+- **Three causes, which the review's steady-state solves separate:**
+  - the stronger synapses' resting conductance shunts the gap-junction path, the largest factor up to ×10, about 2.4 times at ×3 and 6.3 at ×10;
+  - each brain's re-solved rest drifts towards E_exc, its median from −7.8 mV at ×1 to −2.1 at ×30, collapsing the excitatory driving forces, a further 1.4, 2.6 and 21 times at ×3, ×10 and ×30;
+  - the fixed touch currents, a further 1.2, 1.5 and 2 times.
+- **So** strengthening every synapse can't make a chemical relay carry a small signal here.
+
+**The conclusion.**
+
+- **On track S's fit, a touch reversal doesn't emerge.** A touch reaches AVA by under 1 mV, and driving AVA by 44 mV never makes the worm reverse, since its synapses barely reach the A-types and the motor circuit only drifts backward when driven directly.
+- **The reasons reach beyond the fit.**
+  - The synapse model's constants hold every excitatory relay below unit gain at the network's rests, which no calibrated parameter changes.
+  - D0 found no class-pair gain up to tenfold that lets a touch reach AVA, linearly.
+  - Strengthening every synapse makes it worse.
+  - At R's refit, the sign audit found the same missing backward mode downstream of AVA, the worm not reversing when AVA was driven or the A-types driven with the B-types held down (`docs/sign-audit.md`, 2026-09-29).
+- **So,** under its rules, a touch reversal would need a new synapse model or a backward motor layer, each a model change made knowing this result.
+
+**Its scope:**
+
+- **What holds for the model class:** the activation's ceiling and the small excitatory driving forces are constants. D0's linear reading covered every class-pair gain up to tenfold.
+- **What was shown on fits:** the drive and efficacy runs, and the missing backward mode, on S's fit, with the sign audit's probes on R's refit.
+- **The chain's ceilings** are static, at rest, with every activation and gate held and the oscillators off.
+- **S's rectifier** closes AVA's gap route to the A-types by design.
+- **The scaled brains** keep the touch currents of the unscaled one.
+- **D0's touch response** has the oscillators off.
+- **The drives** are constant currents at a few levels, on 10 seeds of 60 s.
 
 **Future work, each with the condition to reopen it:**
 
@@ -4346,6 +4383,16 @@ Its scope: S's fit and its model class. The drive and efficacy probes are short 
 - **Track M's B-type feedback,** and D1's search, if a later model makes the network's own rhythm worth asking for again.
 - **The suite as a benchmark,** set aside for now.
 
-**The record.** PLAN §9 and `VALIDATION.md`'s account of checkpoints 2 to 6 say so. The write-up and the README follow in their own pull requests.
+**Review.** A review of the record reproduced its figures and one of its runs exactly, and checked the citation against Crossref. It found, and the record now has:
 
-**Status.** Decided by the maintainer, and its diagnosis run.
+- the efficacy's mechanism given as shunting alone, where the rests' drift and the fixed touch currents contribute, and as true of every synapse, where it holds for the excitatory ones;
+- the A-types' weak response put on the synapse model alone, where S's rectifier closes AVA's gap route and their oscillators load them five to nineteen times;
+- VA8 said to have no gap junctions, and DA4's ceiling understated;
+- the conclusion's scope not separating the model class from the fit;
+- several figures: the touch's saturation, the gap junctions' share of AVA, PVC's range, the drives' labels;
+- the touched runs' few backward events unread against their twins;
+- the synapse constants' sources, and smaller wording.
+
+**The record.** PLAN §9 and §10, and `VALIDATION.md`'s account of checkpoints 2 to 6, say so. The write-up and the README follow in their own pull requests.
+
+**Status.** Decided by the maintainer, its diagnosis run, and revised after review.

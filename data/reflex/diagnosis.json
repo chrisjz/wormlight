@@ -1,6 +1,6 @@
 {
   "what": "the reflex diagnosis, exploratory and never shipped (DECISIONS.md, 2026-10-03)",
-  "commit": "6db71a6",
+  "commit": "5d4c5ee",
   "date": "2026-10-03",
   "machine": {
     "platform": "darwin",
@@ -171,6 +171,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": 0.06797988972333764,
+      "window": 0,
       "shift": {
         "AVAL": -0.3488986241195224,
         "AVAR": -0.34222008444018714,
@@ -190,6 +191,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": 0.061606200144902076,
+      "window": 0,
       "shift": {
         "AVAL": 11.708996281746249,
         "AVAR": 11.49370969784833,
@@ -209,6 +211,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": 0.053490863977721737,
+      "window": 0,
       "shift": {
         "AVAL": 22.91295563527638,
         "AVAR": 22.508187873084573,
@@ -228,6 +231,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": 0.04570463122468503,
+      "window": 0,
       "shift": {
         "AVAL": 43.56359668836481,
         "AVAR": 42.81503153967755,
@@ -247,6 +251,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": 0.0411713810921126,
+      "window": 0,
       "shift": {
         "AVAL": 23.844717372463073,
         "AVAR": 23.47405856912814,
@@ -266,6 +271,7 @@
       "backward": 0.03185483870967742,
       "reversals": 0,
       "meanVelocity": 0.014595624377651698,
+      "window": 3,
       "shift": {
         "AVAL": 45.42586678120991,
         "AVAR": 43.88690240773127,
@@ -285,6 +291,7 @@
       "backward": 0.013709677419354837,
       "reversals": 4,
       "meanVelocity": 0.0004552911991260536,
+      "window": 0,
       "shift": {
         "AVAL": 3.770268393420463,
         "AVAR": 3.530102432619549,
@@ -304,6 +311,7 @@
       "backward": 0,
       "reversals": 0,
       "meanVelocity": -0.0016395740845210345,
+      "window": 0,
       "shift": {
         "AVAL": -0.32499926460179285,
         "AVAR": -0.3173538544352604,
@@ -323,6 +331,7 @@
       "backward": 0.005241935483870967,
       "reversals": 0,
       "meanVelocity": 0.0034527684047582336,
+      "window": 0,
       "shift": {
         "AVAL": 44.8903838703346,
         "AVAR": 43.65098483132551,
@@ -342,6 +351,7 @@
       "backward": 0.24576612903225806,
       "reversals": 10,
       "meanVelocity": -0.004924926098961014,
+      "window": 6,
       "shift": {
         "AVAL": 3.8033902868612635,
         "AVAR": 3.606161839500892,
@@ -362,6 +372,7 @@
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.06797988972333764,
+        "window": 0,
         "shift": {
           "AVAL": -0.3488986241195224,
           "AVAR": -0.34222008444018714,
@@ -378,7 +389,7 @@
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.06871362100900524,
-        "touched": 0,
+        "window": 0,
         "shift": {
           "AVAL": -0.3464428035076118,
           "AVAR": -0.3385703195285637,
@@ -390,11 +401,13 @@
           "DB3": -3.456202585196615
         }
       },
+      "touchedOnly": 0,
       "drive": {
         "forward": 0.9993951612903226,
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.053490863977721737,
+        "window": 0,
         "shift": {
           "AVAL": 22.91295563527638,
           "AVAR": 22.508187873084573,
@@ -414,6 +427,7 @@
         "backward": 0.002217741935483871,
         "reversals": 0,
         "meanVelocity": 0.03533878297127239,
+        "window": 1,
         "shift": {
           "AVAL": -0.15010286058272776,
           "AVAR": -0.17354848385213587,
@@ -430,7 +444,7 @@
         "backward": 0.004435483870967742,
         "reversals": 0,
         "meanVelocity": 0.03514012807348564,
-        "touched": 2,
+        "window": 2,
         "shift": {
           "AVAL": -0.14902239794488767,
           "AVAR": -0.17257501420423807,
@@ -442,11 +456,13 @@
           "DB3": -3.304502414468414
         }
       },
+      "touchedOnly": 1,
       "drive": {
         "forward": 0.9919354838709677,
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.048961217418687905,
+        "window": 0,
         "shift": {
           "AVAL": 21.597071928561704,
           "AVAR": 21.438049078242152,
@@ -466,6 +482,7 @@
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.02315209121402196,
+        "window": 0,
         "shift": {
           "AVAL": -0.06251447607955525,
           "AVAR": -0.058813710216236145,
@@ -482,7 +499,7 @@
         "backward": 0,
         "reversals": 0,
         "meanVelocity": 0.023141611563613808,
-        "touched": 0,
+        "window": 0,
         "shift": {
           "AVAL": -0.06236541920536922,
           "AVAR": -0.05866787520606942,
@@ -494,11 +511,13 @@
           "DB3": -0.7990310620397855
         }
       },
+      "touchedOnly": 0,
       "drive": {
         "forward": 0.7560483870967742,
         "backward": 0.023588709677419353,
         "reversals": 0,
         "meanVelocity": 0.017091842134787476,
+        "window": 4,
         "shift": {
           "AVAL": 20.69801831408338,
           "AVAR": 20.592720998210602,
@@ -518,6 +537,7 @@
         "backward": 0.05463709677419355,
         "reversals": 0,
         "meanVelocity": 0.012432350890288029,
+        "window": 1,
         "shift": {
           "AVAL": -0.014691872443058357,
           "AVAR": -0.008929758147050996,
@@ -534,7 +554,7 @@
         "backward": 0.054435483870967735,
         "reversals": 0,
         "meanVelocity": 0.01243461772629249,
-        "touched": 1,
+        "window": 1,
         "shift": {
           "AVAL": -0.014685628747274129,
           "AVAR": -0.008929744039619544,
@@ -546,11 +566,13 @@
           "DB3": -0.2724739071411566
         }
       },
+      "touchedOnly": 0,
       "drive": {
         "forward": 0.27661290322580645,
         "backward": 0.07137096774193549,
         "reversals": 0,
         "meanVelocity": 0.010629345974043204,
+        "window": 1,
         "shift": {
           "AVAL": 20.406036450596275,
           "AVAR": 20.372868312348736,
@@ -571,7 +593,10 @@
       "stable": true,
       "frontAVA": 0.3729720540375993,
       "frontAVD": 1.2929727556448787,
-      "backAVB": 0.38136408439983893
+      "backAVB": 0.38136408439983893,
+      "frontReceptors": { "ALML": 10.445779792191871, "ALMR": 10.468445646099036, "AVM": 10.37360653146878 },
+      "backReceptors": { "PLML": 10.450027271485487, "PLMR": 10.485637845621637 },
+      "avaPerAVM": 0.035953942624117524
     },
     {
       "scale": 3,
@@ -579,7 +604,10 @@
       "stable": true,
       "frontAVA": 0.09773445106548029,
       "frontAVD": 0.5130378162480055,
-      "backAVB": 0.10911855979642475
+      "backAVB": 0.10911855979642475,
+      "frontReceptors": { "ALML": 8.18064467823677, "ALMR": 9.0310329111935, "AVM": 8.950318726352737 },
+      "backReceptors": { "PLML": 8.924833072667068, "PLMR": 8.924518994297495 },
+      "avaPerAVM": 0.010919661528669064
     },
     {
       "scale": 10,
@@ -587,7 +615,10 @@
       "stable": true,
       "frontAVA": 0.01593036676194121,
       "frontAVD": 0.1385284094818822,
-      "backAVB": 0.03436933485052025
+      "backAVB": 0.03436933485052025,
+      "frontReceptors": { "ALML": 4.9500086892239805, "ALMR": 6.929302549383037, "AVM": 7.022259176254232 },
+      "backReceptors": { "PLML": 7.315100913250538, "PLMR": 7.19065842679313 },
+      "avaPerAVM": 0.002268552948858644
     },
     {
       "scale": 30,
@@ -595,7 +626,10 @@
       "stable": true,
       "frontAVA": 0.0009921821417433454,
       "frontAVD": 0.034924322347804786,
-      "backAVB": 0.012544930659650051
+      "backAVB": 0.012544930659650051,
+      "frontReceptors": { "ALML": 2.4269940369324994, "ALMR": 4.78521833409364, "AVM": 5.134532260193792 },
+      "backReceptors": { "PLML": 6.309649340959922, "PLMR": 6.069609460310899 },
+      "avaPerAVM": 0.00019323710349146734
     },
     {
       "scale": 100,
@@ -603,8 +637,11 @@
       "stable": true,
       "frontAVA": -0.0009596145471234424,
       "frontAVD": 0.006464654613888195,
-      "backAVB": 0.0034997889086268484
+      "backAVB": 0.0034997889086268484,
+      "frontReceptors": { "ALML": 0.8831900339160526, "ALMR": 2.5810279070152116, "AVM": 3.1281897216041323 },
+      "backReceptors": { "PLML": 5.777500204143351, "PLMR": 5.497942926576058 },
+      "avaPerAVM": -0.0003067635381882634
     }
   ],
-  "seconds": 80
+  "seconds": 81
 }
