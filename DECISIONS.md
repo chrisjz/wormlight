@@ -3969,3 +3969,44 @@ Tests hold:
 The maintainer was asked again where a choice was made on the draft's wrong premise, and once more where the review found a new one, the box. This entry and PLAN now have all of it.
 
 **Status.** Set before any of it is built, and revised after review.
+
+## 2026-10-03 — Checkpoint 6's tuning, built: S's procedure in each null's own box; and the untuned preview, none of ten partial
+
+**Why.** The order the rules above set: the tuning mode for a null, built and reviewed, with the preview, before any tuning. Its grading and report come in the next pull request, which can be built while the nulls tune, since its rules are already set and nothing in it reads a null's result; the rules put them in this one, and the split is the only change to their order. Splitting them lets the tuning, several days on the machine the maintainer chooses, start a pull request sooner.
+
+**What is built.**
+
+- **The rules for a box,** moved out of the tests that held them into `src/validation/wiringTest.ts`. The 1 mV rule for g_sw and g_p reads each target's load and rest on a model's whole loop, its offsets and rectifier, at each of κ_gap,B's bounds, g_p's divided by the curvature at the 95th percentile of real worms'. θ_osc's floor is the first whole mV above the highest silenced head-switch drive. Both are rounded as the registry's were, and every other bound is the form's. A value of κ_gap,B at which a brain's rest can't be solved is left out and named, and a brain with none can't be built. A test holds that the rules give S's box exactly on the real wiring, every bound of it.
+- **The ten boxes,** which a test pins, since a data build that changes the connections' list changes every rewiring. g_sw's top runs from 40 to 60 nS against S's 50, g_p's from 6 to 9 nS per unit of κL against 7, and θ_osc's floor from −27 to −22 mV against −28. Every rewiring's rest solves at both bounds of κ_gap,B. Nothing in a box reads a null's behaviour.
+
+  | Rewiring | g_sw (nS) | g_p (nS per κL) | θ_osc's floor (mV) |
+  | -------- | --------- | --------------- | ------------------ |
+  | Real     | 0.02–50   | 0.0001–7        | −28                |
+  | 1        | 0.01–50   | 0.0001–6        | −26                |
+  | 2        | 0.02–50   | 0.0002–7        | −25                |
+  | 3        | 0.01–50   | 0.0002–7        | −25                |
+  | 4        | 0.01–40   | 0.0002–7        | −24                |
+  | 5        | 0.01–40   | 0.0002–6        | −25                |
+  | 6        | 0.01–50   | 0.0002–8        | −25                |
+  | 7        | 0.01–60   | 0.0001–7        | −27                |
+  | 8        | 0.01–40   | 0.0001–9        | −22                |
+  | 9        | 0.01–40   | 0.0002–7        | −26                |
+  | 10       | 0.02–50   | 0.0001–8        | −25                |
+
+- **The search in a box of its own** (`src/validation/calibration.ts`): `calibrate`, `fromUnit` and `toUnit` take a box, the model's bounds in its form by default, so every record made before replays as it ran, which the tests hold. A start of the survey's hypercube lies at the same point of each box.
+- **The runner's `--null N`** (`npm run calibrate -- --null N`, N from 1 to 10): track S's procedure on the rewired brain, its trials each taking the null as their network and held to the model and rewiring they asked for. A candidate whose trial can't be run, its rest unsolvable, its worker stopped or past the timeout, scores as one that left the finite numbers, with why, and the run carries on; a worker that stops is replaced. The record names the rewiring, the data version, the rules' readings and the box, the machine (its platform, processor, cores and memory, not its name) and Node's version; it is written to `harness-out/calibration-null-N.json` and, at the end, `data/calibration/null-N.json`, whose existence stops a second run. A null's fit is its first pick, none if that one couldn't be run, and a null whose rest can't be solved writes a record that says so, with no fit. A run starts only at a commit and resumes only at the same commit and Node.
+- **The preview,** `scripts/experiments/null-preview/run.ts`, below.
+
+**A look, disclosed.** A smoke run of rewiring 1 on 6 workers ran two generations, 22 candidates, in 65 s, and a worker was killed by hand during the second: its candidate was recorded with an infinite objective and "a worker exited (SIGKILL) on seed 1001", the run carried on, and the pool was back to six workers. The run was stopped and its file removed; nothing else ran. At that pace a null's 27,500 trials take about 3.7 hours on 14 workers on the M5 Max, as S's took.
+
+**The preview, run before any tuning** (exploration, graded by nothing): the ten rewirings untuned on S's fitted values, by checkpoint 1's protocol on seeds 4001 to 4020, not the gate's, beside the real wiring on the same seeds, 220 trials in 156 s on 6 workers at `bae4022`, written to `data/checkpoint-6/preview.json`.
+
+- The real wiring grades partial on these seeds too: mean velocity 0.068 body lengths per second, frequency 0.216 Hz, wavelength 0.49.
+- **None of the ten rewirings grades partial.** Every one is slower than the real wiring, mean velocity 0.008 to 0.050, below partial's floor of 0.06 wherever it was measured. Seven move forward 84% to 100% of the time, five of them in bouts of 20 s in at most 4 of the 20 trials. Three, 5, 8 and 9, move forward 37% to 55% of the time, with no bout of 10 s. Their frequencies, where measured, lie from 0.15 to 0.28 Hz, and their postures pass, 0.95 to 0.98.
+- Untuned, the rewirings run at values tuned on the real wiring, so this says how far each starts from a crawl, not where tuning takes it. At round 3's first pick's values, 2 of 10 scratch nulls graded partial untuned and 6 after one nudge (2026-09-30), a different model and count.
+
+Nothing in the build was settled after the preview.
+
+**The record.** CLAUDE.md's calibrate command, and `VALIDATION.md`'s account of what is known short of checkpoint 6, say so.
+
+**Status.** Built, with its preview run; the tuning comes next, on the machine the maintainer chooses, then the grading and report's pull request.
