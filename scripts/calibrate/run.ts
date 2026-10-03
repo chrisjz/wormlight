@@ -205,11 +205,11 @@ class Pool {
   private readonly all: ChildProcess[] = [];
   private readonly waiting: { job: Job; resolve: (r: TrialResult) => void; reject: (e: Error) => void }[] = [];
   private stopped = false;
-  constructor(
-    count: number,
-    private readonly spawn: () => ChildProcess,
-    private readonly respawn = false,
-  ) {
+  private readonly spawn: () => ChildProcess;
+  private readonly respawn: boolean;
+  constructor(count: number, spawn: () => ChildProcess, respawn = false) {
+    this.spawn = spawn;
+    this.respawn = respawn;
     for (let k = 0; k < count; k++) this.add();
   }
   private add(): void {
