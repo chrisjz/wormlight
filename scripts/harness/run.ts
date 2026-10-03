@@ -563,5 +563,5 @@ if (process.argv.includes('--worker')) {
   if (full && options.wiring === undefined) {
     writeFileSync(PAGE, await formatMarkdown(page, PAGE));
     process.stderr.write('Updated VALIDATION.md.\n');
-  } else process.stderr.write('A shortened run: VALIDATION.md is left as it was.\n');
+  } else if (options.wiring === undefined) process.stderr.write('A shortened run: VALIDATION.md is left as it was.\n');
 }
