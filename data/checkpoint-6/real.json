@@ -1,7 +1,7 @@
 {
   "wiring": "real",
   "date": "2026-10-03",
-  "commit": "649ed65",
+  "commit": "4db8422",
   "data": "333bf768",
   "machine": {
     "platform": "darwin",
@@ -27,7 +27,10 @@
       "smdGain": 0.1687180594753887,
       "noiseIntensity": 0.056463815037003345,
       "noiseCorrelation": 0.055082096937701844
-    }
+    },
+    "value": 0.43801350129488653,
+    "seed": 18,
+    "from": "generation 67, candidate 8"
   },
   "box": {
     "oscillatorExcitability": [300, 5000],
@@ -44,6 +47,13 @@
     "noiseCorrelation": [0.02, 0.2]
   },
   "failures": 0,
+  "picks": [
+    { "seed": 18, "value": 0.43801350129488653 },
+    { "seed": 11, "value": 0.6541823231688236 },
+    { "seed": 23, "value": 0.7588945144938882 },
+    { "seed": 19, "value": 0.9372096900138652 }
+  ],
+  "onBound": ["oscillatorExcitabilityB", "headSwitchGain", "neuromuscularGain"],
   "checkpoint1": {
     "grade": "partial",
     "clauses": [
@@ -55,7 +65,12 @@
     ]
   },
   "crawls": true,
-  "speed": { "value": 0.06826444844962831, "interval": [0.06721605772314738, 0.06925226712658401], "unmeasured": 0 },
+  "speed": {
+    "value": 0.06826444844962831,
+    "interval": [0.06721605772314738, 0.06925226712658401],
+    "unmeasured": 0,
+    "atFloor": false
+  },
   "pacing": {
     "open": 1,
     "margin": { "mean": 13.636548281739937, "sd": 0.460199047337108 },

@@ -4048,7 +4048,7 @@ Nothing in the build was settled after the preview but the review's fixes, which
 
 **Status.** Built and revised after review, with its preview run; the tuning comes next, on the PC, then the grading and report's pull request, which merges before any null's record is read.
 
-## 2026-10-03 — Checkpoint 6's grading, built: each wiring graded at its fit, the verdict map, and the real wiring's summary
+## 2026-10-03 — Checkpoint 6's grading, built: each wiring graded at its fit, the verdict map, and the real wiring's summary (revised after review)
 
 **Why.** The order the maintainer changed (the entry above): the grading and the report in their own pull request, built while the nulls tune, and merged before any null's record is brought into the repository or read.
 
@@ -4059,8 +4059,9 @@ Nothing in the build was settled after the preview but the review's fixes, which
   - Checkpoint 1 on seeds 1 to 20 is the crawl gate. Beside it run the five runs that show what paces the crawl: the head switch off and at the lower bound of the wiring's own box, and the B-types, the A-types and AVB lesioned. `variants`, which S's chosen pick's report used, moves into `src/validation/calibration.ts` to take the box.
   - A wiring that crawls then runs checkpoints 0 and 2 to 5 by their own protocols, through the harness's own queues, its brain and fit in every job: its thresholds at its own rest, lesions keeping them, and checkpoint 4's control turning its AWC-ON input off.
   - The speed's 95% interval, the gate's open share and drive, and the widest neuron's spread are reported for every wiring with a fit.
-  - Its summary goes to `data/checkpoint-6/`, and each stage's records to `harness-out/checkpoint-6/`, read back if recorded at the same commit on the same machine. It runs only at a commit.
-- **The spread's linear analysis** (`src/validation/noiseSpread.ts`): with every synapse's activation and rectified gate held at rest, the network is linear and symmetric, so its eigenmodes are independent. Each mode is a one-pole filter driven by the same coloured current, of variance σ² / (2λ²(τ + C/λ)). A neuron's spread sums the modes it shares. As τ falls to 0 it reproduces white noise's σ/√(2·C·G_in) to within 10⁻¹⁵, and at σ_n's bound IL2DL's 20 mV, by which the bound was set. A cyclic Jacobi solver gives the modes, about 0.3 s for the 302 neurons.
+  - Its summary goes to `data/checkpoint-6/`. It holds what the report gives every wiring: the box, the picks' objectives, the failed candidates counted once where they ran, the parameters at a bound, checkpoint 1 with the speed floor's label, the gate's share, drive and cycle, the spread, and checkpoints 0 to 5 with checkpoint 4's mechanism and checkpoint 5's rows; for a null, also its tuning record's commit and hash and the box's rule readings.
+  - Each stage's records go to `harness-out/checkpoint-6/`, written whole, and are read back only if recorded at the same commit, on the same machine and for the same brain. It runs only at a commit, and the clean-commit check leaves the nulls' graded summaries out, as it leaves their tuning records, so that each can wait uncommitted while the next is graded.
+- **The spread's linear analysis** (`src/validation/noiseSpread.ts`): with every synapse's activation and rectified gate held at rest, the network is linear and symmetric, so its eigenmodes are independent. Each mode is a one-pole filter driven by the same coloured current, of variance σ² / (2λ²(τ + C/λ)). A neuron's spread sums the modes it shares. As τ falls to 0 it reproduces white noise's σ/√(2·C·G_in) to within 2 × 10⁻¹⁴ of it, neuron by neuron, and at σ_n's bound IL2DL's 20 mV, by which the bound was set. A cyclic Jacobi solver gives the modes, about 0.3 s for the 302 neurons.
 - **The verdict map** (`src/validation/wiringTest.ts`): PLAN §7.4's, with the maintainer's change where the real wiring doesn't pass, a partial included, and "insufficient nulls" first. `npm run harness -- --checkpoint 6` reads the eleven summaries, refusing while any is missing, and writes `VALIDATION.md`'s section between new markers. The section gives the verdicts, every wiring's box, objective, failed candidates, grades, speed, gate, widest spread and pacing runs, and what the real wiring got that the nulls don't, the previews and the read smoke run among them.
 
 Tests hold:
@@ -4072,15 +4073,28 @@ Tests hold:
 - the section on made-up summaries;
 - the harness's options.
 
-**The real wiring's summary,** graded on the M5 Max, where its search ran, at `649ed65`: 1,060 runs in 42 minutes on 14 workers, `data/checkpoint-6/real.json`. It reproduces what checkpoints 0 to 5 found:
+**The real wiring's summary,** graded on the M5 Max, where its search ran, at `649ed65` and again at `4db8422` after the review's fixes: 1,060 runs in 42 minutes on 14 workers each time, `data/checkpoint-6/real.json`. Every record is the same, byte for byte, as the checkpoints' own runs, which the review checked. It reproduces what checkpoints 0 to 5 found:
 
 - Checkpoint 1 partial, at 0.068 body lengths per second (95% interval 0.0672 to 0.0693). The gate is open on every step, its drive 13.6 mV above θ_osc, and it cycles at 0.214 Hz.
 - The pacing runs: with the switch off or at its lower bound the worm doesn't move. With the B-types, the A-types or AVB lesioned, it moves forward 63%, 73% and 30% of the time.
 - Checkpoint 0 passes, and 2 to 5 fail, klinokinesis absent and weathervaning reproduced.
 - Its widest neuron, IL2DL, spreads 3.94 mV at the fitted noise.
+- Its picks' objectives are 0.438, 0.654, 0.759 and 0.937, the first its fit, with g_osc,B, g_sw and g_nmj at a bound; its speed's interval stays above the floor.
 
 No null's record has been read. The tuning runs on the PC; its first null's memory was looked at, 2 of 25 GB used by 20 workers, and nothing of its progress.
 
+**Review.** A review of the code and the record found the grading following the rules, every job carrying its brain, which it checked by forking a worker on a rewiring, the verdict map exactly PLAN's with the maintainer's change, and the linear analysis right, agreeing with numpy and with an independent solve of the noise's augmented system to 6 × 10⁻¹⁴ and reproducing the 2026-09-28 figure, 0.472 at τ = 0.2 s putting IL2DL at 20.02 mV. It found, and the code, the record and this entry now have:
+
+- the summary short of what the rules ask the report to give every null, which couldn't be added once a null was graded;
+- failed candidates counted twice, since phase 2 replays phase 1;
+- the clean-commit check blocking the second null's grading once the first's summary was written;
+- the section's disclosures short: its change after results unmarked in its heading, the map's thresholds and the secondary null left out, checkpoint 0's grade shown without saying it isn't counted, and the fitted marks asserted of rows it didn't show;
+- machines compared down to the kernel, which an update during a run of days could change;
+- CLAUDE.md's harness command garbled;
+- a stage written in place, reused without checking its brain, and a solver that stopped without saying so;
+- the white-noise limit's figure stated too tightly;
+- untested paths.
+
 **The record.** CLAUDE.md's harness command says so.
 
-**Status.** Built, with the real wiring's summary; the nulls' grading runs on the PC once each is tuned, after this merges.
+**Status.** Built and revised after review, with the real wiring's summary; the nulls' grading runs on the PC once all ten are tuned, after this merges.
