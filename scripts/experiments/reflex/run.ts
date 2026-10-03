@@ -9,12 +9,13 @@
 //    nominal depolarisation, on seeds 1 to 10 for 60 s: whether the worm backs up when AVA is driven, or the motor
 //    circuit itself, with the head switch on and off.
 // 3. The efficacy: every chemical synapse's weight multiplied by k, its sign kept and its brain's thresholds at its own
-//    rest, on the same seeds: spontaneous behaviour, a front touch at 30 s, and AVA driven; and, by track D0's linear
-//    analysis, how far a touch moves AVA at each k.
+//    rest, on the same seeds: spontaneous behaviour, a front touch at 30 s, each touched run beside its untouched twin,
+//    and AVA driven; and, by track D0's linear analysis, how far a touch moves its receptors and AVA at each k. The touch
+//    currents are the ×1 brain's at every k, as the model builds them on the real wiring for every brain.
 //
 //   node scripts/experiments/reflex/run.ts [--jobs N]
 //
-// It runs only at a commit, takes a few minutes on 6 workers, its default, and writes data/reflex/diagnosis.json.
+// It runs only at a commit, takes about 80 s on 6 workers, its default, and writes data/reflex/diagnosis.json.
 // The injection lives here, not in the model: each worker wraps the brain's step to add its job's currents after the
 // world has set its inputs, restarting the integrator when they switch on, as a touch restarts it.
 
@@ -27,7 +28,7 @@ import { PARAMS } from '../../../src/science/params.ts';
 import { Brain, inputConductance } from '../../../src/sim/brain/brain.ts';
 import { cookNetwork, type Network } from '../../../src/sim/brain/network.ts';
 import { currentParams, World, type LoopParams } from '../../../src/sim/world.ts';
-import { reversals } from '../../../src/validation/motion.ts';
+import { MEASURE_FROM, MOTION_SAMPLE, reversals } from '../../../src/validation/motion.ts';
 import { runTrial } from '../../../src/validation/trial.ts';
 import { analyse, classPairs } from '../../../src/validation/trackD0.ts';
 import { machine } from '../../calibrate/machine.ts';
@@ -90,8 +91,9 @@ interface Outcome {
   backward: number;
   reversals: number;
   meanVelocity: number;
-  // Whether the first backward sample came within 2 s of the touch.
-  touched?: boolean;
+  // Whether any backward sample came within the 2 s after the touch's time, touched or not: a run and its untouched twin
+  // are the same until the touch.
+  window: boolean;
   shift?: number[];
 }
 
@@ -191,14 +193,14 @@ async function runJob(job: Job): Promise<Outcome> {
   });
   plan = { idx: [], amps: [] };
   const v = r.velocity;
-  const after = Math.round((REFLEX.touch - REFLEX.from) / 0.1);
+  const after = Math.round((REFLEX.touch - MEASURE_FROM) / MOTION_SAMPLE);
   return {
     key: job.key,
     forward: v.filter((x) => x > 0.01).length / v.length,
     backward: v.filter((x) => x < -0.01).length / v.length,
     reversals: reversals(v).length,
     meanVelocity: v.reduce((a, b) => a + b, 0) / v.length,
-    ...(job.touch ? { touched: v.slice(after, after + 20).some((x) => x < -0.01) } : {}),
+    window: v.slice(after, after + Math.round(2 / MOTION_SAMPLE)).some((x) => x < -0.01),
     shift: Array.from(sums, (x) => x / Math.max(samples, 1)),
   };
 }
@@ -260,13 +262,20 @@ function linear(data: WormlightData): Record<string, unknown>[] {
   return REFLEX.linearScales.map((k) => {
     const s = analyse(data, fit, ones, pairs, reference, { on: false, base: scaled(data, k, cache) });
     const c = s.touch;
+    const frontAVA = c ? Math.max(c.front.command.AVAL, c.front.command.AVAR) : null;
+    const frontAVM = c ? c.front.receptors.AVM : null;
     return {
       scale: k,
       failed: s.failed ?? null,
       stable: s.off?.stable ?? null,
-      frontAVA: c ? Math.max(c.front.command.AVAL, c.front.command.AVAR) : null,
+      frontAVA,
       frontAVD: c ? Math.max(c.front.command.AVDL, c.front.command.AVDR) : null,
       backAVB: c ? Math.max(c.back.command.AVBL, c.back.command.AVBR) : null,
+      // The receptors' own response to the same currents, and AVA's per mV of AVM's, which the currents' fixed size
+      // doesn't confound.
+      frontReceptors: c ? { ALML: c.front.receptors.ALML, ALMR: c.front.receptors.ALMR, AVM: frontAVM } : null,
+      backReceptors: c ? { PLML: c.back.receptors.PLML, PLMR: c.back.receptors.PLMR } : null,
+      avaPerAVM: frontAVA !== null && frontAVM ? frontAVA / frontAVM : null,
     };
   });
 }
@@ -335,7 +344,7 @@ if (process.argv.includes('--worker')) {
       backward: mean((o) => o.backward),
       reversals: xs.reduce((a, o) => a + o.reversals, 0),
       meanVelocity: mean((o) => o.meanVelocity),
-      touched: xs.some((o) => o.touched !== undefined) ? xs.filter((o) => o.touched).length : undefined,
+      window: xs.filter((o) => o.window).length,
       shift: Object.fromEntries(WATCH.map((n, k) => [n, mean((o) => (o.shift ?? [])[k] ?? 0)])),
     };
   };
@@ -357,6 +366,12 @@ if (process.argv.includes('--worker')) {
       scale,
       spontaneous: pool(`scale ${scale} spontaneous`),
       touch: pool(`scale ${scale} touch`),
+      // Seeds whose touched run went backward in the window while its untouched twin didn't.
+      touchedOnly: REFLEX.seeds.filter(
+        (seed) =>
+          outcomes.get(`scale ${scale} touch ${seed}`)?.window &&
+          !outcomes.get(`scale ${scale} spontaneous ${seed}`)?.window,
+      ).length,
       drive: pool(`scale ${scale} drive`),
     })),
     linear: linear(data),
@@ -372,7 +387,7 @@ if (process.argv.includes('--worker')) {
   }
   for (const e of record.efficacy) {
     process.stdout.write(
-      `×${String(e.scale).padEnd(3)} spontaneous: reversals ${e.spontaneous.reversals}, v ${e.spontaneous.meanVelocity.toFixed(4)}; touch: backward within 2 s ${e.touch.touched} of ${REFLEX.seeds.length}; AVA driven: reversals ${e.drive.reversals}, backward ${pct(e.drive.backward)}\n`,
+      `×${String(e.scale).padEnd(3)} spontaneous: reversals ${e.spontaneous.reversals}, v ${e.spontaneous.meanVelocity.toFixed(4)}; touch: backward within 2 s ${e.touch.window} of ${REFLEX.seeds.length}, untouched twins ${e.spontaneous.window}, touched only ${e.touchedOnly}; AVA driven: reversals ${e.drive.reversals}, backward ${pct(e.drive.backward)}\n`,
     );
   }
   for (const l of record.linear) process.stdout.write(`linear: ${JSON.stringify(l)}\n`);
