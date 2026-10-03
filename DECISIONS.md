@@ -4257,3 +4257,95 @@ The first run was stopped after 3,585 samples, before its search, and set aside.
 **The record.** `data/track-d/d0.json`, CLAUDE.md's command, and PLAN §9's note on track D say so.
 
 **Status.** Built and run, and revised after review.
+
+## 2026-10-03 — The finish line: Wormlight's research closes at its documented conclusion, with the reflex diagnosis; tracks D and M closed (the maintainer's decisions after an evaluation of the remaining plan; set before the diagnosis script ran)
+
+**Why.** With track S's crawl the head switch's, checkpoints 2 to 5 failing on it and D0's readings negative, the maintainer asked for an evaluation of the remaining plan. The project is part-time, its multi-day runs slow it, and track S had already changed track D's prospects. A third party's brief assessment of the public repository at 0.2.0 was given as a reference, not as the maintainer's view. The evaluation ran three short explorations on S's fit, disclosed below, and proposed a finish line. The maintainer adopted it.
+
+**The outside assessment, and what the evaluation made of it.**
+
+1. **Set a finish line:** either a touch reversal that emerges under the rules, or a documented conclusion that it can't in this model class. _Agreed_, and the evidence now picks the second.
+2. **Diagnose the touch-to-command pathway before refitting.** _Agreed_, and done below. Of its three hypotheses:
+   - the gap junctions as a sink is partly right, since gap junctions are 71% of AVA's input conductance;
+   - an unrealistic stimulus is refuted, since the receptors' synapses are about 70% saturated at the touch's 10 mV;
+   - size-proportional weights aren't the main cause. The synapse model's efficacy is.
+3. **If the model class is the limit, consider functional connectivity.** _Agreed_ that the class is the limit, though for the synapse model, not for missing neuromodulation. The functional connectivity it alludes to is real: Randi, Sharma, Dvali & Leifer 2023, "Neural signal propagation atlas of _Caenorhabditis elegans_", _Nature_, doi:10.1038/s41586-023-06683-4, checked against Crossref. But weights taken from measured function would end the rule that behaviour emerges from the anatomical wiring, so it belongs in another project or a contrast, not this one's finish.
+4. **Favour durable outputs.** _Agreed_ for a write-up and the simulator. The suite as a standalone benchmark was proposed, and the maintainer set it aside for now. Pausing checkpoint 6 was _not agreed_: its nulls were already tuning on otherwise idle hardware, its grading was built, its question doesn't depend on reversals, and stopping would leave the suite incomplete.
+5. **A plain-language paragraph in the README.** _Agreed._
+6. **A soft launch now, a broad one when the reflex works.** _Agreed in part:_ a soft launch after the write-up and the release, so that it carries the whole suite; a broad launch can't promise the reflex.
+
+**The maintainer's decisions.**
+
+- **The finish line:** Wormlight's research closes at a documented conclusion, that a touch reversal can't emerge in this model under its rules, with the diagnosis below.
+- **Track D closes at D0,** and D1, D2 and the nulls' D runs aren't run.
+- **Track M closes unbuilt.**
+- **No backward-mode track is opened.**
+- **What remains:** checkpoint 6's verdict when the older PC's grading comes in; a write-up of every result, negatives included; the README's plain-language paragraph; release 0.3.0; and then a handoff note to Quantum Nematode, for the maintainer to share through that project's own process.
+- **The benchmark** is set aside for now.
+- **The go/no-go** of a backward motor mode, below, is for the maintainer to consider after 0.3.0.
+- **The soft launch** follows the write-up and the release, at the maintainer's timing.
+
+**The odds that were weighed.** Reaching a touch reversal would take four new mechanisms working together:
+
+- a backward motor mode, an A-type rhythm and a backward wave, as a new layer with the spec's sign-off;
+- a measurement-based change to synaptic efficacy;
+- a recalibration with reversals;
+- every checkpoint again, checkpoint 6's retuning among them.
+
+That is about six weeks if each works first time, two to three months part-time in practice. The evaluation put checkpoint 2's pass at about 3% to 7%, some touch-evoked reversals at about 15%, and a realistic reversal rate at 20% to 30%, discounting the programme's earlier odds, which proved optimistic. Each change would be made knowing the reflex fails, so a reflex at the end would be fitted, not emergent, which answers a weaker question than the one the project exists to test.
+
+**The diagnosis** (`scripts/experiments/reflex/run.ts`, `data/reflex/diagnosis.json`), run at `6db71a6` in 80 s on 6 workers on the M5 Max. It is exploratory, never shipped, and grades nothing. Three scratch runs earlier the same day, disclosed here, previewed it: the AVA drive on 6 seeds, the motor drive on 6 seeds, and the efficacy on 3 seeds. The script repeats them on 10, and its figures agree with theirs.
+
+- **The synapse model's ceiling.** In the graded network Wormlight ports (Kunert-Graf et al. 2017's constants, a_r = 1 s⁻¹, a_d = 5 s⁻¹ and a sigmoid width of 0.125 per mV, level 3 in the registry), a synapse's activation rests at 0.091 and can never exceed a_r/(a_r + a_d) = 0.167. So no presynaptic voltage can raise a synapse's conductance by more than 83% over its rest. An excitatory synapse pushes with only about 3 to 11 mV, since E_exc is 0 mV and the neurons rest at about −3 to −11 mV.
+- **The chain at rest:** the most each stage's synapses could move their target if every presynaptic activation rose to its ceiling, against the target's input conductance.
+
+  | Synapses                        | Onto        | Could move it by at most                            |
+  | ------------------------------- | ----------- | --------------------------------------------------- |
+  | The front receptors' (ALM, AVM) | AVD         | 0.006–0.025 mV                                      |
+  |                                 | PVC         | 0.12–0.14 mV                                        |
+  |                                 | AVB         | 0.10 mV                                             |
+  |                                 | AVA         | none: Cook's wiring has no such synapse             |
+  | The back receptors' (PLM, PVM)  | AVA         | 0.03–0.04 mV                                        |
+  |                                 | AVD         | 0.05 mV                                             |
+  | AVD's                           | AVA         | 0.32 mV                                             |
+  | AVA's                           | the A-types | about 1 mV, 5.4 for VA8, which has no gap junctions |
+
+  What a touch does reach comes through gap junctions: D0 found a front touch moving AVD by 1.3 mV and AVA by 0.37 mV.
+
+- **The drive:** current into chosen neurons from 10 s, on seeds 1 to 10, 60 s each.
+
+  | Drive                                            | Reversals           | Motion                                                |
+  | ------------------------------------------------ | ------------------- | ----------------------------------------------------- |
+  | AVA, +10 to +44 mV                               | 0 in 30 runs        | 96% to 100% forward                                   |
+  | AVA, AVD and AVE, +20 mV                         | 0 in 10             | 88% forward                                           |
+  | AVA up about 44 mV, AVB down about 43 mV         | 0 in 10             | 3% backward                                           |
+  | The same, head switch off                        | 0 in 10             | 1% backward                                           |
+  | The A-types driven, the B-types down about 45 mV | 4 over the 10 runs  | nearly still                                          |
+  | The same, head switch off                        | 10 over the 10 runs | 25% backward, at a net −0.005 body lengths per second |
+
+  However AVA was driven, the A-types moved by at most about 1 mV. The backward mode is missing downstream of AVA, and even pushed directly, the motor circuit and body only drift backward.
+
+- **The efficacy:** every chemical synapse's weight multiplied by k, signs kept, each brain at its own rest.
+  - Stronger synapses don't produce reversals. Spontaneously there are none at any k, and the crawl slows from 0.068 to 0.012 body lengths per second at ×30. Driving AVA gives none, with at most 7% backward.
+  - A front touch was followed by backward motion within 2 s in 0, 2, 0 and 1 of 10 trials at ×1, ×3, ×10 and ×30. These counts have no sham twins, so they can't be told from chance.
+  - By D0's linear analysis, a front touch's response in AVA _falls_ as the synapses strengthen: 0.37 mV at ×1, 0.10 at ×3, 0.016 at ×10, and nothing at ×100. A synapse's resting conductance exceeds the most it can ever change, so in this model every synapse is more shunt than signal, and strengthening them loads their targets faster than it adds signal.
+
+**The conclusion.** On Cook's connectome, in the graded network Wormlight ports with its published constants and the layers its rules allow, a touch reversal can't emerge.
+
+- The chemical synapses can't carry a small signal far: each is bounded by an activation that can rise only 83% above its rest, and by a small excitatory driving force.
+- Scaling them up makes it worse.
+- The model has no backward motor mode for AVA to switch on.
+
+Its scope: S's fit and its model class. The drive and efficacy probes are short simulations on 10 seeds. D0 is linear at rest without the body. A different synapse model, a backward-wave layer or functional weights could change it; each would be a model change made knowing this result.
+
+**Future work, each with the condition to reopen it:**
+
+- **The go/no-go of a backward motor mode** (2 to 4 days), for the maintainer after 0.3.0: whether any A-type rhythm and backward-wave mechanism makes the body reverse with S's crawl intact.
+- **A synapse model with measured efficacy,** if a published one fits the rules.
+- **A functional-connectivity contrast** from Randi et al. 2023, in this project or the sister project.
+- **Track M's B-type feedback,** and D1's search, if a later model makes the network's own rhythm worth asking for again.
+- **The suite as a benchmark,** set aside for now.
+
+**The record.** PLAN §9 and `VALIDATION.md`'s account of checkpoints 2 to 6 say so. The write-up and the README follow in their own pull requests.
+
+**Status.** Decided by the maintainer, and its diagnosis run.
