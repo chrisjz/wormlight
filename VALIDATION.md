@@ -586,6 +586,10 @@ The secondary lesions, reported and not graded, since Gray et al. describe their
 
 <!-- /harness:checkpoint-5 -->
 
+<!-- harness:checkpoint-6 -->
+
+<!-- /harness:checkpoint-6 -->
+
 <!-- harness:equivalence -->
 
 ### The step: §7.2's comparison with the noise on
@@ -764,7 +768,7 @@ Checkpoint 4 failed as its rules expected. Of 100 worms, each run for up to an h
 
 Checkpoint 5 failed, its rows that read reversals as its rules expected of a fit that hardly reverses. The intact worm made no reversal in its 30 trials, nor after any touch, so AVA + AVD's and AVA's falls, and PVC's clause asking checkpoint 2's response to stay, have nothing to fall from or stay at, and fail unmeasured. With AVA and AVD cut the worm made 5 short reversals, a rise significant the wrong way (p = 0.040), and with AVA alone 1, where intact it made none. PVC's other clause, the posterior touch's speed-up falling, is unmeasured too, since the intact worm doesn't speed up, and RIM's lesion made no short reversal. The row its rules expected to pass, AVB + PVC's forward speed, falls 72%, significantly, where it asks for 80%. It isn't the forward command that matters here: every primary lesion slows the crawl the head switch paces, AVA + AVD's by 74% and AVA's by 64%, those worms pausing about half the time, and PVC's and RIM's by 14% and 8%. With AVB cut alone the worm's mean velocity falls 91%, as its preview found, but it is moving about half the time, forward in 30% of the samples and backward in 17%, 5.5 reversals a minute; with PVC cut as well, 66% and 3% (an exploration, disclosed). Reported beside them, the secondary lesions: none reverses, cutting AIY speeds the worm up and AIZ slows it (DECISIONS.md, 2026-10-02).
 
-Checkpoint 6 comes next. Its remaining rules are set (DECISIONS.md, 2026-10-03): each null tuned by S's procedure in its own box, its fit its first pick, as PLAN §9 has it; and, changed after checkpoints 2 to 5's results, the secondary null deferred and "no evidence that the wiring matters (the real wiring doesn't pass)" wherever the real wiring doesn't pass. The nulls' tuning is not built.
+Checkpoint 6 comes next. Its remaining rules are set (DECISIONS.md, 2026-10-03): each null tuned by S's procedure in its own box, its fit its first pick, as PLAN §9 has it; and, changed after checkpoints 2 to 5's results, the secondary null deferred and "no evidence that the wiring matters (the real wiring doesn't pass)" wherever the real wiring doesn't pass. The nulls' tuning and grading are built, the real wiring's grade reproduced by the grading's own code, and the ten nulls tune on an older PC, each to be graded there (DECISIONS.md, 2026-10-03).
 
 What each measures, by thresholds PLAN §7.4 fixes, every quantity predicted, since checkpoints 2 to 5 are held out of the calibration (spec §1.2), though on track S's fit some are reported as fitted (above):
 

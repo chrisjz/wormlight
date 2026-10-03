@@ -38,7 +38,7 @@ import { validateWormlightData } from '../../src/data/schema.ts';
 import { NEURAL_STEP } from '../../src/sim/numerics.ts';
 import type { Model } from '../../src/sim/trackS.ts';
 import { CALIBRATED, type Form, type LoopParams } from '../../src/sim/world.ts';
-import { bounds, THIRD_ROUND, TRACK_S_ROUND, type Values } from '../../src/validation/calibration.ts';
+import { bounds, THIRD_ROUND, TRACK_S_ROUND, variants, type Values } from '../../src/validation/calibration.ts';
 import { checkpoint1, SEEDS, summariseTrial, TRIAL_SECONDS } from '../../src/validation/checkpoints.ts';
 import {
   atSpeedFloor,
@@ -302,26 +302,8 @@ export function parseArgs(args: readonly string[]): { fit: Fit; pick: number; jo
   };
 }
 
-// The runs that show what paces a crawl (PLAN §7.4): checkpoint 1's trials again with the head switch off and at its
-// lower bound, and with classes lesioned, by name in the runtime data.
-export function variants(
-  neurons: readonly { name: string; oscillator?: string | null }[],
-  values: Values,
-  form: Form,
-  model: Model = 'track R',
-): { name: string; values: Values; lesions?: string[] }[] {
-  const of = (c: string): string[] => neurons.filter((n) => n.oscillator === c).map((n) => n.name);
-  return [
-    { name: 'The head switch off, g_sw at 0', values: { ...values, headSwitchGain: 0 } },
-    {
-      name: 'g_sw at its lower bound',
-      values: { ...values, headSwitchGain: bounds('headSwitchGain', form, model)[0] },
-    },
-    { name: `The ${of('B').length} B-types lesioned`, values, lesions: of('B') },
-    { name: `The ${of('A').length} A-types lesioned`, values, lesions: of('A') },
-    { name: 'AVBL and AVBR lesioned', values, lesions: ['AVBL', 'AVBR'] },
-  ];
-}
+// The runs that show what paces a crawl, now shared with checkpoint 6's report (src/validation/calibration.ts).
+export { variants };
 
 const readSet = (dir: string, seeds: readonly number[]): TrialRecord[] =>
   seeds.map((seed) => JSON.parse(readFileSync(join(dir, `${seed}.json`), 'utf8')) as TrialRecord);

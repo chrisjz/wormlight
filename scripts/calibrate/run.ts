@@ -91,7 +91,7 @@ import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatJson } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
 import { commit } from '../harness/commit.ts';
-import { machine } from './machine.ts';
+import { machine, machineDiffers } from './machine.ts';
 import { writeWhole } from '../experiments/trees.ts';
 import { readPinned, readPostures } from '../harness/pinned.ts';
 
@@ -565,13 +565,8 @@ export function resumeRefused(
   if (resumed.commit !== here.commit) return `it ran at ${resumed.commit ?? 'no commit'}, not ${here.commit}`;
   if (mode !== 'null') return null;
   if (resumed.node !== here.node) return `it ran on Node ${resumed.node ?? '?'}, not ${here.node}`;
-  // The same machine: everything machine() names but its memory, which WSL can be given more or less of.
-  const same = (m?: Record<string, unknown>): string =>
-    JSON.stringify(Object.entries(m ?? {}).filter(([key]) => key !== 'memoryGB'));
-  if (same(resumed.machine) !== same(here.machine)) {
-    const { cpu, platform } = resumed.machine ?? {};
-    return `it ran on ${typeof cpu === 'string' ? cpu : 'another machine'}${typeof platform === 'string' ? ` (${platform})` : ''}, not this one`;
-  }
+  const differs = machineDiffers(resumed.machine ?? {}, here.machine ?? {});
+  if (differs) return `it ran on another machine: ${differs}`;
   return null;
 }
 

@@ -258,6 +258,6 @@ describe("the harness's checkpoints 2 and 3", () => {
   it('takes them, together or apart', () => {
     expect(parseArgs(['--checkpoint', '2', '--checkpoint', '3']).checkpoints).toEqual([2, 3]);
     expect(parseArgs(['--checkpoint', '3']).checkpoints).toEqual([3]);
-    expect(() => parseArgs(['--checkpoint', '7'])).toThrow(/runs checkpoints 0, 1, 2, 3, 4 and 5/);
+    expect(() => parseArgs(['--checkpoint', '7'])).toThrow(/runs checkpoints 0, 1, 2, 3, 4, 5 and 6/);
   });
 });

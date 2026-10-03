@@ -197,7 +197,9 @@ describe("the runner's null mode", () => {
     const here = { commit: 'abc1234', node: 'v26.7.0', machine: { ...m, memoryGB: 26 } };
     expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0', machine: m }, here, 'null')).toBeNull();
     const mac = { ...m, platform: 'darwin', cpu: 'Apple M5 Max', cores: 18, arch: 'arm64' };
-    expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0', machine: mac }, here, 'null')).toMatch(/Apple M5 Max/);
+    expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0', machine: mac }, here, 'null')).toMatch(
+      /another machine: its platform was darwin, not linux/,
+    );
   });
 
   it('resumes only at the same commit and, for a null, the same Node', () => {
