@@ -34,6 +34,13 @@
 // data/calibration/s1.json, its four picks in the order they take §7.2's comparison (npm run equivalence -- --fit
 // track-s), and names checkpoint 1's frequency band, on which it scores. It runs once: it refuses while s1.json exists.
 //
+// --null N tunes the primary null's rewiring N, 1 to 10, for checkpoint 6 (spec §8; PLAN §7.4; DECISIONS.md,
+// 2026-10-03): track S's procedure on the rewired brain, in the box its own rest gives by the rules that set S's
+// (src/validation/wiringTest.ts). A candidate whose trial can't be run, its brain's rest unsolvable or its worker
+// stopped or stuck, scores as one that left the finite numbers, and the run carries on. Its fit is its first pick. It
+// writes harness-out/calibration-null-N.json and data/calibration/null-N.json, which name the machine and Node's
+// version; it runs once a null, and resumes only at the same commit and Node.
+//
 // --bounded calibrates the bounded model once by the refit's procedure, should the survey find no crawl (PLAN §9): one
 // search of 2,000 evaluations on all four targets in the conductance form, from its provisional values, without
 // restarts. It writes harness-out/calibration-r4.json and data/calibration/r4.json. It refuses to run while the
@@ -45,7 +52,8 @@
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
+import { arch, availableParallelism, cpus, platform, release, totalmem } from 'node:os';
+import type { Network } from '../../src/sim/brain/network.ts';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
@@ -74,7 +82,9 @@ import {
   type Scorer,
   type Target,
   type Values,
+  type Box,
 } from '../../src/validation/calibration.ts';
+import { nullNetwork, NULLS, ruleBox, ruleReading } from '../../src/validation/wiringTest.ts';
 import { checkpoint1, type Diagnostics } from '../../src/validation/checkpoints.ts';
 import { FREQUENCY_BAND } from '../../src/validation/motion.ts';
 import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
@@ -106,6 +116,8 @@ export interface Job {
   whole?: boolean;
   // The model, named only when it isn't track R's (track S's).
   model?: Model;
+  // The primary null's rewiring the trial's brain is, for checkpoint 6; the real wiring without it.
+  rewiring?: number;
 }
 
 // What a trial gives the objective, its brain solves that didn't converge and the model it ran, as trackSKey names it;
@@ -130,6 +142,12 @@ export const ROUND_3 = join(ROOT, 'data/calibration/r5.json');
 export const TRACK_S_RECORD = join(ROOT, 'data/calibration/s1.json');
 
 let cached: { data: WormlightData; postures: number[][] } | undefined;
+// Each null's brain, built once a worker.
+const networks = new Map<number, Network>();
+
+// What a trial ran, as the scorer holds it to the run's: the model's parts as trackSKey names them, and the rewiring.
+export const ranKey = (params: LoopParams, rewiring?: number): string =>
+  `${trackSKey(params)}${rewiring === undefined ? '' : `; rewiring ${rewiring}`}`;
 
 // A job's loop parameters: its values in its form, on its model.
 export const jobParams = (job: Job): LoopParams => ({
@@ -140,11 +158,18 @@ export const jobParams = (job: Job): LoopParams => ({
 async function runJob(job: Job): Promise<TrialResult> {
   cached ??= { data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))), postures: await readPostures() };
   const params = jobParams(job);
+  const { rewiring } = job;
+  let network: Network | undefined;
+  if (rewiring !== undefined) {
+    network = networks.get(rewiring) ?? nullNetwork(cached.data, rewiring);
+    networks.set(rewiring, network);
+  }
   const r = runTrial(cached.data, {
     seed: job.seed,
     seconds: CALIBRATION.trialSeconds,
     params,
     postures: cached.postures,
+    ...(network ? { network } : {}),
   });
   if (job.whole) return r;
   // Only what the objective reads, and the model the trial ran, which the scorer holds to the one it asked for.
@@ -155,14 +180,14 @@ async function runJob(job: Job): Promise<TrialResult> {
     front: r.front,
     rear: r.rear,
     unconverged: r.unconverged,
-    ran: trackSKey(params),
+    ran: ranKey(params, rewiring),
   };
 }
 
 // Every trial ran the model a run asked for, as trackSKey names it, or the run stops (DECISIONS.md, 2026-10-02): the
 // record names its model from the run's settings, and this ties it to what ran.
-export function checkRan(records: readonly { ran: string }[], model: Model = 'track R'): void {
-  const asked = trackSKey(partsOf(model));
+export function checkRan(records: readonly { ran: string }[], model: Model = 'track R', rewiring?: number): void {
+  const asked = ranKey(partsOf(model), rewiring);
   const other = records.find((r) => r.ran !== asked);
   if (other) throw new Error(`a trial ran the model "${other.ran}", not the "${asked}" the run asked for`);
 }
@@ -173,20 +198,38 @@ const TRIAL_TIMEOUT = 300_000; // ms
 const WORKER_HEAP = '--max-old-space-size=2048';
 
 // A pool of worker processes, each taking one trial at a time. A worker that dies, or runs a trial past
-// TRIAL_TIMEOUT and is killed, fails the job it held, and is never handed another.
+// TRIAL_TIMEOUT and is killed, fails the job it held, and is never handed another; with `respawn`, as a null's run
+// has it, a fresh worker takes its place, so that a run that carries on past a failed trial keeps its workers.
 class Pool {
-  private readonly idle: ChildProcess[];
+  private readonly idle: ChildProcess[] = [];
+  private readonly all: ChildProcess[] = [];
   private readonly waiting: { job: Job; resolve: (r: TrialResult) => void; reject: (e: Error) => void }[] = [];
-  constructor(workers: ChildProcess[]) {
-    this.idle = [...workers];
-    for (const worker of workers) {
-      // A send to a dead worker reports through its callback below, not as an unhandled error.
-      worker.on('error', () => undefined);
-      worker.once('exit', () => {
-        const k = this.idle.indexOf(worker);
-        if (k >= 0) this.idle.splice(k, 1);
-      });
-    }
+  private stopped = false;
+  constructor(
+    count: number,
+    private readonly spawn: () => ChildProcess,
+    private readonly respawn = false,
+  ) {
+    for (let k = 0; k < count; k++) this.add();
+  }
+  private add(): void {
+    const worker = this.spawn();
+    this.all.push(worker);
+    this.idle.push(worker);
+    // A send to a dead worker reports through its callback below, not as an unhandled error.
+    worker.on('error', () => undefined);
+    worker.once('exit', () => {
+      const k = this.idle.indexOf(worker);
+      if (k >= 0) this.idle.splice(k, 1);
+      if (this.respawn && !this.stopped) {
+        this.add();
+        this.next();
+      }
+    });
+  }
+  stop(): void {
+    this.stopped = true;
+    for (const worker of this.all) worker.kill();
   }
   run(job: Job): Promise<TrialResult> {
     return new Promise((resolve, reject) => {
@@ -224,9 +267,55 @@ class Pool {
   }
 }
 
+// A trial as the objective takes it, or why it couldn't be run.
+type Ran = KinematicRecord & { unconverged: number; ran: string };
+
+// A candidate's score from its trials: the objective on its targets, every trial held to the model and rewiring it
+// asked for; with a trial that couldn't be run, as only a null's run tolerates, an infinite objective with the first
+// reason, so that the search ranks it last and carries on (DECISIONS.md, 2026-10-03).
+export function scoreTrials(
+  results: readonly (Ran | { failed: string })[],
+  how: {
+    targets: readonly Target[];
+    spectral: boolean;
+    goals?: Readonly<Record<Target, number>>;
+    model?: Model;
+    rewiring?: number;
+  },
+): Awaited<ReturnType<Scorer>> {
+  const failed = results.find((r): r is { failed: string } => 'failed' in r);
+  if (failed) {
+    const measures = measure([], { spectral: how.spectral });
+    return { measures, ...objective(measures, how.targets, how.goals), unconverged: 0, failed: failed.failed };
+  }
+  const ran = results as Ran[];
+  checkRan(ran, how.model, how.rewiring);
+  const measures = measure(ran, { spectral: how.spectral });
+  return {
+    measures,
+    ...objective(measures, how.targets, how.goals),
+    unconverged: ran.reduce((n, r) => n + r.unconverged, 0),
+  };
+}
+
+// The machine a null's record was made on, for the rules' "one machine and one version of Node" (DECISIONS.md,
+// 2026-10-03): its platform and processor, not its name.
+export function machine(): Record<string, string | number> {
+  const cores = cpus();
+  return {
+    platform: platform(),
+    release: release(),
+    arch: arch(),
+    cpu: cores[0]?.model.trim() ?? 'unknown',
+    cores: cores.length,
+    memoryGB: Math.round(totalmem() / 2 ** 30),
+    node: process.version,
+  };
+}
+
 // What a run is: R's second round, whole or shortened for a look; its probe; the survey of the bounded model; R's third
 // round; the bounded model's calibration by the refit's procedure (PLAN §9); or track S's calibration.
-export type Mode = 'round 2' | 'probe' | 'survey' | 'round 3' | 'bounded' | 'track S';
+export type Mode = 'round 2' | 'probe' | 'survey' | 'round 3' | 'bounded' | 'track S' | 'null';
 const MODES: Record<string, Mode> = {
   '--probe': 'probe',
   '--survey': 'survey',
@@ -235,19 +324,34 @@ const MODES: Record<string, Mode> = {
   '--track-s': 'track S',
 };
 const USAGE =
-  'npm run calibrate -- [--probe | --survey | --round-3 | --bounded | --track-s] [--budget N] [--jobs N] [--resume]';
+  'npm run calibrate -- [--probe | --survey | --round-3 | --bounded | --track-s | --null N] [--budget N] [--jobs N] [--resume]';
 
-export function parseArgs(args: readonly string[]): { budget: number; jobs: number; resume: boolean; mode: Mode } {
-  const out = {
-    budget: CALIBRATION.budget as number,
+export function parseArgs(args: readonly string[]): {
+  budget: number;
+  jobs: number;
+  resume: boolean;
+  mode: Mode;
+  rewiring?: number;
+} {
+  const out: { budget: number; jobs: number; resume: boolean; mode: Mode; rewiring?: number } = {
+    budget: CALIBRATION.budget,
     jobs: availableParallelism(),
     resume: false,
-    mode: 'round 2' as Mode,
+    mode: 'round 2',
   };
   let budgeted = false;
   for (let a = 0; a < args.length; a++) {
     if (args[a] === '--resume') {
       out.resume = true;
+      continue;
+    }
+    if (args[a] === '--null') {
+      if (out.mode !== 'round 2') throw new Error(`one mode at a time; usage: ${USAGE}`);
+      const k = Number(args[a + 1]);
+      if (!NULLS.includes(k)) throw new Error(`--null takes a rewiring from 1 to ${NULLS.length}; usage: ${USAGE}`);
+      out.mode = 'null';
+      out.rewiring = k;
+      a++;
       continue;
     }
     if (Object.hasOwn(MODES, args[a])) {
@@ -265,7 +369,7 @@ export function parseArgs(args: readonly string[]): { budget: number; jobs: numb
   }
   // The probe, the survey, round 3 and track S take their own budgets; round 2 and the bounded calibration may be
   // shortened for a look.
-  if (['probe', 'survey', 'round 3', 'track S'].includes(out.mode) && budgeted) {
+  if (['probe', 'survey', 'round 3', 'track S', 'null'].includes(out.mode) && budgeted) {
     throw new Error(`--${out.mode.toLowerCase().replace(' ', '-')} takes its own budget; usage: ${USAGE}`);
   }
   return out;
@@ -303,10 +407,11 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
       targets: THIRD_ROUND.goals,
     };
   }
-  if (mode === 'track S') {
+  if (mode === 'track S' || mode === 'null') {
     const { form } = TRACK_S_ROUND;
     return {
-      model: 'track S',
+      // A null's record adds its rewiring, its box and the machine where it runs.
+      model: mode === 'null' ? "track S, the primary null's rewiring" : 'track S',
       // The model's parts, as the loop's parameters take them.
       parts: TRACK_S,
       ...band,
@@ -369,7 +474,8 @@ export function procedure(mode: Mode): Procedure {
     const { form, targets, goals, spectral } = THIRD_ROUND;
     return { form, targets, goals, spectral, restarts: THIRD_ROUND.restart };
   }
-  if (mode === 'track S') {
+  // A null is tuned by track S's procedure (checkpoint 6; DECISIONS.md, 2026-10-03).
+  if (mode === 'track S' || mode === 'null') {
     const { model, form, targets, goals, spectral } = TRACK_S_ROUND;
     return { model, form, targets, goals, spectral, restarts: TRACK_S_ROUND.restart };
   }
@@ -403,8 +509,22 @@ export function committedRecord(mode: Mode, full: boolean, exists: (path: string
 export const roundThreeAllowed = (survey: SurveyVerdict | null, recorded: boolean): boolean =>
   survey !== null && survey.complete === true && survey.partial === true && !recorded;
 
-// Whether track S's calibration may run: once, before its record is committed (PLAN §9).
+// Whether track S's calibration may run: once, before its record is committed (PLAN §9). A null's tuning likewise runs
+// once, before its own record is committed.
 export const trackSAllowed = (recorded: boolean): boolean => !recorded;
+export const nullRecord = (rewiring: number): string => join(ROOT, `data/calibration/null-${rewiring}.json`);
+
+// Whether a stopped run may be resumed here: only at the commit it ran at and, for a null's, on the same version of
+// Node, since a V8 change can move a search's path (DECISIONS.md, 2026-10-03); null with the reason it may not.
+export function resumeRefused(
+  resumed: { commit?: string; node?: string },
+  here: { commit: string; node: string },
+  mode: Mode,
+): string | null {
+  if (resumed.commit !== here.commit) return `it ran at ${resumed.commit ?? 'no commit'}, not ${here.commit}`;
+  if (mode === 'null' && resumed.node !== here.node) return `it ran on Node ${resumed.node ?? '?'}, not ${here.node}`;
+  return null;
+}
 
 // Whether a run may start afresh where another left its file: only if there is none, or that run finished. A stopped
 // run is resumed with --resume, or moved aside by hand, never overwritten.
@@ -455,6 +575,7 @@ if (process.argv.includes('--worker')) {
     'round 3': 'calibration-r5.json',
     bounded: full ? 'calibration-r4.json' : `calibration-r4-${options.budget}.json`,
     'track S': 'calibration-s1.json',
+    null: `calibration-null-${options.rewiring}.json`,
   }[mode];
   const file = join(ROOT, 'harness-out', name);
   // A resumed run replays each stage's evaluations, and keeps every stage on disk until it is replayed; a resumed
@@ -463,13 +584,15 @@ if (process.argv.includes('--worker')) {
     stages: Record<string, Partial<Fit>>;
     runs?: ProbeRun[];
     commit?: string;
+    node?: string;
     complete?: boolean;
     seconds?: number;
   } = { stages: {} };
   const committed = commit();
-  // Track S's calibration runs, and resumes, only at a commit, so that its evaluations all come from one code.
-  if (mode === 'track S' && /uncommitted/.test(committed)) {
-    throw new Error("commit first: track S's calibration records the commit it runs at, and resumes only there");
+  // Track S's calibration and a null's run, and resume, only at a commit, so that their evaluations all come from one
+  // code.
+  if ((mode === 'track S' || mode === 'null') && /uncommitted/.test(committed)) {
+    throw new Error('commit first: this calibration records the commit it runs at, and resumes only there');
   }
   if (
     !options.resume &&
@@ -479,12 +602,11 @@ if (process.argv.includes('--worker')) {
   }
   if (options.resume) {
     if (!existsSync(file)) throw new Error(`there is no run to resume at ${file}`);
-    resumed = JSON.parse(readFileSync(file, 'utf8')) as typeof resumed;
+    resumed = JSON.parse(readFileSync(file, 'utf8')) as typeof resumed & { node?: string };
     // A run resumes only at the commit it ran at, and only if it hasn't finished.
     if (resumed.complete) throw new Error(`${file} holds a finished run: there is nothing to resume`);
-    if (resumed.commit !== committed) {
-      throw new Error(`${file} ran at ${resumed.commit ?? 'no commit'}, not ${committed}`);
-    }
+    const refused = resumeRefused(resumed, { commit: committed, node: process.version }, mode);
+    if (refused) throw new Error(`${file} can't be resumed here: ${refused}`);
     const counts = Object.entries(resumed.stages).map(([k, v]) => `${k} ${v.evaluated?.length ?? 0}`);
     process.stderr.write(`resuming after ${counts.join(', ')} evaluations\n`);
   }
@@ -512,6 +634,23 @@ if (process.argv.includes('--worker')) {
   if (mode === 'track S' && !trackSAllowed(existsSync(TRACK_S_RECORD))) {
     throw new Error("track S's calibration runs once: data/calibration/s1.json is already committed");
   }
+  // A null's tuning runs once (DECISIONS.md, 2026-10-03).
+  const { rewiring } = options;
+  if (mode === 'null' && existsSync(nullRecord(rewiring as number))) {
+    throw new Error(
+      `the primary null's rewiring ${rewiring} is tuned once: ${relative(ROOT, nullRecord(rewiring as number))} is already committed`,
+    );
+  }
+  // A null's box, by the rules that set S's on its own rest; a null whose rest can't be solved can't be built, and has no
+  // fit (DECISIONS.md, 2026-10-03).
+  let box: Box | undefined;
+  let own: Record<string, unknown> = {};
+  if (mode === 'null') {
+    const data = validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8')));
+    const reading = ruleReading(data, 'track S', nullNetwork(data, rewiring as number));
+    box = reading ? ruleBox(reading, 'track S') : undefined;
+    own = { rewiring, data: data.meta.version, machine: machine(), rule: reading, box: box ?? null };
+  }
   const replaces = committedRecord(mode, full, existsSync);
   if (replaces) {
     throw new Error(
@@ -520,23 +659,28 @@ if (process.argv.includes('--worker')) {
   }
   const head = {
     ...settings(options.budget, mode),
+    ...own,
+    ...(box ? { bounds: box } : {}),
     commit: committed,
     date: new Date().toISOString(),
     node: process.version,
     jobs: options.jobs,
   };
   const self = fileURLToPath(import.meta.url);
-  const workers = Array.from({ length: options.jobs }, () =>
-    fork(self, ['--worker'], { execArgv: [...process.execArgv, WORKER_HEAP] }),
+  // A null's run carries on past a failed trial, so it replaces a worker that stops.
+  const pool = new Pool(
+    options.jobs,
+    () => fork(self, ['--worker'], { execArgv: [...process.execArgv, WORKER_HEAP] }),
+    mode === 'null',
   );
-  const pool = new Pool(workers);
   // A resumed run's time carries on from the time it had run.
   const started = Date.now() - 1000 * (resumed.seconds ?? 0);
   const elapsed = (): number => (Date.now() - started) / 1000;
   mkdirSync(dirname(file), { recursive: true });
   // A scorer: the objective on its targets, for values in a form on a model; round 2 and the survey score a worm
   // without a bout by its spectral frequency, and the refit's procedure, which the bounded calibration follows, round 3
-  // and track S don't.
+  // and track S don't. On a null's rewiring, a trial that can't be run makes the candidate's objective infinite, with
+  // why, and the run carries on (DECISIONS.md, 2026-10-03).
   const scorer =
     (
       targets: readonly Target[],
@@ -544,22 +688,21 @@ if (process.argv.includes('--worker')) {
       spectral: boolean,
       goals?: Readonly<Record<Target, number>>,
       model?: Model,
+      rewiring?: number,
     ): Scorer =>
     async (values, seeds) => {
-      const named = model && model !== 'track R' ? { model } : {};
-      const records = (await Promise.all(
-        seeds.map((seed) => pool.run({ values, form, seed, ...named })),
-      )) as (KinematicRecord & {
-        unconverged: number;
-        ran: string;
-      })[];
-      checkRan(records, model);
-      const measures = measure(records, { spectral });
-      return {
-        measures,
-        ...objective(measures, targets, goals),
-        unconverged: records.reduce((n, r) => n + r.unconverged, 0),
-      };
+      const named = { ...(model && model !== 'track R' ? { model } : {}), ...(rewiring ? { rewiring } : {}) };
+      const results = await Promise.all(
+        seeds.map((seed) =>
+          rewiring
+            ? pool.run({ values, form, seed, ...named }).then(
+                (r) => r as Ran,
+                (e: unknown) => ({ failed: e instanceof Error ? e.message : String(e) }),
+              )
+            : (pool.run({ values, form, seed, ...named }) as Promise<Ran>),
+        ),
+      );
+      return scoreTrials(results, { targets, spectral, goals, model, rewiring });
     };
   const stages: Record<string, Partial<Fit>> = { ...resumed.stages };
   // The probe's and the survey's graded runs, kept through every save, so a resumed run doesn't grade them again.
@@ -668,11 +811,19 @@ if (process.argv.includes('--worker')) {
           ? "A pick grades at least partial: R's third round runs on the bounded model, by rules of its own.\n"
           : "No pick grades partial: R ends, and the bounded model is calibrated once by the refit's procedure.\n",
       );
-    } else if (mode === 'round 3' || mode === 'track S') {
-      // Track S's calibration is round 3's procedure on its own model (TRACK_S_ROUND).
+    } else if (mode === 'null' && !box) {
+      // A null whose rest can't be solved can't be built: it has no fit, and doesn't crawl (DECISIONS.md, 2026-10-03).
+      const run = { ...head, complete: true, seconds: elapsed(), built: false, fit: null };
+      const record = nullRecord(rewiring as number);
+      writeWhole(record, await formatJson(JSON.stringify(run), record));
+      writeWhole(file, JSON.stringify(run) + '\n');
+      process.stdout.write(`The rewiring ${rewiring}'s rest can't be solved: it can't be built, and has no fit.\n`);
+    } else if (mode === 'round 3' || mode === 'track S' || mode === 'null') {
+      // Track S's calibration is round 3's procedure on its own model (TRACK_S_ROUND), and a null's is S's on its own
+      // rewiring, in its own box.
       const { form, targets, spectral, restarts, goals, model } = procedure(mode);
-      const round = mode === 'track S' ? TRACK_S_ROUND : THIRD_ROUND;
-      const score = scorer(targets, form, spectral, goals, model);
+      const round = mode === 'round 3' ? THIRD_ROUND : TRACK_S_ROUND;
+      const score = scorer(targets, form, spectral, goals, model, mode === 'null' ? rewiring : undefined);
       // A search a resumed run had finished, its final check included, isn't run again.
       const finished = (stage: string): Fit | null => {
         const s = resumed.stages[stage];
@@ -684,6 +835,7 @@ if (process.argv.includes('--worker')) {
         return calibrate(score, {
           form,
           model,
+          ...(box ? { box } : {}),
           budget,
           seed: round.seeds[j],
           restarts,
@@ -733,13 +885,20 @@ if (process.argv.includes('--worker')) {
       }));
       // Phase 1's ranking, which chose the searches phase 2 continues.
       const ranking = order.map(({ seed, value, from }) => ({ seed, value, from }));
-      const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks };
+      // A null's fit is its first pick (PLAN §9; DECISIONS.md, 2026-10-03), none if that one couldn't be run.
+      const first1 = picks[0];
+      const fit = mode === 'null' ? { fit: first1 && Number.isFinite(first1.value) ? first1 : null } : {};
+      const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks, ...fit };
       // The committed record first, whole, so that a stop between the two writes still leaves the run's result; once it
       // exists the round won't run again.
-      const record = mode === 'track S' ? TRACK_S_RECORD : ROUND_3;
+      const record = mode === 'null' ? nullRecord(rewiring as number) : mode === 'track S' ? TRACK_S_RECORD : ROUND_3;
       writeWhole(record, await formatJson(JSON.stringify(summary(run)), record));
       writeWhole(file, JSON.stringify(run) + '\n');
-      process.stdout.write("The picks, in the order they take §7.2's comparison:\n");
+      process.stdout.write(
+        mode === 'null'
+          ? `The picks, in order; the first is rewiring ${rewiring}'s fit:\n`
+          : "The picks, in the order they take §7.2's comparison:\n",
+      );
       for (const p of picks) {
         process.stdout.write(`  seed ${p.seed}, ${p.from}: ${shown(p.value)}\n`);
         for (const id of CALIBRATED) process.stdout.write(`    ${id}: ${String(p.values[id])}\n`);
@@ -795,6 +954,6 @@ if (process.argv.includes('--worker')) {
       for (const id of CALIBRATED) process.stdout.write(`  ${id}: ${String(second.final.values[id])}\n`);
     }
   } finally {
-    for (const worker of workers) worker.kill();
+    pool.stop();
   }
 }

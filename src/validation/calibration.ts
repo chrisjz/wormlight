@@ -145,6 +145,12 @@ export function bounds(id: CalibratedId, form: Form, model: Model = 'track R'): 
   return b;
 }
 
+// Every calibrated parameter's bounds: a model's in a form, or a null's own box (checkpoint 6; DECISIONS.md, 2026-10-03),
+// which the 1 mV rule and θ_osc's floor set on its own rest (src/validation/wiringTest.ts).
+export type Box = Readonly<Record<CalibratedId, readonly [number, number]>>;
+export const boxOf = (form: Form, model: Model = 'track R'): Box =>
+  Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id, form, model)])) as unknown as Box;
+
 const clip = (u: number): number => Math.min(1, Math.max(0, u));
 
 // The calibrated parameters' provisional values in a form (PLAN §6.2), where the search starts.
@@ -159,20 +165,21 @@ export function provisionalValues(form: Form): Values {
 }
 
 // A point in [0, 1]ⁿ, one coordinate for each of `ids` in their order, as parameter values in the registry's
-// units for a form and a model, the rest taken from `fixed`; a coordinate outside [0, 1] is taken at the nearest point
-// inside.
+// units for a form and a model, or in a box of its own, the rest taken from `fixed`; a coordinate outside [0, 1] is
+// taken at the nearest point inside.
 export function fromUnit(
   u: readonly number[],
   form: Form,
   ids: readonly CalibratedId[] = CALIBRATED,
   fixed?: Values,
   model: Model = 'track R',
+  box: Box = boxOf(form, model),
 ): Values {
   if (u.length !== ids.length) throw new Error(`a candidate needs ${ids.length} coordinates`);
   if (ids.length !== CALIBRATED.length && !fixed) throw new Error('a search over some parameters needs the rest');
   const mapped = Object.fromEntries(
     ids.map((id, i) => {
-      const [lo, hi] = bounds(id, form, model);
+      const [lo, hi] = box[id];
       const t = clip(u[i]);
       // Held within the bounds, so rounding can't carry a value at a bound past it.
       const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
@@ -187,9 +194,10 @@ export function toUnit(
   form: Form,
   ids: readonly CalibratedId[] = CALIBRATED,
   model: Model = 'track R',
+  box: Box = boxOf(form, model),
 ): number[] {
   return ids.map((id) => {
-    const [lo, hi] = bounds(id, form, model);
+    const [lo, hi] = box[id];
     const v = values[id];
     return MAPPING[id] === 'log' ? Math.log(v / lo) / Math.log(hi / lo) : (v - lo) / (hi - lo);
   });
@@ -311,6 +319,8 @@ export interface Evaluated {
   measures: Measures;
   // Brain solves that didn't converge over the candidate's trials.
   unconverged: number;
+  // Why a trial of it couldn't be run, if one couldn't.
+  failed?: string;
 }
 
 export interface Generation {
@@ -326,11 +336,12 @@ export interface Generation {
   mean: number[];
 }
 
-// A candidate's score on some seeds.
+// A candidate's score on some seeds; with `failed`, why a trial of it couldn't be run, its objective then infinite, as
+// for a null's candidate whose brain can't be built (checkpoint 6; DECISIONS.md, 2026-10-03).
 export type Scorer = (
   values: Values,
   seeds: readonly number[],
-) => Promise<Score & { measures: Measures; unconverged: number }>;
+) => Promise<Score & { measures: Measures; unconverged: number; failed?: string }>;
 
 export interface Finalist {
   from: string;
@@ -341,6 +352,7 @@ export interface Finalist {
   errors: Record<Target, number>;
   measures: Measures;
   unconverged: number;
+  failed?: string;
 }
 
 export interface Fit {
@@ -365,6 +377,8 @@ export async function calibrate(
     // unless given, whose bounds may be its own (track S's).
     form: Form;
     model?: Model;
+    // A box of the search's own, a null's (checkpoint 6), in place of the model's bounds in its form.
+    box?: Box;
     budget: number;
     ids?: readonly CalibratedId[];
     fixed?: Values;
@@ -382,8 +396,9 @@ export async function calibrate(
   const ids = options.ids ?? CALIBRATED;
   const { form } = options;
   const model = options.model ?? 'track R';
-  const at = (u: readonly number[]): Values => fromUnit(u, form, ids, options.fixed, model);
-  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(form), form, ids, model))];
+  const box = options.box ?? boxOf(form, model);
+  const at = (u: readonly number[]): Values => fromUnit(u, form, ids, options.fixed, model, box);
+  const start = [...(options.start ?? toUnit(options.fixed ?? provisionalValues(form), form, ids, model, box))];
   if (start.length !== ids.length) throw new Error(`the start needs ${ids.length} coordinates`);
   const seed = options.seed ?? CALIBRATION.seed;
   let restart = 0;
@@ -445,6 +460,7 @@ export async function calibrate(
           errors: s.errors,
           measures: s.measures,
           unconverged: s.unconverged,
+          ...(s.failed ? { failed: s.failed } : {}),
         };
       }),
     );
