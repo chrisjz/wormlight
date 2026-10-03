@@ -4099,34 +4099,85 @@ No null's record has been read. The tuning runs on the PC; its first null's memo
 
 **Status.** Built and revised after review, with the real wiring's summary; the nulls' grading runs on the PC once all ten are tuned, after this merges.
 
-## 2026-10-03 — Track D's rules: a crawl the network carries, with free class-pair gains (four choices settled by the maintainer; the rest set before any of it is built)
+## 2026-10-03 — Track D's rules: D0's linear analyses first, then a search for a crawl without the head switch (five choices settled by the maintainer; D0 set before it is built, D1 to be rewritten; revised after review)
 
-**Why.** The programme the maintainer approved on 2026-10-01 runs S, then D, then decides on M. D was proposed to answer what R couldn't: whether this model class, body and set of layers can crawl at all with anatomy's sparsity, if the gains between classes are free. It is exploratory, never shipped, and a design step the nulls don't get. S has since found a crawl, but its rhythm is the head switch's: with the switch off its worm doesn't move, and its B-types have no oscillator (2026-10-02). So D's question has changed shape, and four choices were put to the maintainer, each with a recommendation first. The maintainer chose the recommendation each time. The rest are set here, before any of it is built, and nothing in it has run.
+**Why.** The maintainer approved a programme on 2026-10-01: S, then D, then a decision on M. D was proposed to ask what R couldn't: whether this model class, body and set of layers can crawl at all with anatomy's sparsity, if the gains between classes are free. It is exploratory, never shipped, and a design step the nulls don't get. S has since found a crawl, but its rhythm is the head switch's: with the switch off its worm doesn't move, and its B-types have no oscillator (2026-10-02). Checkpoints 2 to 5 have shown that what fails beyond the crawl is the backward mode: the intact worm never reverses, and a touch moves AVA by about 1 mV (2026-10-02). Five choices were put to the maintainer, each with a recommendation first, and the maintainer chose the recommendation each time. D0's rules are set here, before any of it is built, and nothing in it has run. D1's rules are rewritten after D0, by the review's findings below.
 
 **The maintainer's choices.**
 
-- **D's target is a crawl the network carries:** checkpoint 1 at least partial with the head switch off, g_sw held at 0. That asks what M depends on, whether a crawl made by the network exists in this model at all. Considered: a full pass of checkpoint 1 with the switch allowed, which asks whether free gains lift S's partial, not where its rhythm comes from; and both.
-- **M's channel comes in a second stage.** D1 searches the class-pair gains alone. Only if D1 finds no crawl does D2 add M's gated B-type feedback as dimensions, as the programme proposed, its form built then and its amendment to spec §2.4 signed off first. Considered: building M's form before D runs, as the programme had it; and leaving M's channel out.
-- **About a week on the M5 Max,** staged and in resumable stretches, while the older PC tunes checkpoint 6's nulls. Considered: a day, the programme's floor.
-- **Nulls only on a hit.** D runs on the real wiring; if it finds a crawl, the same search runs on two nulls, rewirings 1 and 2, at the same budget, which makes the crawl's existence a wiring comparison. Considered: two nulls regardless, about three weeks; and the real wiring alone.
+- **D's target is a crawl without the head switch:** checkpoint 1's grading at least partial with g_sw held at 0. That is what M depends on, whether a crawl exists in this model without the one layer that has carried every crawl that graded partial. The maintainer chose it as "a crawl the network carries". A review found that label stronger than the model allows: the network's drive gates the head switch through θ_osc as it gates the B-types, and once gated on, both cycle on their own. So the target keeps its name by what it excludes, and a hit reports what paces it. Considered: a full pass of checkpoint 1 with the switch allowed; and both.
+- **D0 comes first,** added by the maintainer after the first draft's review: two linear analyses of the network at rest, cheap and fitting nothing. They ask whether any setting in D's box makes the network oscillate in the crawl's band, and whether a touch can reach the command interneurons. D1's rules are then rewritten with D0's results in hand. Considered: fixing D1's rules as reviewed and running it.
+- **M's channel comes in a second stage.** D1 searches the class-pair gains alone. Only if D1 finds no crawl does D2 add M's gated B-type feedback as dimensions, its form built then and its amendment to spec §2.4 signed off first. Considered: building M's form before D runs; and leaving M's channel out.
+- **About a week on the M5 Max for D1,** staged and in resumable stretches, while the older PC tunes checkpoint 6's nulls. Considered: a day.
+- **Nulls only on a hit.** If D1 finds a crawl on the real wiring, the same search runs on two nulls, by rules D1's rewrite sets. Considered: two nulls regardless; and the real wiring alone.
 
-**The rest, set here.**
+**D0, set here.**
 
-- **The model** is track S's, its measured signs, the D-types' offset and its rectifier, in the conductance form, with the head switch off. Everything else stays: the A- and B-type oscillators, gated by the network's drive as θ_osc gates them, proprioception, touch and every other layer. A crawl that the B-type oscillators pace counts as carried by the network: they are the B-types' own dynamics, which the network's drive switches on, where the head switch runs on its own once its gate opens. Its report says what paces any crawl it finds, by the runs that show it.
-- **The classes:** the command interneurons AVA, AVB, AVD, AVE and PVC, each a class of its pair; the A-types, DA and VA; the B-types, DB and VB; the D-types, DD and VD; the SMDs; and the RMDs, 78 neurons in all. One gain per class pair with a connection: 64 directed pairs of signed chemical synapses, 33 pairs of gap junctions, and the six classes' junctions onto the muscles, 103 gains. A gain multiplies every connection of its pair. It is searched logarithmically from 0.1 to 10, keeping R's floor so that no pair is cut off, and no sign changes: the programme's review found that otherwise D re-finds the go/no-go's ladder and becomes a sign search. Unsigned connections, which the model gives no effect, take no gain, and every connection outside the classes keeps its weight.
-- **The parameters:** the twelve calibrated parameters but g_sw, eleven, in S's box, beside the gains.
-- **The search** is S's objective, the crawl's frequency with its band, its wavelength, and its speed against 0.15 body lengths per second, each candidate on 4 trials, seeds 1001 to 1004, by CMA-ES with S's restart rule.
-  - **Stage 1:** the eleven and the dozen gains of the strongest class pairs by their summed sections. These are B→D's and A→D's chemical synapses, the A-, D-, SMD-, B- and RMD-types' junctions onto the muscles, AVA→A's and RMD→RMD's synapses, AVD→AVA's, and the A–AVA and AVB–B gap junctions. The rest are held at 1. Sixteen searches of 5,000 evaluations, from the survey's Latin hypercube in the box's mapped units, each restart from a fresh point of it: about 80,000 evaluations.
-  - **Stage 2:** every gain. The four stage 1 searches whose final checks score lowest each continue as one search of 50,000 evaluations, from their final means with the new gains at 1, about 200,000 evaluations.
-  - Every search ends with S's final check, its ten best and its final mean on seeds 1005 to 1020.
-  - At the survey's pace, about 50,000 evaluations a day on 14 workers, D1 takes about six days with its checks. It runs in resumable stretches, each search to its budget, at one commit, the run guarded as every calibration is.
-- **A hit.** Each stage's four best picks by their final checks are graded by checkpoint 1's grading on 20 fresh seeds, 5001 to 5020, with the head switch off. A pick at least partial there is graded again on the same seeds at half the step, and is a hit only if it stays at least partial. A hit's report gives its grade, its speed's interval, the runs that show what paces it, and its distance from anatomy.
-- **Distance from anatomy,** declared now: the mean of |log₁₀ g| over the 103 gains, weighted by each pair's share of their summed sections, and the largest |log₁₀ g| with its pair. A hit is near anatomy if its weighted mean is at most log₁₀ 2, every gain within a factor of 2 on average, and far otherwise. Both are reported, whichever it is.
-- **No hit** reads "no network-carried crawl found at this budget", conditional on the model's forms, the objective, the speed target and the gains' range, as the survey's rule read it. D2 then follows, by rules of its own, once M's form is built and its amendment signed off.
-- **Never shipped.** Nothing D finds enters the registry, the runtime data or the app; its records go to `data/track-d/` and this log. The build adds class-pair gains to the CPU reference only, every gain 1 by default, which a test holds changes nothing; the GPU doesn't take them, since nothing D finds is shipped. Every trial D runs on the real wiring joins PLAN §9's count of its exploration, and D is named there as a design step that checkpoint 6's nulls don't get.
+- **The model** is track S's: its measured signs, the D-types' offset and its rectifier, in the conductance form, with g_sw held at 0, outside its box.
+- **The classes:** ten in all.
+  - The five command interneuron pairs, AVA, AVB, AVD, AVE and PVC, each a class.
+  - The A-types, DA and VA together; the B-types, DB and VB; the D-types, DD and VD.
+  - The SMDs, all four; and the RMDs, all six.
 
-**What to expect.** Every crawl R and S found was the head switch's, with g_osc,B at 0 or near it. With the switch off, S's worm doesn't move. Most of the survey's box was a plateau with no bout, and D's box is larger. So no hit is the likelier outcome, and it would say M has a target only through D2. These are expectations, not reasons to change the rules.
+  They hold 78 neurons. Their class pairs with a connection are 64 directed pairs of chemical synapses, every one signed, and 33 pairs of gap junctions. Their junctions onto the muscles, the sixth class AVB's 2 sections among them, don't enter D0.
 
-**The order,** one pull request at a time: these rules; then D1's build, the class-pair gains, the runner and the grading, reviewed; then D1's run on the M5 Max; then, by its result, D on two nulls, or D2's rules.
+- **The system** is the network alone, linearised at its rest: every neuron's voltage, every synaptic activation, ds/dt = a_r φ(V)(1 − s) − a_d s, and the A- and B-types' oscillators' recovery variables. The rectifier's gates are held as the rest sets them. So is the B-types' oscillator gate, open or shut as their drive at rest stands against θ_osc. The body, proprioception and the muscles are left out.
+- **Where the gains go:** each pair's gain multiplies its connections before the rest and the thresholds are solved, as κ_gap,B's does. So each setting is a brain with its own thresholds at its own rest (PLAN §3.3), S's offsets kept, and the rectifier's fixed point solved again. κ_gap,B and κ_SMD are held at 1, since the pair gains include theirs; a review found that their products with the gains would break the gains' floor.
+- **The box:** g_osc, g_osc,B, τ_w and θ_osc in S's box, and the 97 network pair gains, each from 0.1 to 10, searched logarithmically, no sign changed. Nothing else in the twelve enters the network at rest.
+- **The samples:**
+  - S's fit, with every gain at 1;
+  - 20,000 points of a Latin hypercube over the box, drawn by the project's hash on a seed of its own, "D0" in ASCII;
+  - a CMA-ES search of 5,000 evaluations from the box's centre, on the largest growth rate among the modes in the band.
+- **The oscillation (a).** J's eigenvalues and eigenvectors at each sample, in two conditions:
+  - the oscillators off, the wiring and its synapses alone;
+  - the oscillators on at their sample's gains.
 
-**Status.** Set before any of it is built.
+  A mode is in the crawl's band if its frequency, Im λ / 2π, lies from 0.2 to 0.5 Hz, the band checkpoint 1's spectral share reads. It is live if it grows, or decays by less than a factor e a period, Re λ ≥ −Im λ / 2π. For each live mode the report gives its frequency, its growth rate, its weight by class, and its phase along the B-types from head to tail, which says whether it would travel backwards along the body.
+
+- **The touch (b).** The steady linear response at rest, −J⁻¹ b, of AVA, AVD, AVB and PVC to a touch: b is the receptors' currents that a touch at the front (s = 0.2) or the back (s = 0.8) gives them, as the world builds them. The report gives its distribution over the samples, its largest value at each command class, and its sign. An anterior touch should depolarise AVA and AVD; a posterior one, AVB and PVC.
+- **The nulls,** reported beside it: the ten primary rewirings at S's fit, with every gain at 1 and the four parameters as the real wiring has them, in both analyses. No pair gain is defined on a null, whose class pairs differ.
+- **Its readings, declared now:**
+  - **Oscillation.** If no sample and no search finds a live mode in the band, in either condition, D0 reads "no linear oscillation in the crawl's band within the box". D1's rewrite then proposes its first stage alone, about two days, as a check on that reading. Otherwise D1 runs whole.
+  - **Touch.** If an anterior touch moves AVA by 10 mV or more anywhere in the box, about what a touch moves its own receptor, D0 reads "a touch can reach the command interneurons within the box", and a backward-mode track is put to the maintainer. Otherwise it reads that, linearly, it can't.
+  - Either way the decisions are the maintainer's, with D1's rewritten rules.
+- **What it leaves out,** disclosed with it:
+  - It is linear at the rest. A gated relaxation, as the head switch's is, or a limit cycle born of a subcritical bifurcation, can exist without a live mode at rest.
+  - The body and proprioception's loop are left out.
+  - The touch's response is its steady gain, not its transient.
+- **Cost and record:** minutes to hours on the M5 Max, writing `data/track-d/d0.json`. No trial runs, and nothing is shipped. The build adds analysis code and the pair gains to the CPU reference's network, every gain 1 by default, which a test holds changes nothing; no model version moves. The 97 gains sit outside the registry and the budget of 18, as a diagnostic's do. D0's analyses of the real wiring join PLAN §9's account of its exploration.
+
+**D1, to be rewritten after D0.** Its first draft set a search of the eleven parameters but g_sw and 103 gains, in two stages over about six days, with a hit graded on seeds 5001 to 5020 and at half the step, and a distance from anatomy. A review found it unbuildable as written and short in places that would change results. Its rewrite settles each of these, with D0's results:
+
+- **Where the gains go:**
+  - before or after the rest, the thresholds and the rectifier's fixed point;
+  - for the muscles, before or after relative drive's range, as κ_SMD's do.
+- **A silenced-network guard for a hit,** and the runs that show what paces it, declared in advance: the B-type oscillators off, proprioception off, the silenced network, every chemical synapse cut, and the A-types, the B-types and AVB lesioned. "g_sw at its lower bound" doesn't fit D.
+- **The search's construction:**
+  - restarts under a budget of thousands, where S's rule stops them at 250 evaluations;
+  - the starts in 23 and 114 dimensions;
+  - the CMA-ES seeds;
+  - stage 2's continuation: its step, its seed, whether its budget counts stage 1's, and its start;
+  - what "half the step" runs: the whole loop at 1.25 ms, in tree copies, as §7.2's comparison runs it.
+- **κ_gap,B and κ_SMD,** held at 1 or folded into the gains' bounds and the distance.
+- **Failures, records and guards:**
+  - how a failed candidate counts;
+  - append-only records a search at a time, since 114-dimensional evaluations would come to about a gigabyte;
+  - the nulls' resume guard on the machine and Node.
+- **The nulls' gains.** A null has about 128 class pairs, not 103; the rewrite sets its gains, its dozen, its box, what "anatomy" means for it, and how 0, 1 or 2 nulls with a hit read.
+- **The hit:** the speed floor's label, the gains at their bounds, and the lighter test at half the step, disclosed.
+- **The distance from anatomy:** weighted across kinds the model scales differently and blind to weak pairs, so an unweighted mean and a count beyond a factor of 2 join it.
+- **The pace:** six to seven days at S's own rate, 27,568 trials in 13,375 s, not the survey's.
+- **The disclosures:**
+  - D as a design step for a later fit, not S's;
+  - its AVB run as a preview of checkpoint 5 (PLAN §10);
+  - its CPU-only change, marked as an exception to CPU and GPU landing together;
+  - its gains outside the budget;
+  - its no-hit reading as one "without M's channel".
+
+**What to expect.** Every crawl that graded partial, R's and S's, had g_osc,B at or near 0 and was the head switch's. The refit's crawl, with strong B-type oscillators, 3,900 pS, was the switch's too, and stopped without it (2026-09-28; corrected after review from "every crawl R and S found had g_osc,B at 0 or near it"). Linear analyses of the held network found it symmetric and stable (2026-09-28 and 2026-10-03), but its synapses' and oscillators' dynamics, which D0 adds, can make it otherwise. A touch reached AVA by about 1 mV at S's fit (2026-10-02). These are expectations, not reasons to change the rules.
+
+**The order,** one pull request at a time: these rules; then D0's build and run, reviewed; then D1's rewritten rules, for the maintainer, with D0's results; then D1's build and run; then, by its result, D on two nulls or D2's rules. A backward-mode track, if D0 finds a touch can reach the command interneurons, is put to the maintainer beside them.
+
+**Review.** A review of the first draft verified its facts: the classes and their 78 neurons, the 103 pairs, the dozen strongest, the survey's pace and the budget's arithmetic. It found the search unbuildable as written and short in places that would change results, which the list above carries to D1's rewrite. It also found the label "network-carried" stronger than the model allows, now "a crawl without the head switch". And it found "What to expect" wrong as worded about the refit, now corrected. The maintainer then chose to add D0 first.
+
+**Status.** D0 set before any of it is built; D1 to be rewritten after D0.
