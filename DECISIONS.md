@@ -3970,13 +3970,20 @@ The maintainer was asked again where a choice was made on the draft's wrong prem
 
 **Status.** Set before any of it is built, and revised after review.
 
-## 2026-10-03 — Checkpoint 6's tuning, built: S's procedure in each null's own box; and the untuned preview, none of ten partial
+## 2026-10-03 — Checkpoint 6's tuning, built: S's procedure in each null's own box; the untuned preview, none of ten partial; the machine (the order changed by the maintainer; revised after review)
 
-**Why.** The order the rules above set: the tuning mode for a null, built and reviewed, with the preview, before any tuning. Its grading and report come in the next pull request, which can be built while the nulls tune, since its rules are already set and nothing in it reads a null's result; the rules put them in this one, and the split is the only change to their order. Splitting them lets the tuning, several days on the machine the maintainer chooses, start a pull request sooner.
+**Why.** The order the rules above set: the tuning mode for a null, built and reviewed, with the preview, before any tuning.
+
+**The order, changed by the maintainer.** The rules had the grading and the report built in this pull request too. The first draft split them into the next one, so that the tuning, several days on the machine chosen, could start a pull request sooner, and a review found that this was the maintainer's to decide, not the builder's. The maintainer chose the split, with a safeguard: the grading and report's pull request merges before any null's record is brought into the repository or read, and the builder neither asks about nor looks at the tuning's progress until then. Considered: keeping the order, which delays the tuning by about a day. Their rules were set before any of this was built, and nothing in them changes.
 
 **What is built.**
 
-- **The rules for a box,** moved out of the tests that held them into `src/validation/wiringTest.ts`. The 1 mV rule for g_sw and g_p reads each target's load and rest on a model's whole loop, its offsets and rectifier, at each of κ_gap,B's bounds, g_p's divided by the curvature at the 95th percentile of real worms'. θ_osc's floor is the first whole mV above the highest silenced head-switch drive. Both are rounded as the registry's were, and every other bound is the form's. A value of κ_gap,B at which a brain's rest can't be solved is left out and named, and a brain with none can't be built. A test holds that the rules give S's box exactly on the real wiring, every bound of it.
+- **The rules for a box,** in the source at last, in `src/validation/wiringTest.ts`; the tests that held them, `tests/conductance.test.ts` and `tests/track-s-offsets.test.ts`, keep their own copies as a cross-check.
+  - The 1 mV rule for g_sw and g_p reads each target's load and rest on a model's whole loop, its offsets and rectifier, at each of κ_gap,B's bounds, g_p's divided by the curvature at the 95th percentile of real worms'.
+  - θ_osc's floor is the first whole mV above the highest silenced head-switch drive.
+  - Both are rounded as the registry's were, and every other bound is the form's.
+  - A value of κ_gap,B at which a brain's rest can't be solved, its solve not converging or the rectifier's gates cycling, is left out and named with why; a brain with neither can't be built; any other error is a fault, and stops the run.
+  - A test holds that the rules give S's box exactly on the real wiring, every bound of it.
 - **The ten boxes,** which a test pins, since a data build that changes the connections' list changes every rewiring. g_sw's top runs from 40 to 60 nS against S's 50, g_p's from 6 to 9 nS per unit of κL against 7, and θ_osc's floor from −27 to −22 mV against −28. Every rewiring's rest solves at both bounds of κ_gap,B. Nothing in a box reads a null's behaviour.
 
   | Rewiring | g_sw (nS) | g_p (nS per κL) | θ_osc's floor (mV) |
@@ -3994,19 +4001,49 @@ The maintainer was asked again where a choice was made on the draft's wrong prem
   | 10       | 0.02–50   | 0.0001–8        | −25                |
 
 - **The search in a box of its own** (`src/validation/calibration.ts`): `calibrate`, `fromUnit` and `toUnit` take a box, the model's bounds in its form by default, so every record made before replays as it ran, which the tests hold. A start of the survey's hypercube lies at the same point of each box.
-- **The runner's `--null N`** (`npm run calibrate -- --null N`, N from 1 to 10): track S's procedure on the rewired brain, its trials each taking the null as their network and held to the model and rewiring they asked for. A candidate whose trial can't be run, its rest unsolvable, its worker stopped or past the timeout, scores as one that left the finite numbers, with why, and the run carries on; a worker that stops is replaced. The record names the rewiring, the data version, the rules' readings and the box, the machine (its platform, processor, cores and memory, not its name) and Node's version; it is written to `harness-out/calibration-null-N.json` and, at the end, `data/calibration/null-N.json`, whose existence stops a second run. A null's fit is its first pick, none if that one couldn't be run, and a null whose rest can't be solved writes a record that says so, with no fit. A run starts only at a commit and resumes only at the same commit and Node.
+- **The runner's `--null N`** (`npm run calibrate -- --null N`, N from 1 to 10): track S's procedure on the rewired brain, its trials each taking the null as their network and held to the model and rewiring they asked for.
+  - **The candidate's failures, by the rules:** a trial that throws, as on a rest that can't be solved, or that runs past the runner's timeout, scores as one that left the finite numbers, with why. It is ranked last, printed as it happens, kept with where it lay in the committed record's stage, and not tried again in the final check, and the run carries on; a worker killed at the timeout is replaced.
+  - **Anything else stops the run, to be resumed:** a worker that stopped or couldn't be reached, which the machine may cause, as an out-of-memory kill would, and a generation in which every candidate failed, which says more about the setup than the candidates. Neither is recorded, so a resumed run tries them afresh. The first draft ranked a stopped worker's candidate last too, which a review found would let the machine change a search's path, or finish a null that every trial failed as one that doesn't crawl; the rules never named it.
+  - **The record** names the rewiring, the data version, the rules' readings and the box, the machine (its platform, kernel, operating system, processor, cores and memory, not its name) and Node's version, kept from the run's start. It is written to `harness-out/calibration-null-N.json` and, at the end, `data/calibration/null-N.json`, whose existence stops a second run. A null's fit is its first pick, none if that one couldn't be run, and a null whose rest can't be solved writes a record that says so, with no fit and no box.
+  - **Its guards:** a run starts only at a commit, and resumes only at the same commit, on the same Node and the same machine, its memory aside, which WSL may be given more or less of.
+- **The pool,** shared with the other modes: a worker answering as its timeout fires is no longer handed another job, which a review found could charge an unrelated candidate with its kill, and a pool with no worker left fails its waiting jobs rather than hanging.
 - **The preview,** `scripts/experiments/null-preview/run.ts`, below.
 
-**A look, disclosed.** A smoke run of rewiring 1 on 6 workers ran two generations, 22 candidates, in 65 s, and a worker was killed by hand during the second: its candidate was recorded with an infinite objective and "a worker exited (SIGKILL) on seed 1001", the run carried on, and the pool was back to six workers. The run was stopped and its file removed; nothing else ran. At that pace a null's 27,500 trials take about 3.7 hours on 14 workers on the M5 Max, as S's took.
+**What can still depend on the machine,** disclosed. The timeout is wall-clock, 300 s, where a trial takes about 4 s a worker on the M5 Max and about 16 s on the PC below, with all twenty of its threads busy: a trial that runs past it on one machine might not on another, and the rules count it against the candidate. Apart from that, and from rounding between platforms, a null's search doesn't depend on its machine or its number of workers: its candidates keep their order and the budget's cut-off is fixed.
 
-**The preview, run before any tuning** (exploration, graded by nothing): the ten rewirings untuned on S's fitted values, by checkpoint 1's protocol on seeds 4001 to 4020, not the gate's, beside the real wiring on the same seeds, 220 trials in 156 s on 6 workers at `bae4022`, written to `data/checkpoint-6/preview.json`.
+**A look, disclosed.**
+
+- **A smoke run** of rewiring 1 on 6 workers ran two generations, 22 candidates, in 65 s, at `bae4022`. A worker killed by hand during the second had its candidate ranked last, as the first draft had it.
+- **After the review's fixes, at `14f1208`:** a worker killed during the second generation stopped the run with "a worker exited (SIGKILL)", the first generation's 11 candidates saved and none recorded as failed, and `--resume` took it up from there.
+- **The safeguard broken, once.** Between those two runs, a script meant to kill a worker matched its own shell instead. The run went on for 132 evaluations on the M5 Max, and its progress lines were read: the best objective of rewiring 1's first search fell from 8.98 to 1.09 by its 110th evaluation. That was minutes after the maintainer set the safeguard, and before any of the grading was built. The real tuning runs on the PC, where rounding sends the search another way. The objective sums the crawl's three relative errors, and doesn't say whether a worm crawls.
+- **Every smoke run's file was removed.** Nothing else ran.
+- **Pace:** the smoke run's 88 trials in 65 s on 6 workers would put a null's 27,500 trials near 2.4 hours on 14, but early generations are short; S's measured run, 13,375 s on 14 workers, is the better guide, about 3.7 hours a null on the M5 Max.
+
+**The preview, run before any tuning** (exploration, graded by nothing): the ten rewirings untuned on S's fitted values, by checkpoint 1's protocol on seeds 4001 to 4020, not the gate's, beside the real wiring on the same seeds, 220 trials in 156 s on 6 workers at `bae4022`. It was run again at `67e0b44`, after the review's fixes, so that its record names its data version, machine and workers, every figure the same. It is written to `data/checkpoint-6/preview.json`.
 
 - The real wiring grades partial on these seeds too: mean velocity 0.068 body lengths per second, frequency 0.216 Hz, wavelength 0.49.
 - **None of the ten rewirings grades partial.** Every one is slower than the real wiring, mean velocity 0.008 to 0.050, below partial's floor of 0.06 wherever it was measured. Seven move forward 84% to 100% of the time, five of them in bouts of 20 s in at most 4 of the 20 trials. Three, 5, 8 and 9, move forward 37% to 55% of the time, with no bout of 10 s. Their frequencies, where measured, lie from 0.15 to 0.28 Hz, and their postures pass, 0.95 to 0.98.
 - Untuned, the rewirings run at values tuned on the real wiring, so this says how far each starts from a crawl, not where tuning takes it. At round 3's first pick's values, 2 of 10 scratch nulls graded partial untuned and 6 after one nudge (2026-09-30), a different model and count.
 
-Nothing in the build was settled after the preview.
+Nothing in the build was settled after the preview but the review's fixes, which touch how the runner treats failures and what records name, not the procedure, the boxes or anything a null's grade reads.
+
+**The machine, logged before the tuning starts.** The maintainer timed an older PC, an Intel Core i9-9900X with 10 cores and 20 threads, under WSL2's Ubuntu 22.04 with Node v26.7.0, the M5 Max's version, on checkpoint 5's harness at `9a20f2c`. Its 570 runs took 557 s on 10 workers and 453 s on 20, against 156 s on 14 on the M5 Max: 2.9 times as long, at a steady 3.6 GHz. Its records differ from the M5 Max's bit for bit, their hashes apart, while every figure its section prints is the same, so the platforms round differently and agree to every figure reported, as the rules expected. The ten nulls are tuned on the PC, on 20 workers, about 11 hours a null and 4.5 days in all, and graded there too, as the rules ask of each null's search and grading.
+
+**Review.** A review of the first draft found the rules followed for the boxes and the procedure, the boxes reproducing S's on the real wiring and R's on track R's model, every record made before replaying unchanged, and the preview's figures right. It found, and the code, the record and this entry now have:
+
+- `npm run build` failing on the scripts' and tests' type checks, which only the first project's had been run on;
+- a stopped worker's candidate ranked last, letting the machine change a search's path or empty it;
+- failures neither printed nor kept in the committed record;
+- resume blind to the machine, and overwriting it;
+- the split of the order, the maintainer's to decide;
+- the preview's record missing its data version, machine and workers;
+- every error read as an unsolvable rest;
+- S's box written under an unbuilt null's bounds;
+- the pace's estimate not following from the smoke run;
+- the rules described as moved out of tests that keep them;
+- the pool's race at the timeout, and a failed spawn that could hang it;
+- untested paths: the pool, the fit's choice, the unbuilt null, the guards.
 
 **The record.** CLAUDE.md's calibrate command, and `VALIDATION.md`'s account of what is known short of checkpoint 6, say so.
 
-**Status.** Built, with its preview run; the tuning comes next, on the machine the maintainer chooses, then the grading and report's pull request.
+**Status.** Built and revised after review, with its preview run; the tuning comes next, on the PC, then the grading and report's pull request, which merges before any null's record is read.
