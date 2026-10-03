@@ -1,0 +1,208 @@
+{
+  "what": "checkpoint 6's preview, untuned, graded by nothing (DECISIONS.md, 2026-10-03)",
+  "commit": "67e0b44",
+  "date": "2026-10-03",
+  "data": "333bf768",
+  "machine": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "os": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:19:08 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6050",
+    "arch": "arm64",
+    "cpu": "Apple M5 Max",
+    "cores": 18,
+    "memoryGB": 128,
+    "node": "v26.7.0"
+  },
+  "jobs": 6,
+  "node": "v26.7.0",
+  "seeds": [
+    4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017, 4018, 4019,
+    4020
+  ],
+  "params": {
+    "oscillatorGain": 0.8378361632810063,
+    "recoveryTime": 1.2252495155772312,
+    "driveThreshold": -14.868026123781796,
+    "switchGain": 50,
+    "proprioceptiveGain": 0.01574019766708515,
+    "neuromuscularGain": 40,
+    "neuromuscularThreshold": -0.09942238936802689,
+    "noise": 0.056463815037003345,
+    "oscillatorGainB": 0,
+    "gapGainB": 0.1560110360067542,
+    "smdGain": 0.1687180594753887,
+    "relativeDrive": true,
+    "noiseCorrelation": 0.055082096937701844,
+    "form": "conductance",
+    "restOffsets": "measured",
+    "rectified": true
+  },
+  "seconds": 154,
+  "brains": [
+    {
+      "brain": "the real wiring",
+      "grade": "partial",
+      "clauses": [
+        { "name": "frequency", "value": 0.21607625681682782, "grade": "pass" },
+        { "name": "wavelength", "value": 0.4856238290986794, "grade": "partial" },
+        { "name": "speed", "value": 0.06838793199684161, "grade": "partial" },
+        { "name": "eigenworms", "value": 0.975557121150858, "grade": "pass" },
+        { "name": "bout", "value": 1, "grade": "pass" }
+      ],
+      "forwardShare": 0.9980839416058395,
+      "meanVelocity": 0.06820906740239914,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 1",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.2790590405904059, "grade": "pass" },
+        { "name": "wavelength", "value": 0.39506915784773083, "grade": "fail" },
+        { "name": "speed", "value": 0.05003392903300766, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9608477077178808, "grade": "pass" },
+        { "name": "bout", "value": 1, "grade": "pass" }
+      ],
+      "forwardShare": 0.9982664233576642,
+      "meanVelocity": 0.049894224924307354,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 2",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.22277765703108018, "grade": "pass" },
+        { "name": "wavelength", "value": 0.45668523100638175, "grade": "partial" },
+        { "name": "speed", "value": 0.042093745587428594, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9621340351002403, "grade": "pass" },
+        { "name": "bout", "value": 0.1, "grade": "fail" }
+      ],
+      "forwardShare": 0.8949817518248175,
+      "meanVelocity": 0.03577620797479982,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 3",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.26086418989923965, "grade": "pass" },
+        { "name": "wavelength", "value": 0.35519128220945184, "grade": "fail" },
+        { "name": "speed", "value": 0.03759797079642503, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9548839178772054, "grade": "pass" },
+        { "name": "bout", "value": 0.95, "grade": "pass" }
+      ],
+      "forwardShare": 0.9697080291970803,
+      "meanVelocity": 0.03612088306950577,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 4",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.2137113838341092, "grade": "pass" },
+        { "name": "wavelength", "value": 0.5058684623497024, "grade": "pass" },
+        { "name": "speed", "value": 0.040473714104259075, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9594765194588067, "grade": "pass" },
+        { "name": "bout", "value": 0.15, "grade": "fail" }
+      ],
+      "forwardShare": 0.8711222627737226,
+      "meanVelocity": 0.034247370117089365,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 5",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": null, "grade": "fail" },
+        { "name": "wavelength", "value": null, "grade": "fail" },
+        { "name": "speed", "value": null, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9660313322928591, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ],
+      "forwardShare": 0.5545620437956205,
+      "meanVelocity": 0.021584891205062816,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 6",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.22590653480705836, "grade": "pass" },
+        { "name": "wavelength", "value": 0.37882126709970737, "grade": "fail" },
+        { "name": "speed", "value": 0.034564411668679074, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9491675777997663, "grade": "pass" },
+        { "name": "bout", "value": 0.2, "grade": "fail" }
+      ],
+      "forwardShare": 0.916286496350365,
+      "meanVelocity": 0.029568363087517837,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 7",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.15315522800552742, "grade": "partial" },
+        { "name": "wavelength", "value": 0.773930167813228, "grade": "pass" },
+        { "name": "speed", "value": 0.044078865600410674, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9773450541656604, "grade": "pass" },
+        { "name": "bout", "value": 0.05, "grade": "fail" }
+      ],
+      "forwardShare": 0.8365875912408759,
+      "meanVelocity": 0.035124487993816,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 8",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": null, "grade": "fail" },
+        { "name": "wavelength", "value": null, "grade": "fail" },
+        { "name": "speed", "value": null, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9621070384796315, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ],
+      "forwardShare": 0.37673357664233575,
+      "meanVelocity": 0.007498388702580138,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 9",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": null, "grade": "fail" },
+        { "name": "wavelength", "value": null, "grade": "fail" },
+        { "name": "speed", "value": null, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9644084238358241, "grade": "pass" },
+        { "name": "bout", "value": 0, "grade": "fail" }
+      ],
+      "forwardShare": 0.3728558394160584,
+      "meanVelocity": 0.011262070228772944,
+      "finite": true,
+      "unconverged": 0
+    },
+    {
+      "brain": "rewiring 10",
+      "grade": "fail",
+      "clauses": [
+        { "name": "frequency", "value": 0.2200236266981689, "grade": "pass" },
+        { "name": "wavelength", "value": 0.664766679853544, "grade": "pass" },
+        { "name": "speed", "value": 0.04543729259859943, "grade": "fail" },
+        { "name": "eigenworms", "value": 0.9554619950380061, "grade": "pass" },
+        { "name": "bout", "value": 0.05, "grade": "fail" }
+      ],
+      "forwardShare": 0.9052919708029197,
+      "meanVelocity": 0.03937927280197665,
+      "finite": true,
+      "unconverged": 0
+    }
+  ]
+}

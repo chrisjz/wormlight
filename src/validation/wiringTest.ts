@@ -1,0 +1,106 @@
+// Checkpoint 6, the wiring test (spec §8; PLAN §3.5, §7.4; DECISIONS.md, 2026-10-03): the primary null's ten
+// rewirings, each tuned by track S's procedure in a box of its own. A null is another brain on the same neurons, so a
+// world takes it as its network, with thresholds at its own rest (PLAN §3.3); every layer outside the brain is the real
+// wiring's. Its box takes the rules that set S's: the 1 mV rule for g_sw and g_p on its rest, and θ_osc's floor, the
+// first whole mV above its silenced head-switch drive, each over κ_gap,B's bounds; every other bound is the form's,
+// the same for every brain.
+
+import type { WormlightData } from '../data/schema.ts';
+import { BOUND_RULE_CURVATURE, BOUND_RULE_MV, PARAMS } from '../science/params.ts';
+import { passiveLoads } from '../sim/brain/brain.ts';
+import { cookNetwork, type Network } from '../sim/brain/network.ts';
+import { CONTRAST, contrastData } from '../sim/brain/rewire.ts';
+import { partsOf, type Model } from '../sim/trackS.ts';
+import { loopParams, World } from '../sim/world.ts';
+import { boxOf, provisionalValues, type Box } from './calibration.ts';
+
+// The primary null's rewirings, numbered 1 to 10.
+export const NULLS = Array.from({ length: CONTRAST.rewirings }, (_, k) => k + 1);
+
+export function nullNetwork(data: WormlightData, rewiring: number): Network {
+  if (!NULLS.includes(rewiring))
+    throw new Error(`the primary null has rewirings 1 to ${NULLS.length}, not ${rewiring}`);
+  return cookNetwork(contrastData(data, rewiring));
+}
+
+// Whether an error is the rest solver's: its solve with activations held didn't converge, or the rectifier's gates
+// cycled (src/sim/brain/brain.ts). Any other is a fault, not a brain that can't be built.
+export const unsolvable = (e: unknown): boolean =>
+  e instanceof Error && /did not converge|gates cycle at rest/.test(e.message);
+
+// What the rules read of a brain, unrounded: g_sw's and g_p's ranges by the 1 mV rule, g_p's divided by the curvature
+// at the 95th percentile of real worms', and the highest silenced head-switch drive; and the values of κ_gap,B at
+// which its rest couldn't be solved and why, which the rules leave out.
+export interface RuleReading {
+  headSwitchGain: [number, number];
+  proprioceptiveGain: [number, number];
+  silencedDrive: number;
+  unsolved: { gapGainB: number; why: string }[];
+}
+
+// The rules on a brain, the real wiring's without `network`, on a model's whole loop (its offsets and rectifier), at
+// each of κ_gap,B's bounds; if its rest can't be solved at either, why at each, and the brain can't be built.
+export type Unbuilt = { unbuilt: RuleReading['unsolved'] };
+export function ruleReading(data: WormlightData, model: Model, network?: Network): RuleReading | Unbuilt {
+  const reach = (targets: number[], loads: Float64Array, w: World, range: [number, number]): void => {
+    for (const i of targets) {
+      const rest = w.brain.threshold[i] - w.brain.offset[i];
+      for (const e of [PARAMS.reversalExcitatory.value, PARAMS.reversalInhibitory.value]) {
+        const room = Math.abs(e - rest) - BOUND_RULE_MV;
+        range[0] = Math.min(range[0], loads[i] / room);
+        range[1] = Math.max(range[1], loads[i] * room);
+      }
+    }
+  };
+  const sw: [number, number] = [Infinity, 0];
+  const p: [number, number] = [Infinity, 0];
+  let silencedDrive = -Infinity;
+  const unsolved: RuleReading['unsolved'] = [];
+  for (const gapGainB of PARAMS.gapGainB.bounds ?? []) {
+    const params = { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...partsOf(model) };
+    let w: World;
+    let silenced: World;
+    try {
+      w = new World(data, params, network ? { network } : {});
+      silenced = new World(data, params, { ...(network ? { network } : {}), silenced: true });
+    } catch (e) {
+      if (!unsolvable(e)) throw e;
+      unsolved.push({ gapGainB, why: (e as Error).message });
+      continue;
+    }
+    const loads = passiveLoads(w.brain.restNetwork(), w.brain.restActivations());
+    reach([...w.dorsalSwitch, ...w.ventralSwitch], loads, w, sw);
+    reach(
+      w.fields.map((f) => f.neuron),
+      loads,
+      w,
+      p,
+    );
+    silencedDrive = Math.max(silencedDrive, silenced.headDrive());
+  }
+  if (unsolved.length === (PARAMS.gapGainB.bounds ?? []).length) return { unbuilt: unsolved };
+  return {
+    headSwitchGain: sw,
+    proprioceptiveGain: [p[0] / BOUND_RULE_CURVATURE, p[1] / BOUND_RULE_CURVATURE],
+    silencedDrive,
+    unsolved,
+  };
+}
+
+// Rounded outward to one significant figure, as the registry's bounds were.
+export function outward([lo, hi]: readonly [number, number]): [number, number] {
+  const p = (x: number): number => 10 ** Math.floor(Math.log10(x));
+  return [+(Math.floor(lo / p(lo)) * p(lo)).toPrecision(6), +(Math.ceil(hi / p(hi)) * p(hi)).toPrecision(6)];
+}
+
+// A brain's box in the conductance form: the rules' bounds where they set them, θ_osc's top and every other bound the
+// model's.
+export function ruleBox(reading: RuleReading, model: Model): Box {
+  const box = boxOf('conductance', model);
+  return {
+    ...box,
+    headSwitchGain: outward(reading.headSwitchGain),
+    proprioceptiveGain: outward(reading.proprioceptiveGain),
+    oscillatorDriveThreshold: [Math.floor(reading.silencedDrive) + 1, box.oscillatorDriveThreshold[1]],
+  };
+}
