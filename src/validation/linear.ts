@@ -280,12 +280,13 @@ function complexSolve(re: Float64Array, im: Float64Array, n: number, bre: Float6
 }
 
 // The eigenvector of a known eigenvalue λ = re + i·im, by three steps of inverse iteration from a vector of ones,
-// shifted a relative 10⁻¹⁰ off λ, normalised to unit length with its largest component real and positive.
+// shifted a relative 10⁻¹⁰ off λ, normalised to unit length with its largest component real and positive; with its
+// residual, the largest |(J v − λ v)_i|, which says how well it is one.
 export function eigenvector(
   matrix: ArrayLike<number>,
   n: number,
   lambda: { re: number; im: number },
-): { re: Float64Array; im: Float64Array } {
+): { re: Float64Array; im: Float64Array; residual: number } {
   const shift = { re: lambda.re * (1 + 1e-10) + 1e-12, im: lambda.im * (1 + 1e-10) };
   let xr = new Float64Array(n).fill(1);
   let xi = new Float64Array(n);
@@ -308,14 +309,24 @@ export function eigenvector(
   for (let i = 1; i < n; i++) if (Math.hypot(xr[i], xi[i]) > Math.hypot(xr[k], xi[k])) k = i;
   const m = Math.hypot(xr[k], xi[k]);
   const [cr, ci] = [xr[k] / m, -xi[k] / m];
-  return {
-    re: Float64Array.from(xr, (v, i) => v * cr - xi[i] * ci),
-    im: Float64Array.from(xr, (v, i) => v * ci + xi[i] * cr),
-  };
+  const vr = Float64Array.from(xr, (v, i) => v * cr - xi[i] * ci);
+  const vi = Float64Array.from(xr, (v, i) => v * ci + xi[i] * cr);
+  let residual = 0;
+  for (let i = 0; i < n; i++) {
+    let sr = -(lambda.re * vr[i] - lambda.im * vi[i]);
+    let si = -(lambda.re * vi[i] + lambda.im * vr[i]);
+    for (let j = 0; j < n; j++) {
+      sr += matrix[i * n + j] * vr[j];
+      si += matrix[i * n + j] * vi[j];
+    }
+    residual = Math.max(residual, Math.hypot(sr, si));
+  }
+  return { re: vr, im: vi, residual: Number.isFinite(residual) ? residual : Infinity };
 }
 
-// A real dense LU factorisation with partial pivoting, and its solve.
-function luFactor(a: Float64Array, n: number): Int32Array {
+// A real dense LU factorisation with partial pivoting, swapping whole rows, multipliers included, as LAPACK's getrf
+// does; and its solve, which applies every swap to b first, as getrs does.
+export function luFactor(a: Float64Array, n: number): Int32Array {
   const piv = new Int32Array(n);
   for (let k = 0; k < n; k++) {
     let p = k;
@@ -332,11 +343,9 @@ function luFactor(a: Float64Array, n: number): Int32Array {
   }
   return piv;
 }
-function luSolve(a: Float64Array, piv: Int32Array, n: number, b: Float64Array): void {
-  for (let k = 0; k < n; k++) {
-    if (piv[k] !== k) [b[k], b[piv[k]]] = [b[piv[k]], b[k]];
-    for (let i = k + 1; i < n; i++) b[i] -= a[i * n + k] * b[k];
-  }
+export function luSolve(a: Float64Array, piv: Int32Array, n: number, b: Float64Array): void {
+  for (let k = 0; k < n; k++) if (piv[k] !== k) [b[k], b[piv[k]]] = [b[piv[k]], b[k]];
+  for (let k = 0; k < n; k++) for (let i = k + 1; i < n; i++) b[i] -= a[i * n + k] * b[k];
   for (let i = n - 1; i >= 0; i--) {
     let s = b[i];
     for (let j = i + 1; j < n; j++) s -= a[i * n + j] * b[j];

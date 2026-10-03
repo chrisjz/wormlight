@@ -8,7 +8,7 @@ import { validateWormlightData } from '../src/data/schema.ts';
 import { cookNetwork } from '../src/sim/brain/network.ts';
 import { partsOf } from '../src/sim/trackS.ts';
 import { loopParams, World } from '../src/sim/world.ts';
-import { eigenvalues, eigenvector, linearResponse } from '../src/validation/linear.ts';
+import { eigenvalues, eigenvector, linearResponse, luFactor, luSolve } from '../src/validation/linear.ts';
 import {
   analyse,
   classOf,
@@ -84,6 +84,27 @@ describe('the general eigensolver and the linear response', () => {
       expect(sr).toBeCloseTo(lambda.re * v.re[i] - lambda.im * v.im[i], 10);
       expect(si).toBeCloseTo(lambda.re * v.im[i] + lambda.im * v.re[i], 10);
     }
+  });
+
+  it('solves a system that needs pivoting', () => {
+    let seed = 3;
+    const random = (): number => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647 - 0.5;
+    };
+    const n = 40;
+    const a = Float64Array.from({ length: n * n }, random);
+    const x = Float64Array.from({ length: n }, random);
+    const b = Float64Array.from({ length: n }, (_, i) => {
+      let sum = 0;
+      for (let j = 0; j < n; j++) sum += a[i * n + j] * x[j];
+      return sum;
+    });
+    const lu = Float64Array.from(a);
+    const piv = luFactor(lu, n);
+    expect([...piv].some((p, k) => p !== k)).toBe(true);
+    luSolve(lu, piv, n, b);
+    b.forEach((v, i) => expect(v).toBeCloseTo(x[i], 10));
   });
 
   it("gives ẋ = −2x + 1's x(0.5), (1 − e⁻¹)/2", () => {
@@ -228,6 +249,60 @@ describe("D0's linearisation, held to the CPU reference", () => {
   });
 
   it(
+    "matches the reference step at the fixed point with the oscillators on, their terms and the rectifier's included",
+    { timeout: 60000 },
+    () => {
+      const world = tight();
+      const lin = linearise(world, true);
+      if (!lin) throw new Error('no fixed point');
+      const { n, size, J } = lin;
+      const brain = world.brain;
+      const osc = brain.oscillators;
+      if (!osc) throw new Error('no oscillators');
+      const v0 = 1 / (2 * brain.network.slope);
+      const s0 = Float64Array.from(lin.voltage, (v, i) => {
+        const f = 1 / (1 + Math.exp(-brain.network.slope * (v - brain.threshold[i])));
+        return (brain.network.rise * f) / (brain.network.rise * f + brain.network.decay);
+      });
+      const w0 = Float64Array.from(
+        osc.neurons,
+        (i, k) => ((lin.voltage[i] - brain.threshold[i] - osc.shift[k]) / v0 + 0.7) / 0.8,
+      );
+      const delta = Float64Array.from({ length: n }, (_, i) => 1e-4 * Math.sin(3 * i + 1));
+      const omega = Float64Array.from(w0, (_, k) => 1e-5 * Math.cos(k + 1));
+      const step = (V: Float64Array, w: Float64Array) => {
+        brain.noise = 0;
+        brain.setState(V, s0, 0, w);
+        const dt = 1e-7;
+        brain.step(dt);
+        return {
+          dV: Float64Array.from(brain.voltage, (v, i) => (v - V[i]) / dt),
+          dw: Float64Array.from(brain.recovery, (r, k) => (r - w[k]) / dt),
+        };
+      };
+      const at0 = step(Float64Array.from(lin.voltage), Float64Array.from(w0));
+      const at1 = step(
+        Float64Array.from(lin.voltage, (v, i) => v + delta[i]),
+        Float64Array.from(w0, (v, k) => v + omega[k]),
+      );
+      const names = brain.network.names;
+      // The A-types, AVA, and an A-type's oscillator.
+      for (const name of ['DA3', 'VA5', 'AVAL', 'AVAR']) {
+        const i = names.indexOf(name);
+        let predicted = 0;
+        for (let j = 0; j < n; j++) predicted += J[i * size + j] * delta[j];
+        for (let k = 0; k < osc.neurons.length; k++) predicted += J[i * size + 2 * n + k] * omega[k];
+        expect(at1.dV[i] - at0.dV[i]).toBeCloseTo(predicted, 3);
+      }
+      for (const k of [0, 5, 12]) {
+        const i = osc.neurons[k];
+        const predicted = J[(2 * n + k) * size + i] * delta[i] + J[(2 * n + k) * size + 2 * n + k] * omega[k];
+        expect(at1.dw[k] - at0.dw[k]).toBeCloseTo(predicted, 6);
+      }
+    },
+  );
+
+  it(
     "reads S's fit as stable, with no live mode in the band, and a touch reaching AVA by under 0.4 mV",
     { timeout: 60000 },
     () => {
@@ -240,7 +315,7 @@ describe("D0's linearisation, held to the CPU reference", () => {
       expect(s.touch?.front.receptors.ALML).toBeCloseTo(10.45, 1);
       expect(s.touch?.front.command.AVAL).toBeGreaterThan(0.3);
       expect(s.touch?.front.command.AVAL).toBeLessThan(0.4);
-      expect(readModes(reference, linearise(reference, false)!).objective).toBeLessThan(0);
+      expect(readModes(reference, linearise(reference, false)!, data).objective).toBeLessThan(0);
     },
   );
 });
@@ -252,9 +327,9 @@ describe("D0's readings", () => {
       maxGrowth: -1,
       band: [],
       live: body ? [{ frequency: 0.3, margin: 0.1, growth: -0.1, body: true, participation: 9 }] : [],
+      inPassBand: 0,
       objective: body ? 0.1 : -2,
     },
-    on: null,
     touch: {
       front: {
         command: { AVAL: front, AVAR: front, AVDL: 0, AVDR: 0, AVBL: 0, AVBR: 0, PVCL: 0, PVCR: 0 },
@@ -274,7 +349,12 @@ describe("D0's readings", () => {
     ]);
     expect(both.oscillation).toMatch(/^a live mode of the network/);
     expect(both.touch).toMatch(/can reach/);
-    expect(both.frontAVA).toEqual({ key: 'lhs-1', value: 12 });
+    expect(both.frontAVA).toEqual({ key: 'lhs-1', value: 12, stable: true });
     expect(both.bodyModesOff).toHaveLength(1);
+    expect(both.posterior).toMatch(/can't depolarise AVB/);
+    // A sample that couldn't be read is read no further.
+    const failed = readings([{ key: 'lhs-2', sample: { ...sample(12, true), failed: 'x', failure: 'fixed point' } }]);
+    expect(failed.oscillation).toMatch(/^no linear oscillation/);
+    expect(failed.frontAVA).toBeNull();
   });
 });

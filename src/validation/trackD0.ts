@@ -106,7 +106,8 @@ export function fromUnit(u: readonly number[], fit: Values): { values: Values; g
   PARAMETERS.forEach((id, k) => {
     const [lo, hi] = box[id];
     const t = clip(u[k]);
-    values[id] = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
+    const v = MAPPING[id] === 'log' ? lo * (hi / lo) ** t : lo + (hi - lo) * t;
+    values[id] = Math.min(hi, Math.max(lo, v));
   });
   const [glo, ghi] = GAIN_RANGE;
   const gains = Float64Array.from(u.slice(PARAMETERS.length), (x) => glo * (ghi / glo) ** clip(x));
@@ -303,45 +304,58 @@ export interface Mode {
   margin: number;
   growth: number;
   body?: boolean;
+  // How well its eigenvector is one: the largest |(J v − λ v)_i|.
+  residual?: number;
   participation?: number;
   weights?: Partial<Record<Class, number>>;
   bTypes?: { name: string; amplitude: number; phase: number }[];
 }
 
-// What a condition reads: the largest real part of any mode, the modes in the band, the live ones among them described
-// (the five with the largest margins), and the search's objective.
+// What a condition reads: the largest real part of any mode, the five modes in the band with the largest margins, every
+// live one among them described, how many lie in the pass band, and the search's objective.
 export interface Reading {
   stable: boolean;
   maxGrowth: number;
   band: Mode[];
   live: Mode[];
+  inPassBand: number;
   objective: number;
 }
 
-const bOrder = (name: string): [number, number] => {
-  const m = /^(DB|VB)(\d+)$/.exec(name);
-  return m ? [Number(m[2]), m[1] === 'DB' ? 0 : 1] : [0, 0];
-};
-
-// The modes of a linearised brain, read as the rules read them.
-export function readModes(world: World, lin: Linearised): Reading {
+// The modes of a linearised brain, read as the rules read them. The search's objective: the largest margin among the
+// modes in the band; with none there, the largest margin of any oscillatory mode less 10 and less its distance from
+// the band in Hz, so that any mode in the band ranks above every one outside it (changed by the maintainer after the
+// run's first samples, DECISIONS.md, 2026-10-03); with no oscillatory mode at all, −20.
+export function readModes(world: World, lin: Linearised, data: WormlightData): Reading {
   const { re, im } = eigenvalues(lin.J, lin.size);
   const names = world.brain.network.names;
   const maxGrowth = Math.max(...re);
   const modes: Mode[] = [];
-  let nearest = Infinity;
+  let outside = -Infinity;
+  let inPassBand = 0;
   for (let k = 0; k < re.length; k++) {
     if (!(im[k] > 0)) continue;
     const frequency = im[k] / (2 * Math.PI);
     const margin = re[k] + im[k] / (2 * Math.PI);
-    if (frequency >= BAND[0] && frequency <= BAND[1]) modes.push({ frequency, margin, growth: re[k] });
-    else nearest = Math.min(nearest, frequency < BAND[0] ? BAND[0] - frequency : frequency - BAND[1]);
+    if (frequency >= BAND[0] && frequency <= BAND[1]) {
+      modes.push({ frequency, margin, growth: re[k] });
+      if (frequency >= PASS_BAND[0] && frequency <= PASS_BAND[1]) inPassBand++;
+    } else {
+      const distance = frequency < BAND[0] ? BAND[0] - frequency : frequency - BAND[1];
+      outside = Math.max(outside, margin - 10 - distance);
+    }
   }
   modes.sort((x, y) => y.margin - x.margin);
-  const live = modes.filter((m) => m.margin >= 0).slice(0, 5);
-  const bIndex = names.map((nm, i) => [nm, i] as const).filter(([nm]) => classOf(nm) === 'B');
+  const live = modes.filter((m) => m.margin >= 0);
+  // The B-types from head to tail by their place along the body.
+  const position = new Map(data.neurons.map((nm) => [nm.name, nm.position?.s ?? 0]));
+  const bIndex = names
+    .map((nm, i) => [nm, i] as const)
+    .filter(([nm]) => classOf(nm) === 'B')
+    .sort(([x], [y]) => (position.get(x) ?? 0) - (position.get(y) ?? 0));
   for (const mode of live) {
     const v = eigenvector(lin.J, lin.size, { re: mode.growth, im: mode.frequency * 2 * Math.PI });
+    mode.residual = v.residual;
     const amp = (i: number): number => Math.hypot(v.re[i], v.im[i]);
     let total = 0;
     const weights: Partial<Record<Class, number>> = {};
@@ -355,18 +369,13 @@ export function readModes(world: World, lin: Linearised): Reading {
     const b2 = bIndex.map(([, i]) => amp(i) ** 2);
     const sum2 = b2.reduce((x, y) => x + y, 0);
     const sum4 = b2.reduce((x, y) => x + y * y, 0);
-    mode.participation = sum4 > 0 ? (sum2 * sum2) / sum4 : 0;
+    mode.participation = sum4 > 0 && Number.isFinite(sum4) ? (sum2 * sum2) / sum4 : 0;
     mode.body = mode.participation >= BODY;
     mode.weights = weights;
-    mode.bTypes = [...bIndex]
-      .sort(([x], [y]) => {
-        const [a, b] = [bOrder(x), bOrder(y)];
-        return a[0] - b[0] || a[1] - b[1];
-      })
-      .map(([name, i]) => ({ name, amplitude: amp(i), phase: Math.atan2(v.im[i], v.re[i]) }));
+    mode.bTypes = bIndex.map(([name, i]) => ({ name, amplitude: amp(i), phase: Math.atan2(v.im[i], v.re[i]) }));
   }
-  const objective = modes.length > 0 ? modes[0].margin : -1 - Math.min(nearest, 1);
-  return { stable: maxGrowth < 0, maxGrowth, band: modes.slice(0, 5), live, objective };
+  const objective = modes.length > 0 ? modes[0].margin : Number.isFinite(outside) ? outside : -20;
+  return { stable: maxGrowth < 0, maxGrowth, band: modes.slice(0, 5), live, inPassBand, objective };
 }
 
 // A touch's currents as the world builds them, at the front or the back, as a right-hand side over the linearised
@@ -394,42 +403,58 @@ export function touchResponse(
   };
 }
 
-// A whole sample: both conditions' modes and both touches, or why it couldn't be read.
+// A whole sample: both conditions' modes and both touches; or why it couldn't be read, and at which step: building
+// its world, finding its fixed point with the oscillators on, or the analysis itself. A sample that fails at any step
+// is counted and reported, and read no further (DECISIONS.md, 2026-10-03).
+export type Failure = 'world' | 'fixed point' | 'analysis';
 export interface Sample {
   failed?: string;
+  failure?: Failure;
   off?: Reading;
-  on?: Reading | null;
+  on?: Reading;
   touch?: {
     front: ReturnType<typeof touchResponse>;
     back: ReturnType<typeof touchResponse>;
   };
 }
+const why = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 export function analyse(
   data: WormlightData,
   values: Values,
   gains: ArrayLike<number>,
   pairs: readonly Pair[],
   reference: World,
-  touches = true,
-  base?: Network,
+  options: { touches?: boolean; on?: boolean; base?: Network } = {},
 ): Sample {
+  const { touches = true, on = true, base } = options;
   let world: World;
   try {
     world = sampleWorld(data, values, gains, pairs, base);
   } catch (e) {
-    return { failed: e instanceof Error ? e.message : String(e) };
+    return { failed: why(e), failure: 'world' };
   }
-  const off = linearise(world, false) as Linearised;
-  const offReading = readModes(world, off);
-  const onLin = linearise(world, true);
-  const sample: Sample = { off: offReading, on: onLin ? readModes(world, onLin) : null };
-  if (!onLin) sample.failed = "the fixed point with the oscillators on wasn't found in 100 iterations";
-  if (touches) {
-    // The receptors' currents are the reference world's, S's at gains 1, the same in every sample.
-    sample.touch = {
-      front: touchResponse(world, off, touchInput(reference, FRONT, off)),
-      back: touchResponse(world, off, touchInput(reference, BACK, off)),
-    };
+  try {
+    const off = linearise(world, false) as Linearised;
+    const sample: Sample = { off: readModes(world, off, data) };
+    if (on) {
+      const onLin = linearise(world, true);
+      if (!onLin) {
+        return {
+          failed: "no fixed point with the oscillators on in 100 iterations of Newton's method",
+          failure: 'fixed point',
+        };
+      }
+      sample.on = readModes(world, onLin, data);
+    }
+    if (touches) {
+      // The receptors' currents are the reference world's, S's at gains 1, the same in every sample.
+      sample.touch = {
+        front: touchResponse(world, off, touchInput(reference, FRONT, off)),
+        back: touchResponse(world, off, touchInput(reference, BACK, off)),
+      };
+    }
+    return sample;
+  } catch (e) {
+    return { failed: why(e), failure: 'analysis' };
   }
-  return sample;
 }
