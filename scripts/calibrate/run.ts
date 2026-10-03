@@ -52,12 +52,12 @@
 
 import { fork, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { arch, availableParallelism, cpus, platform, release, totalmem } from 'node:os';
+import { availableParallelism } from 'node:os';
 import type { Network } from '../../src/sim/brain/network.ts';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateWormlightData, type WormlightData } from '../../src/data/schema.ts';
-import { partsOf, TRACK_S, trackSKey, type Model } from '../../src/sim/trackS.ts';
+import { partsOf, TRACK_S, trackSKey, type Model, type TrackSParts } from '../../src/sim/trackS.ts';
 import { CALIBRATED, loopParams, type Form, type LoopParams } from '../../src/sim/world.ts';
 import {
   ALL_TARGETS,
@@ -91,6 +91,7 @@ import { runTrial, type TrialRecord } from '../../src/validation/trial.ts';
 import { formatJson } from '../data/render.ts';
 import { ROOT } from '../data/sources.ts';
 import { commit } from '../harness/commit.ts';
+import { machine } from './machine.ts';
 import { writeWhole } from '../experiments/trees.ts';
 import { readPinned, readPostures } from '../harness/pinned.ts';
 
@@ -146,7 +147,7 @@ let cached: { data: WormlightData; postures: number[][] } | undefined;
 const networks = new Map<number, Network>();
 
 // What a trial ran, as the scorer holds it to the run's: the model's parts as trackSKey names them, and the rewiring.
-export const ranKey = (params: LoopParams, rewiring?: number): string =>
+export const ranKey = (params: TrackSParts, rewiring?: number): string =>
   `${trackSKey(params)}${rewiring === undefined ? '' : `; rewiring ${rewiring}`}`;
 
 // A job's loop parameters: its values in its form, on its model.
@@ -192,40 +193,62 @@ export function checkRan(records: readonly { ran: string }[], model: Model = 'tr
   if (other) throw new Error(`a trial ran the model "${other.ran}", not the "${asked}" the run asked for`);
 }
 
-// A trial of 120 s takes seconds; one still running after this is stuck.
+// A trial of 120 s takes seconds, about 4 on an M5 Max and 12 on the older PC; one still running after this is stuck.
 const TRIAL_TIMEOUT = 300_000; // ms
 // Each worker's heap, so that a worker gone wrong fails alone rather than taking the machine's memory.
 const WORKER_HEAP = '--max-old-space-size=2048';
 
-// A pool of worker processes, each taking one trial at a time. A worker that dies, or runs a trial past
-// TRIAL_TIMEOUT and is killed, fails the job it held, and is never handed another; with `respawn`, as a null's run
-// has it, a fresh worker takes its place, so that a run that carries on past a failed trial keeps its workers.
-class Pool {
+// How a trial failed: it threw, as on a rest that can't be solved, or ran past the timeout, both the candidate's (the
+// rules' failures, DECISIONS.md, 2026-10-03); or its worker stopped or couldn't be reached, which may be the machine's.
+export type FailureKind = 'threw' | 'timeout' | 'stopped';
+export class TrialFailure extends Error {
+  readonly kind: FailureKind;
+  constructor(kind: FailureKind, message: string) {
+    super(message);
+    this.kind = kind;
+  }
+}
+
+// A pool of worker processes, each taking one trial at a time. A worker that dies, or runs a trial past the timeout
+// and is killed, fails the job it held, and is never handed another; with `respawn`, as a null's run has it, a fresh
+// worker takes its place, so that a run that carries on past a stuck trial keeps its workers. A pool left with no
+// worker fails the jobs still waiting.
+export class Pool {
   private readonly idle: ChildProcess[] = [];
   private readonly all: ChildProcess[] = [];
   private readonly waiting: { job: Job; resolve: (r: TrialResult) => void; reject: (e: Error) => void }[] = [];
+  private alive = 0;
   private stopped = false;
   private readonly spawn: () => ChildProcess;
   private readonly respawn: boolean;
-  constructor(count: number, spawn: () => ChildProcess, respawn = false) {
+  private readonly timeout: number;
+  constructor(count: number, spawn: () => ChildProcess, respawn = false, timeout = TRIAL_TIMEOUT) {
     this.spawn = spawn;
     this.respawn = respawn;
+    this.timeout = timeout;
     for (let k = 0; k < count; k++) this.add();
   }
   private add(): void {
     const worker = this.spawn();
     this.all.push(worker);
     this.idle.push(worker);
-    // A send to a dead worker reports through its callback below, not as an unhandled error.
-    worker.on('error', () => undefined);
-    worker.once('exit', () => {
+    this.alive++;
+    let gone = false;
+    const leave = (): void => {
+      if (gone) return;
+      gone = true;
+      this.alive--;
       const k = this.idle.indexOf(worker);
       if (k >= 0) this.idle.splice(k, 1);
-      if (this.respawn && !this.stopped) {
-        this.add();
-        this.next();
-      }
+      if (this.respawn && !this.stopped) this.add();
+      this.next();
+    };
+    // A worker that couldn't be started reports an error and may never exit; a send to a dead one reports through its
+    // callback below.
+    worker.on('error', () => {
+      if (worker.pid === undefined) leave();
     });
+    worker.once('exit', leave);
   }
   stop(): void {
     this.stopped = true;
@@ -238,6 +261,12 @@ class Pool {
     });
   }
   private next(): void {
+    if (this.alive === 0) {
+      for (const { job, reject } of this.waiting.splice(0)) {
+        reject(new TrialFailure('stopped', `no worker was left for seed ${job.seed}`));
+      }
+      return;
+    }
     while (this.idle.length > 0 && this.waiting.length > 0) {
       const worker = this.idle.pop() as ChildProcess;
       const { job, resolve, reject } = this.waiting.shift() as (typeof this.waiting)[number];
@@ -245,27 +274,51 @@ class Pool {
       const timer = setTimeout(() => {
         late = true;
         worker.kill();
-      }, TRIAL_TIMEOUT);
+      }, this.timeout);
       const onExit = (code: number | null, signal: NodeJS.Signals | null): void => {
         clearTimeout(timer);
-        const why = late ? `ran past ${TRIAL_TIMEOUT / 1000} s and was killed` : `exited (${signal ?? code})`;
-        reject(new Error(`a worker ${why} on seed ${job.seed}`));
+        reject(
+          late
+            ? new TrialFailure(
+                'timeout',
+                `a trial ran past ${this.timeout / 1000} s and was killed, on seed ${job.seed}`,
+              )
+            : new TrialFailure('stopped', `a worker exited (${signal ?? code}) on seed ${job.seed}`),
+        );
       };
       worker.once('exit', onExit);
       worker.once('message', (r: Result) => {
         clearTimeout(timer);
         worker.off('exit', onExit);
-        this.idle.push(worker);
-        if (r.error || !r.record) reject(new Error(`seed ${job.seed}: ${r.error ?? 'no record'}`));
+        // A worker whose answer crossed its timeout is being killed, so it isn't handed another job.
+        if (!late) this.idle.push(worker);
+        if (r.error || !r.record) reject(new TrialFailure('threw', `seed ${job.seed}: ${r.error ?? 'no record'}`));
         else resolve(r.record);
         this.next();
       });
       worker.send(job, (e) => {
-        if (e) reject(new Error(`seed ${job.seed} couldn't reach its worker: ${e.message}`));
+        if (e) reject(new TrialFailure('stopped', `seed ${job.seed} couldn't reach its worker: ${e.message}`));
       });
     }
   }
 }
+
+// A null's fit is its first pick (PLAN §9; DECISIONS.md, 2026-10-03), none if that one couldn't be run: its objective
+// infinite, or null as JSON writes it.
+export const nullFit = <T extends { value: number | null }>(picks: readonly T[]): T | null =>
+  picks.length > 0 && picks[0].value !== null && Number.isFinite(picks[0].value) ? picks[0] : null;
+
+// A null's run stops, to be looked into and resumed, when every candidate of a generation failed: that says more about
+// the machine or the setup than the candidates (DECISIONS.md, 2026-10-03).
+export const allFailed = (generation: readonly { failed?: string }[]): string | null =>
+  generation.length > 0 && generation.every((e) => e.failed)
+    ? `every candidate of a generation failed, the first because ${generation[0].failed}: look into the setup, then resume`
+    : null;
+
+// Whether a trial's failure is the candidate's, by the rules (DECISIONS.md, 2026-10-03): it threw, as on a rest that
+// can't be solved, or ran past the timeout. A worker that stopped, which the machine may cause, isn't.
+export const candidateFailure = (e: unknown): e is TrialFailure =>
+  e instanceof TrialFailure && (e.kind === 'threw' || e.kind === 'timeout');
 
 // A trial as the objective takes it, or why it couldn't be run.
 type Ran = KinematicRecord & { unconverged: number; ran: string };
@@ -295,21 +348,6 @@ export function scoreTrials(
     measures,
     ...objective(measures, how.targets, how.goals),
     unconverged: ran.reduce((n, r) => n + r.unconverged, 0),
-  };
-}
-
-// The machine a null's record was made on, for the rules' "one machine and one version of Node" (DECISIONS.md,
-// 2026-10-03): its platform and processor, not its name.
-export function machine(): Record<string, string | number> {
-  const cores = cpus();
-  return {
-    platform: platform(),
-    release: release(),
-    arch: arch(),
-    cpu: cores[0]?.model.trim() ?? 'unknown',
-    cores: cores.length,
-    memoryGB: Math.round(totalmem() / 2 ** 30),
-    node: process.version,
   };
 }
 
@@ -419,7 +457,10 @@ export function settings(budget: number, mode: Mode = 'round 2'): Record<string,
       round: TRACK_S_ROUND,
       survey: SURVEY,
       starts: TRACK_S_ROUND.seeds.map((_, j) => surveyStart(j, 0)),
-      bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id, form, 'track S')])),
+      // A null's are its own box, which its record sets.
+      ...(mode === 'null'
+        ? {}
+        : { bounds: Object.fromEntries(CALIBRATED.map((id) => [id, bounds(id, form, 'track S')])) }),
       ...shared,
       targets: TRACK_S_ROUND.goals,
     };
@@ -517,12 +558,20 @@ export const nullRecord = (rewiring: number): string => join(ROOT, `data/calibra
 // Whether a stopped run may be resumed here: only at the commit it ran at and, for a null's, on the same version of
 // Node, since a V8 change can move a search's path (DECISIONS.md, 2026-10-03); null with the reason it may not.
 export function resumeRefused(
-  resumed: { commit?: string; node?: string },
-  here: { commit: string; node: string },
+  resumed: { commit?: string; node?: string; machine?: Record<string, unknown> },
+  here: { commit: string; node: string; machine?: Record<string, unknown> },
   mode: Mode,
 ): string | null {
   if (resumed.commit !== here.commit) return `it ran at ${resumed.commit ?? 'no commit'}, not ${here.commit}`;
-  if (mode === 'null' && resumed.node !== here.node) return `it ran on Node ${resumed.node ?? '?'}, not ${here.node}`;
+  if (mode !== 'null') return null;
+  if (resumed.node !== here.node) return `it ran on Node ${resumed.node ?? '?'}, not ${here.node}`;
+  // The same machine: everything machine() names but its memory, which WSL can be given more or less of.
+  const same = (m?: Record<string, unknown>): string =>
+    JSON.stringify(Object.entries(m ?? {}).filter(([key]) => key !== 'memoryGB'));
+  if (same(resumed.machine) !== same(here.machine)) {
+    const { cpu, platform } = resumed.machine ?? {};
+    return `it ran on ${typeof cpu === 'string' ? cpu : 'another machine'}${typeof platform === 'string' ? ` (${platform})` : ''}, not this one`;
+  }
   return null;
 }
 
@@ -539,9 +588,24 @@ export const continuedFrom = (
 ): readonly Evaluated[] | undefined => ((own?.length ?? 0) >= (first?.length ?? 0) ? own : first);
 
 // The committed summary: the run without its evaluations, its stages' included.
+// A stage keeps the candidates that couldn't be run, each where it lay and why, which a null's record reports
+// (DECISIONS.md, 2026-10-03); records without any are as they were.
 export function summary(run: Record<string, unknown>): Record<string, unknown> {
-  const without = (o: Record<string, unknown>): Record<string, unknown> =>
-    Object.fromEntries(
+  const failures = (o: Record<string, unknown>): Record<string, unknown> => {
+    const failed = ((o.evaluated ?? []) as Evaluated[]).filter((e) => e.failed);
+    return failed.length > 0
+      ? {
+          failures: failed.map(({ restart, generation, candidate, failed: why }) => ({
+            restart,
+            generation,
+            candidate,
+            failed: why,
+          })),
+        }
+      : {};
+  };
+  const without = (o: Record<string, unknown>): Record<string, unknown> => ({
+    ...Object.fromEntries(
       Object.entries(o)
         .filter(([key]) => key !== 'evaluated')
         .map(([key, v]) => [
@@ -552,7 +616,9 @@ export function summary(run: Record<string, unknown>): Record<string, unknown> {
               )
             : v,
         ]),
-    );
+    ),
+    ...failures(o),
+  });
   return without(run);
 }
 
@@ -585,6 +651,8 @@ if (process.argv.includes('--worker')) {
     runs?: ProbeRun[];
     commit?: string;
     node?: string;
+    machine?: Record<string, unknown>;
+    date?: string;
     complete?: boolean;
     seconds?: number;
   } = { stages: {} };
@@ -605,7 +673,11 @@ if (process.argv.includes('--worker')) {
     resumed = JSON.parse(readFileSync(file, 'utf8')) as typeof resumed & { node?: string };
     // A run resumes only at the commit it ran at, and only if it hasn't finished.
     if (resumed.complete) throw new Error(`${file} holds a finished run: there is nothing to resume`);
-    const refused = resumeRefused(resumed, { commit: committed, node: process.version }, mode);
+    const refused = resumeRefused(
+      resumed,
+      { commit: committed, node: process.version, ...(mode === 'null' ? { machine: machine() } : {}) },
+      mode,
+    );
     if (refused) throw new Error(`${file} can't be resumed here: ${refused}`);
     const counts = Object.entries(resumed.stages).map(([k, v]) => `${k} ${v.evaluated?.length ?? 0}`);
     process.stderr.write(`resuming after ${counts.join(', ')} evaluations\n`);
@@ -648,7 +720,7 @@ if (process.argv.includes('--worker')) {
   if (mode === 'null') {
     const data = validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8')));
     const reading = ruleReading(data, 'track S', nullNetwork(data, rewiring as number));
-    box = reading ? ruleBox(reading, 'track S') : undefined;
+    box = 'unbuilt' in reading ? undefined : ruleBox(reading, 'track S');
     own = { rewiring, data: data.meta.version, machine: machine(), rule: reading, box: box ?? null };
   }
   const replaces = committedRecord(mode, full, existsSync);
@@ -660,9 +732,10 @@ if (process.argv.includes('--worker')) {
   const head = {
     ...settings(options.budget, mode),
     ...own,
-    ...(box ? { bounds: box } : {}),
+    ...(mode === 'null' ? { bounds: box ?? null } : {}),
     commit: committed,
-    date: new Date().toISOString(),
+    // A resumed run keeps the date it started.
+    date: resumed.date ?? new Date().toISOString(),
     node: process.version,
     jobs: options.jobs,
   };
@@ -697,12 +770,18 @@ if (process.argv.includes('--worker')) {
           rewiring
             ? pool.run({ values, form, seed, ...named }).then(
                 (r) => r as Ran,
-                (e: unknown) => ({ failed: e instanceof Error ? e.message : String(e) }),
+                (e: unknown) => {
+                  // Only the candidate's own failures rank it last; a worker that stopped stops the run, to be resumed.
+                  if (!candidateFailure(e)) throw e;
+                  return { failed: e.message };
+                },
               )
             : (pool.run({ values, form, seed, ...named }) as Promise<Ran>),
         ),
       );
-      return scoreTrials(results, { targets, spectral, goals, model, rewiring });
+      const score = scoreTrials(results, { targets, spectral, goals, model, rewiring });
+      if (score.failed) process.stderr.write(`a candidate couldn't be run, ranked last: ${score.failed}\n`);
+      return score;
     };
   const stages: Record<string, Partial<Fit>> = { ...resumed.stages };
   // The probe's and the survey's graded runs, kept through every save, so a resumed run doesn't grade them again.
@@ -845,6 +924,7 @@ if (process.argv.includes('--worker')) {
           previous: continuedFrom(previous(stage), before?.evaluated),
           ...(before ? { extra: [{ from: `phase 1's pick, ${before.final.from}`, values: before.final.values }] } : {}),
           progress: report(stage, budget),
+          ...(mode === 'null' ? { refuse: allFailed } : {}),
         });
       };
       const pick = (seed: number, fit: Fit) => ({ seed, ...fit.final });
@@ -885,9 +965,7 @@ if (process.argv.includes('--worker')) {
       }));
       // Phase 1's ranking, which chose the searches phase 2 continues.
       const ranking = order.map(({ seed, value, from }) => ({ seed, value, from }));
-      // A null's fit is its first pick (PLAN §9; DECISIONS.md, 2026-10-03), none if that one couldn't be run.
-      const first1 = picks[0];
-      const fit = mode === 'null' ? { fit: first1 && Number.isFinite(first1.value) ? first1 : null } : {};
+      const fit = mode === 'null' ? { fit: nullFit(picks) } : {};
       const run = { ...head, complete: true, seconds: elapsed(), stages, phase1, ranking, continued, picks, ...fit };
       // The committed record first, whole, so that a stop between the two writes still leaves the run's result; once it
       // exists the round won't run again.

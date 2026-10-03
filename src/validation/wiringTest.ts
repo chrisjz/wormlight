@@ -23,19 +23,25 @@ export function nullNetwork(data: WormlightData, rewiring: number): Network {
   return cookNetwork(contrastData(data, rewiring));
 }
 
+// Whether an error is the rest solver's: its solve with activations held didn't converge, or the rectifier's gates
+// cycled (src/sim/brain/brain.ts). Any other is a fault, not a brain that can't be built.
+export const unsolvable = (e: unknown): boolean =>
+  e instanceof Error && /did not converge|gates cycle at rest/.test(e.message);
+
 // What the rules read of a brain, unrounded: g_sw's and g_p's ranges by the 1 mV rule, g_p's divided by the curvature
 // at the 95th percentile of real worms', and the highest silenced head-switch drive; and the values of κ_gap,B at
-// which its rest couldn't be solved, which the rules leave out.
+// which its rest couldn't be solved and why, which the rules leave out.
 export interface RuleReading {
   headSwitchGain: [number, number];
   proprioceptiveGain: [number, number];
   silencedDrive: number;
-  unsolved: number[];
+  unsolved: { gapGainB: number; why: string }[];
 }
 
 // The rules on a brain, the real wiring's without `network`, on a model's whole loop (its offsets and rectifier), at
-// each of κ_gap,B's bounds; null if its rest can't be solved at either.
-export function ruleReading(data: WormlightData, model: Model, network?: Network): RuleReading | null {
+// each of κ_gap,B's bounds; if its rest can't be solved at either, why at each, and the brain can't be built.
+export type Unbuilt = { unbuilt: RuleReading['unsolved'] };
+export function ruleReading(data: WormlightData, model: Model, network?: Network): RuleReading | Unbuilt {
   const reach = (targets: number[], loads: Float64Array, w: World, range: [number, number]): void => {
     for (const i of targets) {
       const rest = w.brain.threshold[i] - w.brain.offset[i];
@@ -49,7 +55,7 @@ export function ruleReading(data: WormlightData, model: Model, network?: Network
   const sw: [number, number] = [Infinity, 0];
   const p: [number, number] = [Infinity, 0];
   let silencedDrive = -Infinity;
-  const unsolved: number[] = [];
+  const unsolved: RuleReading['unsolved'] = [];
   for (const gapGainB of PARAMS.gapGainB.bounds ?? []) {
     const params = { ...loopParams({ ...provisionalValues('current'), gapGainB }, 'current'), ...partsOf(model) };
     let w: World;
@@ -57,8 +63,9 @@ export function ruleReading(data: WormlightData, model: Model, network?: Network
     try {
       w = new World(data, params, network ? { network } : {});
       silenced = new World(data, params, { ...(network ? { network } : {}), silenced: true });
-    } catch {
-      unsolved.push(gapGainB);
+    } catch (e) {
+      if (!unsolvable(e)) throw e;
+      unsolved.push({ gapGainB, why: (e as Error).message });
       continue;
     }
     const loads = passiveLoads(w.brain.restNetwork(), w.brain.restActivations());
@@ -71,7 +78,7 @@ export function ruleReading(data: WormlightData, model: Model, network?: Network
     );
     silencedDrive = Math.max(silencedDrive, silenced.headDrive());
   }
-  if (unsolved.length === (PARAMS.gapGainB.bounds ?? []).length) return null;
+  if (unsolved.length === (PARAMS.gapGainB.bounds ?? []).length) return { unbuilt: unsolved };
   return {
     headSwitchGain: sw,
     proprioceptiveGain: [p[0] / BOUND_RULE_CURVATURE, p[1] / BOUND_RULE_CURVATURE],

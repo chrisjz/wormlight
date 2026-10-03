@@ -21,6 +21,7 @@ import { runTrial, type TrialRecord } from '../../../src/validation/trial.ts';
 import { nullNetwork, NULLS } from '../../../src/validation/wiringTest.ts';
 import { formatJson } from '../../data/render.ts';
 import { ROOT } from '../../data/sources.ts';
+import { machine } from '../../calibrate/machine.ts';
 import { commit } from '../../harness/commit.ts';
 import { readPinned, readPostures } from '../../harness/pinned.ts';
 import { writeWhole } from '../trees.ts';
@@ -120,6 +121,9 @@ if (process.argv.includes('--worker')) {
     what: "checkpoint 6's preview, untuned, graded by nothing (DECISIONS.md, 2026-10-03)",
     commit: committed,
     date: new Date().toISOString().slice(0, 10),
+    data: validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8'))).meta.version,
+    machine: machine(),
+    jobs,
     node: process.version,
     seeds: PREVIEW_SEEDS,
     params: currentParams(),

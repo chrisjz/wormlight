@@ -2,8 +2,17 @@
 // that box, the runner's null mode, a candidate whose trial can't be run, and the resume guard.
 
 import { describe, expect, it } from 'vitest';
+import { fork } from 'node:child_process';
+import { join } from 'node:path';
 import {
+  allFailed,
+  candidateFailure,
   checkRan,
+  nullFit,
+  Pool,
+  summary,
+  TrialFailure,
+  type Job,
   parseArgs,
   procedure,
   ranKey,
@@ -25,7 +34,15 @@ import {
   type Scorer,
 } from '../src/validation/calibration.ts';
 import { runTrial } from '../src/validation/trial.ts';
-import { nullNetwork, NULLS, outward, ruleBox, ruleReading } from '../src/validation/wiringTest.ts';
+import {
+  nullNetwork,
+  NULLS,
+  outward,
+  ruleBox,
+  ruleReading,
+  unsolvable,
+  type RuleReading,
+} from '../src/validation/wiringTest.ts';
 import { readJson } from './checks.ts';
 
 const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
@@ -33,9 +50,9 @@ const data = validateWormlightData(readJson('public/data/wormlight.v1.json'));
 describe("a null's box, by the rules that set S's", () => {
   it("gives S's box on the real wiring, every bound of it", () => {
     const reading = ruleReading(data, 'track S');
-    expect(reading).not.toBeNull();
-    expect(reading?.unsolved).toEqual([]);
-    expect(ruleBox(reading as NonNullable<typeof reading>, 'track S')).toEqual(boxOf('conductance', 'track S'));
+    if ('unbuilt' in reading) throw new Error("the real wiring's rest can't be solved");
+    expect(reading.unsolved).toEqual([]);
+    expect(ruleBox(reading, 'track S')).toEqual(boxOf('conductance', 'track S'));
   });
 
   // The ten boxes as the rules give them on the runtime data: a data build that changes the connections' list changes
@@ -43,7 +60,7 @@ describe("a null's box, by the rules that set S's", () => {
   it("gives each rewiring its own, the rules' bounds rounded outward and every other bound the form's", () => {
     const boxes = NULLS.map((k) => {
       const reading = ruleReading(data, 'track S', nullNetwork(data, k));
-      if (!reading) throw new Error(`rewiring ${k} has no solvable rest`);
+      if ('unbuilt' in reading) throw new Error(`rewiring ${k} has no solvable rest`);
       const b = ruleBox(reading, 'track S');
       return [k, b.headSwitchGain, b.proprioceptiveGain, b.oscillatorDriveThreshold[0]];
     });
@@ -60,10 +77,7 @@ describe("a null's box, by the rules that set S's", () => {
       [10, [0.02, 50], [0.0001, 8], -25],
     ]);
     const s = boxOf('conductance', 'track S');
-    const b = ruleBox(
-      ruleReading(data, 'track S', nullNetwork(data, 1)) as NonNullable<ReturnType<typeof ruleReading>>,
-      'track S',
-    );
+    const b = ruleBox(ruleReading(data, 'track S', nullNetwork(data, 1)) as RuleReading, 'track S');
     for (const id of Object.keys(s) as (keyof Box)[]) {
       if (id === 'headSwitchGain' || id === 'proprioceptiveGain') continue;
       expect(b[id][1], id).toBe(s[id][1]);
@@ -169,6 +183,23 @@ describe("the runner's null mode", () => {
     expect(ran.failed).toBeUndefined();
   });
 
+  it('resumes a null only on the machine it ran on, whatever memory WSL is given', () => {
+    const m = {
+      platform: 'linux',
+      release: '5.15',
+      os: '#1 SMP',
+      arch: 'x64',
+      cpu: 'Intel i9-9900X',
+      cores: 20,
+      memoryGB: 16,
+      node: 'v26.7.0',
+    };
+    const here = { commit: 'abc1234', node: 'v26.7.0', machine: { ...m, memoryGB: 26 } };
+    expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0', machine: m }, here, 'null')).toBeNull();
+    const mac = { ...m, platform: 'darwin', cpu: 'Apple M5 Max', cores: 18, arch: 'arm64' };
+    expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0', machine: mac }, here, 'null')).toMatch(/Apple M5 Max/);
+  });
+
   it('resumes only at the same commit and, for a null, the same Node', () => {
     const here = { commit: 'abc1234', node: 'v26.7.0' };
     expect(resumeRefused({ commit: 'abc1234', node: 'v26.7.0' }, here, 'null')).toBeNull();
@@ -176,5 +207,99 @@ describe("the runner's null mode", () => {
     expect(resumeRefused({ commit: 'abc1234', node: 'v24.1.0' }, here, 'null')).toMatch(/Node v24.1.0/);
     // Track S's own guard is the commit's alone, as it was.
     expect(resumeRefused({ commit: 'abc1234', node: 'v24.1.0' }, here, 'track S')).toBeNull();
+  });
+});
+
+describe("a null's failures", () => {
+  it("count a trial that threw or ran past its timeout as the candidate's, and a worker that stopped as not", () => {
+    expect(candidateFailure(new TrialFailure('threw', 'x'))).toBe(true);
+    expect(candidateFailure(new TrialFailure('timeout', 'x'))).toBe(true);
+    expect(candidateFailure(new TrialFailure('stopped', 'x'))).toBe(false);
+    expect(candidateFailure(new Error('x'))).toBe(false);
+    expect(unsolvable(new Error('a solve with activations held did not converge'))).toBe(true);
+    expect(unsolvable(new Error("the rectifier's gates cycle at rest: the iteration found no fixed point"))).toBe(true);
+    expect(unsolvable(new Error('unknown neuron X to lesion'))).toBe(false);
+  });
+
+  it('come back from the pool by kind, a stuck or stopped worker replaced', { timeout: 30000 }, async () => {
+    const worker = join(import.meta.dirname, 'support/pool-worker.ts');
+    const pool = new Pool(2, () => fork(worker), true, 1500);
+    const job = (seed: number): Job => ({ values: {} as Job['values'], form: 'conductance', seed });
+    const kind = (p: Promise<unknown>): Promise<string> =>
+      p.then(
+        () => 'answered',
+        (e: unknown) => (e instanceof TrialFailure ? e.kind : 'other'),
+      );
+    try {
+      expect(await Promise.all([1, 2, 3, 4].map((seed) => kind(pool.run(job(seed)))))).toEqual([
+        'answered',
+        'threw',
+        'stopped',
+        'timeout',
+      ]);
+      // Both workers that went were replaced.
+      expect(await Promise.all([1, 1, 1].map((seed) => kind(pool.run(job(seed)))))).toEqual([
+        'answered',
+        'answered',
+        'answered',
+      ]);
+    } finally {
+      pool.stop();
+    }
+  });
+
+  it('stop a run whose whole generation failed, before recording it', async () => {
+    expect(allFailed([{ failed: 'a' }, { failed: 'b' }])).toMatch(
+      /every candidate of a generation failed, the first because a/,
+    );
+    expect(allFailed([{ failed: 'a' }, {}])).toBeNull();
+    expect(allFailed([])).toBeNull();
+    const measures = { finite: false, bouts: 0, frequency: null, wavelength: null, speed: 0, reversalRate: 0 };
+    const errors = { frequency: 2, wavelength: 2, speed: 2, reversalRate: 2 };
+    const failing: Scorer = () =>
+      Promise.resolve({ measures, value: Infinity, errors, unconverged: 0, failed: 'stuck' });
+    const seen: number[] = [];
+    await expect(
+      calibrate(failing, {
+        form: 'conductance',
+        model: 'track S',
+        budget: 40,
+        refuse: allFailed,
+        progress: (f) => seen.push(f.evaluated.length),
+      }),
+    ).rejects.toThrow(/every candidate/);
+    expect(seen).toEqual([]);
+  });
+
+  it("leave a failed candidate out of the final check, and its record's failures in the summary", async () => {
+    let k = 0;
+    const measures = { finite: true, bouts: 0, frequency: null, wavelength: null, speed: 0, reversalRate: 0 };
+    const errors = { frequency: 0, wavelength: 0, speed: 0, reversalRate: 0 };
+    const some: Scorer = (values) =>
+      Promise.resolve(
+        k++ % 3 === 0
+          ? { measures: { ...measures, finite: false }, value: Infinity, errors, unconverged: 0, failed: 'threw' }
+          : { measures, value: values.headSwitchGain, errors, unconverged: 0 },
+      );
+    const fit = await calibrate(some, { form: 'conductance', model: 'track S', budget: 33, start: surveyStart(0, 0) });
+    const failed = fit.evaluated.filter((e) => e.failed);
+    expect(failed.length).toBeGreaterThan(0);
+    const keys = new Set(failed.map((e) => JSON.stringify(e.values)));
+    expect(fit.checked.some((c) => keys.has(JSON.stringify(c.values)))).toBe(false);
+    const s = summary({ stages: { a: fit, b: { evaluated: [] } } }) as {
+      stages: Record<string, Record<string, unknown>>;
+    };
+    expect(s.stages.a.evaluated).toBeUndefined();
+    expect(s.stages.a.failures).toEqual(
+      failed.map(({ restart, generation, candidate }) => ({ restart, generation, candidate, failed: 'threw' })),
+    );
+    expect(s.stages.b.failures).toBeUndefined();
+  });
+
+  it("take the first pick as a null's fit, and none when it couldn't be run", () => {
+    expect(nullFit([{ value: 1.5 }, { value: 0.5 }])).toEqual({ value: 1.5 });
+    expect(nullFit([{ value: null }, { value: 0.5 }])).toBeNull();
+    expect(nullFit([{ value: Infinity }])).toBeNull();
+    expect(nullFit([])).toBeNull();
   });
 });

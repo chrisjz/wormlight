@@ -391,6 +391,9 @@ export async function calibrate(
     extra?: readonly { from: string; values: Values }[];
     previous?: readonly Evaluated[];
     progress?: (fit: Omit<Fit, 'checked' | 'final'>) => void;
+    // A reason to stop before a generation is recorded, if it gives one: a null's run stops when every candidate of a
+    // generation failed, which says more about the setup than the candidates (DECISIONS.md, 2026-10-03).
+    refuse?: (generation: readonly Evaluated[]) => string | null;
   },
 ): Promise<Fit> {
   const ids = options.ids ?? CALIBRATED;
@@ -464,6 +467,8 @@ export async function calibrate(
         };
       }),
     );
+    const refused = options.refuse?.(results);
+    if (refused) throw new Error(refused);
     evaluated.push(...results);
     const ranked = results.map((e) => e.value + e.penalty);
     const sorted = [...ranked].sort((a, b) => a - b);
@@ -494,7 +499,11 @@ export async function calibrate(
   const seen = new Set<string>();
   const finalists = [
     ...(options.extra ?? []).map((x) => ({ ...x, fit: null as number | null })),
-    ...best(evaluated, CALIBRATION.rechecked).map((e) => ({
+    // A candidate that couldn't be run isn't tried again (DECISIONS.md, 2026-10-03).
+    ...best(
+      evaluated.filter((e) => !e.failed),
+      CALIBRATION.rechecked,
+    ).map((e) => ({
       from: `${restart > 0 ? `restart ${e.restart}, ` : ''}generation ${e.generation}, candidate ${e.candidate}`,
       values: e.values,
       fit: e.value,
