@@ -1,7 +1,19 @@
 {
   "what": "checkpoint 6's preview, untuned, graded by nothing (DECISIONS.md, 2026-10-03)",
-  "commit": "bae4022",
+  "commit": "67e0b44",
   "date": "2026-10-03",
+  "data": "333bf768",
+  "machine": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "os": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:19:08 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6050",
+    "arch": "arm64",
+    "cpu": "Apple M5 Max",
+    "cores": 18,
+    "memoryGB": 128,
+    "node": "v26.7.0"
+  },
+  "jobs": 6,
   "node": "v26.7.0",
   "seeds": [
     4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009, 4010, 4011, 4012, 4013, 4014, 4015, 4016, 4017, 4018, 4019,
@@ -25,7 +37,7 @@
     "restOffsets": "measured",
     "rectified": true
   },
-  "seconds": 156,
+  "seconds": 154,
   "brains": [
     {
       "brain": "the real wiring",
