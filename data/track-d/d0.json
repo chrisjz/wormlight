@@ -1,0 +1,1019 @@
+{
+  "what": "track D0's linear analyses, exploratory and never shipped (DECISIONS.md, 2026-10-03)",
+  "commit": "e5fe53d",
+  "date": "2026-10-03",
+  "machine": {
+    "platform": "darwin",
+    "release": "25.6.0",
+    "os": "Darwin Kernel Version 25.6.0: Fri Jul 31 19:19:08 PDT 2026; root:xnu-12377.161.14~5/RELEASE_ARM64_T6050",
+    "arch": "arm64",
+    "cpu": "Apple M5 Max",
+    "cores": 18,
+    "memoryGB": 128,
+    "node": "v26.7.0"
+  },
+  "jobs": 14,
+  "band": [0.1, 0.6],
+  "passBand": [0.2, 0.45],
+  "pairs": [
+    { "kind": "chemical", "key": "AVA→A", "sections": 282 },
+    { "kind": "chemical", "key": "AVA→AVA", "sections": 19 },
+    { "kind": "chemical", "key": "AVA→AVB", "sections": 9 },
+    { "kind": "chemical", "key": "AVA→AVD", "sections": 14 },
+    { "kind": "chemical", "key": "AVA→AVE", "sections": 8 },
+    { "kind": "chemical", "key": "AVA→B", "sections": 10 },
+    { "kind": "chemical", "key": "AVA→PVC", "sections": 77 },
+    { "kind": "chemical", "key": "AVA→SMD", "sections": 1 },
+    { "kind": "chemical", "key": "AVB→A", "sections": 14 },
+    { "kind": "chemical", "key": "AVB→AVA", "sections": 47 },
+    { "kind": "chemical", "key": "AVB→AVB", "sections": 8 },
+    { "kind": "chemical", "key": "AVB→AVD", "sections": 7 },
+    { "kind": "chemical", "key": "AVB→AVE", "sections": 4 },
+    { "kind": "chemical", "key": "AVB→B", "sections": 3 },
+    { "kind": "chemical", "key": "AVB→D", "sections": 2 },
+    { "kind": "chemical", "key": "AVB→PVC", "sections": 2 },
+    { "kind": "chemical", "key": "AVD→A", "sections": 58 },
+    { "kind": "chemical", "key": "AVD→AVA", "sections": 167 },
+    { "kind": "chemical", "key": "AVD→AVB", "sections": 1 },
+    { "kind": "chemical", "key": "AVD→AVD", "sections": 8 },
+    { "kind": "chemical", "key": "AVD→AVE", "sections": 7 },
+    { "kind": "chemical", "key": "AVD→B", "sections": 2 },
+    { "kind": "chemical", "key": "AVD→PVC", "sections": 3 },
+    { "kind": "chemical", "key": "AVE→A", "sections": 70 },
+    { "kind": "chemical", "key": "AVE→AVA", "sections": 67 },
+    { "kind": "chemical", "key": "AVE→AVD", "sections": 13 },
+    { "kind": "chemical", "key": "AVE→AVE", "sections": 3 },
+    { "kind": "chemical", "key": "AVE→B", "sections": 3 },
+    { "kind": "chemical", "key": "AVE→D", "sections": 2 },
+    { "kind": "chemical", "key": "AVE→PVC", "sections": 3 },
+    { "kind": "chemical", "key": "AVE→front", "sections": 1 },
+    { "kind": "chemical", "key": "A→A", "sections": 51 },
+    { "kind": "chemical", "key": "A→AVA", "sections": 6 },
+    { "kind": "chemical", "key": "A→AVD", "sections": 1 },
+    { "kind": "chemical", "key": "A→AVE", "sections": 1 },
+    { "kind": "chemical", "key": "A→B", "sections": 62 },
+    { "kind": "chemical", "key": "A→D", "sections": 701 },
+    { "kind": "chemical", "key": "A→PVC", "sections": 7 },
+    { "kind": "chemical", "key": "B→A", "sections": 129 },
+    { "kind": "chemical", "key": "B→AVE", "sections": 1 },
+    { "kind": "chemical", "key": "B→B", "sections": 3 },
+    { "kind": "chemical", "key": "B→D", "sections": 770 },
+    { "kind": "chemical", "key": "B→PVC", "sections": 1 },
+    { "kind": "chemical", "key": "D→A", "sections": 76 },
+    { "kind": "chemical", "key": "D→AVA", "sections": 6 },
+    { "kind": "chemical", "key": "D→AVE", "sections": 1 },
+    { "kind": "chemical", "key": "D→B", "sections": 29 },
+    { "kind": "chemical", "key": "D→D", "sections": 38 },
+    { "kind": "chemical", "key": "D→PVC", "sections": 1 },
+    { "kind": "chemical", "key": "PVC→A", "sections": 8 },
+    { "kind": "chemical", "key": "PVC→AVA", "sections": 27 },
+    { "kind": "chemical", "key": "PVC→AVB", "sections": 69 },
+    { "kind": "chemical", "key": "PVC→AVD", "sections": 40 },
+    { "kind": "chemical", "key": "PVC→AVE", "sections": 21 },
+    { "kind": "chemical", "key": "PVC→B", "sections": 59 },
+    { "kind": "chemical", "key": "PVC→PVC", "sections": 16 },
+    { "kind": "chemical", "key": "RMD→AVA", "sections": 1 },
+    { "kind": "chemical", "key": "RMD→AVE", "sections": 3 },
+    { "kind": "chemical", "key": "RMD→RMD", "sections": 188 },
+    { "kind": "chemical", "key": "RMD→SMD", "sections": 2 },
+    { "kind": "chemical", "key": "SMD→AVA", "sections": 1 },
+    { "kind": "chemical", "key": "SMD→AVE", "sections": 4 },
+    { "kind": "chemical", "key": "SMD→B", "sections": 1 },
+    { "kind": "chemical", "key": "SMD→RMD", "sections": 11 },
+    { "kind": "chemical", "key": "SMD→SMD", "sections": 68 },
+    { "kind": "chemical", "key": "back→A", "sections": 6 },
+    { "kind": "chemical", "key": "back→AVA", "sections": 17 },
+    { "kind": "chemical", "key": "back→AVD", "sections": 18 },
+    { "kind": "chemical", "key": "front→A", "sections": 3 },
+    { "kind": "chemical", "key": "front→AVB", "sections": 22 },
+    { "kind": "chemical", "key": "front→AVD", "sections": 5 },
+    { "kind": "chemical", "key": "front→AVE", "sections": 3 },
+    { "kind": "chemical", "key": "front→B", "sections": 1 },
+    { "kind": "chemical", "key": "front→PVC", "sections": 52 },
+    { "kind": "chemical", "key": "front→RMD", "sections": 2 },
+    { "kind": "chemical", "key": "front→SMD", "sections": 1 },
+    { "kind": "chemical", "key": "front→front", "sections": 1 },
+    { "kind": "gap", "key": "AVA–A", "sections": 194 },
+    { "kind": "gap", "key": "AVA–AVA", "sections": 18 },
+    { "kind": "gap", "key": "AVA–AVB", "sections": 3 },
+    { "kind": "gap", "key": "AVA–AVD", "sections": 33 },
+    { "kind": "gap", "key": "AVA–AVE", "sections": 4 },
+    { "kind": "gap", "key": "AVA–B", "sections": 2 },
+    { "kind": "gap", "key": "AVA–D", "sections": 1 },
+    { "kind": "gap", "key": "AVA–PVC", "sections": 52 },
+    { "kind": "gap", "key": "AVA–RMD", "sections": 3 },
+    { "kind": "gap", "key": "AVA–back", "sections": 6 },
+    { "kind": "gap", "key": "AVB–AVB", "sections": 18 },
+    { "kind": "gap", "key": "AVB–B", "sections": 156 },
+    { "kind": "gap", "key": "AVD–A", "sections": 1 },
+    { "kind": "gap", "key": "AVD–AVD", "sections": 6 },
+    { "kind": "gap", "key": "AVD–PVC", "sections": 2 },
+    { "kind": "gap", "key": "AVD–back", "sections": 5 },
+    { "kind": "gap", "key": "AVD–front", "sections": 10 },
+    { "kind": "gap", "key": "AVE–A", "sections": 1 },
+    { "kind": "gap", "key": "AVE–AVE", "sections": 5 },
+    { "kind": "gap", "key": "AVE–RMD", "sections": 17 },
+    { "kind": "gap", "key": "AVE–SMD", "sections": 2 },
+    { "kind": "gap", "key": "A–A", "sections": 50 },
+    { "kind": "gap", "key": "A–B", "sections": 17 },
+    { "kind": "gap", "key": "A–D", "sections": 27 },
+    { "kind": "gap", "key": "B–B", "sections": 85 },
+    { "kind": "gap", "key": "B–D", "sections": 5 },
+    { "kind": "gap", "key": "B–SMD", "sections": 6 },
+    { "kind": "gap", "key": "B–back", "sections": 2 },
+    { "kind": "gap", "key": "D–D", "sections": 139 },
+    { "kind": "gap", "key": "D–SMD", "sections": 5 },
+    { "kind": "gap", "key": "D–back", "sections": 1 },
+    { "kind": "gap", "key": "PVC–A", "sections": 57 },
+    { "kind": "gap", "key": "PVC–B", "sections": 19 },
+    { "kind": "gap", "key": "PVC–D", "sections": 2 },
+    { "kind": "gap", "key": "PVC–PVC", "sections": 67 },
+    { "kind": "gap", "key": "PVC–back", "sections": 12 },
+    { "kind": "gap", "key": "RMD–RMD", "sections": 11 },
+    { "kind": "gap", "key": "RMD–front", "sections": 2 },
+    { "kind": "gap", "key": "SMD–RMD", "sections": 19 },
+    { "kind": "gap", "key": "SMD–SMD", "sections": 1 },
+    { "kind": "gap", "key": "front–front", "sections": 23 }
+  ],
+  "samples": { "hypercube": 20000, "search": 5000, "read": 19999 },
+  "failures": { "hypercube, analysis": 1 },
+  "failed": [{ "key": "lhs-3585", "failure": "analysis", "why": "the QR iteration did not converge in 60 iterations" }],
+  "readings": {
+    "oscillation": "no linear oscillation of the network in the crawl's band among D0's samples",
+    "touch": "linearly, a touch can't reach the command interneurons among D0's samples",
+    "posterior": "linearly, a posterior touch can't depolarise AVB by 10 mV among D0's samples",
+    "bodyModesOff": [],
+    "frontAVA": { "key": "lhs-16582", "value": 0.865009333804987, "stable": true },
+    "backAVB": { "key": "lhs-13296", "value": 0.8886328242584698, "stable": true }
+  },
+  "fit": {
+    "off": {
+      "stable": true,
+      "maxGrowth": -4.195305562306005,
+      "band": [
+        { "frequency": 0.11680995008865586, "margin": -5.0629889586540395, "growth": -5.179798908742695 },
+        { "frequency": 0.12612381796657388, "margin": -5.323646364888697, "growth": -5.449770182855271 },
+        { "frequency": 0.17267536981336773, "margin": -5.454180984245548, "growth": -5.626856354058916 },
+        { "frequency": 0.1010559097797125, "margin": -5.463588138363282, "growth": -5.564644048142995 }
+      ],
+      "live": [],
+      "inPassBand": 0,
+      "objective": -5.0629889586540395
+    },
+    "on": {
+      "stable": true,
+      "maxGrowth": -1.2103500827350817,
+      "band": [
+        { "frequency": 0.13406097010102958, "margin": -4.009176101242656, "growth": -4.143237071343686 },
+        { "frequency": 0.11936438467877082, "margin": -5.004350410052996, "growth": -5.123714794731766 },
+        { "frequency": 0.1257509380812106, "margin": -5.316001069790481, "growth": -5.441752007871692 },
+        { "frequency": 0.10529329528927192, "margin": -5.446916183090598, "growth": -5.5522094783798694 },
+        { "frequency": 0.1722600560192979, "margin": -5.462326779761283, "growth": -5.634586835780581 }
+      ],
+      "live": [],
+      "inPassBand": 0,
+      "objective": -4.009176101242656
+    },
+    "touch": {
+      "front": {
+        "command": {
+          "AVAL": 0.3729720540375993,
+          "AVAR": 0.35271378390332075,
+          "AVDL": 1.2929727556448787,
+          "AVDR": 0.6764695927209954,
+          "AVBL": 0.30987782575998096,
+          "AVBR": 0.27455182255987753,
+          "PVCL": 0.6062744349810931,
+          "PVCR": 0.7479905464979406
+        },
+        "receptors": {
+          "ALML": 10.445779792191871,
+          "ALMR": 10.468445646099036,
+          "AVM": 10.37360653146878,
+          "PLML": 3.4745382991564107,
+          "PLMR": 3.806372369226229,
+          "PVM": 1.3018872605054586
+        }
+      },
+      "back": {
+        "command": {
+          "AVAL": 0.6628160540902686,
+          "AVAR": 0.6392578830662377,
+          "AVDL": 1.0856920599193345,
+          "AVDR": 0.8871218814376293,
+          "AVBL": 0.38136408439983893,
+          "AVBR": 0.34407731768610056,
+          "PVCL": 1.0996949428493092,
+          "PVCR": 1.341294487712212
+        },
+        "receptors": {
+          "ALML": 5.327852378956636,
+          "ALMR": 5.4216190377536275,
+          "AVM": 4.0784190976996655,
+          "PLML": 10.450027271485487,
+          "PLMR": 10.485637845621637,
+          "PVM": 2.8859115305283196
+        }
+      }
+    }
+  },
+  "nulls": {
+    "null-1": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.611978275258816,
+        "band": [
+          { "frequency": 0.1264663688379742, "margin": -4.979764585762712, "growth": -5.1062309546006865 },
+          { "frequency": 0.10128273033947946, "margin": -5.280378369848633, "growth": -5.381661100188113 },
+          { "frequency": 0.12619677566208518, "margin": -5.299918850968027, "growth": -5.426115626630112 },
+          { "frequency": 0.1050696376290428, "margin": -5.428186628058079, "growth": -5.533256265687122 },
+          { "frequency": 0.1126441770894723, "margin": -5.54233043580224, "growth": -5.654974612891713 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -4.979764585762712
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.204859104546772,
+        "band": [
+          { "frequency": 0.1347583743632296, "margin": -3.7252177751573083, "growth": -3.859976149520538 },
+          { "frequency": 0.10843659870483252, "margin": -4.728326699047644, "growth": -4.836763297752476 },
+          { "frequency": 0.10793457066199558, "margin": -4.93078994212281, "growth": -5.038724512784805 },
+          { "frequency": 0.12940497879620635, "margin": -4.991778216329715, "growth": -5.121183195125921 },
+          { "frequency": 0.10913617486998788, "margin": -5.132136830565217, "growth": -5.241273005435205 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.7252177751573083
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.3584713152425295,
+            "AVAR": 0.2944668552629998,
+            "AVDL": 1.1022668887381057,
+            "AVDR": 0.4784754925966091,
+            "AVBL": 0.2628758898692291,
+            "AVBR": 0.18302932433859267,
+            "PVCL": 0.38687020592220445,
+            "PVCR": 0.5105613897542013
+          },
+          "receptors": {
+            "ALML": 6.743655188162494,
+            "ALMR": 9.081602658095308,
+            "AVM": 8.835523930646838,
+            "PLML": 2.2471001842044442,
+            "PLMR": 3.142140195458137,
+            "PVM": 0.8568207652897466
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.6844444681807706,
+            "AVAR": 0.6331904336273088,
+            "AVDL": 0.8999950983278362,
+            "AVDR": 0.7147872392559608,
+            "AVBL": 0.3850770036236321,
+            "AVBR": 0.36424740556620844,
+            "PVCL": 1.0083262272537108,
+            "PVCR": 1.2498345879855683
+          },
+          "receptors": {
+            "ALML": 3.459129278816417,
+            "ALMR": 4.767210244214162,
+            "AVM": 3.2871637928188537,
+            "PLML": 9.708196749373137,
+            "PLMR": 10.142187465174837,
+            "PVM": 2.2889557879760707
+          }
+        }
+      }
+    },
+    "null-2": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.219789881879081,
+        "band": [
+          { "frequency": 0.12011108376389802, "margin": -4.924477382098876, "growth": -5.044588465862773 },
+          { "frequency": 0.1281011441941367, "margin": -4.960699359646503, "growth": -5.088800503840639 },
+          { "frequency": 0.10505286175209703, "margin": -5.162686939881682, "growth": -5.267739801633779 },
+          { "frequency": 0.12817619578006342, "margin": -5.293026647216888, "growth": -5.421202842996951 },
+          { "frequency": 0.12550739685880588, "margin": -5.379438526297744, "growth": -5.5049459231565505 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -4.924477382098876
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2140025168441007,
+        "band": [
+          { "frequency": 0.14671175377267662, "margin": -3.676110642700643, "growth": -3.8228223964733195 },
+          { "frequency": 0.13009906235196045, "margin": -4.88717719886265, "growth": -5.017276261214611 },
+          { "frequency": 0.10361447056549923, "margin": -4.9951337032458065, "growth": -5.098748173811305 },
+          { "frequency": 0.11953580980010473, "margin": -5.0638007578318005, "growth": -5.183336567631906 },
+          { "frequency": 0.10899287951211971, "margin": -5.16038359586512, "growth": -5.26937647537724 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.676110642700643
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.2710923399455764,
+            "AVAR": 0.31079220010015807,
+            "AVDL": 1.0910810805358822,
+            "AVDR": 0.608313231457188,
+            "AVBL": 0.1615178588188446,
+            "AVBR": 0.10551347364480461,
+            "PVCL": 0.39333724264746067,
+            "PVCR": 0.48161916785727094
+          },
+          "receptors": {
+            "ALML": 8.814746155263066,
+            "ALMR": 8.864695269367216,
+            "AVM": 8.138360259804552,
+            "PLML": 2.7254533734229565,
+            "PLMR": 2.872238854712331,
+            "PVM": 0.8501702067791148
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.5290767945374163,
+            "AVAR": 0.6251197375601162,
+            "AVDL": 0.9105880402176401,
+            "AVDR": 0.7136386455798714,
+            "AVBL": 0.2768534796729206,
+            "AVBR": 0.17256004370912678,
+            "PVCL": 0.9687351715854148,
+            "PVCR": 1.1205044391878238
+          },
+          "receptors": {
+            "ALML": 4.464863819260189,
+            "ALMR": 4.433815321456392,
+            "AVM": 2.954443908838942,
+            "PLML": 9.882771854597305,
+            "PLMR": 9.67799143737679,
+            "PVM": 2.1739995865197317
+          }
+        }
+      }
+    },
+    "null-3": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.475514231988494,
+        "band": [
+          { "frequency": 0.11049801455369508, "margin": -4.46508999757545, "growth": -4.575588012129145 },
+          { "frequency": 0.12984838820504713, "margin": -4.762462105740226, "growth": -4.892310493945272 },
+          { "frequency": 0.15135301425236455, "margin": -4.98454043052603, "growth": -5.135893444778395 },
+          { "frequency": 0.10198593125337256, "margin": -5.110041348384973, "growth": -5.212027279638345 },
+          { "frequency": 0.14011867212351875, "margin": -5.209676142935388, "growth": -5.349794815058907 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -4.46508999757545
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2063210332924645,
+        "band": [
+          { "frequency": 0.15374920530102734, "margin": -3.9367794343421485, "growth": -4.090528639643176 },
+          { "frequency": 0.106260357666099, "margin": -4.669444979012427, "growth": -4.775705336678526 },
+          { "frequency": 0.14932437892956482, "margin": -4.723686900701838, "growth": -4.873011279631403 },
+          { "frequency": 0.16771325647728175, "margin": -4.932182273308831, "growth": -5.099895529786113 },
+          { "frequency": 0.11432184923614196, "margin": -5.030021560416223, "growth": -5.1443434096523655 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.9367794343421485
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.3390294047078775,
+            "AVAR": 0.30144749505876506,
+            "AVDL": 1.1520816914384513,
+            "AVDR": 0.5285798009670061,
+            "AVBL": 0.20212335674298923,
+            "AVBR": 0.24822449847967176,
+            "PVCL": 0.3960796914262752,
+            "PVCR": 0.523266108285374
+          },
+          "receptors": {
+            "ALML": 9.235146745855664,
+            "ALMR": 9.998251806531233,
+            "AVM": 9.810746600009058,
+            "PLML": 2.9412912404888956,
+            "PLMR": 3.5023936451329827,
+            "PVM": 0.972477671406802
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.7059768030582797,
+            "AVAR": 0.6110778597035024,
+            "AVDL": 0.9194776250522908,
+            "AVDR": 0.7214583900501694,
+            "AVBL": 0.3162948606316583,
+            "AVBR": 0.3401158149661114,
+            "PVCL": 0.9614807171907829,
+            "PVCR": 1.1648515237596913
+          },
+          "receptors": {
+            "ALML": 4.75437347146944,
+            "ALMR": 5.283619547638375,
+            "AVM": 3.80929355207464,
+            "PLML": 10.104312474407505,
+            "PLMR": 10.408440987203045,
+            "PVM": 2.311234012185833
+          }
+        }
+      }
+    },
+    "null-4": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.474407073575497,
+        "band": [
+          { "frequency": 0.11109096437344007, "margin": -4.909999229981957, "growth": -5.021090194355397 },
+          { "frequency": 0.13570777942074963, "margin": -4.967322369680847, "growth": -5.103030149101596 },
+          { "frequency": 0.11038750870558152, "margin": -5.117376477356775, "growth": -5.227763986062357 },
+          { "frequency": 0.12607557160280788, "margin": -5.250950158841604, "growth": -5.377025730444412 },
+          { "frequency": 0.14989095229200222, "margin": -5.488845395200544, "growth": -5.6387363474925465 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -4.909999229981957
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2001448617651782,
+        "band": [
+          { "frequency": 0.143782593857469, "margin": -3.8457230709713484, "growth": -3.989505664828817 },
+          { "frequency": 0.12605548164567407, "margin": -4.831280738724457, "growth": -4.957336220370132 },
+          { "frequency": 0.10081763329757755, "margin": -4.858930770051593, "growth": -4.95974840334917 },
+          { "frequency": 0.15685628265522147, "margin": -4.916180327632566, "growth": -5.0730366102877875 },
+          { "frequency": 0.12104597374998065, "margin": -5.049884206747039, "growth": -5.170930180497019 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.8457230709713484
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.31622342583902113,
+            "AVAR": 0.3058828487845618,
+            "AVDL": 1.1094715506985766,
+            "AVDR": 0.5160331996486983,
+            "AVBL": 0.1955320247719704,
+            "AVBR": 0.20122145843093306,
+            "PVCL": 0.44400043286300656,
+            "PVCR": 0.5039694740323079
+          },
+          "receptors": {
+            "ALML": 8.085492605276066,
+            "ALMR": 9.213389283204672,
+            "AVM": 9.23896281722063,
+            "PLML": 2.59036290564043,
+            "PLMR": 2.708519503532888,
+            "PVM": 0.8502254389144506
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.5978174631066466,
+            "AVAR": 0.643219568898396,
+            "AVDL": 0.8573820752486544,
+            "AVDR": 0.7032593606905344,
+            "AVBL": 0.30660038072201135,
+            "AVBR": 0.3072707059425682,
+            "PVCL": 1.081578045204319,
+            "PVCR": 1.1770208351580909
+          },
+          "receptors": {
+            "ALML": 4.078506235911379,
+            "ALMR": 4.127258764686556,
+            "AVM": 3.1231009223724278,
+            "PLML": 9.815765186103,
+            "PLMR": 9.252855318098172,
+            "PVM": 2.1120957685778285
+          }
+        }
+      }
+    },
+    "null-5": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.130782671284792,
+        "band": [
+          { "frequency": 0.10961124940060643, "margin": -5.029677125099285, "growth": -5.139288374499891 },
+          { "frequency": 0.10300596674079479, "margin": -5.186390748416022, "growth": -5.289396715156816 },
+          { "frequency": 0.13601267650729307, "margin": -5.270223649724025, "growth": -5.406236326231318 },
+          { "frequency": 0.11152373654001872, "margin": -5.382682352687397, "growth": -5.494206089227415 },
+          { "frequency": 0.12345739939147907, "margin": -5.515780529902538, "growth": -5.639237929294017 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -5.029677125099285
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2013448664774742,
+        "band": [
+          { "frequency": 0.1347293042833769, "margin": -3.7735066634201835, "growth": -3.9082359677035603 },
+          { "frequency": 0.10757819303378127, "margin": -5.026417925579293, "growth": -5.133996118613074 },
+          { "frequency": 0.1149137713704651, "margin": -5.13477577014884, "growth": -5.249689541519305 },
+          { "frequency": 0.10317445983224914, "margin": -5.168166147243194, "growth": -5.271340607075443 },
+          { "frequency": 0.1310743556490587, "margin": -5.170217085048982, "growth": -5.301291440698041 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.7735066634201835
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.29699587886426554,
+            "AVAR": 0.27630440538805645,
+            "AVDL": 1.182112214294947,
+            "AVDR": 0.5048190846850753,
+            "AVBL": 0.2248920695106151,
+            "AVBR": 0.1538374798816563,
+            "PVCL": 0.4076518867553749,
+            "PVCR": 0.4952798567455305
+          },
+          "receptors": {
+            "ALML": 8.451369440187769,
+            "ALMR": 9.121312179823663,
+            "AVM": 9.110510851636734,
+            "PLML": 2.6452501828120223,
+            "PLMR": 3.1684651733981557,
+            "PVM": 0.8974684773065369
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.6105360730112134,
+            "AVAR": 0.5907618658871003,
+            "AVDL": 0.9704749146043564,
+            "AVDR": 0.6654161923994215,
+            "AVBL": 0.39674063386947805,
+            "AVBR": 0.3209592616702124,
+            "PVCL": 1.0030736067790589,
+            "PVCR": 1.168515151252362
+          },
+          "receptors": {
+            "ALML": 4.270919410463553,
+            "ALMR": 4.735774184938131,
+            "AVM": 3.425331618734285,
+            "PLML": 9.851785130831775,
+            "PLMR": 10.140698259242644,
+            "PVM": 2.246459520850533
+          }
+        }
+      }
+    },
+    "null-6": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.515519363751907,
+        "band": [
+          { "frequency": 0.11446176568527497, "margin": -5.015420906281872, "growth": -5.129882671967147 },
+          { "frequency": 0.1414419662975516, "margin": -5.070252852255007, "growth": -5.211694818552559 },
+          { "frequency": 0.10224190581907258, "margin": -5.45527414848498, "growth": -5.5575160543040525 },
+          { "frequency": 0.13134320214513806, "margin": -5.504401824270363, "growth": -5.635745026415501 },
+          { "frequency": 0.10382186506296728, "margin": -5.8841871882497205, "growth": -5.9880090533126875 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -5.015420906281872
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.1597088483531497,
+        "band": [
+          { "frequency": 0.15842782397112096, "margin": -3.7262808296264933, "growth": -3.884708653597614 },
+          { "frequency": 0.10594643991255415, "margin": -4.5443251051769025, "growth": -4.650271545089456 },
+          { "frequency": 0.13423781349978375, "margin": -4.9754482091537335, "growth": -5.109686022653517 },
+          { "frequency": 0.13008564469832098, "margin": -5.104866956095641, "growth": -5.234952600793962 },
+          { "frequency": 0.11071425967989212, "margin": -5.127335864359739, "growth": -5.238050124039631 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.7262808296264933
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.25098109317856054,
+            "AVAR": 0.2821693735046275,
+            "AVDL": 1.1303839284432031,
+            "AVDR": 0.4018043627669071,
+            "AVBL": 0.1676346506159042,
+            "AVBR": 0.12933640338604466,
+            "PVCL": 0.38660909478472244,
+            "PVCR": 0.4553986856735033
+          },
+          "receptors": {
+            "ALML": 9.570117940214228,
+            "ALMR": 7.855122393868121,
+            "AVM": 8.298041099498874,
+            "PLML": 2.9525902248582874,
+            "PLMR": 2.47354272140021,
+            "PVM": 0.8377851685617402
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.5318450546945436,
+            "AVAR": 0.5671572437192886,
+            "AVDL": 0.951819457982396,
+            "AVDR": 0.5886734393388163,
+            "AVBL": 0.3557876402735479,
+            "AVBR": 0.2287400767355857,
+            "PVCL": 0.9523292483099235,
+            "PVCR": 1.1063281897726815
+          },
+          "receptors": {
+            "ALML": 4.936578618168514,
+            "ALMR": 3.743257559710439,
+            "AVM": 2.9451078975331386,
+            "PLML": 10.074466954813618,
+            "PLMR": 9.351438548195715,
+            "PVM": 2.1144167356379486
+          }
+        }
+      }
+    },
+    "null-7": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.4993049755135885,
+        "band": [
+          { "frequency": 0.11877662724781946, "margin": -5.090115954639196, "growth": -5.2088925818870155 },
+          { "frequency": 0.1496639109779366, "margin": -5.238511917529785, "growth": -5.388175828507722 },
+          { "frequency": 0.10169355964107409, "margin": -5.310965408866648, "growth": -5.4126589685077215 },
+          { "frequency": 0.16194570843016587, "margin": -5.344287085019895, "growth": -5.506232793450061 },
+          { "frequency": 0.11745105414985794, "margin": -5.5927976984002745, "growth": -5.710248752550132 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -5.090115954639196
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2090813886358935,
+        "band": [
+          { "frequency": 0.1700905893102086, "margin": -3.7759864638242084, "growth": -3.946077053134417 },
+          { "frequency": 0.10493228267594977, "margin": -4.368474351744186, "growth": -4.473406634420136 },
+          { "frequency": 0.10307800126859876, "margin": -4.682345202115061, "growth": -4.78542320338366 },
+          { "frequency": 0.11900276804706691, "margin": -4.8986638505230955, "growth": -5.017666618570162 },
+          { "frequency": 0.11549326791328703, "margin": -5.034956039280184, "growth": -5.150449307193471 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.7759864638242084
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.2981167303123494,
+            "AVAR": 0.27913517073137567,
+            "AVDL": 0.9835635028895983,
+            "AVDR": 0.516893425081507,
+            "AVBL": 0.21797981115651438,
+            "AVBR": 0.30371205494338666,
+            "PVCL": 0.3776125114074895,
+            "PVCR": 0.5014586965768704
+          },
+          "receptors": {
+            "ALML": 8.515191224786735,
+            "ALMR": 9.202708794655514,
+            "AVM": 8.567315183109628,
+            "PLML": 2.6393946944788533,
+            "PLMR": 3.027528426183797,
+            "PVM": 0.7933122041207001
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.6196016257434771,
+            "AVAR": 0.6260924347220651,
+            "AVDL": 0.7933798702474517,
+            "AVDR": 0.6626138072880481,
+            "AVBL": 0.35478942924259005,
+            "AVBR": 0.4348757400379056,
+            "PVCL": 0.9401965665605796,
+            "PVCR": 1.1800485456154897
+          },
+          "receptors": {
+            "ALML": 4.2993646708716176,
+            "ALMR": 4.620182409338199,
+            "AVM": 3.131940832581387,
+            "PLML": 9.860519298470036,
+            "PLMR": 9.86271901941445,
+            "PVM": 2.0116660908859365
+          }
+        }
+      }
+    },
+    "null-8": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.049744059784045,
+        "band": [
+          { "frequency": 0.14051682489689238, "margin": -4.808240439992041, "growth": -4.948757264888933 },
+          { "frequency": 0.103440256307768, "margin": -4.836885536338165, "growth": -4.9403257926459325 },
+          { "frequency": 0.11578616291986188, "margin": -5.108476773668778, "growth": -5.22426293658864 },
+          { "frequency": 0.233122971863978, "margin": -5.164960451338809, "growth": -5.398083423202786 },
+          { "frequency": 0.14364928809894048, "margin": -5.286741571436764, "growth": -5.430390859535704 }
+        ],
+        "live": [],
+        "inPassBand": 1,
+        "objective": -4.808240439992041
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.1702776327425513,
+        "band": [
+          { "frequency": 0.13774412846976128, "margin": -3.7079910757804613, "growth": -3.8457352042502224 },
+          { "frequency": 0.15266479379637263, "margin": -4.826477159600501, "growth": -4.979141953396874 },
+          { "frequency": 0.11111591526038228, "margin": -4.9255057835717295, "growth": -5.0366216988321115 },
+          { "frequency": 0.10644202284358907, "margin": -5.0316369165899975, "growth": -5.138078939433586 },
+          { "frequency": 0.2447291869424296, "margin": -5.112568715798436, "growth": -5.357297902740866 }
+        ],
+        "live": [],
+        "inPassBand": 1,
+        "objective": -3.7079910757804613
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.31777815247781616,
+            "AVAR": 0.27675198905168774,
+            "AVDL": 1.196991815884347,
+            "AVDR": 0.4753726602494903,
+            "AVBL": 0.21402109338686243,
+            "AVBR": 0.203501945175224,
+            "PVCL": 0.4428176073674264,
+            "PVCR": 0.5177703771860146
+          },
+          "receptors": {
+            "ALML": 8.798642661477885,
+            "ALMR": 9.170494662215663,
+            "AVM": 9.294135034078412,
+            "PLML": 2.7155573935731474,
+            "PLMR": 2.90421628963291,
+            "PVM": 0.7534983467131613
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.6741640969625826,
+            "AVAR": 0.6440281479796252,
+            "AVDL": 0.970001902164313,
+            "AVDR": 0.7217278302822947,
+            "AVBL": 0.40442167334339674,
+            "AVBR": 0.4670676552417365,
+            "PVCL": 1.1176568183577054,
+            "PVCR": 1.2517933366355984
+          },
+          "receptors": {
+            "ALML": 4.433901819967343,
+            "ALMR": 4.411580463229099,
+            "AVM": 3.309283334674351,
+            "PLML": 9.858538388133836,
+            "PLMR": 9.633477174855027,
+            "PVM": 1.9326062830668382
+          }
+        }
+      }
+    },
+    "null-9": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.4803993936954765,
+        "band": [
+          { "frequency": 0.12165829043630336, "margin": -5.213865939568632, "growth": -5.3355242300049355 },
+          { "frequency": 0.14308994333177233, "margin": -5.268599675988505, "growth": -5.411689619320278 },
+          { "frequency": 0.10380550141439514, "margin": -5.28946766041412, "growth": -5.393273161828515 },
+          { "frequency": 0.11155617235531821, "margin": -5.363814593552112, "growth": -5.47537076590743 },
+          { "frequency": 0.10911919185751204, "margin": -5.4811524635277635, "growth": -5.590271655385275 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -5.213865939568632
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2064209401518793,
+        "band": [
+          { "frequency": 0.1265584663920536, "margin": -3.8312593909332424, "growth": -3.957817857325296 },
+          { "frequency": 0.1930905469339209, "margin": -4.477645196219415, "growth": -4.670735743153336 },
+          { "frequency": 0.13561833409028376, "margin": -4.807643808612594, "growth": -4.943262142702878 },
+          { "frequency": 0.1001549656557578, "margin": -4.872232515892118, "growth": -4.972387481547876 },
+          { "frequency": 0.10269544508972682, "margin": -5.073439248618787, "growth": -5.176134693708514 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.8312593909332424
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.2973801263900666,
+            "AVAR": 0.26244579698086373,
+            "AVDL": 1.028668324225169,
+            "AVDR": 0.44713929217404613,
+            "AVBL": 0.18266047140179179,
+            "AVBR": 0.21189169374302133,
+            "PVCL": 0.4376977439007355,
+            "PVCR": 0.5392666678361847
+          },
+          "receptors": {
+            "ALML": 10.047443881120753,
+            "ALMR": 9.812085256777623,
+            "AVM": 9.808740611461566,
+            "PLML": 3.118969184203685,
+            "PLMR": 3.1409973804390687,
+            "PVM": 1.03764093273311
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.5850698087661752,
+            "AVAR": 0.5411772806445518,
+            "AVDL": 0.8574904413448855,
+            "AVDR": 0.6053904280109893,
+            "AVBL": 0.29649343256585764,
+            "AVBR": 0.39418833010675175,
+            "PVCL": 1.0302481517565902,
+            "PVCR": 1.1994863554302868
+          },
+          "receptors": {
+            "ALML": 5.098337470184964,
+            "ALMR": 4.745876604033235,
+            "AVM": 3.5864700868430335,
+            "PLML": 10.171579223550486,
+            "PLMR": 9.745182161135002,
+            "PVM": 2.4157598400076346
+          }
+        }
+      }
+    },
+    "null-10": {
+      "off": {
+        "stable": true,
+        "maxGrowth": -4.504907686148545,
+        "band": [
+          { "frequency": 0.1231064244120453, "margin": -4.823959541065385, "growth": -4.94706596547743 },
+          { "frequency": 0.12328683659296702, "margin": -5.040320355114709, "growth": -5.163607191707675 },
+          { "frequency": 0.14145033398595144, "margin": -5.07568993890349, "growth": -5.217140272889441 },
+          { "frequency": 0.1027999510689992, "margin": -5.302699899016064, "growth": -5.4054998500850635 },
+          { "frequency": 0.13073540018604093, "margin": -5.363469804153264, "growth": -5.4942052043393055 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -4.823959541065385
+      },
+      "on": {
+        "stable": true,
+        "maxGrowth": -1.2082250019201979,
+        "band": [
+          { "frequency": 0.1310398244776649, "margin": -3.7625930554566875, "growth": -3.8936328799343523 },
+          { "frequency": 0.11077913441998198, "margin": -4.846968678703515, "growth": -4.957747813123497 },
+          { "frequency": 0.1474698615092074, "margin": -4.9067448061317815, "growth": -5.054214667640989 },
+          { "frequency": 0.16048876801048367, "margin": -4.959376312897182, "growth": -5.119865080907665 },
+          { "frequency": 0.10996917927304277, "margin": -5.205670126961784, "growth": -5.315639306234827 }
+        ],
+        "live": [],
+        "inPassBand": 0,
+        "objective": -3.7625930554566875
+      },
+      "touch": {
+        "front": {
+          "command": {
+            "AVAL": 0.2871559701500614,
+            "AVAR": 0.31392286066508285,
+            "AVDL": 0.9473966497812993,
+            "AVDR": 0.473121717438151,
+            "AVBL": 0.17377903047448565,
+            "AVBR": 0.0936564319043846,
+            "PVCL": 0.39250697947753527,
+            "PVCR": 0.46316682422412536
+          },
+          "receptors": {
+            "ALML": 7.477844993649035,
+            "ALMR": 9.36357424391084,
+            "AVM": 8.91720419011188,
+            "PLML": 2.4381659378188982,
+            "PLMR": 3.05598676376441,
+            "PVM": 0.8965399422754395
+          }
+        },
+        "back": {
+          "command": {
+            "AVAL": 0.6099630531387451,
+            "AVAR": 0.6505308512691823,
+            "AVDL": 0.7721321421048717,
+            "AVDR": 0.6773965826024949,
+            "AVBL": 0.3040336580006797,
+            "AVBR": 0.1895650312293733,
+            "PVCL": 0.9926362244054776,
+            "PVCR": 1.1199520837498214
+          },
+          "receptors": {
+            "ALML": 3.821685931942216,
+            "ALMR": 4.6619977517623665,
+            "AVM": 3.2257259396113427,
+            "PLML": 9.846355456972768,
+            "PLMR": 9.903668051203285,
+            "PVM": 2.334832010546847
+          }
+        }
+      }
+    }
+  },
+  "hypercube": {
+    "unstableOff": 0,
+    "unstableOn": 10775,
+    "liveInBandOff": 0,
+    "liveInBandOn": 75,
+    "liveInPassBandOff": 0,
+    "liveInPassBandOn": 37,
+    "bodyModeOff": 0,
+    "bodyModeOn": 0,
+    "objectiveOff": {
+      "min": -5.358204773199226,
+      "median": -5.046731527483716,
+      "p95": -4.944419249213184,
+      "max": -4.653150228627335
+    },
+    "touch": {
+      "front": {
+        "AVA": {
+          "min": 0.05238386496374588,
+          "median": 0.3357708728441898,
+          "p95": 0.5238532932672281,
+          "max": 0.865009333804987
+        },
+        "AVD": {
+          "min": 0.21437876240124906,
+          "median": 1.0506553733570354,
+          "p95": 2.1164355294120853,
+          "max": 3.088317066818605
+        },
+        "AVB": {
+          "min": 0.06677022971892303,
+          "median": 0.26178091965979844,
+          "p95": 0.6422353192312039,
+          "max": 1.4407772387620505
+        },
+        "PVC": {
+          "min": 0.22245286414721624,
+          "median": 0.6230787211984216,
+          "p95": 1.1461290657169168,
+          "max": 2.089414350819821
+        },
+        "depolarisedAVA": 19999,
+        "depolarisedAVD": 19999
+      },
+      "back": {
+        "AVA": {
+          "min": 0.18911864857219252,
+          "median": 0.5984188748543318,
+          "p95": 0.9655776504742325,
+          "max": 1.3550437636236567
+        },
+        "AVD": {
+          "min": 0.23700057459225715,
+          "median": 0.9310966000085187,
+          "p95": 1.8463185022197428,
+          "max": 3.1016124889406274
+        },
+        "AVB": {
+          "min": 0.1017077563006703,
+          "median": 0.312684988941236,
+          "p95": 0.4463647403030879,
+          "max": 0.8886328242584698
+        },
+        "PVC": {
+          "min": 0.422601633212206,
+          "median": 1.0839841488641415,
+          "p95": 1.9218604854627455,
+          "max": 3.1784925985938104
+        },
+        "depolarisedAVB": 19999,
+        "depolarisedPVC": 19999
+      },
+      "of": 19999
+    }
+  },
+  "search": { "evaluations": 5000, "best": { "key": "search-274-7", "objective": -3.9851034823979092, "live": 0 } },
+  "seconds": 4169
+}

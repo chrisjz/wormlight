@@ -4201,3 +4201,59 @@ No null's record has been read. The tuning runs on the PC; its first null's memo
 **Reviews.** A review of the first draft verified its facts: the classes and their 78 neurons, the 103 pairs, the dozen strongest, the survey's pace and the budget's arithmetic. It found the search unbuildable as written and short in places that would change results, which the list above carries to D1's rewrite. It also found the label "network-carried" stronger than the model allows, now "a crawl without the head switch". And it found "What to expect" wrong as worded about the refit, now corrected. The maintainer then chose to add D0 first. A second review found D0's first version unbuildable as written: its rest wasn't a fixed point with the oscillators on; it gave the B-types a gate they don't have; its band matched no band of checkpoint 1's; its oscillators-on reading could hardly fail; no gain reached a touch's first synapse; its steady response was undefined where the rest isn't stable; κ_gap,B entered the network at rest, so its sample of S's fit wasn't S's fit; and its search was unspecified. D0 above now settles each, and discloses the review's explorations.
 
 **Status.** D0 set before any of it is built; D1 to be rewritten after D0.
+
+## 2026-10-03 — Track D0, built and run: no linear oscillation of the network in the crawl's band, and a touch reaching AVA by at most 0.87 mV, among 25,011 samples (the search's objective changed by the maintainer after its first samples; revised after review)
+
+**Why.** The order D's rules set (the entry above): D0's build and run before D1's rules are rewritten.
+
+**What is built.**
+
+- `src/validation/linear.ts`: a general eigensolver, by balancing, Hessenberg reduction and Francis's double-shift QR iteration (the classic EISPACK algorithms, as Numerical Recipes gives them); eigenvectors by inverse iteration in complex arithmetic, each with its residual; a dense LU; and a linear system's response to a constant input over a time by the trapezoid rule. Tests hold it to known eigenvalues, a random matrix's trace, the eigen-equation, a system that needs pivoting and an exact response.
+- `src/validation/trackD0.ts`:
+  - the twelve classes and their 118 pairs;
+  - the gains, multiplying the network a world is given, so the CPU reference doesn't change;
+  - the box and the hypercube;
+  - the fixed point with the oscillators on, by Newton's method from the rest;
+  - the Jacobian of voltages, activations and recovery variables;
+  - the modes' reading;
+  - the touch's response over its pulse.
+
+  Tests hold the Jacobian to the reference's own step, its synaptic, oscillator, recovery and rectifier terms included, and the fixed point to the reference staying there.
+
+- `scripts/experiments/d0/run.ts` runs the samples resumably and writes `data/track-d/d0.json`.
+
+**Reviews, and the search's objective, changed by the maintainer after its first samples.** A review of the build ran beside the first run, at `5cdd728`. It found the core right: it checked the Jacobian against a finite difference of its own right-hand side to 10⁻¹⁰, the eigenvalues against J's transpose and a permutation, and the response against a finer step. It also found:
+
+- the search's objective, as the rules wrote it, rewarding a sample for pushing the network's slow in-band modes out of the band, since those sit at margins near −5 and a sample without them scored between −2 and −1;
+- an error past a sample's world ending the run for good;
+- the LU solve applying its row swaps out of order, wrong whenever it pivoted, though no sample it looked at pivoted;
+- only five live modes tested for a body mode;
+- a sample whose fixed point failed still read;
+- no penalty for a candidate outside the box;
+- the record short of the touch figures the rules ask for.
+
+The first run was stopped after 3,585 samples, before its search, and set aside. The maintainer chose that any mode in the band ranks above every one outside it. A sample with none scores its best oscillatory mode's margin less 10 and less its distance from the band in Hz, or −20 with no oscillatory mode. It was chosen knowing the first samples' in-band margins, and the review's reading of 1,630 of them: no live in-band mode with the oscillators off, and a front touch's largest response in AVA, 0.76 mV. Everything else the review found was fixed, and D0 ran again from the start at `e5fe53d`.
+
+**The run.** 25,011 samples in 70 minutes on 14 workers on the M5 Max: S's fit, the ten primary rewirings at it, the hypercube's 20,000 points and the search's 5,000 evaluations. One sample, `lhs-3585`, couldn't be read, its QR iteration unconverged in 60 iterations; it is counted and read no further.
+
+- **The oscillation: none.**
+  - With the oscillators off, every sample's network is stable, and none has a live mode in the crawl's band: not S's fit, not a null, not a point of the hypercube, not the search's.
+  - The modes in the band are the synapses' slow relaxations. Their best margins over the hypercube run from −5.36 to −4.65 s⁻¹, a median of −5.05: each decays by a factor of e within about 0.2 s, where its period is several seconds.
+  - The search came no closer than −3.99.
+  - D0 reads "no linear oscillation of the network in the crawl's band among D0's samples".
+  - With the oscillators on, reported and not read: 10,775 samples are unstable at their fixed point, and 75 have a live mode in the band, 37 of them in the pass band. None spans the B-types. The widest, at 0.51 Hz and growing, has a participation ratio of 5.29 over them, its weight all theirs: the B-types' own oscillators.
+- **The touch: it can't reach the command interneurons, linearly.**
+  - Over the pulse, a front touch depolarises AVA in every sample, by 0.34 mV at the median and 0.87 mV at most, against the reading's 10 mV. AVD reaches 3.09 mV at most.
+  - A back touch depolarises AVB by 0.89 mV at most, and PVC by 3.18.
+  - At S's fit, AVA moves 0.37 mV and AVB 0.38.
+  - The signs are right in every sample, so the pathway is there, an order of magnitude too weak even with every class pair's gain up to 10. The touch classes' own pairs are among those gains: the front receptors' synapses onto AVD, AVB and PVC, the back receptors' onto AVA, AVD and PVC, and their gap junctions. Cook's wiring has no synapse from the front receptors onto AVA, which a front touch reaches through AVD and AVE.
+  - D0 reads "linearly, a touch can't reach the command interneurons among D0's samples", and a posterior touch can't depolarise AVB by 10 mV either.
+- **The nulls** are much like the real wiring. Each is stable with no live mode in the band, its best in-band margin −5.21 to −4.47. A front touch moves AVA 0.28 to 0.36 mV, and a back touch AVB 0.28 to 0.47.
+
+**What it means, and doesn't.** Within D's box, gains up to tenfold on every class pair among the motor circuit and the touch receptors, the network linearised at rest is strongly damped in the crawl's band. It carries a touch to the command interneurons at about a tenth of what the receptors themselves feel. Neither weakness is something class gains of that size undo. If either is to change, it would be through the model's form: how strongly a synapse passes a small voltage change, the sigmoid's slope at rest, or the receptors' currents. That lies outside D's question. As the rules disclosed, D0 is linear at a fixed point: a relaxation oscillation like the head switch's, or the B-types' oscillators coordinated through the body and proprioception, can exist without a live mode there, and D0 leaves the body out.
+
+**Next, by the rules.** The oscillation reading proposes D1's first stage alone, about two days, as a check on it. The touch reading proposes no backward-mode track. Both decisions are the maintainer's, with D1's rewritten rules in the next pull request.
+
+**The record.** `data/track-d/d0.json`, CLAUDE.md's command, and PLAN §9's note on track D say so.
+
+**Status.** Built and run, and revised after review.
