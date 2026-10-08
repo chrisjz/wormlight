@@ -1,0 +1,134 @@
+{
+  "wiring": "null-1",
+  "rewiring": 1,
+  "date": "2026-10-07",
+  "commit": "1190b3e",
+  "data": "333bf768",
+  "machine": {
+    "platform": "linux",
+    "release": "5.15.153.1-microsoft-standard-WSL2",
+    "os": "#1 SMP Fri Mar 29 23:14:13 UTC 2024",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i9-9900X CPU @ 3.50GHz",
+    "cores": 20,
+    "memoryGB": 25,
+    "node": "v26.7.0"
+  },
+  "fit": {
+    "values": {
+      "oscillatorExcitability": 3983.6789527317737,
+      "oscillatorExcitabilityB": 0,
+      "oscillatorRecoveryTime": 0.8605973232299395,
+      "oscillatorDriveThreshold": -10.337036971379193,
+      "headSwitchGain": 50,
+      "proprioceptiveGain": 0.08478437427665958,
+      "gapGainB": 0.20666774269192023,
+      "neuromuscularGain": 40,
+      "neuromuscularThreshold": -0.15824408415517172,
+      "smdGain": 0.10571296656395733,
+      "noiseIntensity": 0.169,
+      "noiseCorrelation": 0.19771658533201716
+    },
+    "value": 0.19382103898011185,
+    "seed": 20,
+    "from": "generation 67, candidate 6"
+  },
+  "box": {
+    "oscillatorExcitability": [300, 5000],
+    "oscillatorExcitabilityB": [0, 5000],
+    "oscillatorRecoveryTime": [0.2, 3],
+    "oscillatorDriveThreshold": [-26, 5],
+    "headSwitchGain": [0.01, 50],
+    "proprioceptiveGain": [0.0001, 6],
+    "gapGainB": [0.1, 1],
+    "neuromuscularGain": [2, 40],
+    "neuromuscularThreshold": [-0.3, 0.8],
+    "smdGain": [0.1, 1],
+    "noiseIntensity": [0, 0.169],
+    "noiseCorrelation": [0.02, 0.2]
+  },
+  "failures": 0,
+  "picks": [
+    { "seed": 20, "value": 0.19382103898011185 },
+    { "seed": 18, "value": 0.20014982942960965 },
+    { "seed": 15, "value": 0.8433910947786964 },
+    { "seed": 12, "value": 0.8668189755591883 }
+  ],
+  "onBound": ["oscillatorExcitabilityB", "headSwitchGain", "neuromuscularGain", "noiseIntensity"],
+  "tuning": {
+    "commit": "7c3212b",
+    "sha256": "a7e25c9dbda5ad814a141635057b8fe419aaeb2cfc6bfcf76b5708f69eaabc44",
+    "rule": {
+      "headSwitchGain": [0.01835687575196002, 48.46725260158366],
+      "proprioceptiveGain": [0.00012689110704251728, 5.985233650211752],
+      "silencedDrive": -26.84515181613459,
+      "unsolved": []
+    }
+  },
+  "checkpoint1": {
+    "grade": "partial",
+    "clauses": [
+      { "name": "frequency", "value": 0.22171532846715328, "grade": "pass" },
+      { "name": "wavelength", "value": 0.5831233330509598, "grade": "pass" },
+      { "name": "speed", "value": 0.09670342511928416, "grade": "partial" },
+      { "name": "eigenworms", "value": 0.9769164557862209, "grade": "pass" },
+      { "name": "bout", "value": 1, "grade": "pass" }
+    ]
+  },
+  "crawls": true,
+  "speed": {
+    "value": 0.09670342511928416,
+    "interval": [0.09536456568272388, 0.09785979390259891],
+    "unmeasured": 0,
+    "atFloor": false
+  },
+  "pacing": {
+    "open": 1,
+    "margin": { "mean": 8.755523014433283, "sd": 0.39334647981940074 },
+    "cycleRate": 0.2228558394160585
+  },
+  "variants": [
+    {
+      "name": "The head switch off, g_sw at 0",
+      "grade": "fail",
+      "forward": 0.00013686131386861315,
+      "meanVelocity": -0.0013139116100684895
+    },
+    {
+      "name": "g_sw at its lower bound",
+      "grade": "fail",
+      "forward": 0.0001824817518248175,
+      "meanVelocity": -0.0013175152429227989
+    },
+    {
+      "name": "The 18 B-types lesioned",
+      "grade": "fail",
+      "forward": 0.3972627737226278,
+      "meanVelocity": 0.0036143297537480227
+    },
+    { "name": "The 21 A-types lesioned", "grade": "fail", "forward": 1, "meanVelocity": 0.037546369879911126 },
+    {
+      "name": "AVBL and AVBR lesioned",
+      "grade": "partial",
+      "forward": 0.9835310218978103,
+      "meanVelocity": 0.08289804229914556
+    }
+  ],
+  "spread": { "neuron": "VA8", "spread": 9.574407182709956, "sigma": 0.169, "tau": 0.19771658533201716 },
+  "later": {
+    "0": "pass",
+    "2": "fail",
+    "3": "fail",
+    "4": { "grade": "fail", "klinokinesis": "absent", "weathervaning": "partial" },
+    "5": {
+      "grade": "fail",
+      "rows": [
+        { "id": "ava-avd", "pass": false },
+        { "id": "avb-pvc", "pass": false },
+        { "id": "pvc", "pass": false },
+        { "id": "ava", "pass": false },
+        { "id": "rim", "pass": false }
+      ]
+    }
+  }
+}

@@ -2,6 +2,9 @@
 // the maintainer's change, a null's grading guards, the summaries, the section, and the harness's options.
 
 import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { checkpoint6Section } from '../scripts/harness/report.ts';
 import { parseArgs } from '../scripts/harness/run.ts';
 import { machineDiffers } from '../scripts/calibrate/machine.ts';
@@ -16,10 +19,10 @@ import {
   type NullRecord,
   type WiringSummary,
 } from '../scripts/harness/wiring.ts';
-import { nullNetwork } from '../src/validation/wiringTest.ts';
+import { LATER, motorHops, nullNetwork, NULLS } from '../src/validation/wiringTest.ts';
 import { validateWormlightData } from '../src/data/schema.ts';
 import { inputConductance } from '../src/sim/brain/brain.ts';
-import { cookNetwork, type Network } from '../src/sim/brain/network.ts';
+import { cookNetwork, rows, type Network } from '../src/sim/brain/network.ts';
 import { currentParams, World } from '../src/sim/world.ts';
 import { boxOf, variants } from '../src/validation/calibration.ts';
 import { symmetricEigen, voltageSpread, widest } from '../src/validation/noiseSpread.ts';
@@ -227,7 +230,11 @@ describe("checkpoint 6's section", () => {
       ),
     ];
     const v = verdicts(gradesOf(real), nulls.map(gradesOf));
-    const section = checkpoint6Section(v, real, nulls);
+    const hops = [
+      { motors: 39, atHops: [0, 26, 13], unreached: 0 },
+      ...nulls.map((_, k) => ({ motors: 39, atHops: [k + 3, 36 - k], unreached: 0 })),
+    ];
+    const section = checkpoint6Section(v, real, nulls, hops);
     expect(section).toContain('### Checkpoint 6: the wiring test');
     expect(section).toContain(
       '| Crawling: checkpoint 1 at least partial | No evidence that the wiring matters | 5 of 10 nulls crawl; the real wiring is partial |',
@@ -247,6 +254,10 @@ describe("checkpoint 6's section", () => {
     expect(section).toContain('Intel i9-9900X, Node v26.7.0');
     expect(section).toContain("What the real wiring got and the nulls don't");
     expect(section).toContain('read in a smoke run before the grading was built');
+    expect(section).toContain('The real wiring has none one hop from a food sensor');
+    expect(section).toContain('the nulls have 7.5 on average (3 to 12)');
+    expect(section).toMatch(/\| The real wiring +\| 0 +\| 26 +\| 13 +\| 0 +\|/);
+    expect(section).toMatch(/\| Rewiring 1 +\| 3 +\| 36 +\| 0 +\| 0 +\|/);
   });
 });
 
@@ -300,7 +311,24 @@ describe("checkpoint 6's records", () => {
 
   it("leave the nulls' records and summaries out of the clean-commit guard, and refuse a verdict without all eleven", () => {
     expect(IGNORED).toEqual([':!*.md', ':!data/calibration/null-*.json', ':!data/checkpoint-6/null-*.json']);
-    expect(() => readSummaries()).toThrow(/missing: null-1, null-2/);
+    const empty = mkdtempSync(join(tmpdir(), 'checkpoint-6-'));
+    try {
+      expect(() => readSummaries(empty)).toThrow(/missing: real, null-1, null-2/);
+    } finally {
+      rmSync(empty, { recursive: true });
+    }
+  });
+
+  it('give the committed verdict: no evidence that the wiring matters, crawling or after', () => {
+    const { real, nulls, verdicts: v } = readSummaries();
+    expect(nulls.map((n) => n.rewiring)).toEqual(NULLS);
+    expect(real.crawls).toBe(true);
+    expect(v.crawling).toEqual({ verdict: 'no evidence that the wiring matters', crawl: 9, of: 10 });
+    for (const k of LATER) {
+      expect(v.later[k].verdict).toBe("no evidence that the wiring matters (the real wiring doesn't pass)");
+      expect(v.later[k].pass).toBe(0);
+    }
+    expect(v.later[3].partial).toBe(1);
   });
 
   it('give a null its own spread, at its own rest', { timeout: 60000 }, () => {
@@ -316,5 +344,42 @@ describe("checkpoint 6's records", () => {
     expect(real.spread).toBeCloseTo(3.94, 2);
     expect(rewired.spread).toBeGreaterThan(0);
     expect(rewired.spread).not.toBe(real.spread);
+  });
+});
+
+describe("the sister project's hop statistic", () => {
+  it("finds Logbook 071's wild type on the real wiring, and shortcuts on every null", () => {
+    expect(motorHops(cookNetwork(data))).toEqual({ motors: 39, atHops: [0, 26, 13], unreached: 0 });
+    const oneHop = [11, 3, 5, 7, 8, 9, 10, 11, 5, 12];
+    for (const k of NULLS) {
+      expect(motorHops(nullNetwork(data, k))).toEqual({
+        motors: 39,
+        atHops: [oneHop[k - 1], 39 - oneHop[k - 1]],
+        unreached: 0,
+      });
+    }
+  });
+
+  it('walks a chemical synapse from its presynaptic neuron only, and a gap junction both ways', () => {
+    const real = cookNetwork(data);
+    const names = ['ASEL', 'ASER', 'AWCL', 'AWCR', 'AWAL', 'AWAR', 'AVAL', 'VB1', 'DA1', 'VA1'];
+    // ASEL → AVAL → VB1 chemically; DA1 → ASER chemically, which leaves DA1 unreached; AVAL gaps to VA1.
+    const network: Network = {
+      ...real,
+      names,
+      chemical: {
+        ...rows(names.length, [
+          [6, 0, 1],
+          [7, 6, 1],
+          [1, 8, 1],
+        ]),
+        reversal: new Float64Array(3),
+      },
+      gap: rows(names.length, [
+        [6, 9, 1],
+        [9, 6, 1],
+      ]),
+    };
+    expect(motorHops(network)).toEqual({ motors: 3, atHops: [0, 2], unreached: 1 });
   });
 });

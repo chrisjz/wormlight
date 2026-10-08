@@ -4396,3 +4396,55 @@ What a touch does reach comes mostly through gap junctions. With every activatio
 **The record.** PLAN §9 and §10, and `VALIDATION.md`'s account of checkpoints 2 to 6, say so. The write-up and the README follow in their own pull requests.
 
 **Status.** Decided by the maintainer, its diagnosis run, and revised after review.
+
+## 2026-10-08 — Checkpoint 6's verdict: no evidence that the wiring matters; nine of the ten rewirings crawl, each paced by the head switch (revised after review)
+
+**Why.** The last of the rules' checkpoints on track S's fit (the entries of 2026-10-03). The ten nulls were tuned and graded on the older PC, and their records were brought into the repository only after the grading's pull request had merged, as the rules asked.
+
+**The runs.**
+
+- **Tuning.** `npm run calibrate -- --null N` at `7c3212b`, #71's merge, on the i9-9900X under WSL2 with Node v26.7.0 and 20 workers. The nulls ran one after another from 3 to 6 October (UTC): 8.5 to 9.2 hours each, 88 hours in all. No candidate failed in any of them.
+- **Grading.** `npm run harness -- --wiring N` for each null, at `1190b3e`, on the same machine and Node, on 7 October. The real wiring's summary is the one graded on the M5 Max at `4db8422` (the entry of 2026-10-03).
+- **Verdict.** `npm run harness -- --checkpoint 6` read the eleven summaries and wrote `VALIDATION.md`'s section. Each null's summary names the hash of the tuning record it was graded from, and each matches its committed record.
+
+**The verdict,** by PLAN §7.4's map with the maintainer's change where the real wiring doesn't pass:
+
+- **Crawling: no evidence that the wiring matters.** Nine of the ten nulls grade partial on checkpoint 1, as the real wiring does. The map asks for 5 or more for this verdict, and 2 or fewer for the wiring to matter.
+- **Checkpoints 2 to 5: no evidence that the wiring matters (the real wiring doesn't pass)** for each, the reading changed after results (2026-10-03); the map as written reads "inconclusive" there. The real wiring fails all four. Among the nine crawling nulls, none passes any of them; rewiring 9 grades partial on checkpoint 3.
+- **The secondary null** stays unrun. The rules tune it only if the primary null's verdict finds that the wiring matters (2026-10-03).
+
+**What the nulls show,** reported and not graded:
+
+- **Most rewired brains fit the crawl better.** Eight of the ten first picks score lower on the search's objective than the real wiring's 0.438: from 0.106 to 0.251. Rewiring 8's scores 0.506 and rewiring 6's 0.664.
+- **They crawl faster.** The nine crawling nulls reach 0.069 to 0.110 body lengths per second, against the real wiring's 0.068: eight of them 0.084 or more, and rewiring 8's 0.069 matching it within their intervals. Rewiring 6 doesn't crawl: it reaches 0.041, with its head switch's drive 2.2 mV above θ_osc where the others' sit 8 to 25 mV above it.
+- **The head switch paces every crawl.** In each crawling null, as in the real wiring, the worm doesn't move with the switch off or at its box's lower bound. Lesioning the B-types leaves each moving forward 38% to 65% of the time.
+- **AVB is the clearest behavioural difference.** Lesioning AVBL and AVBR leaves every crawling null partial, moving forward 98% to 100% of the time, where the real wiring falls to 30% forward, 91% slower, and fails. It was observed, not asked in advance. Each wiring runs at its own fit, so the runs don't separate the real wiring's connections from its fit. The real wiring also sits outside the nulls' range in being the slowest crawler, and its hop count below.
+- **Checkpoint 0 passes** on every crawling null.
+- **Their chemotaxis mechanism:** klinokinesis is absent on every wiring. Weathervaning is reproduced on rewiring 9, as on the real wiring, and partial on rewirings 1 and 8.
+- **Their lesions:** checkpoint 5's AVB + PVC row passes on rewiring 2, and RIM's on rewirings 3 and 7, rows the real wiring fails. None passes all five.
+- **Their noise:** rewiring 7's fit puts σ_n at 0, its lower bound, so that worm runs without noise and its widest spread is 0 mV; rewiring 1's puts it at 0.169, its upper bound.
+
+**The hop statistic** (promised on 2026-10-01; built here): nematode's Logbook 071 counts how many of the 39 A- and B-type motor neurons sit one, two and three hops from its six food sensors (ASEL/R, AWCL/R and AWAL/R). It walks each chemical synapse from its presynaptic neuron and each gap junction both ways.
+
+- On Wormlight's real wiring it gives 0, 26 and 13, the logbook's wild type exactly.
+- The ten nulls have 3 to 12 one hop away, 8.1 on average, and none at three. Logbook 071's eight rewirings had 9.2 on average, under nematode's null, which rewires the gap junctions too. Wormlight's rewires only the chemical synapses, as nematode's chemical-only null does, and on that null Logbook 074 found 8.0 on average, every motor neuron reached at two hops.
+- Two details of the walk differ from nematode's and change nothing here: it walks the network's signed chemical synapses, leaving out the 533 unsigned ones, which add no route on any of the eleven wirings; and it walks AVA's rectified junctions both ways, as nematode does, where honouring the rectifier would move one motor neuron of rewiring 1 from two hops to three (the review's checks).
+- Here the shortcuts don't track the crawl: rewiring 6, which doesn't crawl, has 9, and rewiring 2, with 3, crawls. In this model the crawl doesn't run from the food sensors, so the statistic describes the graphs, as the logbook says of its own reading.
+- `motorHops` in `src/validation/wiringTest.ts` computes it, and the harness reports it in the section for each wiring.
+
+**What it means.** On track S's fit, the crawl gives no evidence of depending on the real wiring: S's procedure finds a head-switch crawl in nine of ten rewired brains, most of them faster. AVB's lesion is the clearest exception, as above. That answers PLAN §7.4's question for this model. It matches the preview on round 3's values, where 6 of 10 untuned scratch rewirings, not `rewire.ts`'s, crawled after one nudge, graded under checkpoint 1's plain count (2026-09-30). The untuned preview on S's values, none partial, measured where each null starts, not where tuning takes it (2026-10-03). Checkpoints 2 to 5 can't say whether the wiring matters, since the real wiring passes none of them. The verdict is about this model and its procedure. It says nothing about whether the worm's wiring matters to the worm.
+
+**Disclosed.** The rules were set before any null's record was read. The real wiring's grades were known when they were set, and so was one look at rewiring 1's early progress in a smoke run (2026-10-03). The previews were known too: the scratch nulls on round 3's values, which pointed to many nulls crawling (2026-09-30), and the ten rewirings untuned on S's values, none partial (2026-10-03). The hop statistic was added to the report after the nulls had been graded, and it grades nothing.
+
+**Review.** A review reran the verdict to a byte-identical page, checked every record's hash, figure and range by script, and checked the hop walk against nematode's script. It found, and the record now has:
+
+- the AVB lesion called the one place the real wiring's connections shape the crawl, where it is the clearest of several differences and the runs don't separate a wiring from its fit;
+- "doesn't depend on the real wiring", stronger than the verdict;
+- the tuning's dates off by a day, and the round-3 preview missing from the disclosures;
+- the like-for-like hop figure, Logbook 074's on nematode's chemical-only null, missing;
+- stale status in the ledger, PLAN and VALIDATION, and smaller wording;
+- the hop test loose, and the section matching hops to wirings without a check.
+
+**The record.** `VALIDATION.md` gives the verdict and every wiring's results; PLAN §3.5, §7.4, §7.5, §9 and its related work, the README and CLAUDE.md say so.
+
+**Status.** Run and graded by rules set before the nulls' records were read; the verdict as the map gives it; revised after review.

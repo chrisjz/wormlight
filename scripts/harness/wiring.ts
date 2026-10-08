@@ -43,7 +43,7 @@ import { ROOT } from '../data/sources.ts';
 export type Wiring = 'real' | number;
 export const wiringName = (w: Wiring): string => (w === 'real' ? 'real' : `null-${w}`);
 export const SUMMARIES = join(ROOT, 'data/checkpoint-6');
-export const summaryPath = (w: Wiring): string => join(SUMMARIES, `${wiringName(w)}.json`);
+export const summaryPath = (w: Wiring, dir = SUMMARIES): string => join(dir, `${wiringName(w)}.json`);
 const STAGES = join(ROOT, 'harness-out/checkpoint-6');
 // Track S's calibration record, whose first pick is the real wiring's fit.
 const TRACK_S_RECORD = join(ROOT, 'data/calibration/s1.json');
@@ -405,10 +405,10 @@ async function write(wiring: Wiring, summary: WiringSummary): Promise<void> {
 }
 
 // The eleven summaries, the real wiring's first, and the verdicts they give; every one must be there.
-export function readSummaries(): { real: WiringSummary; nulls: WiringSummary[]; verdicts: Verdicts } {
+export function readSummaries(dir = SUMMARIES): { real: WiringSummary; nulls: WiringSummary[]; verdicts: Verdicts } {
   const wirings: Wiring[] = ['real', ...NULLS];
-  const missing = wirings.filter((w) => !existsSync(summaryPath(w))).map(wiringName);
+  const missing = wirings.filter((w) => !existsSync(summaryPath(w, dir))).map(wiringName);
   if (missing.length > 0) throw new Error(`checkpoint 6 needs every wiring's summary; missing: ${missing.join(', ')}`);
-  const [real, ...nulls] = wirings.map((w) => JSON.parse(readFileSync(summaryPath(w), 'utf8')) as WiringSummary);
+  const [real, ...nulls] = wirings.map((w) => JSON.parse(readFileSync(summaryPath(w, dir), 'utf8')) as WiringSummary);
   return { real, nulls, verdicts: verdicts(gradesOf(real), nulls.map(gradesOf)) };
 }

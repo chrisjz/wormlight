@@ -151,8 +151,8 @@ export function statusText(values: string): string {
     "network's own: the head switch, a layer the spec permits, paces it at its strongest gain, the B-type motor neurons " +
     "have no oscillator, and the worm hardly reverses. Checkpoint 0 passes on it, and half the sensitivity runs' " +
     'settings stay partial (`VALIDATION.md`). Of the checkpoints that need crawling, the touch reflexes, ' +
-    'chemotaxis and the lesions, checkpoints 2 to 5, fail on it, and checkpoint 6 is open and not yet run. ' +
-    'Only checkpoints 0 to 5 and the sensitivity runs have run, so "Tested by" lists the checks planned for each part. ' +
+    'chemotaxis and the lesions, checkpoints 2 to 5, fail on it, and checkpoint 6, the wiring test, finds no evidence that the wiring matters, nine of ten ' +
+    'rewired brains crawling once tuned (DECISIONS.md, 2026-10-08). "Tested by" lists the checks planned for each part. ' +
     `The calibrated parameters are track S's fit's, ${values} (DECISIONS.md, 2026-10-02).`
   );
 }
