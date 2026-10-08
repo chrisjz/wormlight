@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 284" width="720" height="284" role="img" aria-label="Forward share with the head switch off and with classes lesioned, for every wiring">
+<style>
+svg { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --grid: #d1d9e0; --band: #eef1f4; --real: #cf222e; --null: #0969da; }
+@media (prefers-color-scheme: dark) {
+  svg { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --grid: #3d444d; --band: #1c2128; --real: #ff7b72; --null: #4493f8; }
+}
+.bg { fill: var(--bg); }
+text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 13px; fill: var(--fg); }
+.muted { fill: var(--muted); font-size: 12px; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.band { fill: var(--band); }
+.real { fill: var(--real); stroke: var(--real); }
+.null { fill: var(--null); stroke: var(--null); }
+.hollow { fill: none; stroke: var(--null); stroke-width: 1.5; }
+.line { fill: none; stroke: var(--fg); stroke-width: 2; }
+.dash { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.fade { opacity: 0.45; }
+</style>
+<rect width="720" height="284" class="bg"/>
+<line x1="190" y1="46" x2="696" y2="46" class="grid"/>
+<text x="178" y="50" text-anchor="end">Head switch off</text>
+<circle cx="190.1" cy="38" r="4.5" class="null"/>
+<circle cx="190" cy="42" r="4.5" class="null"/>
+<circle cx="190" cy="46" r="4.5" class="null"/>
+<circle cx="190" cy="50" r="4.5" class="null"/>
+<circle cx="190" cy="54" r="4.5" class="null"/>
+<circle cx="240.4" cy="38" r="4.5" class="hollow"/>
+<circle cx="190" cy="42" r="4.5" class="null"/>
+<circle cx="191.5" cy="46" r="4.5" class="null"/>
+<circle cx="190" cy="50" r="4.5" class="null"/>
+<circle cx="190" cy="54" r="4.5" class="null"/>
+<path d="M 190 38 l 7 8 l -7 8 l -7 -8 z" class="real"/>
+<line x1="190" y1="90" x2="696" y2="90" class="grid"/>
+<text x="178" y="94" text-anchor="end">B-types lesioned</text>
+<circle cx="391" cy="82" r="4.5" class="null"/>
+<circle cx="504.7" cy="86" r="4.5" class="null"/>
+<circle cx="414.1" cy="90" r="4.5" class="null"/>
+<circle cx="437.2" cy="94" r="4.5" class="null"/>
+<circle cx="384.2" cy="98" r="4.5" class="null"/>
+<circle cx="417.1" cy="82" r="4.5" class="hollow"/>
+<circle cx="443.9" cy="86" r="4.5" class="null"/>
+<circle cx="483" cy="90" r="4.5" class="null"/>
+<circle cx="420.8" cy="94" r="4.5" class="null"/>
+<circle cx="519.8" cy="98" r="4.5" class="null"/>
+<path d="M 509.2 82 l 7 8 l -7 8 l -7 -8 z" class="real"/>
+<line x1="190" y1="134" x2="696" y2="134" class="grid"/>
+<text x="178" y="138" text-anchor="end">A-types lesioned</text>
+<circle cx="696" cy="126" r="4.5" class="null"/>
+<circle cx="275.4" cy="130" r="4.5" class="null"/>
+<circle cx="660.3" cy="134" r="4.5" class="null"/>
+<circle cx="696" cy="138" r="4.5" class="null"/>
+<circle cx="696" cy="142" r="4.5" class="null"/>
+<circle cx="633.5" cy="126" r="4.5" class="hollow"/>
+<circle cx="332.6" cy="130" r="4.5" class="null"/>
+<circle cx="438.6" cy="134" r="4.5" class="null"/>
+<circle cx="410.5" cy="138" r="4.5" class="null"/>
+<circle cx="664.4" cy="142" r="4.5" class="null"/>
+<path d="M 557.7 126 l 7 8 l -7 8 l -7 -8 z" class="real"/>
+<line x1="190" y1="178" x2="696" y2="178" class="grid"/>
+<text x="178" y="182" text-anchor="end">AVB lesioned</text>
+<circle cx="687.7" cy="170" r="4.5" class="null"/>
+<circle cx="696" cy="174" r="4.5" class="null"/>
+<circle cx="695.4" cy="178" r="4.5" class="null"/>
+<circle cx="696" cy="182" r="4.5" class="null"/>
+<circle cx="696" cy="186" r="4.5" class="null"/>
+<circle cx="587.9" cy="170" r="4.5" class="hollow"/>
+<circle cx="696" cy="174" r="4.5" class="null"/>
+<circle cx="696" cy="178" r="4.5" class="null"/>
+<circle cx="695.5" cy="182" r="4.5" class="null"/>
+<circle cx="686.6" cy="186" r="4.5" class="null"/>
+<path d="M 343.1 170 l 7 8 l -7 8 l -7 -8 z" class="real"/>
+<line x1="190" y1="200" x2="696" y2="200" class="grid"/>
+<line x1="190" y1="200" x2="190" y2="205" class="grid"/>
+<text x="190" y="220" class="muted" text-anchor="middle">0%</text>
+<line x1="316.5" y1="200" x2="316.5" y2="205" class="grid"/>
+<text x="316.5" y="220" class="muted" text-anchor="middle">25%</text>
+<line x1="443" y1="200" x2="443" y2="205" class="grid"/>
+<text x="443" y="220" class="muted" text-anchor="middle">50%</text>
+<line x1="569.5" y1="200" x2="569.5" y2="205" class="grid"/>
+<text x="569.5" y="220" class="muted" text-anchor="middle">75%</text>
+<line x1="696" y1="200" x2="696" y2="205" class="grid"/>
+<text x="696" y="220" class="muted" text-anchor="middle">100%</text>
+<text x="443" y="242" text-anchor="middle">Share of checkpoint 1's measured samples moving forward</text>
+<path d="M 196 258 l 7 8 l -7 8 l -7 -8 z" class="real"/>
+<text x="208" y="270" class="muted">real wiring</text>
+<circle cx="306" cy="266" r="4.5" class="null"/>
+<text x="316" y="270" class="muted">rewiring that crawls</text>
+<circle cx="476" cy="266" r="4.5" class="hollow"/>
+<text x="486" y="270" class="muted">rewiring that doesn't</text>
+</svg>

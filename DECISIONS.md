@@ -4448,3 +4448,31 @@ What a touch does reach comes mostly through gap junctions. With every activatio
 **The record.** `VALIDATION.md` gives the verdict and every wiring's results; PLAN §3.5, §7.4, §7.5, §9 and its related work, the README and CLAUDE.md say so.
 
 **Status.** Run and graded by rules set before the nulls' records were read; the verdict as the map gives it; revised after review.
+
+## 2026-10-08 — The write-up: REPORT.md, with figures drawn from the records, and the README's plain-language paragraph (the form chosen by the maintainer; revised after review)
+
+**Why.** The finish line (2026-10-03) left a write-up of every result, negatives included, and a plain-language paragraph in the README, before release 0.3.0.
+
+**The maintainer's choices,** each as recommended:
+
+- **The form:** a self-contained technical report in the repository, `REPORT.md` at its root, written for computational neuroscientists and _C. elegans_ modellers and shipped with 0.3.0, rather than a preprint draft or a short post. It gives the question, the rules, the model, how the work went, every checkpoint's result, the diagnosis, what it means, its limits, what is reusable and the future work, and points to `VALIDATION.md` and this log for detail.
+- **The figures:** five, drawn by `npm run docs:figures` (`scripts/docs/figures.ts`) as SVGs in `docs/images/report/` from committed records only: checkpoint 6's summaries, the reflex diagnosis and the runtime data. Each carries its own background, so it reads in either theme. CI fails when a figure is stale, as it does for `FIDELITY.md`.
+
+**What it adds.** No new result. Every figure in it comes from `VALIDATION.md`, this log or a committed record, and every paper it cites is in the citation registry, its reference list taken from it. It counts the physiology-based signs from the runtime data: 51, seven from Chalasani et al. 2007 and 44 from track S's audit.
+
+**Review.** A review checked every number in the report against this log, `VALIDATION.md` and the records, finding none wrong, and every reference against the registry. It found, and the report now has:
+
+- the conclusion stated as "can't emerge", where the finish line adopted "doesn't emerge", and the missing reversal put on the model class alone, where the drives, the efficacy runs and the missing backward mode were shown on fits;
+- D0's sampling stated as covering every class-pair gain, where it sampled 25,011 points;
+- the frequency band, itself a change after results, given only as set before S ran;
+- every synapse said to rest at the sigmoid's midpoint, against the D-types' offset;
+- "no reversal" in checkpoints 2 to 5, where checkpoint 4's worms reverse at the wall;
+- its lessons crediting the silenced network with exposing the head switch, and saying that graded synapses relay only small signals, where they attenuate them;
+- R's additions, the sensitivity settings, the touch checkpoints' clauses and Liu et al.'s recordings stated loosely;
+- the previews and changes after results in its limits incomplete, and real-worm figures without their sources;
+- in the README's paragraph, three phrases that claimed too much;
+- in the figures, a dropped row, a latent colour fallback and a misleading comment.
+
+**The record.** The README links it and gives the plain-language paragraph; CLAUDE.md gives the figures' command, and PLAN §9 notes it.
+
+**Status.** Written, and revised after review; release 0.3.0 follows in its own pull request.
