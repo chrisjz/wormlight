@@ -75,9 +75,8 @@ describe('the status', () => {
   });
 
   it('warns that "Tested by" lists planned checks, and names the calibrated values it runs on', () => {
-    expect(status).toContain(
-      'Only checkpoints 0 to 5 and the sensitivity runs have run, so "Tested by" lists the checks planned',
-    );
+    expect(status).toContain('checkpoint 6, the wiring test, finds no evidence that the wiring matters');
+    expect(status).toContain('"Tested by" lists the checks planned for each part');
     expect(status).toMatch(
       /The calibrated parameters are track S's fit's, shown below rounded from its fit, 3 of them on a bound/,
     );

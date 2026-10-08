@@ -1,0 +1,123 @@
+{
+  "wiring": "null-6",
+  "rewiring": 6,
+  "date": "2026-10-07",
+  "commit": "1190b3e",
+  "data": "333bf768",
+  "machine": {
+    "platform": "linux",
+    "release": "5.15.153.1-microsoft-standard-WSL2",
+    "os": "#1 SMP Fri Mar 29 23:14:13 UTC 2024",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) i9-9900X CPU @ 3.50GHz",
+    "cores": 20,
+    "memoryGB": 25,
+    "node": "v26.7.0"
+  },
+  "fit": {
+    "values": {
+      "oscillatorExcitability": 4481.694227989531,
+      "oscillatorExcitabilityB": 4935.701241775241,
+      "oscillatorRecoveryTime": 3,
+      "oscillatorDriveThreshold": -4.069996958919155,
+      "headSwitchGain": 50,
+      "proprioceptiveGain": 0.09518129708509801,
+      "gapGainB": 0.35198140316339127,
+      "neuromuscularGain": 40,
+      "neuromuscularThreshold": -0.16568908146398728,
+      "smdGain": 0.3973347567416261,
+      "noiseIntensity": 0.09685574469884724,
+      "noiseCorrelation": 0.2
+    },
+    "value": 0.6641064750854218,
+    "seed": 22,
+    "from": "generation 64, candidate 4"
+  },
+  "box": {
+    "oscillatorExcitability": [300, 5000],
+    "oscillatorExcitabilityB": [0, 5000],
+    "oscillatorRecoveryTime": [0.2, 3],
+    "oscillatorDriveThreshold": [-25, 5],
+    "headSwitchGain": [0.01, 50],
+    "proprioceptiveGain": [0.0002, 8],
+    "gapGainB": [0.1, 1],
+    "neuromuscularGain": [2, 40],
+    "neuromuscularThreshold": [-0.3, 0.8],
+    "smdGain": [0.1, 1],
+    "noiseIntensity": [0, 0.169],
+    "noiseCorrelation": [0.02, 0.2]
+  },
+  "failures": 0,
+  "picks": [
+    { "seed": 22, "value": 0.6641064750854218 },
+    { "seed": 17, "value": 0.8122126136144325 },
+    { "seed": 24, "value": 0.8135497640612444 },
+    { "seed": 21, "value": 0.8907381407676438 }
+  ],
+  "onBound": ["oscillatorRecoveryTime", "headSwitchGain", "neuromuscularGain", "noiseCorrelation"],
+  "tuning": {
+    "commit": "7c3212b",
+    "sha256": "3d781193ee3328e8f0c66cbda4fd71bbfeccc6f889fbd2a203a44e193f8d3cf7",
+    "rule": {
+      "headSwitchGain": [0.018839623329212667, 42.68056553910466],
+      "proprioceptiveGain": [0.00021782235481946773, 7.110749052341496],
+      "silencedDrive": -25.95813945710306,
+      "unsolved": []
+    }
+  },
+  "checkpoint1": {
+    "grade": "fail",
+    "clauses": [
+      { "name": "frequency", "value": 0.19218846869187847, "grade": "partial" },
+      { "name": "wavelength", "value": 0.5711956604668048, "grade": "pass" },
+      { "name": "speed", "value": 0.040819621430593284, "grade": "fail" },
+      { "name": "eigenworms", "value": 0.9676877883600187, "grade": "pass" },
+      { "name": "bout", "value": 0.55, "grade": "partial" }
+    ]
+  },
+  "crawls": false,
+  "speed": {
+    "value": 0.040819621430593284,
+    "interval": [0.03961030288664014, 0.04222529850099022],
+    "unmeasured": 0,
+    "atFloor": null
+  },
+  "pacing": {
+    "open": 1,
+    "margin": { "mean": 2.1853662426449327, "sd": 0.40237704125426565 },
+    "cycleRate": 0.14302007299270078
+  },
+  "variants": [
+    {
+      "name": "The head switch off, g_sw at 0",
+      "grade": "fail",
+      "forward": 0.09954379562043796,
+      "meanVelocity": 0.0006815092671418594
+    },
+    {
+      "name": "g_sw at its lower bound",
+      "grade": "fail",
+      "forward": 0.09735401459854018,
+      "meanVelocity": 0.0004606126459959888
+    },
+    {
+      "name": "The 18 B-types lesioned",
+      "grade": "fail",
+      "forward": 0.44885948905109485,
+      "meanVelocity": 0.00962005836707031
+    },
+    {
+      "name": "The 21 A-types lesioned",
+      "grade": "fail",
+      "forward": 0.876551094890511,
+      "meanVelocity": 0.024965793493742627
+    },
+    {
+      "name": "AVBL and AVBR lesioned",
+      "grade": "fail",
+      "forward": 0.7864051094890511,
+      "meanVelocity": 0.02786523119666561
+    }
+  ],
+  "spread": { "neuron": "AS9", "spread": 4.08772623391811, "sigma": 0.09685574469884724, "tau": 0.2 }
+}

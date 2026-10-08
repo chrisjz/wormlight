@@ -255,7 +255,7 @@ export const COMPONENTS: readonly Component[] = [
     basis:
       "A port of Quantum Nematode's directed double-edge swap: ten seeded rewirings, ten swaps per connection, signed and unsigned connections swapped apart; each connection keeps its presynaptic neuron, EM sections and sign, and autapses, gap junctions, the neuromuscular map and every neuron's identity are held (PLAN §3.5)",
     caveats:
-      "A control, not an animal: it tests whether the real wiring matters (spec §4). In the app it runs on the real wiring's fitted values, untuned, where checkpoint 6 would tune each rewiring by the same procedure (PLAN §7.3); its thresholds are its own rest (PLAN §3.3). Its draws come from this project's hash, not numpy's, so no rewiring is one of nematode's",
+      "A control, not an animal: it tests whether the real wiring matters (spec §4). In the app it runs on the real wiring's fitted values, untuned, where checkpoint 6 tuned each rewiring by the same procedure (PLAN §7.3; DECISIONS.md, 2026-10-08); its thresholds are its own rest (PLAN §3.3). Its draws come from this project's hash, not numpy's, so no rewiring is one of nematode's",
     upgrade: 'None: a control by design, not a claim about any animal',
     sources: [],
     testedBy: [

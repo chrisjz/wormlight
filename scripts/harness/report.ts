@@ -30,7 +30,7 @@ import { BACK, FRONT } from '../../src/sim/touch.ts';
 import { CHECKPOINT_4, type ChemotaxisRecord, type Checkpoint4 } from '../../src/validation/chemotaxis.ts';
 import type { MechanismRecord, MechanismResult } from '../../src/validation/mechanism.ts';
 import type { Checkpoint5, LesionClause } from '../../src/validation/lesions.ts';
-import { LATER, type Verdicts } from '../../src/validation/wiringTest.ts';
+import { FOOD_SENSORS, LATER, type MotorHops, type Verdicts } from '../../src/validation/wiringTest.ts';
 import type { WiringSummary } from './wiring.ts';
 import {
   CHECKPOINT_2,
@@ -685,7 +685,13 @@ export function checkpoint5Section(r: Checkpoint5, info: RunInfo): string {
 
 // Checkpoint 6's section (spec §8; PLAN §7.4; DECISIONS.md, 2026-10-03): the verdicts, then every wiring's results,
 // whichever way they fall, and what the real wiring got that the nulls don't.
-export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: readonly WiringSummary[]): string {
+export function checkpoint6Section(
+  v: Verdicts,
+  real: WiringSummary,
+  nulls: readonly WiringSummary[],
+  // Each wiring's hops from a food sensor, the real wiring's first, then the nulls' in their order.
+  hops: readonly MotorHops[],
+): string {
   const g = (grade: string | null | undefined): string =>
     grade === 'pass' || grade === 'partial' || grade === 'fail' ? GRADE[grade] : '—';
   const sentence = (x: string): string => x[0].toUpperCase() + x.slice(1);
@@ -757,6 +763,14 @@ export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: read
         passing.length > 0 ? passing.join(', ') : 'none',
       ];
     });
+  if (hops.length !== all.length) throw new Error(`checkpoint 6 needs ${all.length} wirings' hops, not ${hops.length}`);
+  const reach = Math.max(3, ...hops.map((h) => h.atHops.length));
+  const hopRows = all.map((w, k) => [
+    label(w),
+    ...Array.from({ length: reach }, (_, h) => `${hops[k].atHops[h] ?? 0}`),
+    `${hops[k].unreached}`,
+  ]);
+  const nullHops = hops.slice(1).map((h) => h.atHops[0] ?? 0);
   return [
     "### Checkpoint 6: the wiring test — its verdict where the real wiring doesn't pass changed after results",
     `Each of the primary null's ten rewirings was tuned by track S's procedure in the box its own rest gives by the rules that set S's, its fit its first pick, and graded on the machine its search ran on (${machines.join('; ')}), at ${commits.join(', ')}; the real wiring, at the registry's values, track S's first pick, on ${where(real)} at \`${real.commit}\` (DECISIONS.md, 2026-10-03). A wiring crawls if checkpoint 1 grades it at least partial on seeds 1 to 20; a crawling wiring runs checkpoint 0, reported and not counted, and checkpoints 2 to 5 by their own protocols.`,
@@ -774,6 +788,11 @@ export function checkpoint6Section(v: Verdicts, real: WiringSummary, nulls: read
     detailRows.length > 0
       ? `The crawling wirings' mechanism of chemotaxis, reported and never gating, and the rows of checkpoint 5 that pass. Checkpoint 2, checkpoint 4's klinokinesis and checkpoint 5's rows that read reversals are reported as fitted on every wiring, as on the real wiring (PLAN §10).\n\n${table(['Wiring', 'Klinokinesis', 'Weathervaning', "Checkpoint 5's rows passing"], detailRows)}`
       : '',
+    `The sister project's hop statistic, reported and never graded (nematode's Logbook 071; DECISIONS.md, 2026-10-01): how many of the ${hops[0].motors} A- and B-type motor neurons sit each number of hops from the nearest of the six food sensors nematode feeds, ${FOOD_SENSORS.join(', ')}, walking each chemical synapse from its presynaptic neuron and each gap junction both ways. The real wiring has ${(hops[0].atHops[0] ?? 0) === 0 ? 'none one hop from a food sensor, as a path through interneurons and command interneurons implies' : `${hops[0].atHops[0]} one hop from a food sensor`}; the nulls have ${fixed(nullHops.reduce((a, b) => a + b, 0) / nullHops.length, 1)} on average (${Math.min(...nullHops)} to ${Math.max(...nullHops)}). A rewiring here moves only the chemical synapses, as nematode's chemical-only null does, so its gap junctions are the real wiring's.`,
+    table(
+      ['Wiring', ...Array.from({ length: reach }, (_, h) => (h === 0 ? '1 hop' : `${h + 1} hops`)), 'Unreached'],
+      hopRows,
+    ),
     "What the real wiring got and the nulls don't (PLAN §9): track R's parameterisation, and track S's measured signs, the D-types' offset and the rectifier, were designed on the real wiring; round 3's procedure, which S's is, was designed after the survey on it and reuses the survey's starts and final-check seeds; it was explored as no null is, about 9,000 trials in the investigation of 2026-09-29, the survey's sixteen searches, round 3's searches and comparisons, and the assessment after them; and it could have gone down four picks by §7.2's comparison, where each null's fit is its first, though the real wiring's was its first too. Previewed (PLAN §10): scratch nulls on round 3's first and fourth picks' values (DECISIONS.md, 2026-09-30); the ten rewirings untuned on S's values, none partial (data/checkpoint-6/preview.json); and, once, the progress of rewiring 1's first search on the M5 Max, read in a smoke run before the grading was built (DECISIONS.md, 2026-10-03). The secondary null, which rewires the gap junctions too, is deferred, a change after results, to be tuned only if the primary null's verdict finds that the wiring matters (DECISIONS.md, 2026-10-03).",
   ]
     .filter(Boolean)

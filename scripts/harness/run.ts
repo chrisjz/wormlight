@@ -40,7 +40,7 @@ import { CHOSEN_MODEL, partsOf } from '../../src/sim/trackS.ts';
 import { CHOSEN_FORM } from '../../src/science/params.ts';
 import { currentParams, isCalibrated, loopParams, type LoopParams } from '../../src/sim/world.ts';
 import type { Values } from '../../src/validation/calibration.ts';
-import { nullNetwork, NULLS } from '../../src/validation/wiringTest.ts';
+import { motorHops, nullNetwork, NULLS } from '../../src/validation/wiringTest.ts';
 import { CHECKPOINT_4, checkpoint4, runChemotaxis, type ChemotaxisRecord } from '../../src/validation/chemotaxis.ts';
 import {
   checkpoint5,
@@ -52,7 +52,7 @@ import {
   SECONDARY,
   TOUCHED,
 } from '../../src/validation/lesions.ts';
-import type { Network } from '../../src/sim/brain/network.ts';
+import { cookNetwork, type Network } from '../../src/sim/brain/network.ts';
 import {
   CHECKPOINT_0_CHEMOTAXIS,
   CHECKPOINT_0_TOUCH,
@@ -304,7 +304,9 @@ if (process.argv.includes('--worker')) {
 } else if (process.argv[1] === fileURLToPath(import.meta.url) && parseArgs(process.argv.slice(2)).verdict) {
   // Checkpoint 6's verdict, from the eleven summaries, which the grading's pull request merges before any is read.
   const { real, nulls, verdicts } = readSummaries();
-  const section = checkpoint6Section(verdicts, real, nulls);
+  const data = validateWormlightData(JSON.parse(readFileSync(DATA, 'utf8')));
+  const hops = [cookNetwork(data), ...NULLS.map((k) => nullNetwork(data, k))].map(motorHops);
+  const section = checkpoint6Section(verdicts, real, nulls, hops);
   process.stdout.write(`${section}\n\n`);
   writeFileSync(PAGE, await formatMarkdown(replaceSection(readFileSync(PAGE, 'utf8'), 6, section), PAGE));
   process.stderr.write('Updated VALIDATION.md.\n');

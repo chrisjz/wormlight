@@ -171,3 +171,49 @@ export function verdicts(real: WiringGrades, nulls: readonly WiringGrades[]): Ve
   ) as Verdicts['later'];
   return { crawling: { verdict: crawlVerdict, crawl: c, of: nulls.length }, later };
 }
+
+// The sister project's hop statistic, reported beside the verdict and never graded (nematode's Logbook 071;
+// DECISIONS.md, 2026-10-01): how many of the 39 A- and B-type motor neurons sit 1, 2, 3 or more hops from its six food
+// sensors, walking each chemical synapse from its presynaptic neuron and each gap junction both ways. A rewiring
+// moves only the chemical synapses, as nematode's chemical-only null does. The network holds only the signed chemical
+// synapses, where nematode walks the unsigned too, and AVA's rectified junctions are walked both ways, as nematode
+// walks every junction; neither changes a count on the real wiring or its rewirings but one, where the rectifier would
+// move one motor neuron of rewiring 1 from 2 hops to 3 (DECISIONS.md, 2026-10-08).
+export const FOOD_SENSORS = ['ASEL', 'ASER', 'AWCL', 'AWCR', 'AWAL', 'AWAR'] as const;
+const HOP_MOTORS = /^(VB|DB|VA|DA)\d+$/;
+export interface MotorHops {
+  motors: number;
+  // atHops[h − 1] motor neurons sit h hops from the nearest food sensor; `unreached` sit at none.
+  atHops: number[];
+  unreached: number;
+}
+export function motorHops(network: Network): MotorHops {
+  const { names, chemical, gap } = network;
+  const index = new Map(names.map((name, i) => [name, i]));
+  const next: number[][] = names.map(() => []);
+  for (let post = 0; post < names.length; post++) {
+    for (let k = chemical.start[post]; k < chemical.start[post + 1]; k++) next[chemical.index[k]].push(post);
+    for (let k = gap.start[post]; k < gap.start[post + 1]; k++) next[post].push(gap.index[k]);
+  }
+  const queue = FOOD_SENSORS.map((name) => {
+    const i = index.get(name);
+    if (i === undefined) throw new Error(`the network has no ${name}`);
+    return i;
+  });
+  const hops = new Map(queue.map((i) => [i, 0]));
+  for (let q = 0; q < queue.length; q++) {
+    for (const j of next[queue[q]]) {
+      if (!hops.has(j)) {
+        hops.set(j, (hops.get(queue[q]) ?? 0) + 1);
+        queue.push(j);
+      }
+    }
+  }
+  const motors = names.flatMap((name, i) => (HOP_MOTORS.test(name) ? [hops.get(i) ?? -1] : []));
+  const farthest = Math.max(0, ...motors);
+  return {
+    motors: motors.length,
+    atHops: Array.from({ length: farthest }, (_, h) => motors.filter((m) => m === h + 1).length),
+    unreached: motors.filter((m) => m < 0).length,
+  };
+}

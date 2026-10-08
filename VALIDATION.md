@@ -18,7 +18,7 @@ Three terms recur. A _fit_ is a set of values for the twelve calibrated paramete
 - **Chemotaxis fails.** Of 100 worms in Bargmann et al.'s layout, 18 reached the odour and 14 the control, an index of 0.04, against 0.03 for the same worms with AWC-ON's input off. Their reversals are collisions with the dish's wall, and their weathervaning, reproduced by its rule, is the wall's too ("Checkpoints 2 to 6", below).
 - **The lesions fail.** Checkpoint 5: none of its five rows passes, and it is reported as fitted. The intact worm never reverses, so the rows asking a lesion to make reversals fewer have nothing to fall from; RIM's lesion makes no short reversal either. Every primary lesion slows the crawl, cutting the backward command interneurons AVA and AVD as much as cutting AVB and PVC, the row that asks for a fall of 80% in forward speed: it slows 72%. AVB cut alone slows it 91%, but with AVB gone PVC sends the worm backward more often ("Checkpoints 2 to 6", below).
 - **Why the worm doesn't back up, and where the research ends.** A diagnosis found the model's chemical synapses unable to carry a small signal far: a synapse's activation can rise at most 83% above its rest, and excitatory synapses push with a median of 7 mV. What a touch does reach comes mostly through gap junctions, and reaches AVA by under 1 mV. Driving AVA directly by 44 mV, alone or with AVB held down, never made the worm reverse. S's rectifier closes AVA's gap route to the A-types, its synapses barely reach them, and driven directly the motor circuit only drifts backward. Strengthening every synapse shrinks a touch's reach further. The research closes at that documented conclusion (DECISIONS.md, 2026-10-03; "Checkpoints 2 to 6", below).
-- **Checkpoint 6 is open, and unrun.** The wiring test runs on S's fit by rules set before it was built (DECISIONS.md, 2026-10-02 and 2026-10-03), each rewired brain tuned first in its own box and its fit its first pick; where the real wiring doesn't pass a checkpoint, as it fails checkpoints 2 to 5, the verdict there reads "no evidence that the wiring matters (the real wiring doesn't pass)", and the secondary null is deferred, both changes after results.
+- **The wiring test finds no evidence that the wiring matters.** Checkpoint 6: ten rewired brains, each tuned by S's procedure in its own box, and nine of them crawl at partial, as the real wiring does, most of them faster. Every crawl is the head switch's. Since the real wiring fails checkpoints 2 to 5, the verdict on each is "no evidence that the wiring matters (the real wiring doesn't pass)", a reading changed after results; no crawling null passes any of them either. The clearest behavioural difference is AVB: lesioned, the real wiring's crawl nearly stops, where every crawling null's stays partial, observed rather than asked in advance (DECISIONS.md, 2026-10-08; "Checkpoints 2 to 6", below).
 
 ## Where it stands
 
@@ -30,7 +30,7 @@ Three terms recur. A _fit_ is a set of values for the twelve calibrated paramete
 | 3: posterior touch  | **Fail**    | On track S's fit: the touched copies 0.3% slower than their twins, where a pass needs 10% faster; its protocol changed after results                                                                                                                                                                                               |
 | 4: chemotaxis       | **Fail**    | On track S's fit: an index of 0.04, against 0.03 with AWC-ON's input off (Fisher's p = 0.50); its mechanism reported, klinokinesis absent and fitted, weathervaning reproduced by its rule but the dish's wall's                                                                                                                   |
 | 5: lesions          | **Fail**    | On track S's fit: no row passes; its clauses that read reversals reported as fitted, unmeasured or failing, the intact worm never reversing; AVB + PVC's speed down 72%, where a pass needs 80%, about as much as AVA + AVD's                                                                                                      |
-| 6: wiring test      | Not run     | Open since checkpoint 1 reached partial on a fit the rules could choose (PLAN §9); its rules set, each null tuned by track S's procedure in its own box, about 38 to 45 hours on the M5 Max with grading; its tuning procedure, its verdict where the real wiring doesn't pass, and the secondary null changed after results       |
+| 6: wiring test      | No evidence | On track S's fit: 9 of 10 nulls, each tuned by S's procedure in its own box, crawl, so no evidence that the wiring matters; on checkpoints 2 to 5 the real wiring doesn't pass; its tuning procedure, its verdict where the real wiring doesn't pass, and the secondary null changed after results                                 |
 
 ## How the trials run
 
@@ -589,6 +589,101 @@ The secondary lesions, reported and not graded, since Gray et al. describe their
 
 <!-- harness:checkpoint-6 -->
 
+### Checkpoint 6: the wiring test — its verdict where the real wiring doesn't pass changed after results
+
+Each of the primary null's ten rewirings was tuned by track S's procedure in the box its own rest gives by the rules that set S's, its fit its first pick, and graded on the machine its search ran on (Intel(R) Core(TM) i9-9900X CPU @ 3.50GHz, Node v26.7.0), at `1190b3e`; the real wiring, at the registry's values, track S's first pick, on Apple M5 Max, Node v26.7.0 at `4db8422` (DECISIONS.md, 2026-10-03). A wiring crawls if checkpoint 1 grades it at least partial on seeds 1 to 20; a crawling wiring runs checkpoint 0, reported and not counted, and checkpoints 2 to 5 by their own protocols.
+
+| Question                                | Verdict                                                            | Counts                                                       |
+| --------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------ |
+| Crawling: checkpoint 1 at least partial | No evidence that the wiring matters                                | 9 of 10 nulls crawl; the real wiring is partial              |
+| Checkpoint 2, among the crawling nulls  | No evidence that the wiring matters (the real wiring doesn't pass) | the real wiring: fail; 0 of 9 crawling nulls pass, 0 partial |
+| Checkpoint 3, among the crawling nulls  | No evidence that the wiring matters (the real wiring doesn't pass) | the real wiring: fail; 0 of 9 crawling nulls pass, 1 partial |
+| Checkpoint 4, among the crawling nulls  | No evidence that the wiring matters (the real wiring doesn't pass) | the real wiring: fail; 0 of 9 crawling nulls pass, 0 partial |
+| Checkpoint 5, among the crawling nulls  | No evidence that the wiring matters (the real wiring doesn't pass) | the real wiring: fail; 0 of 9 crawling nulls pass, 0 partial |
+
+PLAN §7.4's verdict map. Crawling: the wiring matters if the real wiring crawls and at most 2 of the 10 nulls do, there is no evidence that it does if 5 or more crawl, and it is inconclusive otherwise. Each of checkpoints 2 to 5, among the crawling nulls: with fewer than 5 of them, "insufficient nulls"; otherwise the wiring matters if the real wiring passes and at most 20% of them pass, there is no evidence that it does if 50% or more pass, and it is inconclusive between. **Changed after results** (DECISIONS.md, 2026-10-03): where the real wiring doesn't pass, a partial included, the verdict is "no evidence that the wiring matters (the real wiring doesn't pass)", where the map as written reads "inconclusive" unless half the crawling nulls pass, set by the maintainer knowing that the real wiring fails checkpoints 2 to 5. A null passes a checkpoint if it grades pass; partials are counted beside it.
+
+Each wiring's search: its box's tops for g_sw (nS) and g_p (nS per unit of κL) and θ_osc's floor (mV); its picks' objectives on their final checks, the first its fit; the candidates its search couldn't run; and its fit's parameters at a bound of its box.
+
+| Wiring          | Box: g_sw · g_p · θ_osc | Picks                      | Failed | On a bound                                                                                                                   |
+| --------------- | ----------------------- | -------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| The real wiring | 50 · 7 · −28            | 0.438, 0.654, 0.759, 0.937 | 0      | oscillatorExcitabilityB, headSwitchGain, neuromuscularGain                                                                   |
+| Rewiring 1      | 50 · 6 · −26            | 0.194, 0.200, 0.843, 0.867 | 0      | oscillatorExcitabilityB, headSwitchGain, neuromuscularGain, noiseIntensity                                                   |
+| Rewiring 2      | 50 · 7 · −25            | 0.172, 0.493, 0.643, 0.732 | 0      | oscillatorExcitability, oscillatorExcitabilityB, headSwitchGain, neuromuscularGain                                           |
+| Rewiring 3      | 50 · 7 · −25            | 0.138, 0.279, 0.843, 1.081 | 0      | oscillatorExcitabilityB, gapGainB                                                                                            |
+| Rewiring 4      | 40 · 7 · −24            | 0.139, 0.179, 0.493, 0.660 | 0      | oscillatorExcitability, oscillatorExcitabilityB, neuromuscularGain, noiseCorrelation                                         |
+| Rewiring 5      | 40 · 6 · −25            | 0.106, 0.156, 0.216, 0.887 | 0      | oscillatorExcitability, oscillatorExcitabilityB, neuromuscularGain, noiseCorrelation                                         |
+| Rewiring 6      | 50 · 8 · −25            | 0.664, 0.812, 0.814, 0.891 | 0      | oscillatorRecoveryTime, headSwitchGain, neuromuscularGain, noiseCorrelation                                                  |
+| Rewiring 7      | 60 · 7 · −27            | 0.229, 0.438, 0.668, 0.810 | 0      | oscillatorExcitability, oscillatorExcitabilityB, oscillatorDriveThreshold, headSwitchGain, neuromuscularGain, noiseIntensity |
+| Rewiring 8      | 40 · 9 · −22            | 0.506, 0.760, 0.765, 0.814 | 0      | oscillatorExcitabilityB, oscillatorDriveThreshold, noiseCorrelation                                                          |
+| Rewiring 9      | 40 · 7 · −26            | 0.251, 0.334, 0.405, 0.883 | 0      | oscillatorExcitabilityB, oscillatorDriveThreshold, gapGainB, neuromuscularGain, smdGain                                      |
+| Rewiring 10     | 50 · 8 · −25            | 0.106, 0.208, 0.719, 0.726 | 0      | oscillatorExcitability, oscillatorExcitabilityB, headSwitchGain, neuromuscularGain                                           |
+
+Each wiring's grades: checkpoint 1, a partial whose speed's interval reaches below 0.06 labelled at the speed floor, its speed with its 95% interval (body lengths per second), and its head switch's gate open on what share of the measured steps, its drive less θ_osc and its cycle rate; the widest neuron's voltage spread at its fitted noise, by §7.3's linear analysis at its own rest, every synapse's activation and rectified gate held there and the oscillators left out; and, if it crawls, checkpoint 0, reported and not counted, and checkpoints 2 to 5.
+
+| Wiring          | Checkpoint 1 | Speed               | Gate · drive · cycle      | Widest spread  | 0        | 2        | 3           | 4        | 5        |
+| --------------- | ------------ | ------------------- | ------------------------- | -------------- | -------- | -------- | ----------- | -------- | -------- |
+| The real wiring | **Partial**  | 0.068 (0.067–0.069) | 100% · 13.6 mV · 0.214 Hz | IL2DL, 3.94 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 1      | **Partial**  | 0.097 (0.095–0.098) | 100% · 8.8 mV · 0.223 Hz  | VA8, 9.57 mV   | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 2      | **Partial**  | 0.099 (0.098–0.100) | 100% · 14.7 mV · 0.247 Hz | IL2DL, 6.69 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 3      | **Partial**  | 0.101 (0.100–0.102) | 100% · 17.7 mV · 0.288 Hz | IL2DL, 7.59 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 4      | **Partial**  | 0.106 (0.106–0.106) | 100% · 22.0 mV · 0.243 Hz | IL2DL, 0.94 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 5      | **Partial**  | 0.110 (0.109–0.111) | 100% · 17.7 mV · 0.248 Hz | IL2DL, 6.74 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 6      | **Fail**     | 0.041 (0.040–0.042) | 100% · 2.2 mV · 0.143 Hz  | AS9, 4.09 mV   | —        | —        | —           | —        | —        |
+| Rewiring 7      | **Partial**  | 0.093 (0.093–0.093) | 100% · 25.3 mV · 0.227 Hz | ADAL, 0.00 mV  | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 8      | **Partial**  | 0.069 (0.069–0.069) | 100% · 20.9 mV · 0.183 Hz | IL2DL, 0.23 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+| Rewiring 9      | **Partial**  | 0.084 (0.083–0.085) | 100% · 24.1 mV · 0.227 Hz | IL2DL, 7.27 mV | **Pass** | **Fail** | **Partial** | **Fail** | **Fail** |
+| Rewiring 10     | **Partial**  | 0.102 (0.102–0.103) | 100% · 8.0 mV · 0.288 Hz  | IL2DL, 6.90 mV | **Pass** | **Fail** | **Fail**    | **Fail** | **Fail** |
+
+What paces each crawl (PLAN §7.4): checkpoint 1's trials again with the head switch off and at its box's lower bound, and with classes lesioned, each graded by checkpoint 1's grading, with its share of samples forward and its mean velocity.
+
+| Wiring          | The head switch off, g_sw at 0 | g_sw at its lower bound      | The 18 B-types lesioned      | The 21 A-types lesioned       | AVBL and AVBR lesioned           |
+| --------------- | ------------------------------ | ---------------------------- | ---------------------------- | ----------------------------- | -------------------------------- |
+| The real wiring | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 63% forward, 0.013 | **Fail**, 73% forward, 0.020  | **Fail**, 30% forward, 0.006     |
+| Rewiring 1      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 40% forward, 0.004 | **Fail**, 100% forward, 0.038 | **Partial**, 98% forward, 0.083  |
+| Rewiring 2      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 62% forward, 0.013 | **Fail**, 17% forward, 0.008  | **Partial**, 100% forward, 0.091 |
+| Rewiring 3      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 44% forward, 0.009 | **Fail**, 93% forward, 0.033  | **Partial**, 100% forward, 0.092 |
+| Rewiring 4      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 49% forward, 0.008 | **Fail**, 100% forward, 0.036 | **Partial**, 100% forward, 0.113 |
+| Rewiring 5      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 38% forward, 0.007 | **Fail**, 100% forward, 0.038 | **Partial**, 100% forward, 0.111 |
+| Rewiring 6      | **Fail**, 10% forward, 0.001   | **Fail**, 10% forward, 0.000 | **Fail**, 45% forward, 0.010 | **Fail**, 88% forward, 0.025  | **Fail**, 79% forward, 0.028     |
+| Rewiring 7      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 50% forward, 0.008 | **Fail**, 28% forward, 0.012  | **Partial**, 100% forward, 0.100 |
+| Rewiring 8      | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 58% forward, 0.014 | **Fail**, 49% forward, 0.016  | **Partial**, 100% forward, 0.080 |
+| Rewiring 9      | **Fail**, 0% forward, 0.000    | **Fail**, 0% forward, −0.001 | **Fail**, 46% forward, 0.009 | **Fail**, 44% forward, 0.014  | **Partial**, 100% forward, 0.087 |
+| Rewiring 10     | **Fail**, 0% forward, −0.001   | **Fail**, 0% forward, −0.001 | **Fail**, 65% forward, 0.014 | **Fail**, 94% forward, 0.032  | **Partial**, 98% forward, 0.076  |
+
+The crawling wirings' mechanism of chemotaxis, reported and never gating, and the rows of checkpoint 5 that pass. Checkpoint 2, checkpoint 4's klinokinesis and checkpoint 5's rows that read reversals are reported as fitted on every wiring, as on the real wiring (PLAN §10).
+
+| Wiring          | Klinokinesis | Weathervaning | Checkpoint 5's rows passing |
+| --------------- | ------------ | ------------- | --------------------------- |
+| The real wiring | absent       | reproduced    | none                        |
+| Rewiring 1      | absent       | partial       | none                        |
+| Rewiring 2      | absent       | absent        | avb-pvc                     |
+| Rewiring 3      | absent       | absent        | rim                         |
+| Rewiring 4      | absent       | absent        | none                        |
+| Rewiring 5      | absent       | absent        | none                        |
+| Rewiring 7      | absent       | absent        | rim                         |
+| Rewiring 8      | absent       | partial       | none                        |
+| Rewiring 9      | absent       | reproduced    | none                        |
+| Rewiring 10     | absent       | absent        | none                        |
+
+The sister project's hop statistic, reported and never graded (nematode's Logbook 071; DECISIONS.md, 2026-10-01): how many of the 39 A- and B-type motor neurons sit each number of hops from the nearest of the six food sensors nematode feeds, ASEL, ASER, AWCL, AWCR, AWAL, AWAR, walking each chemical synapse from its presynaptic neuron and each gap junction both ways. The real wiring has none one hop from a food sensor, as a path through interneurons and command interneurons implies; the nulls have 8.1 on average (3 to 12). A rewiring here moves only the chemical synapses, as nematode's chemical-only null does, so its gap junctions are the real wiring's.
+
+| Wiring          | 1 hop | 2 hops | 3 hops | Unreached |
+| --------------- | ----- | ------ | ------ | --------- |
+| The real wiring | 0     | 26     | 13     | 0         |
+| Rewiring 1      | 11    | 28     | 0      | 0         |
+| Rewiring 2      | 3     | 36     | 0      | 0         |
+| Rewiring 3      | 5     | 34     | 0      | 0         |
+| Rewiring 4      | 7     | 32     | 0      | 0         |
+| Rewiring 5      | 8     | 31     | 0      | 0         |
+| Rewiring 6      | 9     | 30     | 0      | 0         |
+| Rewiring 7      | 10    | 29     | 0      | 0         |
+| Rewiring 8      | 11    | 28     | 0      | 0         |
+| Rewiring 9      | 5     | 34     | 0      | 0         |
+| Rewiring 10     | 12    | 27     | 0      | 0         |
+
+What the real wiring got and the nulls don't (PLAN §9): track R's parameterisation, and track S's measured signs, the D-types' offset and the rectifier, were designed on the real wiring; round 3's procedure, which S's is, was designed after the survey on it and reuses the survey's starts and final-check seeds; it was explored as no null is, about 9,000 trials in the investigation of 2026-09-29, the survey's sixteen searches, round 3's searches and comparisons, and the assessment after them; and it could have gone down four picks by §7.2's comparison, where each null's fit is its first, though the real wiring's was its first too. Previewed (PLAN §10): scratch nulls on round 3's first and fourth picks' values (DECISIONS.md, 2026-09-30); the ten rewirings untuned on S's values, none partial (data/checkpoint-6/preview.json); and, once, the progress of rewiring 1's first search on the M5 Max, read in a smoke run before the grading was built (DECISIONS.md, 2026-10-03). The secondary null, which rewires the gap junctions too, is deferred, a change after results, to be tuned only if the primary null's verdict finds that the wiring matters (DECISIONS.md, 2026-10-03).
+
 <!-- /harness:checkpoint-6 -->
 
 <!-- harness:equivalence -->
@@ -759,9 +854,9 @@ Then the same trials of the silenced network, which keeps each setting's intact 
 
 <!-- /harness:sensitivity -->
 
-## Checkpoints 2 to 6: 2 to 5 run, 6 open
+## Checkpoints 2 to 6
 
-They waited, by a decision made at the go/no-go and kept since (PLAN §9; DECISIONS.md, 2026-09-26 and 2026-09-30), until checkpoint 1 reached at least partial on a fit the rules could choose. Track R ended below partial on 2026-09-29, so none ran on its fits. Track S's fit grades partial (2026-10-02), so they now run on it by their protocols, checkpoint 6's ten nulls each tuned by S's procedure first (PLAN §9), by rules for what PLAN left open set before any of them was built (DECISIONS.md, 2026-10-02). Checkpoints 2 to 5 have run, and fail (their sections, above); checkpoint 6 has not, and is reported as neither a pass, a partial nor a fail. S as a whole was proposed after the previews below, so on its fit checkpoint 2, checkpoint 4's klinokinesis row, which counts reversals as reorientations, and checkpoint 5's rows that read reversals are reported as fitted (PLAN §10); checkpoint 3 reads forward speed and is not marked. The reason they waited is what each measures: checkpoints 2 and 3 touch a worm "during forward crawling", checkpoint 4 needs it to travel centimetres to a spot, checkpoint 5 measures lesions against those behaviours, and checkpoint 6 asks whether rewired brains crawl as the real one does (PLAN §7.4).
+They waited, by a decision made at the go/no-go and kept since (PLAN §9; DECISIONS.md, 2026-09-26 and 2026-09-30), until checkpoint 1 reached at least partial on a fit the rules could choose. Track R ended below partial on 2026-09-29, so none ran on its fits. Track S's fit grades partial (2026-10-02), so they now run on it by their protocols, checkpoint 6's ten nulls each tuned by S's procedure first (PLAN §9), by rules for what PLAN left open set before any of them was built (DECISIONS.md, 2026-10-02). Checkpoints 2 to 5 have run, and fail (their sections, above); checkpoint 6 has run, and finds no evidence that the wiring matters (its section, above). S as a whole was proposed after the previews below, so on its fit checkpoint 2, checkpoint 4's klinokinesis row, which counts reversals as reorientations, and checkpoint 5's rows that read reversals are reported as fitted (PLAN §10); checkpoint 3 reads forward speed and is not marked. The reason they waited is what each measures: checkpoints 2 and 3 touch a worm "during forward crawling", checkpoint 4 needs it to travel centimetres to a spot, checkpoint 5 measures lesions against those behaviours, and checkpoint 6 asks whether rewired brains crawl as the real one does (PLAN §7.4).
 
 Checkpoints 2 and 3 failed as their rules expected of a fit that hardly reverses. A touch moves its receptors about 10 mV, as their currents are sized to, but on three seeds it moved AVA by at most 1.2 mV, AVD by 1.4, PVC by 2.3 and AVB by 0.5 against its sham twin, so it reaches the command circuit only faintly. It does reach the head switch, whose flips it moves by up to about 1 s either way, shifting each touch's speed by −17% to +25% against its twin; but on average the speed doesn't move, no touch makes the worm reverse, and the crawl, which the switch paces, carries on (DECISIONS.md, 2026-10-02).
 
@@ -776,9 +871,17 @@ Why none of checkpoints 2 to 5 sees a reversal was diagnosed before the research
 - **Driving the motor circuit directly,** with the head switch off, only drifts it backward, at −0.005 body lengths per second. The sign audit found the same at R's refit.
 - **Strengthening every synapse,** up to thirtyfold, made no reversal and shrank a touch's reach in AVA from 0.036 mV per millivolt at the receptor to 0.0002. The stronger synapses shunt the gap junctions, the brain's rest drifts towards E_exc, and the touch's currents stay fixed.
 
-So on S's fit a touch reversal doesn't emerge, and under the model's rules it would need a new synapse model or a backward motor layer. The maintainer closed the research at that documented conclusion: no further track, and checkpoint 6's verdict, a write-up and release 0.3.0 to follow.
+So on S's fit a touch reversal doesn't emerge, and under the model's rules it would need a new synapse model or a backward motor layer. The maintainer closed the research at that documented conclusion: no further track, and checkpoint 6's verdict, a write-up and release 0.3.0 to follow. Checkpoint 6's verdict came on 2026-10-08, below.
 
-Checkpoint 6 comes next. Its remaining rules are set (DECISIONS.md, 2026-10-03): each null tuned by S's procedure in its own box, its fit its first pick, as PLAN §9 has it; and, changed after checkpoints 2 to 5's results, the secondary null deferred and "no evidence that the wiring matters (the real wiring doesn't pass)" wherever the real wiring doesn't pass. The nulls' tuning and grading are built, the real wiring's grade reproduced by the grading's own code, and the ten nulls tune on an older PC, each to be graded there (DECISIONS.md, 2026-10-03).
+Checkpoint 6 ran by rules set before any null's record was read (DECISIONS.md, 2026-10-03): each null tuned by S's procedure in its own box, its fit its first pick, as PLAN §9 has it; and, changed after checkpoints 2 to 5's results, the secondary null deferred and "no evidence that the wiring matters (the real wiring doesn't pass)" wherever the real wiring doesn't pass. The ten nulls were tuned and graded on an older PC, 88 hours of tuning (DECISIONS.md, 2026-10-08).
+
+- **Crawling.** Nine of the ten crawl at partial, so by PLAN's map there is no evidence that the wiring matters. Eight of their fits score better on the search's objective than the real wiring's, and the nine crawl at 0.069 to 0.110 body lengths per second, against its 0.068.
+- **What paces them.** The head switch, in every one: with it off, none moves. Rewiring 6, the one that doesn't crawl, has its switch's drive barely above θ_osc.
+- **AVB.** Lesioned, it leaves every crawling null partial and moving forward nearly all the time, where the real wiring falls to 30% forward and slows 91%. It is the clearest behavioural difference, observed and not asked in advance, and since each wiring runs at its own fit, the runs don't separate its wiring from its fit. The real wiring is also the slowest crawler, and its fit scores worse than eight of the nulls'.
+- **Checkpoints 2 to 5.** No crawling null passes any of them, and the real wiring passes none, so each reads "no evidence that the wiring matters (the real wiring doesn't pass)". Rewiring 9 is partial on checkpoint 3, and three nulls pass a row of checkpoint 5 that the real wiring fails.
+- **The hop statistic.** Logbook 071 of nematode, the sister project, found the real wiring has no motor neuron one hop from a food sensor and its rewirings about nine, and Logbook 074 about eight under its chemical-only null. Wormlight's real wiring gives the logbook's wild type exactly, and its nulls 3 to 12; the shortcuts don't track which nulls crawl.
+
+So in this model the crawl gives no evidence of depending on the real wiring: S's procedure finds a head-switch crawl in nine of ten rewired brains. That is a statement about the model and its procedure, not about the worm.
 
 What each measures, by thresholds PLAN §7.4 fixes, every quantity predicted, since checkpoints 2 to 5 are held out of the calibration (spec §1.2), though on track S's fit some are reported as fitted (above):
 
@@ -796,7 +899,7 @@ What is known short of them, none of it a checkpoint's result:
 
 - **They were previewed, outside their protocols** (PLAN §10, which asks every report of them to say so). An investigation on 2026-09-29 stimulated and lesioned the real wiring at the probe crawler's values, on exploration seeds. It pointed to checkpoint 2 failing, with no reversal; checkpoint 3 likely failing, since stimulating PLM slowed the worm; checkpoint 4 failing, the worm circling and AWC-ON's drive changing its speed by at most 0.6%; and checkpoint 5 passing at most one row. On the refit, lesioning AVA raised the reversals from 1.42 to 5.41 a minute, where checkpoint 5's AVA rows ask for a fall (2026-09-28). The sign audit's probes re-signed up to 102 connections and found no backward mode (2026-09-29). No change to track R's model followed a preview of checkpoints 2 to 5; track S's did, which is why its rows above are reported as fitted. On S's fit itself, its chosen pick's runs previewed checkpoint 5's AVB + PVC row: with AVBL and AVBR lesioned it moved forward 30% of the time (above), and its mean velocity fell 91%, where the row itself, with PVC cut as well, found 72%.
 - **Touch and odour were first measured where they must do nothing.** Checkpoint 0 touched the silenced worm and ran it in the assay's field, on the refit and on S's fit, and both clauses pass, as they would for any worm that barely moves; checkpoints 2 to 4 have since touched and assayed a crawling one.
-- **The wiring test's question has an exploratory answer, not a result.** An assessment found R's third round's crawl largely indifferent to the chemical wiring: it still moved forward 93% of the time with every chemical synapse cut. Ten rewirings built in a scratch copy, untuned, were run at that round's values: 2 of the 10 graded partial on checkpoint 1's seeds at its first pick's values, 6 of the 10 after one nudge of one parameter, the best of six by a fixed rule on seeds 4001 to 4010, and none of five at its fourth pick's. PLAN's verdict map reads five or more crawling nulls as no evidence that the wiring matters, and an untuned run understates how many a tuned search would make crawl (DECISIONS.md, 2026-09-30). No null was tuned by checkpoint 6's procedure, so the test itself has no result. The contrast brain in the app is a rewiring on S's fit's values, untuned. On S's fit, before any tuning, the ten rewirings ran untuned on its values, by checkpoint 1's protocol on seeds 4001 to 4020, not the gate's: none graded partial, where the real wiring did, every one slower than it, at 0.008 to 0.050 body lengths per second against 0.068, and three moving forward less than 60% of the time (DECISIONS.md, 2026-10-03). Untuned, that says how far each starts from a crawl, not where tuning takes it.
+- **The wiring test was previewed before it ran.** An assessment found R's third round's crawl largely indifferent to the chemical wiring: it still moved forward 93% of the time with every chemical synapse cut. Ten rewirings built in a scratch copy, untuned, were run at that round's values: 2 of the 10 graded partial on checkpoint 1's seeds at its first pick's values, 6 of the 10 after one nudge of one parameter, the best of six by a fixed rule on seeds 4001 to 4010, and none of five at its fourth pick's. PLAN's verdict map reads five or more crawling nulls as no evidence that the wiring matters, and an untuned run understates how many a tuned search would make crawl (DECISIONS.md, 2026-09-30). The test itself has since run, and found nine of ten tuned nulls crawling (above). The contrast brain in the app is a rewiring on S's fit's values, untuned. On S's fit, before any tuning, the ten rewirings ran untuned on its values, by checkpoint 1's protocol on seeds 4001 to 4020, not the gate's: none graded partial, where the real wiring did, every one slower than it, at 0.008 to 0.050 body lengths per second against 0.068, and three moving forward less than 60% of the time (DECISIONS.md, 2026-10-03). Untuned, that says how far each starts from a crawl, not where tuning takes it.
 - **The app runs what the checkpoints would test.** A viewer can touch the worm, place food, lesion neurons and swap in the contrast brain, on S's fit's slow crawl. What they then see is the model's behaviour, not a validated reflex.
 
 ## The GPU against the CPU reference
