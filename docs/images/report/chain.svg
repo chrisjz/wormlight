@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 422" width="720" height="422" role="img" aria-label="The touch-to-motor chain's ceilings at rest">
+<style>
+svg { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --grid: #d1d9e0; --band: #eef1f4; --real: #cf222e; --null: #0969da; }
+@media (prefers-color-scheme: dark) {
+  svg { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --grid: #3d444d; --band: #1c2128; --real: #ff7b72; --null: #4493f8; }
+}
+.bg { fill: var(--bg); }
+text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 13px; fill: var(--fg); }
+.muted { fill: var(--muted); font-size: 12px; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.band { fill: var(--band); }
+.real { fill: var(--real); stroke: var(--real); }
+.null { fill: var(--null); stroke: var(--null); }
+.hollow { fill: none; stroke: var(--null); stroke-width: 1.5; }
+.line { fill: none; stroke: var(--fg); stroke-width: 2; }
+.dash { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.fade { opacity: 0.45; }
+</style>
+<rect width="720" height="422" class="bg"/>
+<line x1="594.8" y1="10" x2="594.8" y2="352" class="dash"/>
+<text x="180" y="31" text-anchor="end">ALM, AVM → AVDL</text>
+<rect x="190" y="20" width="79.8" height="14" class="null"/>
+<text x="275.8" y="31" class="muted">0.006 mV</text>
+<text x="180" y="53" text-anchor="end">ALM, AVM → AVDR</text>
+<rect x="190" y="42" width="141.5" height="14" class="null"/>
+<text x="337.5" y="53" class="muted">0.025 mV</text>
+<text x="180" y="75" text-anchor="end">ALM, AVM → PVCL</text>
+<rect x="190" y="64" width="208.4" height="14" class="null"/>
+<text x="404.4" y="75" class="muted">0.11 mV</text>
+<text x="180" y="97" text-anchor="end">ALM, AVM → PVCR</text>
+<rect x="190" y="86" width="218.2" height="14" class="null"/>
+<text x="414.2" y="97" class="muted">0.14 mV</text>
+<text x="180" y="119" text-anchor="end">ALM, AVM → AVBL</text>
+<rect x="190" y="108" width="204.3" height="14" class="null"/>
+<text x="400.3" y="119" class="muted">0.10 mV</text>
+<text x="180" y="141" text-anchor="end">ALM, AVM → AVAL</text>
+<text x="196" y="141" class="muted">no such synapse</text>
+<text x="180" y="163" text-anchor="end">PLM, PVM → AVAL</text>
+<rect x="190" y="152" width="147.3" height="14" class="null"/>
+<text x="343.3" y="163" class="muted">0.029 mV</text>
+<text x="180" y="185" text-anchor="end">PLM, PVM → AVAR</text>
+<rect x="190" y="174" width="159.1" height="14" class="null"/>
+<text x="355.1" y="185" class="muted">0.037 mV</text>
+<text x="180" y="207" text-anchor="end">PLM, PVM → AVDL</text>
+<rect x="190" y="196" width="171.2" height="14" class="null"/>
+<text x="367.2" y="207" class="muted">0.049 mV</text>
+<text x="180" y="229" text-anchor="end">PLM, PVM → PVCL</text>
+<text x="196" y="229" class="muted">no such synapse</text>
+<text x="180" y="251" text-anchor="end">AVD → AVAL</text>
+<rect x="190" y="240" width="253.3" height="14" class="null"/>
+<text x="449.3" y="251" class="muted">0.32 mV</text>
+<text x="180" y="273" text-anchor="end">AVA → VA5</text>
+<rect x="190" y="262" width="305.5" height="14" class="real"/>
+<text x="501.5" y="273" class="muted">1.05 mV</text>
+<text x="180" y="295" text-anchor="end">AVA → DA4</text>
+<rect x="190" y="284" width="304.3" height="14" class="real"/>
+<text x="500.3" y="295" class="muted">1.02 mV</text>
+<text x="180" y="317" text-anchor="end">AVA → VA8</text>
+<rect x="190" y="306" width="377.8" height="14" class="real"/>
+<text x="573.8" y="317" class="muted">5.41 mV</text>
+<text x="180" y="339" text-anchor="end">AVB → VB5</text>
+<text x="196" y="339" class="muted">no such synapse</text>
+<line x1="190" y1="352" x2="696" y2="352" class="grid"/>
+<line x1="190" y1="352" x2="190" y2="357" class="grid"/>
+<text x="190" y="372" class="muted" text-anchor="middle">0.001</text>
+<line x1="291.2" y1="352" x2="291.2" y2="357" class="grid"/>
+<text x="291.2" y="372" class="muted" text-anchor="middle">0.01</text>
+<line x1="392.4" y1="352" x2="392.4" y2="357" class="grid"/>
+<text x="392.4" y="372" class="muted" text-anchor="middle">0.1</text>
+<line x1="493.6" y1="352" x2="493.6" y2="357" class="grid"/>
+<text x="493.6" y="372" class="muted" text-anchor="middle">1</text>
+<line x1="594.8" y1="352" x2="594.8" y2="357" class="grid"/>
+<text x="594.8" y="372" class="muted" text-anchor="middle">10</text>
+<line x1="696" y1="352" x2="696" y2="357" class="grid"/>
+<text x="696" y="372" class="muted" text-anchor="middle">100</text>
+<text x="588.8" y="390" class="muted" text-anchor="end">a touch's 10 mV at its receptors</text>
+<text x="443" y="410" text-anchor="middle">Most the synapses could move their target, at rest (mV, log scale)</text>
+</svg>

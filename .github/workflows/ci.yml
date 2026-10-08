@@ -75,6 +75,8 @@ jobs:
         run: npm run build
       - name: Fidelity ledger is up to date
         run: npm run docs:check
+      - name: Report figures are up to date
+        run: npm run docs:figures -- --check
 
   # Rebuilds the runtime data from its pinned sources and fails if any committed output differs. The
   # cache holds downloads named by their digest, each checked on read, so any earlier cache is safe to

@@ -769,7 +769,7 @@ Every primary null is tuned by the same procedure on the same budget. R's parame
 - Driving AVA by 44 mV never makes the worm reverse. S's rectifier closes AVA's gap route to the A-types, its synapses barely reach them, their oscillators load them, and driven directly the motor circuit only drifts backward, as the sign audit also found at R's refit.
 - Strengthening every synapse shrinks a touch's reach. It shunts the gap junctions, the rests drift towards E_exc, and the touch's currents stay fixed.
 
-Track D closes at D0, track M closes unbuilt, and no backward-mode track opens. What remains is checkpoint 6's verdict, a write-up, release 0.3.0 and a handoff note to Quantum Nematode. **Checkpoint 6's verdict (2026-10-08, DECISIONS.md):** no evidence that the wiring matters, nine of the ten tuned nulls crawling as the real wiring does. A go/no-go of a backward motor mode is for the maintainer after 0.3.0, and the suite as a benchmark is set aside for now.
+Track D closes at D0, track M closes unbuilt, and no backward-mode track opens. What remains is checkpoint 6's verdict, a write-up, release 0.3.0 and a handoff note to Quantum Nematode. **Checkpoint 6's verdict (2026-10-08, DECISIONS.md):** no evidence that the wiring matters, nine of the ten tuned nulls crawling as the real wiring does. **The write-up (2026-10-08, DECISIONS.md):** `REPORT.md`, with figures drawn from the records, and the README's plain-language paragraph. A go/no-go of a backward motor mode is for the maintainer after 0.3.0, and the suite as a benchmark is set aside for now.
 
 ## 10. Risks and the fallback menu
 

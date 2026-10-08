@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 336" width="720" height="336" role="img" aria-label="A graded synapse's steady activation against its presynaptic voltage">
+<style>
+svg { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --grid: #d1d9e0; --band: #eef1f4; --real: #cf222e; --null: #0969da; }
+@media (prefers-color-scheme: dark) {
+  svg { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --grid: #3d444d; --band: #1c2128; --real: #ff7b72; --null: #4493f8; }
+}
+.bg { fill: var(--bg); }
+text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 13px; fill: var(--fg); }
+.muted { fill: var(--muted); font-size: 12px; }
+.grid { stroke: var(--grid); stroke-width: 1; }
+.band { fill: var(--band); }
+.real { fill: var(--real); stroke: var(--real); }
+.null { fill: var(--null); stroke: var(--null); }
+.hollow { fill: none; stroke: var(--null); stroke-width: 1.5; }
+.line { fill: none; stroke: var(--fg); stroke-width: 2; }
+.dash { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.fade { opacity: 0.45; }
+</style>
+<rect width="720" height="336" class="bg"/>
+<line x1="70" y1="63.3" x2="696" y2="63.3" class="dash"/>
+<text x="78" y="55.3" class="muted">ceiling a_r/(a_r + a_d) = 0.167</text>
+<polyline points="70,278.3 73.9,278.2 77.8,278 81.7,277.9 85.7,277.8 89.6,277.6 93.5,277.5 97.4,277.3 101.3,277.1 105.2,277 109.1,276.8 113,276.6 117,276.4 120.9,276.1 124.8,275.9 128.7,275.6 132.6,275.3 136.5,275 140.4,274.7 144.3,274.4 148.3,274.1 152.2,273.7 156.1,273.3 160,272.9 163.9,272.4 167.8,272 171.7,271.5 175.6,270.9 179.6,270.4 183.5,269.8 187.4,269.1 191.3,268.5 195.2,267.8 199.1,267 203,266.3 206.9,265.4 210.9,264.6 214.8,263.6 218.7,262.7 222.6,261.6 226.5,260.6 230.4,259.4 234.3,258.2 238.2,257 242.2,255.7 246.1,254.3 250,252.8 253.9,251.3 257.8,249.7 261.7,248.1 265.6,246.3 269.5,244.5 273.5,242.6 277.4,240.6 281.3,238.6 285.2,236.5 289.1,234.2 293,231.9 296.9,229.6 300.8,227.1 304.8,224.6 308.7,221.9 312.6,219.3 316.5,216.5 320.4,213.6 324.3,210.7 328.2,207.8 332.1,204.7 336.1,201.6 340,198.5 343.9,195.3 347.8,192 351.7,188.7 355.6,185.4 359.5,182.1 363.4,178.7 367.3,175.3 371.3,171.9 375.2,168.6 379.1,165.2 383,161.8 386.9,158.5 390.8,155.1 394.7,151.9 398.7,148.6 402.6,145.4 406.5,142.2 410.4,139.1 414.3,136.1 418.2,133.1 422.1,130.2 426,127.3 430,124.5 433.9,121.8 437.8,119.2 441.7,116.6 445.6,114.2 449.5,111.8 453.4,109.5 457.3,107.2 461.3,105.1 465.2,103 469.1,101 473,99.1 476.9,97.3 480.8,95.6 484.7,93.9 488.6,92.3 492.6,90.7 496.5,89.3 500.4,87.9 504.3,86.6 508.2,85.3 512.1,84.1 516,82.9 519.9,81.9 523.8,80.8 527.8,79.8 531.7,78.9 535.6,78 539.5,77.2 543.4,76.4 547.3,75.7 551.2,75 555.2,74.3 559.1,73.7 563,73.1 566.9,72.5 570.8,72 574.7,71.5 578.6,71 582.5,70.5 586.4,70.1 590.4,69.7 594.3,69.3 598.2,69 602.1,68.7 606,68.3 609.9,68 613.8,67.8 617.8,67.5 621.7,67.3 625.6,67 629.5,66.8 633.4,66.6 637.3,66.4 641.2,66.2 645.1,66 649.1,65.9 653,65.7 656.9,65.6 660.8,65.4 664.7,65.3 668.6,65.2 672.5,65.1 676.4,65 680.4,64.9 684.3,64.8 688.2,64.7 692.1,64.6 696,64.5" class="line"/>
+<circle cx="383" cy="161.8" r="6" class="real"/>
+<text x="395" y="179.8" >at rest, V = V_th: 0.091</text>
+<text x="395" y="197.8" class="muted">no voltage lifts it more than 83% above rest</text>
+<line x1="70" y1="280" x2="696" y2="280" class="grid"/>
+<line x1="70" y1="20" x2="70" y2="280" class="grid"/>
+<line x1="70" y1="280" x2="70" y2="285" class="grid"/>
+<text x="70" y="300" class="muted" text-anchor="middle">-40</text>
+<line x1="226.5" y1="280" x2="226.5" y2="285" class="grid"/>
+<text x="226.5" y="300" class="muted" text-anchor="middle">-20</text>
+<line x1="383" y1="280" x2="383" y2="285" class="grid"/>
+<text x="383" y="300" class="muted" text-anchor="middle">0</text>
+<line x1="539.5" y1="280" x2="539.5" y2="285" class="grid"/>
+<text x="539.5" y="300" class="muted" text-anchor="middle">+20</text>
+<line x1="696" y1="280" x2="696" y2="285" class="grid"/>
+<text x="696" y="300" class="muted" text-anchor="middle">+40</text>
+<line x1="65" y1="280" x2="70" y2="280" class="grid"/>
+<text x="61" y="284" class="muted" text-anchor="end">0.00</text>
+<line x1="65" y1="215" x2="70" y2="215" class="grid"/>
+<text x="61" y="219" class="muted" text-anchor="end">0.05</text>
+<line x1="65" y1="150" x2="70" y2="150" class="grid"/>
+<text x="61" y="154" class="muted" text-anchor="end">0.10</text>
+<line x1="65" y1="85" x2="70" y2="85" class="grid"/>
+<text x="61" y="89" class="muted" text-anchor="end">0.15</text>
+<line x1="65" y1="20" x2="70" y2="20" class="grid"/>
+<text x="61" y="24" class="muted" text-anchor="end">0.20</text>
+<text x="383" y="322" text-anchor="middle">Presynaptic voltage above its threshold, V − V_th (mV)</text>
+<text x="18" y="150" text-anchor="middle" transform="rotate(-90 18 150)">Steady activation</text>
+</svg>
